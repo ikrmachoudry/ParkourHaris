@@ -33,3 +33,28 @@ export function flagBoard(kind, w, h) {
   frame.position.z = -0.2; g.add(frame);
   return g;
 }
+
+// painted text boards (English + Urdu). The Urdu font stack falls back to whatever Arabic-script font the device has.
+const URDU_FONTS = '"Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Alvi Nastaleeq","Geeza Pro","Segoe UI","Tahoma","Arial",sans-serif';
+const LATIN_FONTS = '"Lilita One","Fredoka One","Arial Rounded MT Bold","Trebuchet MS",Impact,Arial,sans-serif';
+export function textTexture(text, ratio, o = {}) {
+  const cw = 1024, ch = Math.round(cw / ratio), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, cw, ch); gr.addColorStop(0, (o.bg || ['#1b1464', '#3a2d9e'])[0]); gr.addColorStop(1, (o.bg || ['#1b1464', '#3a2d9e'])[1]);
+  g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
+  g.lineWidth = ch * 0.05; g.strokeStyle = o.border || '#ffd23f'; g.strokeRect(ch * 0.05, ch * 0.05, cw - ch * 0.1, ch - ch * 0.1);
+  const fam = o.urdu ? URDU_FONTS : LATIN_FONTS;
+  let size = ch * (o.urdu ? 0.62 : 0.5);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; if (o.urdu) g.direction = 'rtl';
+  g.font = `${size}px ${fam}`; const wdt = g.measureText(text).width; if (wdt > cw * 0.86) { size *= (cw * 0.86) / wdt; g.font = `${size}px ${fam}`; }
+  g.lineJoin = 'round'; g.lineWidth = size * 0.12; g.strokeStyle = o.stroke || '#000000'; g.strokeText(text, cw / 2, ch * (o.urdu ? 0.52 : 0.54));
+  g.fillStyle = o.fg || '#ffd23f'; g.fillText(text, cw / 2, ch * (o.urdu ? 0.52 : 0.54));
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
+}
+export function textBoard(text, w, h, o = {}) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTexture(text, w / h, o), toneMapped: false, side: THREE.DoubleSide })));
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, h + 0.8, 0.3), new THREE.MeshStandardMaterial({ color: o.frame || '#f4f1e8', roughness: 0.5 }));
+  frame.position.z = -0.2; g.add(frame);
+  return g;
+}

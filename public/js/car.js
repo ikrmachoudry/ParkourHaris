@@ -15,8 +15,27 @@ export function newCar(id, x, z, yaw) {
   return { id, x, z, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true };
 }
 
+
+// Nearest drivable feature: segments {ax,az,bx,bz,hw} and plazas {x,z,r}. d <= 0 means inside the road (with `margin` kept from the edge).
+// Returns { d, px, pz, nx, nz, lim } where (px,pz) is the closest centre-line point and (nx,nz) points from it towards the car.
+export function corridor(track, x, z, margin = 1.5) {
+  let best = 1e9, bpx = x, bpz = z, blim = 1, bdist = 1;
+  for (const s of track.segs) {
+    const abx = s.bx - s.ax, abz = s.bz - s.az, l2 = abx * abx + abz * abz;
+    let t = l2 > 0 ? ((x - s.ax) * abx + (z - s.az) * abz) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const px = s.ax + abx * t, pz = s.az + abz * t, d = Math.hypot(x - px, z - pz), lim = s.hw - margin;
+    if (d - lim < best) { best = d - lim; bpx = px; bpz = pz; blim = lim; bdist = d; }
+  }
+  for (const p of track.plazas || []) {
+    const d = Math.hypot(x - p.x, z - p.z), lim = p.r - margin;
+    if (d - lim < best) { best = d - lim; bpx = p.x; bpz = p.z; blim = lim; bdist = d; }
+  }
+  const nl = bdist || 1e-6;
+  return { d: best, px: bpx, pz: bpz, nx: (x - bpx) / nl, nz: (z - bpz) / nl, lim: blim };
+}
+
 // inp: { gas: -1..1 (+ = forward, - = brake / reverse), steer: -1..1 (+ = right), hb: handbrake }
-// track: { cx, cz, rIn, rOut, sz, boosts:[{x,z,r}] }.  others: [{x,z}] cars to bump into.  returns an event string or ''
+// track: { segs, plazas, boosts:[{x,z,r}] }.  others: [{x,z}] cars to bump into.  returns an event string or ''
 export function stepCar(c, dt, inp, track, others) {
   const spec = CAR_SPECS[c.id];
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;
@@ -43,14 +62,12 @@ export function stepCar(c, dt, inp, track, others) {
   for (const b of track.boosts || []) if (Math.abs(c.x - b.x) < b.r && Math.abs(c.z - b.z) < b.r) { c.boost = 1.4; if (vf < max) { c.vx += nfx * 40 * dt; c.vz += nfz * 40 * dt; } }
   c.x += c.vx * dt; c.z += c.vz * dt;
   let ev = '';
-  // track walls (the track is an ellipse; work in "circle space")
-  { const u = c.x - track.cx, v = (c.z - track.cz) / track.sz, r = Math.hypot(u, v) || 1e-6;
-    const lo = track.rIn + 1.7, hi = track.rOut - 1.7;
-    if (r > hi || r < lo) {
-      const tr = r > hi ? hi : lo, k = tr / r; c.x = track.cx + u * k; c.z = track.cz + v * k * track.sz;
-      let nx = u, nz = v / track.sz; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl; if (r < lo) { nx = -nx; nz = -nz; }
-      const vn = c.vx * nx + c.vz * nz;
-      if (vn > 0) { c.vx -= (1 + 0.35) * vn * nx; c.vz -= (1 + 0.35) * vn * nz; c.vx *= 0.93; c.vz *= 0.93; if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn); }
+  // road boundaries: the drivable area is a chain of road segments + round plazas
+  { const q = corridor(track, c.x, c.z, 1.5);
+    if (q.d > 0) {
+      c.x = q.px + q.nx * q.lim; c.z = q.pz + q.nz * q.lim;
+      const vn = c.vx * q.nx + c.vz * q.nz;
+      if (vn > 0) { c.vx -= (1 + 0.35) * vn * q.nx; c.vz -= (1 + 0.35) * vn * q.nz; c.vx *= 0.93; c.vz *= 0.93; if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn); }
     } }
   // other cars
   for (const o of others || []) {

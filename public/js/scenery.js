@@ -18,7 +18,7 @@ export function ensureFont() {
     fontPromise = (async () => {
       try {
         await Promise.race([
-          Promise.all([document.fonts.load('400 100px "Lilita One"'), document.fonts.load('400 100px "Fredoka One"')]),
+          Promise.all([document.fonts.load('400 100px "Lilita One"'), document.fonts.load('400 100px "Fredoka One"'), document.fonts.load('400 100px "Noto Nastaliq Urdu"', '\u0639\u06a9\u0631\u0645\u06c1')]),
           new Promise((r) => setTimeout(r, 2500)),
         ]);
       } catch { /* fall back to system fonts */ }
@@ -219,7 +219,7 @@ export function buildScenery(scene, key, info, world) {
   const R = rng(key.length * 9973 + 17), main = new Batch(), glow = new Batch();
   const len = info.length, end = -len - 40;
   const wy = key === 'fun' ? 0 : world.waterY;
-  const sideOff = key === 'fun' ? 58 : 0; // keep decorations outside the park fence
+  const sideOff = key === 'fun' ? 82 : 0; // keep decorations outside the park fence
   const dyn = []; // things animated each frame
 
   const sideX = (min, max) => (R() < 0.5 ? -1 : 1) * (min + sideOff + R() * (max - min));

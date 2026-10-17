@@ -297,6 +297,7 @@ class Race {
     } else if (this.phase === 'countdown') {
       this.phase = 'race'; this.count('GO!'); A.sfx.go(); this.lastCount = 0;
       if (this.multi) setTimeout(() => { if (race === this && !this.over) this.toast(IS_TOUCH ? 'Tap BAT to bonk rivals!' : 'Press B or click to swing the BAT!'); }, 1400);
+      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast('\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
     }
 
     // ---- input -> physics
