@@ -595,7 +595,7 @@ export class World {
 
 
   // FLAG SHUTTLE (Annoying Maze): a platform with a flag that rides back and forth along z. A big BLADE hangs on a gantry above it,
-  // waits 2 s so you can see it coming, then SLAMS down on the middle of the platform (the two ends stay safe) and leaves a blue splat.
+  // waits 4 s so you can see it coming, then SLAMS down on the middle of the platform (the two ends stay safe) and leaves a blue splat.
   // Two shuttles in opposite phase meet in the middle every T/2 seconds - the blades slam at that moment.
   flagShuttle(cx, top, cz0, D, T, phase, w, dp, kind, o = {}) {
     const pos = (t) => -D * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / T + phase));
@@ -604,9 +604,9 @@ export class World {
     // blade height above the platform top (hover 2 s, slam, stay down, rise)
     const bladeH = (t) => {
       const u = tau(t), HI = 11, HOV = 4.2, LOW = 0.35;
-      if (u < -3.0) return HI;
-      if (u < -2.4) return HI + (HOV - HI) * ((u + 3.0) / 0.6);
-      if (u < -0.4) return HOV;
+      if (u < -5.0) return HI;
+      if (u < -4.4) return HI + (HOV - HI) * ((u + 5.0) / 0.6);
+      if (u < -0.4) return HOV;                                  // hovers 4 s so you can see it and get clear
       if (u < -0.15) return HOV + (LOW - HOV) * ((u + 0.4) / 0.25);
       if (u < 0.6) return LOW;
       if (u < 1.4) return LOW + (HOV - LOW) * ((u - 0.6) / 0.8);
@@ -644,8 +644,8 @@ export class World {
     g.add(bl);
     this.updaters.push((t) => {
       const oz = pos(t); g.position.set(cx, top + 0.4, cz0 + oz);
-      const h = bladeH(t), u = tau(t); bl.position.y = h + 0.5 + (u > -2.4 && u < -0.4 ? Math.sin(t * 40) * 0.06 : 0);
-      warn.material.opacity = u > -2.4 && u < -0.1 ? 0.18 + 0.12 * Math.sin(t * 12) : 0;
+      const h = bladeH(t), u = tau(t); bl.position.y = h + 0.5 + (u > -1.2 && u < -0.4 ? Math.sin(t * 40) * 0.06 : 0);
+      warn.material.opacity = u > -4.4 && u < -0.1 ? 0.18 + 0.12 * Math.sin(t * 12) : 0;
       blue.opacity = u > -0.15 && u < 3.4 ? Math.min(0.85, (3.4 - u) / 3.0) : 0;
     });
     return s;

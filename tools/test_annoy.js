@@ -110,7 +110,7 @@ ok(world.waterY === -1.5 && world.killY < world.waterY, 'water is 5 ft (1.5 m) b
   ok(hitsMid > 0 && hitsRim === 0, `blade slams the middle of the platform (${hitsMid} hit samples) but never the safe end (${hitsRim})`);
   // blade timing: hovers ~2 s before the slam
   const T = sA.T; let hover = 0; for (let t = 0; t < T / 2; t += 0.01) { const h = sA.bladeH(t); if (Math.abs(h - 4.2) < 0.01) hover += 0.01; }
-  ok(hover > 1.8 && hover < 2.3, `the blade waits above for ${hover.toFixed(1)} s before slamming`);
+  ok(hover > 3.8 && hover < 4.3, `the blade waits above for ${hover.toFixed(1)} s before slamming`);
   // a bot rides platform A across standing on the safe end
   let wins = 0, tries = 0, why = [];
   for (let t0 = 0; t0 < 24; t0 += 3) {
