@@ -47,7 +47,7 @@ export class World {
     this.headless = headless;
     this.group = new THREE.Group();
     this.solids = []; this.ramps = []; this.discs = []; this.hazards = []; this.updaters = [];
-    this.checkpoints = []; this.zones = [];
+    this.checkpoints = []; this.zones = []; this.pools = [];
     this.main = new Batch(); this.glow = new Batch();
     this.waterY = -5; this.killY = -9;
     this.geoCache = new Map(); this.matCache = new Map();

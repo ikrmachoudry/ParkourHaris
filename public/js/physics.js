@@ -5,7 +5,7 @@ export function newBody() {
   return {
     x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: Math.PI, grounded: false, ground: null,
     coyote: 0, jumpBuf: 0, stun: 0, dive: 0, diveCd: 0, noSnap: 0, hitCd: 0, boost: 0,
-    jumping: false, noCtrl: 0, landSpeed: 0, inWater: false, events: [], moveT: 0, yawOff: 0,
+    jumping: false, noCtrl: 0, landSpeed: 0, inWater: false, events: [], moveT: 0, yawOff: 0, swim: 0, waterSurf: 0,
   };
 }
 
@@ -28,6 +28,14 @@ export function stepBody(w, b, dt, inp) {
   if (b.boost > 0) b.boost -= dt;
   if (b.noCtrl > 0) b.noCtrl -= dt;
 
+  // ---- swimming pools: water never hurts, you just float, paddle slower and can hop out
+  let sw = 0, surf = 0;
+  for (const pl of w.pools) {
+    if (b.x > pl.x0 && b.x < pl.x1 && b.z > pl.z0 && b.z < pl.z1) { const d = pl.surf - b.y; if (d > 0.12) { sw = Math.min(1, d / 0.9); surf = pl.surf; } break; }
+  }
+  if (sw > 0.3 && b.swim <= 0.3) { b.events.push('splash'); b.waterSurf = surf; }
+  b.swim = sw;
+
   const ctrl = b.stun <= 0 && b.dive <= 0 && b.noCtrl <= 0;
   const ice = b.ground && b.ground.ice;
   const hasIn = Math.abs(inp.mx) + Math.abs(inp.mz) > 0.01;
@@ -43,7 +51,7 @@ export function stepBody(w, b, dt, inp) {
 
   // ---- horizontal control
   if (ctrl) {
-    const sp = P.RUN * (b.boost > 0 ? 1.45 : 1) * (b.speedMul || 1);
+    const sp = P.RUN * (b.boost > 0 ? 1.45 : 1) * (b.speedMul || 1) * (1 - 0.34 * sw);
     if (hasIn) {
       const acc = b.grounded ? (ice ? P.ICE_ACC : P.ACC) : P.AIR;
       approach(b, inp.mx * sp, inp.mz * sp, acc * dt);
@@ -59,13 +67,18 @@ export function stepBody(w, b, dt, inp) {
   }
 
   // ---- jump
-  if (b.jumpBuf > 0 && (b.grounded || b.coyote > 0) && b.stun <= 0 && b.dive <= 0.45) {
+  if (sw > 0.4 && inp.jumpPressed && b.stun <= 0) { b.vy = 9; b.grounded = false; b.ground = null; b.noSnap = 0.2; b.jumpBuf = 0; b.events.push('stroke'); }
+  else if (b.jumpBuf > 0 && (b.grounded || b.coyote > 0) && b.stun <= 0 && b.dive <= 0.45) {
     b.vy = P.JUMP * (b.jumpMul || 1); b.grounded = false; b.ground = null; b.coyote = 0; b.jumpBuf = 0; b.noSnap = 0.2; b.jumping = true;
     b.events.push('jump');
   }
   if (b.jumping && !inp.jumpHeld && b.vy > 6) b.vy -= 55 * dt; // short hop
 
-  b.vy = Math.max(P.TERM, b.vy - P.G * dt * (b.dive > 0 && !b.grounded ? 0.8 : 1));
+  b.vy = Math.max(P.TERM, b.vy - P.G * dt * (b.dive > 0 && !b.grounded ? 0.8 : 1) * (1 - 0.92 * sw));
+  if (sw > 0.05) { // buoyancy: spring to a floating height, damped; holding jump treads water higher
+    const tgt = surf - (inp.jumpHeld ? 0.3 : 0.95);
+    b.vy += (tgt - b.y) * 26 * dt * sw; b.vy *= Math.exp(-2.4 * dt * sw);
+  }
 
   // ---- updraft columns (air pads): float up, hover near the top
   for (const z of w.zones) {

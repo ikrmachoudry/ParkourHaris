@@ -84,6 +84,7 @@ function startRound(room) {
   room.t0 = Date.now() + COUNTDOWN_MS;
   room.finishCount = 0;
   room.firstFinish = false;
+  room.cars = {};
   for (const p of room.players.values()) { p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {
     t: 'go', t0: room.t0, level: room.level, limit: meta.limit,
@@ -119,6 +120,7 @@ function joinRoom(p, room) {
   if (room.phase === 'race' || room.phase === 'countdown') { // joined a race that is already running: drop in at the start line
     const meta = LEVEL_META[room.level];
     send(p.ws, { t: 'go', t0: room.t0, level: room.level, limit: meta.limit, order: [...room.players.values()].map((q) => q.id) });
+    if (room.cars && Object.keys(room.cars).length) send(p.ws, { t: 'cars', cars: room.cars });
   }
 }
 
@@ -223,6 +225,16 @@ wss.on('connection', (ws, req) => {
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 4) return;
         p.lastShove = t;
         send(q.ws, { t: 'shove', from: p.id, nx: m.nx, nz: m.nz, p: m.p });
+        break;
+      }
+      case 'carpark': { // a driver got out: remember where the car stays (late joiners get it)
+        if (!room || room.phase !== 'race') return;
+        const t = Date.now();
+        if (t - (p.lastCar || 0) < 250) return;
+        if (!num(m.c, 0, 3) || !num(m.x, -100, 100) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
+        p.lastCar = t; room.cars = room.cars || {};
+        room.cars[m.c | 0] = { x: m.x, z: m.z, r: m.r };
+        bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, z: m.z, r: m.r }, p.id);
         break;
       }
       case 'bat': { // baseball bat hit: relay a push to the victim (never kills)

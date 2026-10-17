@@ -1,0 +1,140 @@
+// Drivable cars for the Fun Map speedway: 4 different cars (shape + colour), arcade physics, no DOM needed for physics.
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { flagTexture } from './flags.js';
+
+export const CAR_SPECS = [
+  { id: 0, name: 'Sprinter', color: '#0b6b3a', max: 27, acc: 17, grip: 6.5, turn: 2.2, hw: 0.95, hl: 2.1 },
+  { id: 1, name: 'Buggy',    color: '#2f7bff', max: 23, acc: 15, grip: 8.5, turn: 2.5, hw: 1.05, hl: 1.9 },
+  { id: 2, name: 'Pickup',   color: '#ffb21e', max: 22, acc: 14, grip: 7.0, turn: 2.0, hw: 1.05, hl: 2.3 },
+  { id: 3, name: 'Bubble',   color: '#a855f7', max: 24, acc: 16, grip: 7.5, turn: 2.4, hw: 0.95, hl: 1.8 },
+];
+const CAR_R = 1.8; // collision radius between cars
+
+export function newCar(id, x, z, yaw) {
+  return { id, x, z, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true };
+}
+
+// inp: { gas: -1..1 (+ = forward, - = brake / reverse), steer: -1..1 (+ = right), hb: handbrake }
+// track: { cx, cz, rIn, rOut, sz, boosts:[{x,z,r}] }.  others: [{x,z}] cars to bump into.  returns an event string or ''
+export function stepCar(c, dt, inp, track, others) {
+  const spec = CAR_SPECS[c.id];
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;
+  let vf = c.vx * fx + c.vz * fz, vs = c.vx * rx + c.vz * rz;
+  const max = spec.max * (c.boost > 0 ? 1.3 : 1);
+  if (c.boost > 0) c.boost -= dt;
+  // throttle / brake
+  if (inp.gas > 0.01) { vf += (vf < 0 ? 38 : spec.acc * (1 - Math.max(0, vf) / (max + 2)) + 1) * inp.gas * dt; }
+  else if (inp.gas < -0.01) { vf += (vf > 0.5 ? -34 : -11) * -inp.gas * dt; }
+  else vf -= Math.sign(vf) * Math.min(Math.abs(vf), 4.5 * dt);
+  if (inp.hb) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 9 * dt);
+  vf = Math.max(-9, Math.min(max + (c.boost > 0 ? 3 : 0), vf));
+  // steering (smoothed), turn rate grows with speed then eases off
+  c.steer += (inp.steer - c.steer) * Math.min(1, dt * 9);
+  const aS = Math.abs(vf), turnK = Math.min(1, aS / 5) * (1 - 0.38 * Math.min(1, aS / max));
+  c.yaw -= c.steer * spec.turn * turnK * Math.sign(vf || 1) * (inp.hb ? 1.35 : 1) * dt;
+  // sideways grip (lower = more drift)
+  const grip = inp.hb ? 1.6 : spec.grip;
+  vs *= Math.exp(-grip * dt);
+  c.drift = Math.min(1, Math.abs(vs) / 5);
+  const nfx = Math.sin(c.yaw), nfz = Math.cos(c.yaw), nrx = -nfz, nrz = nfx;
+  c.vx = nfx * vf + nrx * vs; c.vz = nfz * vf + nrz * vs;
+  // turbo strips
+  for (const b of track.boosts || []) if (Math.abs(c.x - b.x) < b.r && Math.abs(c.z - b.z) < b.r) { c.boost = 1.4; if (vf < max) { c.vx += nfx * 40 * dt; c.vz += nfz * 40 * dt; } }
+  c.x += c.vx * dt; c.z += c.vz * dt;
+  let ev = '';
+  // track walls (the track is an ellipse; work in "circle space")
+  { const u = c.x - track.cx, v = (c.z - track.cz) / track.sz, r = Math.hypot(u, v) || 1e-6;
+    const lo = track.rIn + 1.7, hi = track.rOut - 1.7;
+    if (r > hi || r < lo) {
+      const tr = r > hi ? hi : lo, k = tr / r; c.x = track.cx + u * k; c.z = track.cz + v * k * track.sz;
+      let nx = u, nz = v / track.sz; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl; if (r < lo) { nx = -nx; nz = -nz; }
+      const vn = c.vx * nx + c.vz * nz;
+      if (vn > 0) { c.vx -= (1 + 0.35) * vn * nx; c.vz -= (1 + 0.35) * vn * nz; c.vx *= 0.93; c.vz *= 0.93; if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn); }
+    } }
+  // other cars
+  for (const o of others || []) {
+    const dx = c.x - o.x, dz = c.z - o.z, d = Math.hypot(dx, dz);
+    if (d < CAR_R * 2 && d > 1e-4) {
+      const nx = dx / d, nz = dz / d, pen = CAR_R * 2 - d; c.x += nx * pen; c.z += nz * pen;
+      const vn = c.vx * nx + c.vz * nz;
+      if (vn < 0) { c.vx -= (1 + 0.5) * vn * nx; c.vz -= (1 + 0.5) * vn * nz; if (-vn > 4) ev = 'bump'; }
+    }
+  }
+  c.speed = c.vx * nfx + c.vz * nfz;
+  return ev;
+}
+
+// ------------------------------------------------------------------ visuals (client only)
+const rb = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.01, h / 2 - 0.01, d / 2 - 0.01));
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: o.r ?? 0.35, metalness: o.m ?? 0.25, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1 });
+const glass = () => new THREE.MeshStandardMaterial({ color: '#9fd8ff', roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.55 });
+
+export function buildCarMesh(id) {
+  const spec = CAR_SPECS[id], g = new THREE.Group(), tyre = std('#1b1b22', { r: 0.8, m: 0 }), rim = std('#e8eaf2', { r: 0.25, m: 0.8 }), dark = std('#23252e', { r: 0.6 });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  const body = id === 0 ? new THREE.MeshStandardMaterial({ map: flagTexture('pk'), roughness: 0.3, metalness: 0.15 }) : std(spec.color, { r: 0.28, m: 0.35 }), trim = std('#ffffff', { r: 0.3, m: 0.1 });
+  const lamp = std('#fff6c8', { e: '#fff1a8', ei: 1.4 }), tail = std('#ff3030', { e: '#ff1a1a', ei: 1.2 });
+  const wheels = [], pivots = [];
+  let wr = 0.46, wx = 1.0, wzF = 1.35, wzB = -1.3, seat = { y: 0.55, z: -0.15 };
+  if (id === 0) { // Sprinter: low sports car painted with the Pakistan flag
+    wr = 0.44; wx = 1.02; wzF = 1.45; wzB = -1.35; seat = { y: 0.5, z: -0.2 };
+    add(rb(1.9, 0.5, 4.3, 0.22), body, 0, 0.55, 0);
+    add(rb(1.7, 0.34, 1.5, 0.2), body, 0, 0.78, 1.35, -0.12);                 // hood
+    add(rb(1.7, 0.4, 1.0, 0.2), body, 0, 0.86, -1.6);                           // tail deck
+    
+    add(rb(1.5, 0.5, 0.12, 0.05), glass(), 0, 1.02, 0.78, -0.55);               // windscreen
+    add(rb(0.12, 0.1, 1.5, 0.04), dark, 0.95, 1.16, -1.82); add(rb(0.12, 0.1, 1.5, 0.04), dark, -0.95, 1.16, -1.82);
+    add(rb(2.0, 0.09, 0.45, 0.04), body, 0, 1.28, -2.0); add(rb(0.1, 0.4, 0.3, 0.03), dark, 0.7, 1.08, -1.95); add(rb(0.1, 0.4, 0.3, 0.03), dark, -0.7, 1.08, -1.95);
+    add(rb(0.4, 0.2, 0.1, 0.04), lamp, 0.65, 0.68, 2.12); add(rb(0.4, 0.2, 0.1, 0.04), lamp, -0.65, 0.68, 2.12);
+    add(rb(0.45, 0.14, 0.1, 0.04), tail, 0.65, 0.78, -2.17); add(rb(0.45, 0.14, 0.1, 0.04), tail, -0.65, 0.78, -2.17);
+  } else if (id === 1) { // Buggy: blue off-road buggy with roll cage and big wheels
+    wr = 0.62; wx = 1.18; wzF = 1.3; wzB = -1.25; seat = { y: 0.62, z: -0.1 };
+    add(rb(1.7, 0.4, 3.8, 0.16), body, 0, 0.62, 0);
+    add(rb(1.5, 0.3, 1.2, 0.14), body, 0, 0.9, 1.4);
+    add(rb(1.3, 0.35, 0.9, 0.12), std('#ffd23f', { r: 0.4 }), 0, 0.95, -1.35);
+    for (const sx of [-1, 1]) { add(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 8), dark, sx * 0.78, 1.5, -0.1, 0.12, 0, 0); add(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 8), dark, sx * 0.78, 1.0, 0.7, 0.9, 0, 0); add(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 8), dark, sx * 0.78, 1.5, -0.1, Math.PI / 2, 0, 0); }
+    add(new THREE.CylinderGeometry(0.06, 0.06, 1.6, 8), dark, 0, 2.0, -0.1, 0, 0, Math.PI / 2);
+    add(new THREE.SphereGeometry(0.2, 12, 8), lamp, 0.55, 0.98, 2.0); add(new THREE.SphereGeometry(0.2, 12, 8), lamp, -0.55, 0.98, 2.0);
+    add(rb(0.4, 0.12, 0.1, 0.04), tail, 0.5, 0.8, -1.95); add(rb(0.4, 0.12, 0.1, 0.04), tail, -0.5, 0.8, -1.95);
+  } else if (id === 2) { // Pickup: yellow truck with cab, bed and bull bar
+    wr = 0.55; wx = 1.1; wzF = 1.55; wzB = -1.5; seat = { y: 0.78, z: 0.55 };
+    add(rb(2.0, 0.55, 4.7, 0.2), body, 0, 0.75, 0);
+    add(rb(1.9, 0.75, 1.5, 0.18), body, 0, 1.28, 0.55);                         // cab
+    add(rb(1.5, 0.45, 0.1, 0.05), glass(), 0, 1.55, 1.3, -0.35);
+    add(rb(1.8, 0.1, 1.9, 0.05), dark, 0, 1.1, -1.35);                          // bed floor
+    for (const sx of [-1, 1]) add(rb(0.1, 0.5, 1.9, 0.04), body, sx * 0.97, 1.35, -1.35);
+    add(rb(1.8, 0.5, 0.1, 0.04), body, 0, 1.35, -2.28);
+    add(rb(1.8, 0.1, 0.1, 0.04), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0, 0.75, 2.4); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0.6, 0.85, 2.38); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), -0.6, 0.85, 2.38);
+    add(rb(0.35, 0.22, 0.1, 0.04), lamp, 0.7, 0.98, 2.36); add(rb(0.35, 0.22, 0.1, 0.04), lamp, -0.7, 0.98, 2.36);
+    add(rb(0.3, 0.2, 0.1, 0.04), tail, 0.8, 1.0, -2.36); add(rb(0.3, 0.2, 0.1, 0.04), tail, -0.8, 1.0, -2.36);
+  } else { // Bubble: round green bug car with big headlights and a surfboard
+    wr = 0.42; wx = 0.98; wzF = 1.15; wzB = -1.1; seat = { y: 0.5, z: -0.05 };
+    const bub = add(new THREE.SphereGeometry(1.15, 24, 16), body, 0, 0.95, -0.05); bub.scale.set(0.9, 0.62, 1.55);
+    add(rb(1.6, 0.14, 3.2, 0.06), trim, 0, 0.42, 0);
+    for (const sx of [-1, 1]) { add(new THREE.SphereGeometry(0.27, 14, 10), lamp, sx * 0.62, 0.95, 1.72); add(new THREE.SphereGeometry(0.2, 12, 8), tail, sx * 0.55, 0.85, -1.78); add(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 8), dark, sx * 0.42, 1.55, 1.1, 0.45, 0, 0); }
+    add(rb(1.5, 0.35, 0.1, 0.04), glass(), 0, 1.22, 0.85, -0.7);
+    add(rb(0.5, 0.05, 2.3, 0.02), std('#ff6bd5', { r: 0.4 }), 0.15, 1.52, -0.75, 0, 0, 0.08);   // surfboard on top
+  }
+  const wGeo = new THREE.CylinderGeometry(wr, wr, 0.42, 20), rGeo = new THREE.CylinderGeometry(wr * 0.56, wr * 0.56, 0.44, 12);
+  for (const [sx, z, front] of [[1, wzF, 1], [-1, wzF, 1], [1, wzB, 0], [-1, wzB, 0]]) {
+    const pv = new THREE.Group(); pv.position.set(sx * wx, wr, z); g.add(pv);
+    const spin = new THREE.Group(); pv.add(spin);
+    const t = new THREE.Mesh(wGeo, tyre); t.rotation.z = Math.PI / 2; t.castShadow = true; spin.add(t);
+    const r = new THREE.Mesh(rGeo, rim); r.rotation.z = Math.PI / 2; spin.add(r);
+    wheels.push(spin); if (front) pivots.push(pv);
+  }
+  // soft shadow blob
+  const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
+  blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; blob.scale.set(0.9, 1.25, 1); g.add(blob);
+  g.userData = { wheels, pivots, seat, spec };
+  return g;
+}
+
+// per-frame wheel spin / steering / body roll
+export function animateCar(mesh, car, dt) {
+  const u = mesh.userData;
+  for (const w of u.wheels) w.rotation.x += (car.speed / 0.5) * dt;
+  for (const p of u.pivots) p.rotation.y = -car.steer * 0.5;
+  mesh.rotation.z = THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 20) * 0.07, -0.08, 0.08);
+}

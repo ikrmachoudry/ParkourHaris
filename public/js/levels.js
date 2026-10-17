@@ -1,6 +1,7 @@
 // The four levels. Everything is built from a small "kit" of sections so each level stays readable.
 import * as THREE from 'three';
 import { World } from './world.js';
+import { flagBoard } from './flags.js';
 
 export const THEMES = {
   candy: {
@@ -261,7 +262,7 @@ export function buildLevel(idx, headless = false, arrow = null) {
     world.bar(p.x, p.top, p.near - 15, 22, { omega: 1.2, arms: 2, h: 1.1 });
     finish();
   } else if (idx === 5) { // --------------------------------------- FUN MAP (nothing can kill you - just play, then find the final door)
-    const GW = 92, ZEND = 340;
+    const GW = 92, ZEND = 440;
     info.startArch = -2; c.z = -16; c.y = 0;
     // one huge floor + tall fences around the whole park (so there is no way to fall off)
     world.platform(0, 0, (10 - ZEND) / 2, GW, ZEND + 10, { h: 2, color: '#92e66c', pad: false });
@@ -269,6 +270,10 @@ export function buildLevel(idx, headless = false, arrow = null) {
     world.platform(0, 22, 11, GW + 4, 2, { h: 22, color: th.plat[1], pad: false });
     world.platform(0, 22, -ZEND - 1, GW + 4, 2, { h: 22, color: th.plat[3], pad: false });
     if (!world.headless) world.main.add(world.rbox(12, 0.03, 232, 0.01), 0, 0.02, -128, '#f8ebb8'); // sandy main road
+    if (!world.headless) { // big flag boards on the park walls: Pakistan (left wall) and Palestine (right wall)
+      const pk = flagBoard('pk', 30, 20); pk.position.set(-45.7, 12, -50); pk.rotation.y = Math.PI / 2; world.group.add(pk);
+      const ps = flagBoard('ps', 30, 20); ps.position.set(45.7, 12, -50); ps.rotation.y = -Math.PI / 2; world.group.add(ps);
+    }
     const strip = (z) => world.platform(0, 0.04, z, 8, 14, { boost: 1, color: '#ffd23f', pad: false, h: 0.5 });
     world.checkpoint(0, 0, -70, 16);
 
@@ -312,8 +317,38 @@ export function buildLevel(idx, headless = false, arrow = null) {
     [-160, -172, -184].forEach((z, k) => { world.disc(-14, 0.3, z, 3.5, { omega: k % 2 ? 1.5 : -1.5, color: th.plat[(k + 1) % 5] }); world.bar(-14, 0.4, z, 6.4, { omega: k % 2 ? -1.1 : 1.1, h: 0.9, w: 0.9 }); });
     world.checkpoint(0, 0, -232, 16);
 
+
+    world.checkpoint(0, 0, -244, 16);
+
+    // ---- F: SPEEDWAY - an oval race track in the middle of the park with 4 different cars to drive (get in with the car button / C)
+    const TR = { cx: 0, cz: -300, rIn: 22, rOut: 36, sz: 1.35, boosts: [{ x: 29, z: -300, r: 4 }, { x: -29, z: -300, r: 4 }] };
+    info.track = TR;
+    const ell = (r, th2) => [TR.cx + r * Math.cos(th2), TR.cz + TR.sz * r * Math.sin(th2)];
+    const yawAlong = (th2) => Math.atan2(Math.sin(th2), -TR.sz * Math.cos(th2)); // facing the direction of decreasing angle
+    info.cars = [[-4, 26], [-4, 32], [-11, 26], [-11, 32]].map(([x, r], i) => { const th2 = Math.acos(x / r), [cx2, cz2] = ell(r, th2); return { id: i, x: cx2, z: cz2, yaw: yawAlong(th2) }; });
+    if (!world.headless) {
+      const wm = world.main;
+      wm.add(new THREE.RingGeometry(TR.rIn, TR.rOut, 96, 1), TR.cx, 0.05, TR.cz, '#3b3f4d', -Math.PI / 2, 0, 0, 1, TR.sz, 1);
+      wm.add(new THREE.CircleGeometry(TR.rIn - 0.3, 64), TR.cx, 0.03, TR.cz, '#7be08a', -Math.PI / 2, 0, 0, 1, TR.sz, 1);
+      const tang = (t2) => -Math.atan2(TR.sz * Math.cos(t2), -Math.sin(t2));
+      for (let i = 0; i < 72; i++) { const t2 = (i / 72) * Math.PI * 2;
+        for (const [r, off] of [[TR.rIn + 0.5, 0], [TR.rOut - 0.5, 1]]) { const [x, z] = ell(r, t2); wm.add(world.rbox(3.4, 0.08, 1.0, 0.02), x, 0.09, z, (i + off) % 2 ? '#ff3b3b' : '#ffffff', 0, tang(t2) + Math.PI / 2 * 0, 0); }
+        if (i % 2 === 0) { const [x, z] = ell(29, t2); wm.add(world.rbox(2.2, 0.06, 0.3, 0.02), x, 0.09, z, '#ffffff', 0, tang(t2), 0); } }
+      for (let i = 0; i < 40; i++) { const t2 = (i / 40) * Math.PI * 2; const [x, z] = ell(TR.rOut + 1.6, t2), [x2, z2] = ell(TR.rIn - 1.4, t2);
+        wm.add(new THREE.CylinderGeometry(0.75, 0.75, 0.7, 12), x, 0.35, z, '#23252e'); wm.add(new THREE.CylinderGeometry(0.78, 0.78, 0.22, 12), x, 0.85, z, i % 2 ? '#ff3b3b' : '#ffffff');
+        wm.add(world.rbox(1.6, 0.9, 1.0, 0.1), x2, 0.45, z2, '#f2c94c', 0, tang(t2), 0); }
+      // start / finish line, gantry, turbo strips, grandstand and flags
+      const [sx0, sz0] = ell(29, Math.PI / 2);
+      for (let i = 0; i < 10; i++) for (let j = 0; j < 2; j++) wm.add(world.rbox(1.0, 0.07, 1.89, 0.01), sx0 - 0.5 + j, 0.1, sz0 - 9.45 + 0.945 + i * 1.89, (i + j) % 2 ? '#111111' : '#ffffff');
+      [-1, 1].forEach((sg) => wm.add(world.rbox(0.8, 6.4, 0.8, 0.2), sx0 + 4, 3.2, sz0 + sg * 9.6, th.plat[1]));
+      wm.add(world.rbox(1.2, 1.0, 20.8, 0.2), sx0 + 4, 6.4, sz0, th.hazard); wm.add(world.rbox(0.9, 0.9, 6, 0.2), sx0 + 4, 7.4, sz0, '#ffffff');
+      for (const b of TR.boosts) { wm.add(world.rbox(8, 0.06, 8, 0.02), b.x, 0.1, b.z, '#ff9f1c'); for (let i = 0; i < 3; i++) wm.add(new THREE.ConeGeometry(1.4, 2.0, 3), b.x, 0.14, b.z - 2 + i * 2, '#fff3b0', 0, 0, Math.PI / 2 * 0); }
+      for (let i = 0; i < 5; i++) { wm.add(world.rbox(26 - i * 2, 1.1, 2.4, 0.1), 0, 0.55 + i * 1.1, TR.cz - 2 + i * -2.2, th.plat[i % 5]); }
+      for (let i = 0; i < 8; i++) { const t2 = (i / 8) * Math.PI * 2, [x, z] = ell(TR.rOut + 4, t2); wm.add(new THREE.CylinderGeometry(0.1, 0.1, 6, 6), x, 3, z, '#ffffff'); wm.add(world.rbox(0.1, 1.3, 2.4, 0.02), x, 5.2, z + 1.2, th.plat[i % 5]); }
+    }
+
     // ---- D: the hedge maze (perfect maze, generated with a fixed seed) -> final door
-    const CELL = 8, N = 7, WT = 1.2, WH = 6, MZ = -236;
+    const CELL = 8, N = 7, WT = 1.2, WH = 6, MZ = -356;
     let seed = 20261017; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
     const V = Array.from({ length: N }, () => Array(N + 1).fill(true)), H = Array.from({ length: N + 1 }, () => Array(N).fill(true)), seen = Array.from({ length: N }, () => Array(N).fill(false));
     const stack = [[0, 3]]; seen[0][3] = true;

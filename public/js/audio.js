@@ -52,6 +52,10 @@ export const sfx = {
   swing() { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); },
   bonk() { tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
   hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
+  door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
+  honk() { tone('square', 392, 392, 0.34, 0.2); tone('square', 494, 494, 0.34, 0.2); },
+  skid() { noise(0.18, 0.1, 'bandpass', 2600, 1800, 0, 3); },
+  vroom() { tone('sawtooth', 70, 160, 0.35, 0.2); tone('sawtooth', 90, 210, 0.3, 0.1, 0.05); },
   splash() { noise(0.6, 0.45, 'bandpass', 1800, 260, 0, 0.8); noise(0.3, 0.2, 'highpass', 2400, 900, 0.05); tone('sine', 220, 80, 0.3, 0.12); },
   respawn() { noise(0.4, 0.22, 'highpass', 400, 4000, 0, 0.7); tone('sine', 300, 900, 0.3, 0.15); },
   checkpoint() { tone('sine', 660, 660, 0.14, 0.3); tone('sine', 990, 990, 0.25, 0.3, 0.1); tone('triangle', 1320, 1320, 0.3, 0.1, 0.18); },
@@ -138,3 +142,24 @@ export function stopMusic() { if (timer) clearInterval(timer); timer = null; mus
 export function setMusicVolume(v) { if (musG) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.1); }
 export function duckMusic(d) { if (musG) musG.gain.setTargetAtTime(d ? 0.08 : 0.22, ctx.currentTime, 0.2); }
 export const audioReady = () => !!ctx;
+
+// ---- car engine: two detuned saw oscillators + low-pass, pitch follows speed
+let eng = null;
+export function engineStart() {
+  if (!ctx || eng) return;
+  const g = ctx.createGain(); g.gain.value = 0.0001; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
+  const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square'; o1.frequency.value = 60; o2.frequency.value = 30;
+  o1.connect(f); o2.connect(f); f.connect(g); g.connect(sfxG); o1.start(); o2.start();
+  eng = { g, f, o1, o2 };
+}
+export function engineSet(speed01, gas) {
+  if (!ctx || !eng) return; const t = ctx.currentTime, k = Math.max(0, Math.min(1, speed01));
+  const hz = 52 + k * 150 + (gas ? 16 : 0);
+  eng.o1.frequency.setTargetAtTime(hz, t, 0.08); eng.o2.frequency.setTargetAtTime(hz * 0.5, t, 0.08);
+  eng.f.frequency.setTargetAtTime(380 + k * 900 + (gas ? 300 : 0), t, 0.1);
+  eng.g.gain.setTargetAtTime(0.05 + k * 0.07 + (gas ? 0.04 : 0), t, 0.1);
+}
+export function engineStop() {
+  if (!eng) return; const e = eng; eng = null;
+  try { e.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch { /* noop */ } }, 300); } catch { /* noop */ }
+}
