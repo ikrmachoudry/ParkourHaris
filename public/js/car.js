@@ -69,15 +69,29 @@ export function stepCar(c, dt, inp, track, others) {
       const vn = c.vx * q.nx + c.vz * q.nz;
       if (vn > 0) { c.vx -= (1 + 0.35) * vn * q.nx; c.vz -= (1 + 0.35) * vn * q.nz; c.vx *= 0.93; c.vz *= 0.93; if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn); }
     } }
-  // other cars
+  // other cars: two circles per car (nose + tail) so long cars collide properly; a hit gives a bounce, a spin and a jolt
   for (const o of others || []) {
-    const dx = c.x - o.x, dz = c.z - o.z, d = Math.hypot(dx, dz);
-    if (d < CAR_R * 2 && d > 1e-4) {
-      const nx = dx / d, nz = dz / d, pen = CAR_R * 2 - d; c.x += nx * pen; c.z += nz * pen;
-      const vn = c.vx * nx + c.vz * nz;
-      if (vn < 0) { c.vx -= (1 + 0.5) * vn * nx; c.vz -= (1 + 0.5) * vn * nz; if (-vn > 4) ev = 'bump'; }
+    if ((c.x - o.x) ** 2 + (c.z - o.z) ** 2 > 36) continue;
+    const ofx = Math.sin(o.yaw), ofz = Math.cos(o.yaw);
+    let best = null;
+    for (const a of [1.05, -1.05]) for (const bb of [1.05, -1.05]) {
+      const ax = c.x + nfx * a, az = c.z + nfz * a, bx = o.x + ofx * bb, bz = o.z + ofz * bb;
+      const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), pen = 2.3 - d;
+      if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : nfx, nz: d > 1e-4 ? dz / d : nfz, rx: ax - c.x, rz: az - c.z };
+    }
+    if (!best) continue;
+    const heavy = o.driver === -1 || o.parked, share = heavy ? 1 : 0.6;
+    c.x += best.nx * best.pen * share; c.z += best.nz * best.pen * share;
+    const vrel = (c.vx - o.vx) * best.nx + (c.vz - o.vz) * best.nz;
+    if (vrel < 0) {
+      const k = (1 + 0.55) * -vrel * (heavy ? 1 : 0.55), dvx = best.nx * k, dvz = best.nz * k;
+      c.vx += dvx; c.vz += dvz;
+      c.spin = Math.max(-3.2, Math.min(3.2, (c.spin || 0) + (best.rz * dvx - best.rx * dvz) * 0.32));   // hit off-centre -> the car swings round
+      c.vx *= 0.94; c.vz *= 0.94;
+      if (-vrel > 3.5) { ev = -vrel > 7 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, -vrel); }
     }
   }
+  if (c.spin) { c.yaw += c.spin * dt; c.spin *= Math.exp(-3.6 * dt); if (Math.abs(c.spin) < 0.02) c.spin = 0; }
   c.speed = c.vx * nfx + c.vz * nfz;
   return ev;
 }

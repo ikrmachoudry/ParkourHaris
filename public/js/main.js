@@ -222,7 +222,7 @@ class Race {
       u.fogC.value.set(v.fog); u.fogN.value = v.fogNear; u.fogF.value = v.fogFar; u.skyTop.value.set(v.top); u.skyHor.value.set(v.horizon);
       const cm = makeCaustics(pl); scene.add(wm, cm); this.poolMeshes.push({ wm, cm, pl });
     }
-    this.cars = []; this.drive = null; this.carIn = { gas: false, brake: false, left: false, right: false }; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
+    this.cars = []; this.drive = null; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
       for (const cd of info.cars) { const mesh = buildCarMesh(cd.id); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); this.cars.push({ st: newCar(cd.id, cd.x, cd.z, cd.yaw), mesh }); }
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
@@ -365,8 +365,6 @@ class Race {
 
     this.updateCars(dt, canMove);
 
-    // ---- single player: timeout
-    if (!this.multi && !this.over && lt >= this.meta.limit && !this.finished) this.endSingle(true);
 
     this.updateCamera(dt);
     this.updateLights();
@@ -421,10 +419,10 @@ class Race {
       this.camYaw = st.yaw + Math.PI; this.camInit = false;
     } else {
       const c = this.nearestFreeCar(b); if (!c) return;
-      this.drive = c; c.st.driver = this.localId; c.st.parked = false; this.carIn.gas = this.carIn.brake = this.carIn.left = this.carIn.right = false;
+      this.drive = c; c.st.driver = this.localId; c.st.parked = false;
       b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car');
       A.engineStart(); A.sfx.door(); A.sfx.vroom(); this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
-      this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'GAS to go, 🚪 to get out' : 'W/S drive • A/D steer • C get out'));
+      this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'use the joystick to drive, tap the door to get out' : 'W/S drive • A/D steer • C get out'));
     }
   }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
@@ -434,13 +432,23 @@ class Race {
     if (canMove) {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
-      hb = keys.has('Space'); const ci = this.carIn;
-      if (ci.gas) gas++; if (ci.brake) gas--; if (ci.right) steer++; if (ci.left) steer--;
+      hb = keys.has('Space');
+      if (touch.x || touch.y) { // phone: the same left-screen joystick as on foot -> push where you want to go (camera-relative)
+        const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw);
+        let mx = -sy * touch.y + cy * touch.x, mz = -cy * touch.y - sy * touch.x; const m = Math.min(1, Math.hypot(mx, mz));
+        if (m > 0.12) {
+          const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l;
+          const dot = mx * Math.sin(st.yaw) + mz * Math.cos(st.yaw), side = -mx * Math.cos(st.yaw) + mz * Math.sin(st.yaw);
+          if (dot > -0.35) { gas += Math.min(1, m * 1.25) * (0.45 + 0.55 * Math.max(0, dot)); steer += dot < 0.2 ? Math.sign(side || 1) : Math.max(-1, Math.min(1, side * 2.4)); }
+          else { gas -= Math.min(1, m * 1.25); steer += Math.max(-1, Math.min(1, side * 2)); }
+        }
+      }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st);
     let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), hb };
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others) || ev;
-    if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); }
+    if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
+    if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
     b.x = st.x; b.y = 0; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
     A.engineSet(Math.abs(st.speed) / 27, gas > 0);
     this.hornCd -= dt; this.skidT -= dt;
@@ -472,6 +480,7 @@ class Race {
     }
   }
   updateCars(dt, canMove) {
+    this.lastDt = dt;
     const b = this.me.body, t = performance.now() / 1000;
     // who drives what (remote drivers stream their car pose through their normal snapshots)
     for (const c of this.cars) if (c !== this.drive) { c.st.driver = -1; c.st.speed = 0; c.st.vx = c.st.vz = 0; }
@@ -742,6 +751,7 @@ class Race {
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
     this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-7 * dt));
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
+    if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
@@ -766,12 +776,9 @@ class Race {
     this.hudT += dt;
     if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) $('hud-hint').classList.add('fade'); }
     if (this.hudT < 0.066) return; this.hudT = 0;
-    const lt = this.levelTime, rem = lt < 0 ? this.meta.limit : this.meta.limit - lt;
-    const tm = $('hud-timer'); const s = Math.max(0, Math.ceil(rem));
-    tm.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    tm.classList.toggle('low', rem < 10 && lt >= 0);
-    { const tb = $('b-timer'); if (tb) { tb.classList.toggle('hidden', !this.multi); tb.classList.toggle('off', !app.timerOn); tb.textContent = IS_TOUCH ? '\u23F1 ' + (app.timerOn ? 'ON' : 'OFF') : '\u23F1 TIMER: ' + (app.timerOn ? 'ON' : 'OFF') + ' (T)'; } $('hud-hint').classList.toggle('single', !this.multi); document.body.classList.toggle('single', !this.multi); } tm.style.visibility = (this.multi && !app.timerOn) ? 'hidden' : '';
-    if (lt >= 0 && rem < 6 && rem > 0 && Math.ceil(rem) !== this.warnSec && !this.over) { this.warnSec = Math.ceil(rem); A.sfx.warn(); }
+    const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
+    const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
+    $('hud-hint').classList.toggle('single', !this.multi); document.body.classList.toggle('single', !this.multi);
     $('hud-rank').textContent = this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
@@ -829,7 +836,7 @@ function levelCards(container, opts) {
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = m.id;
     d.style.background = `linear-gradient(160deg, ${m.colors[0]}cc, ${m.colors[1]}cc)`;
     const b = best(m.id);
-    d.innerHTML = `<div><h4>${m.id + 1}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; ${Math.floor(m.limit / 60)}:${String(m.limit % 60).padStart(2, '0')} limit${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
+    d.innerHTML = `<div><h4>${m.id + 1}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; no time limit${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
     d.onclick = () => opts.onPick(m.id);
     container.appendChild(d);
   });
@@ -1033,7 +1040,6 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
   if (e.code === 'KeyM') toggleSound();
-  if (e.code === 'KeyT') toggleTimer();
   if (e.code === 'KeyB' && race && !race.menuOpen) race.swing();
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honk();
@@ -1043,33 +1049,21 @@ window.addEventListener('keyup', (e) => keys.delete(e.code));
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
 
-try { app.timerOn = localStorage.getItem('ph_timer') !== '0'; } catch { app.timerOn = true; }
-function toggleTimer() {
-  if (!race || !race.multi) return; // the timer switch only exists in multiplayer
-  app.timerOn = !app.timerOn;
-  try { localStorage.setItem('ph_timer', app.timerOn ? '1' : '0'); } catch { /* ignore */ }
-  const b = $('b-timer'); if (b) { b.textContent = '\u23F1 TIMER: ' + (app.timerOn ? 'ON' : 'OFF') + ' (T)'; b.classList.toggle('off', !app.timerOn); }
-  syncPause();
-  $('hud-timer').style.visibility = app.timerOn ? '' : 'hidden';
-  A.sfx.click();
-}
-{ const tbtn = $('b-timer'); if (tbtn) tbtn.addEventListener('click', () => { toggleTimer(); tbtn.blur(); }); }
 function toggleSound() { app.muted = !app.muted; A.setMuted(app.muted); $('b-sound').textContent = 'SOUND: ' + (app.muted ? 'OFF' : 'ON'); syncPause(); }
 
 // ------------------------------------------------------------------ in-game menu
 function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? 'LOW' : 'AUTO'); }
 function syncPause() {
   $('p-sound').textContent = '\uD83D\uDD0A SOUND: ' + (app.muted ? 'OFF' : 'ON');
-  $('p-timer').textContent = '\u23F1 TIMER: ' + (app.timerOn ? 'ON' : 'OFF');
 }
 function openPause() {
   if (!race || race.over || race.menuOpen) return;
   race.menuOpen = true;
   if (!race.multi) { race.paused = true; race.pauseAt = performance.now(); }
-  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; if (race.carIn) race.carIn.gas = race.carIn.brake = race.carIn.left = race.carIn.right = false;
+  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false;
   $('p-title').textContent = race.multi ? 'Menu' : 'Paused';
   $('p-info').textContent = race.meta.name + (race.multi ? '  \u2022  race goes on!' : '');
-  $('p-timer').classList.toggle('hidden', !race.multi); syncGfx();
+  syncGfx();
   $('p-retry').classList.toggle('hidden', race.multi);
   $('p-full').classList.toggle('hidden', !(document.documentElement && document.documentElement.requestFullscreen));
   syncPause();
@@ -1086,7 +1080,6 @@ function closePause() {
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 $('p-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
-$('p-timer').onclick = () => toggleTimer();
 $('p-gfx').onclick = () => { Q.low = !Q.low; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); };
 $('p-full').onclick = () => {
   const d = document, el = d.documentElement;
@@ -1185,9 +1178,6 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
-  const ci = (k, v) => () => { if (race && race.carIn) race.carIn[k] = v; };
-  btn('c-left', ci('left', true), ci('left', false)); btn('c-right', ci('right', true), ci('right', false));
-  btn('c-gas', ci('gas', true), ci('gas', false)); btn('c-brake', ci('brake', true), ci('brake', false));
   btn('c-horn', () => { if (race) race.honk(); });
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });
   for (const id of ['b-car', 'b-exit']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) race.toggleCar(); el.blur(); }); }

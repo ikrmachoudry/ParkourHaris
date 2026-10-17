@@ -326,14 +326,18 @@ export function buildLevel(idx, headless = false, arrow = null) {
 
     // ---- F: HIGHWAY + SPEEDWAY: a long road down the whole right side of the park, joined to an oval track.  The 4 cars wait at the CAR STATION near the start.
     const HX = 56, HW = 7, RC = { x: 0, z: -300 }, RR = 29, RSZ = 1.35, RN = 72, SZ0 = -27, SZ1 = -420;
-    const segs = [], plazas = [{ x: HX, z: SZ0, r: 13, g: 'p0' }, { x: HX, z: SZ1, r: 13, g: 'p1' }];
+    const SIDES = [1, -1];   // a highway on BOTH sides of the park (x = +56 and x = -56), joined by the oval in the middle
+    const segs = [], plazas = [];
     const ringPt = (i) => { const a = (i / RN) * Math.PI * 2; return [RC.x + RR * Math.cos(a), RC.z + RR * RSZ * Math.sin(a)]; };
     for (let i = 0; i < RN; i++) { const [ax, az] = ringPt(i), [bx, bz] = ringPt(i + 1); segs.push({ ax, az, bx, bz, hw: HW, g: 'ring' }); }
-    segs.push({ ax: HX, az: SZ0, bx: HX, bz: SZ1, hw: HW, g: 'hwy' });
-    segs.push({ ax: HX, az: -300, bx: RC.x + RR, bz: -300, hw: HW, g: 'con' });
-    const TR = { segs, plazas, boosts: [{ x: HX, z: -110, r: 4 }, { x: HX, z: -210, r: 4 }, { x: HX, z: -370, r: 4 }, { x: -RR, z: -300, r: 4 }, { x: 0, z: RC.z - RR * RSZ, r: 4 }] };
+    for (const sd of SIDES) {
+      plazas.push({ x: HX * sd, z: SZ0, r: 13, g: 'p0' + sd }, { x: HX * sd, z: SZ1, r: 13, g: 'p1' + sd });
+      segs.push({ ax: HX * sd, az: SZ0, bx: HX * sd, bz: SZ1, hw: HW, g: 'hwy' + sd });
+      segs.push({ ax: HX * sd, az: -300, bx: RC.x + RR * sd, bz: -300, hw: HW, g: 'con' + sd });
+    }
+    const TR = { segs, plazas, boosts: [{ x: HX, z: -110, r: 4 }, { x: HX, z: -210, r: 4 }, { x: HX, z: -370, r: 4 }, { x: -HX, z: -110, r: 4 }, { x: -HX, z: -210, r: 4 }, { x: -HX, z: -370, r: 4 }, { x: -RR, z: -300, r: 4 }, { x: 0, z: RC.z - RR * RSZ, r: 4 }] };
     info.track = TR;
-    info.cars = [[HX - 3.5, -33], [HX + 3.5, -33], [HX - 9.5, -22], [HX + 9.5, -22]].map(([x, z], i) => ({ id: i, x, z, yaw: Math.PI }));
+    info.cars = [[HX - 3.5, -33], [HX + 3.5, -33], [-HX - 3.5, -33], [-HX + 3.5, -33]].map(([x, z], i) => ({ id: i, x, z, yaw: Math.PI }));   // 2 cars at each CAR STATION
     if (!world.headless) {
       const wm = world.main, ASPH = '#3b3f4d';
       const nearOther = (x, z, g) => { for (const q of segs) { if (q.g === g) continue; const abx = q.bx - q.ax, abz = q.bz - q.az, l2 = abx * abx + abz * abz; let t = ((x - q.ax) * abx + (z - q.az) * abz) / l2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(x - (q.ax + abx * t), z - (q.az + abz * t)) < q.hw - 0.4) return true; } for (const p of plazas) if (p.g !== g && Math.hypot(x - p.x, z - p.z) < p.r - 0.4) return true; return false; };
@@ -341,7 +345,7 @@ export function buildLevel(idx, headless = false, arrow = null) {
       const pieces = []; segs.forEach((q) => { const L = Math.hypot(q.bx - q.ax, q.bz - q.az), n = Math.max(1, Math.ceil(L / 12)); for (let k = 0; k < n; k++) pieces.push({ ax: q.ax + (q.bx - q.ax) * k / n, az: q.az + (q.bz - q.az) * k / n, bx: q.ax + (q.bx - q.ax) * (k + 1) / n, bz: q.az + (q.bz - q.az) * (k + 1) / n, hw: q.hw, g: q.g }); });
       pieces.forEach((q, i) => {
         const dx = q.bx - q.ax, dz = q.bz - q.az, L = Math.hypot(dx, dz), mx = (q.ax + q.bx) / 2, mz = (q.az + q.bz) / 2, ang = -Math.atan2(dz, dx), nx = -dz / L, nz = dx / L;
-        wm.add(world.rbox(L + 0.7, 0.08, q.hw * 2, 0.02), mx, q.g === 'hwy' ? 0.053 : q.g === 'con' ? 0.056 : 0.05, mz, ASPH, 0, ang, 0);
+        wm.add(world.rbox(L + 0.7, 0.08, q.hw * 2, 0.02), mx, q.g.startsWith('hwy') ? 0.053 : q.g.startsWith('con') ? 0.056 : 0.05, mz, ASPH, 0, ang, 0);
         for (const sg of [-1, 1]) {
           const kx = mx + nx * sg * (q.hw - 0.45), kz = mz + nz * sg * (q.hw - 0.45);
           if (!nearOther(kx, kz, q.g)) wm.add(world.rbox(L + 0.05, 0.09, 0.9, 0.02), kx, 0.1, kz, (i + (sg > 0 ? 1 : 0)) % 2 ? '#ff3b3b' : '#ffffff', 0, ang, 0);
@@ -358,21 +362,27 @@ export function buildLevel(idx, headless = false, arrow = null) {
       for (const b of TR.boosts) { wm.add(world.rbox(10, 0.07, 8, 0.02), b.x, 0.12, b.z, '#ff9f1c'); for (let i = 0; i < 3; i++) wm.add(new THREE.ConeGeometry(1.5, 2.0, 3), b.x, 0.16, b.z + 2 - i * 2, '#fff3b0', -Math.PI / 2 * 0, Math.PI, 0); }
       // oval infield: grandstand
       for (let i = 0; i < 5; i++) wm.add(world.rbox(26 - i * 2, 1.1, 2.4, 0.1), RC.x, 0.55 + i * 1.1, RC.z - 2 + i * -2.2, th.plat[i % 5]);
-      // ---- CAR STATION: canopy over 4 colour-coded parking bays, start line + gantry on the highway
+      // ---- CAR STATION (one on each highway): canopy over 2 colour-coded parking bays, start line + gantry
       const BAYC = ['#0b6b3a', '#2f7bff', '#ffb21e', '#a855f7'];
       info.cars.forEach((c, i) => { wm.add(world.rbox(7.5, 0.07, 9.5, 0.03), c.x, 0.12, c.z, BAYC[i]); wm.add(world.rbox(6.9, 0.075, 8.9, 0.03), c.x, 0.125, c.z, ASPH); });
-      for (const [px, pz] of [[HX - 10.5, -14], [HX + 10.5, -14], [HX - 10.5, -38], [HX + 10.5, -38]]) wm.add(world.rbox(0.8, 6, 0.8, 0.2), px, 3, pz, th.plat[1]);
-      wm.add(world.rbox(23, 0.7, 27, 0.2), HX, 6.3, SZ0 - 0.0, th.hazard); wm.add(world.rbox(21, 0.4, 25, 0.2), HX, 6.75, SZ0, '#ffffff');
-      for (let i = 0; i < 10; i++) for (let j = 0; j < 2; j++) wm.add(world.rbox(1.4, 0.07, 1.4, 0.01), HX - 6.3 + i * 1.4, 0.13, -48 - j * 1.4, (i + j) % 2 ? '#111111' : '#ffffff');
-      for (const sg of [-1, 1]) wm.add(world.rbox(0.8, 6.4, 0.8, 0.2), HX + sg * 8.2, 3.2, -48, th.plat[1]);
-      wm.add(world.rbox(17.6, 1.0, 1.2, 0.2), HX, 6.4, -48, th.hazard);
+      for (const sd of SIDES) {
+        const X = HX * sd;
+        for (const [px, pz] of [[X - 10.5, -14], [X + 10.5, -14], [X - 10.5, -38], [X + 10.5, -38]]) wm.add(world.rbox(0.8, 6, 0.8, 0.2), px, 3, pz, th.plat[1]);
+        wm.add(world.rbox(23, 0.7, 27, 0.2), X, 6.3, SZ0, th.hazard); wm.add(world.rbox(21, 0.4, 25, 0.2), X, 6.75, SZ0, '#ffffff');
+        for (let i = 0; i < 10; i++) for (let j = 0; j < 2; j++) wm.add(world.rbox(1.4, 0.07, 1.4, 0.01), X - 6.3 + i * 1.4, 0.13, -48 - j * 1.4, (i + j) % 2 ? '#111111' : '#ffffff');
+        for (const sg of [-1, 1]) wm.add(world.rbox(0.8, 6.4, 0.8, 0.2), X + sg * 8.2, 3.2, -48, th.plat[1]);
+        wm.add(world.rbox(17.6, 1.0, 1.2, 0.2), X, 6.4, -48, th.hazard);
+      }
     }
     if (!world.headless) {
       const mk = (txt, w, h, o, x, y, z, ry) => { const b = textBoard(txt, w, h, o); b.position.set(x, y, z); b.rotation.y = ry; world.group.add(b); return b; };
       const station = { bg: ['#1f8de6', '#14609f'], fg: '#ffffff', stroke: '#06223d', border: '#ffd23f' };
-      mk('CAR STATION', 20, 4.6, station, HX - 11.8, 8.8, SZ0, -Math.PI / 2); mk('CAR STATION', 20, 4.6, station, HX + 11.8, 8.8, SZ0, Math.PI / 2);
-      for (const [x, z] of [[16, -8], [34, -14]]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4, 8), new THREE.MeshStandardMaterial({ color: '#e8e8f0' })); post.position.set(x, 2, z); world.group.add(post); mk('CAR STATION →', 12, 3.2, station, x, 4.6, z, 0); }
-      mk('LONG ROAD → DRIVE THE WHOLE MAP', 22, 3.2, { bg: ['#ff9f1c', '#e0601a'], fg: '#ffffff', stroke: '#4a1c00', border: '#ffffff' }, HX, 5.2, -60, 0);
+      for (const sd of SIDES) {
+        const X = HX * sd;
+        mk('CAR STATION', 20, 4.6, station, X - 11.8, 8.8, SZ0, -Math.PI / 2); mk('CAR STATION', 20, 4.6, station, X + 11.8, 8.8, SZ0, Math.PI / 2);
+        for (const [x, z] of [[16, -8], [34, -14]]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4, 8), new THREE.MeshStandardMaterial({ color: '#e8e8f0' })); post.position.set(x * sd, 2, z); world.group.add(post); mk(sd > 0 ? 'CAR STATION \u2192' : '\u2190 CAR STATION', 12, 3.2, station, x * sd, 4.6, z, 0); }
+        mk('LONG ROAD \u2192 DRIVE THE WHOLE MAP', 22, 3.2, { bg: ['#ff9f1c', '#e0601a'], fg: '#ffffff', stroke: '#4a1c00', border: '#ffffff' }, X, 5.2, -60, 0);
+      }
     }
 
     // ---- D: the hedge maze (perfect maze, generated with a fixed seed) -> final door

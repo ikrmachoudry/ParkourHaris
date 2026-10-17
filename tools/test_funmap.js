@@ -78,8 +78,9 @@ ok(r.ok && r.t < 200, 'route takes well under the 480 s limit');
 {
   const TR = info.track;
   ok(info.cars.length === 4 && new Set(CAR_SPECS.map((c) => c.color)).size === 4, '4 cars with 4 different colours');
-  ok(info.cars.every((c) => corridor(TR, c.x, c.z, 1.5).d < 0 && c.z > -40 && c.x > 45), 'all 4 cars are parked inside the car station at the start of the long road');
-  ok([[56, -27], [56, -150], [56, -300], [40, -300], [29, -300], [0, -339], [-29, -300], [56, -420]].every(([x, z]) => corridor(TR, x, z, 0.5).d < 0), 'road network is connected: station -> highway -> connector -> oval, and the far turn-around');
+  ok(info.cars.every((c) => corridor(TR, c.x, c.z, 1.5).d < 0 && c.z > -40 && Math.abs(c.x) > 45), 'all 4 cars are parked inside a car station at the start of a long road');
+  ok(info.cars.filter((c) => c.x > 0).length === 2 && info.cars.filter((c) => c.x < 0).length === 2, 'a car station on each side, 2 cars each');
+  ok([[56, -27], [56, -150], [56, -300], [40, -300], [29, -300], [0, -339], [-29, -300], [56, -420], [-56, -27], [-56, -150], [-56, -300], [-40, -300], [-56, -420]].every(([x, z]) => corridor(TR, x, z, 0.5).d < 0), 'road network is connected: station -> highway -> connector -> oval, and the far turn-around');
   ok(corridor(TR, 20, -150, 1.5).d > 5 && corridor(TR, 0, -50, 1.5).d > 5, 'the meadow / rides are outside the roads (cars cannot drive there)');
   { const big = { segs: [{ ax: -1e5, az: 0, bx: 1e5, bz: 0, hw: 1e5 }], plazas: [], boosts: [] }, s2 = newCar(0, 0, 0, 0); for (let i = 0; i < 90 * 14; i++) stepCar(s2, DT, { gas: 1, steer: 0, hb: false }, big, []); ok(s2.speed > 24 && s2.speed < 30, `top speed on a straight: ${s2.speed.toFixed(1)} m/s (${(s2.speed * 3.6).toFixed(0)} km/h)`); }
   // drive the long road from the station: full throttle straight down (cars face -z)
@@ -90,9 +91,17 @@ ok(r.ok && r.t < 200, 'route takes well under the 480 s limit');
   const d = newCar(1, info.cars[1].x, info.cars[1].z, info.cars[1].yaw); let out2 = false, bumps = 0;
   for (let i = 0; i < 90 * 25; i++) { const ev = stepCar(d, DT, { gas: 1, steer: Math.sin(i / 90 * 1.3) > 0 ? 1 : -1, hb: false }, TR, []); if (ev === 'bump') bumps++; if (corridor(TR, d.x, d.z, 0).d > 0.01) out2 = true; }
   ok(!out2, `barriers hold: zig-zagging into the walls never leaves the road (${bumps} bumps)`);
-  const e = newCar(2, info.cars[2].x, info.cars[2].z, info.cars[2].yaw), o = { x: e.x + 3.0, z: e.z };
+  { const l = newCar(2, info.cars[2].x, info.cars[2].z, info.cars[2].yaw); let outL = false;
+    for (let i = 0; i < 90 * 30; i++) { stepCar(l, DT, { gas: 1, steer: 0, hb: false }, TR, []); if (corridor(TR, l.x, l.z, 0).d > 0.01) outL = true; }
+    ok(!outL && l.z < -300, `left highway works too: car 3 drives ${(-l.z - 22).toFixed(0)} m and stays on the road`); }
+  const e = newCar(2, info.cars[2].x, info.cars[2].z, info.cars[2].yaw), o = newCar(3, e.x + 3.0, e.z, 0);
   stepCar(e, DT, { gas: 0, steer: 0, hb: false }, TR, [o]);
-  ok(Math.hypot(e.x - o.x, e.z - o.z) >= 3.5, 'cars push apart (no overlapping)');
+  ok(Math.hypot(e.x - o.x, e.z - o.z) >= 2.0 && Math.hypot(e.x - o.x, e.z - o.z) < 4, 'cars push apart (no overlapping)');
+  { // crash: a fast car hits a parked car off-centre -> bounces back, swings round, loses speed, reports a crash
+    const a = newCar(0, 56, -100, Math.PI), b2 = newCar(1, 56.9, -125, 0); a.driver = 1; let hit = '', maxSpin = 0, v0 = 0;
+    for (let i = 0; i < 90 * 4; i++) { if (i === 0) { a.vx = 0; a.vz = -24; a.speed = -24; v0 = 24; } const ev = stepCar(a, DT, { gas: 0, steer: 0, hb: false }, TR, [b2]); if (ev === 'crash') hit = ev; maxSpin = Math.max(maxSpin, Math.abs(a.spin || 0)); }
+    ok(hit === 'crash' && maxSpin > 0.3, `car-to-car crash gives a jolt and a spin (spin ${maxSpin.toFixed(2)} rad/s)`);
+    ok(Math.hypot(a.x - b2.x, a.z - b2.z) > 2.0, 'cars do not overlap after the crash'); }
   const f = newCar(3, info.cars[3].x, info.cars[3].z, info.cars[3].yaw); let sp2 = 0;
   for (let i = 0; i < 90 * 3; i++) stepCar(f, DT, { gas: 1, steer: 0, hb: false }, TR, []);
   for (let i = 0; i < 90 * 4; i++) { stepCar(f, DT, { gas: -1, steer: 0, hb: false }, TR, []); sp2 = f.speed; }

@@ -43,11 +43,19 @@ export function textTexture(text, ratio, o = {}) {
   g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
   g.lineWidth = ch * 0.05; g.strokeStyle = o.border || '#ffd23f'; g.strokeRect(ch * 0.05, ch * 0.05, cw - ch * 0.1, ch - ch * 0.1);
   const fam = o.urdu ? URDU_FONTS : LATIN_FONTS;
-  let size = ch * (o.urdu ? 0.62 : 0.5);
-  g.textAlign = 'center'; g.textBaseline = 'middle'; if (o.urdu) g.direction = 'rtl';
-  g.font = `${size}px ${fam}`; const wdt = g.measureText(text).width; if (wdt > cw * 0.86) { size *= (cw * 0.86) / wdt; g.font = `${size}px ${fam}`; }
-  g.lineJoin = 'round'; g.lineWidth = size * 0.12; g.strokeStyle = o.stroke || '#000000'; g.strokeText(text, cw / 2, ch * (o.urdu ? 0.52 : 0.54));
-  g.fillStyle = o.fg || '#ffd23f'; g.fillText(text, cw / 2, ch * (o.urdu ? 0.52 : 0.54));
+  let size = ch * (o.urdu ? 0.36 : 0.5);
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic'; if (o.urdu) g.direction = 'rtl';
+  // fit the WHOLE word inside the board (width and real glyph height - Nastaliq letters are tall), then centre it by its measured box
+  const maxW = cw * (o.urdu ? 0.62 : 0.86), maxH = ch * (o.urdu ? 0.6 : 0.62);
+  let asc = size * 0.8, desc = size * 0.2;
+  for (let k = 0; k < 3; k++) {
+    g.font = `${size}px ${fam}`; const m = g.measureText(text);
+    asc = m.actualBoundingBoxAscent > 0 ? m.actualBoundingBoxAscent : size * 0.8; desc = m.actualBoundingBoxDescent > 0 ? m.actualBoundingBoxDescent : size * 0.2;
+    const f = Math.min(1, maxW / Math.max(1, m.width), maxH / Math.max(1, asc + desc)); if (f >= 0.99) break; size *= f;
+  }
+  const ty = ch / 2 + (asc - desc) / 2;
+  g.lineJoin = 'round'; g.lineWidth = size * 0.12; g.strokeStyle = o.stroke || '#000000'; g.strokeText(text, cw / 2, ty);
+  g.fillStyle = o.fg || '#ffd23f'; g.fillText(text, cw / 2, ty);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   return tex;
 }

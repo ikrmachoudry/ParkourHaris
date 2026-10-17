@@ -92,7 +92,6 @@ function startRound(room) {
   });
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, COUNTDOWN_MS));
-  room.timers.push(setTimeout(() => endRound(room, 'time'), COUNTDOWN_MS + meta.limit * 1000 + 600));
 }
 
 function removePlayer(p) {

@@ -92,14 +92,11 @@
       <button id="t-bat">BAT</button>
     </div>
     <div id="car-ui">
-      <button id="b-car" class="carbtn" aria-label="Get in car"><span>&#128663;</span><em>GET IN</em><kbd>C</kbd></button>
-      <button id="b-exit" class="carbtn exit" aria-label="Get out of car"><span>&#128682;</span><em>GET OUT</em><kbd>C</kbd></button>
+      <button id="b-car" class="carbtn" aria-label="Get in car"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M4 31 L7 21 Q9 14 17 14 L37 14 Q46 14 51 22 L62 25 Q67 27 67 32 L67 34 L4 34 Z" fill="#fff"/><path d="M19 17 L35 17 L42 24 L15 24 Z" fill="#8fd3ff"/><circle cx="19" cy="35" r="6.5" fill="#23252e"/><circle cx="19" cy="35" r="2.6" fill="#e8eaf2"/><circle cx="53" cy="35" r="6.5" fill="#23252e"/><circle cx="53" cy="35" r="2.6" fill="#e8eaf2"/></svg></span><em>GET IN</em><kbd>C</kbd></button>
+      <button id="b-exit" class="carbtn exit" aria-label="Get out of car"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M4 31 L7 21 Q9 14 17 14 L37 14 Q46 14 51 22 L62 25 Q67 27 67 32 L67 34 L4 34 Z" fill="#fff"/><path d="M19 17 L35 17 L40 22 L15 22 Z" fill="#8fd3ff"/><polygon points="36,15 56,5 63,27 42,36" fill="#ffd45e" stroke="#7a4a00" stroke-width="1.5"/><polygon points="40,17 53,10 57,22 44,28" fill="#8fd3ff"/><circle cx="19" cy="35" r="6.5" fill="#23252e"/><circle cx="19" cy="35" r="2.6" fill="#e8eaf2"/><circle cx="53" cy="35" r="6.5" fill="#23252e"/><circle cx="53" cy="35" r="2.6" fill="#e8eaf2"/></svg></span><em>GET OUT</em><kbd>C</kbd></button>
       <div id="car-speed"><b>0</b><small>km/h</small></div>
       <div id="car-keys"><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd><kbd>D</kbd> steer &nbsp;<kbd>SPACE</kbd> drift &nbsp;<kbd>H</kbd> horn</div>
-      <div id="car-pad">
-        <button id="c-left">&#9664;</button><button id="c-right">&#9654;</button>
-        <button id="c-brake">BRAKE</button><button id="c-gas">GAS</button><button id="c-horn">&#128226;</button>
-      </div>
+      <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button></div>
     </div>
     <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
     <div id="hud-top">
@@ -108,7 +105,7 @@
       <div class="pill" id="hud-rank">1st</div>
       <button id="b-menu">&#9776; MENU</button>
     </div>
-    <div id="hud-right"><span id="hud-net"></span><span id="hud-fps"></span><button id="b-timer" class="hidden">&#9201; TIMER: ON (T)</button></div>
+    <div id="hud-right"><span id="hud-net"></span><span id="hud-fps"></span></div>
     <div id="hud-fx"></div>
     <div id="hud-count"></div>
     <div id="hud-toast"></div>
@@ -117,7 +114,6 @@
       <div><kbd>SPACE</kbd> Jump</div>
       <div><kbd>SHIFT</kbd> Dive</div>
       <div><kbd>MOUSE</kbd> Camera</div>
-      <div class="mponly"><kbd>T</kbd> Timer on/off</div>
     </div>
     <div id="click-hint">Click to play &bull; mouse look</div>
     <div id="flash"></div>
@@ -147,7 +143,7 @@
         <li><kbd>SHIFT</kbd> or <kbd>F</kbd> &ndash; dive forward (great for long gaps)</li>
         <li><kbd>MOUSE</kbd> or <kbd>Q</kbd>/<kbd>E</kbd> &ndash; turn the camera &bull; <kbd>M</kbd> &ndash; mute</li>
       </ul>
-      <p class="note">Reach the <b>FINISH</b> gate before the timer ends. Spinning bars, hammers and rolling balls knock you back &ndash; fall into the water and you restart at the last checkpoint flag. When time runs out, the player <b>nearest to the finish gate wins</b>.</p>
+      <p class="note">Reach the <b>FINISH</b> gate &ndash; there is <b>no time limit</b>, take your time. Spinning bars, hammers and rolling balls knock you back &ndash; fall into the water and you restart at the last checkpoint flag.</p>
       <div class="row end"><button class="btn green" id="b-help-close">GOT IT</button></div>
     </div>
   </section>
@@ -163,14 +159,13 @@
       <button class="btn big green" id="p-resume"><b>&#9654; RESUME</b></button>
       <div class="pgrid">
         <button class="btn purple" id="p-sound">SOUND: ON</button>
-        <button class="btn blue" id="p-timer">TIMER: ON</button>
         <button class="btn blue" id="p-full">FULLSCREEN</button>
         <button class="btn pink" id="p-retry">RESTART</button>
         <button class="btn grey" id="p-gfx">GFX: AUTO</button>
       </div>
       <ul class="help pkeys">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>
-        <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>T</kbd> timer &bull; <kbd>M</kbd> mute</li>
+        <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>M</kbd> mute</li>
         <li><kbd>B</kbd> or <kbd>CLICK</kbd> swing the bat (multiplayer) &bull; dive into rivals to tackle!</li>
       </ul>
       <button class="btn grey" id="p-quit">&#8962; MAIN MENU</button>
