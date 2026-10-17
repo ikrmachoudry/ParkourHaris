@@ -24,14 +24,19 @@ export const THEMES = {
     plat: ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#b58cff'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff3d68', hazard2: '#fff7d6', hub: '#8a4fd1', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
   },
+  annoy: {
+    plat: ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#b58cff'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff3d68', hazard2: '#fff7d6', hub: '#5b2d9e', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
+  },
   quest: {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
 };
-const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze'];
+const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze', 'annoy'];
 
 const CANNON_VY = 37, CANNON_VZ = 28;
+const FAN_GAP = 15, FAN_VY = 26, FAN_VZ = 11, TR_VY = 28, TR_VZ = 15, TR_GAP = 12;
 export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
   const key = KEYS[idx], th = THEMES[key];
   const world = new World(th, headless);
@@ -316,6 +321,61 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     const lad3 = plat(14, 12, { gap: 0, color: P[3] }); cp(lad3, 4);
     // ---- H: SKY SWINGS - two high swings and a shaky tile between them, then the finish
     const e1 = swingGap(15, 0.7, 3.8); const e2 = swingGap(16, 2.8, 4.0); cp(e2, 4);
+    finish();
+  } else if (idx === 5) { // ------------------------------------------ ANNOYING MAZE: 5 tunnels, 2 ferris wheels, fan + trampolines, flag shuttles with blades, 5 cutters
+    world.waterY = -1.5; world.killY = -8;           // water only ~5 ft below the platforms
+    info.startArch = 3;
+    let rs = ((seed | 0) * 7919 + 12345) % 233280; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+    const P = th.plat;
+    // ---- start plaza
+    const st = plat(36, 22, { gap: -4, color: P[3] }); cp(st, 4);
+    // ---- 1: FIVE TUNNELS (red, white, black, green, blue). Only ONE goes through - the others are dead ends!
+    const TL = 16, tcz = c.z - TL / 2, TC = ['#e63946', '#f5f5f5', '#2b2b2b', '#2ecc71', '#3a86ff'], TN = ['red', 'white', 'black', 'green', 'blue'];
+    const real = Math.floor(rnd() * 5); info.tunnelReal = real; info.tunnelNames = TN;
+    for (let i = 0; i < 5; i++) {
+      const xi = (i - 2) * 7;
+      world.platform(xi, 0, tcz, 7, TL, { color: TC[i], pad: false });                       // coloured floor
+      world.platform(xi, 5.0, tcz, 7, TL, { h: 0.5, color: TC[i], pad: false });            // coloured roof
+      if (i !== real) world.platform(xi, 4.5, tcz - TL / 2 + 0.5, 6, 1, { h: 4.5, color: TC[i], pad: false });   // dead end
+    }
+    for (let k = -3; k <= 2; k++) world.platform(k * 7 + 3.5, 4.5, tcz, 1, TL, { h: 4.5, color: '#e8e2f5', pad: false });
+    c.z = tcz - TL / 2;
+    const tp = plat(36, 10, { color: P[1] }); cp(tp, 4);
+    // ---- 2: TWO FERRIS WHEELS: ride up wheel 1, jump off onto the middle deck, jump into wheel 2, ride round and step off
+    const FR = 8, FO = 0.55;
+    const w1s = plat(10, 8, { color: P[2] });
+    const cz1 = c.z - 1.5;                                   // the cabin at the bottom overlaps the start deck by 1 m so you just walk on
+    world.ferris(0, FR, cz1 - 0.0, FR, 6, FO);
+    const deckNear = cz1 - FR - 3.5, deckFar = deckNear - 14;
+    world.platform(0, FR, (deckNear + deckFar) / 2, 8, 14, { color: P[0], h: 1 });
+    world.checkpoint(0, FR, deckNear - 3.5, 8);
+    const cz2 = deckFar - 1 - 2.5 - FR;
+    world.ferris(0, FR, cz2, FR, 6, FO);
+    c.z = cz2 - 1.5; c.y = 0;
+    const w2e = plat(10, 10, { color: P[4], gap: 0 }); cp(w2e, 4);
+    info.ferris = { cz1, cz2, R: FR, om: FO, deckNear, deckFar };
+    // ---- 3: WATER + FAN: a fan hovers over the water; jump on it and the wind throws you onto the next platform (with trampolines)
+    const FG = FAN_GAP;
+    info.fan = { x: 0, z: c.z - FG / 2, top: 0, vy: FAN_VY, push: [0, -FAN_VZ] };
+    world.disc(0, 0, info.fan.z, 4.8, { bounce: FAN_VY, push: info.fan.push, fan: true, color: th.hazard });
+    const tr = plat(14, 22, { gap: FG, color: P[0] }); cp(tr, 3);
+    world.disc(-3.5, 0, tr.near - 7, 2.2, { bounce: 18, color: P[1] }); world.disc(3.5, 0, tr.near - 11, 2.2, { bounce: 20, color: P[2] });
+    info.tramp = { x: 0, z: tr.far + 2.5, vy: TR_VY, push: [0, -TR_VZ] };
+    world.disc(0, 0, info.tramp.z, 2.4, { bounce: TR_VY, push: info.tramp.push, color: th.hazard });
+    // ---- 4: FLAG SHUTTLES (Pakistan + Spain) with BLADES: ride across the long gap; the blades slam the middle of the decks
+    const sd1 = plat(22, 10, { gap: TR_GAP, color: P[3] }); cp(sd1, 3);
+    const SD = 34, SP = 5, ST = 24, scz0 = sd1.far - 2 - SP;
+    world.flagShuttle(-5.5, 0, scz0, SD, ST, 0, 9, 10, 'pk');
+    world.flagShuttle(5.5, 0, scz0, SD, ST, Math.PI, 9, 10, 'es');
+    info.shuttle = { z0: scz0, D: SD, T: ST, dp: 10 };
+    c.z = scz0 - SD - SP - 2; c.y = 0;
+    const sd2 = plat(22, 12, { gap: 0, color: P[1] }); cp(sd2, 4);
+    // ---- 5: FIVE CUTTERS - spinning blades sweep the platform; the only safe spot is the small green lane on the right
+    const cut = plat(22, 64, { color: P[2] });
+    for (let i = 0; i < 5; i++) world.bar(-3, 0.1, cut.near - 9 - i * 10.5, 16, { omega: i % 2 ? -1.25 : 1.25, h: 2.4, w: 1.0, arms: 1, phase: i * 1.3 });
+    world.platform(8.3, 0.04, cut.cz, 5, 62, { color: '#7be495', pad: false, h: 0.3 });
+    info.cutters = { x: -3, len: 16, safeX: [5.9, 10.8] };
+    cp(cut, 60);
     finish();
   } else if (idx === 3) { // ------------------------------------------ SMALL ROOM (120 x 120, plain walls, one high slide, four bungee pads)
     info.startArch = 99; info.spawn = { x: 0, y: 0, z: -10 };

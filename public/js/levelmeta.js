@@ -20,4 +20,6 @@ export const LEVEL_META = [
     colors: ['#cfe3ff', '#ffd9a8'], blurb: 'One small plain room, everybody in sight. Beat each other with the BAT! A high SLIDE to ride and 4 BUNGEE pads - nothing else.' },
   { id: 4, key: 'maze', name: 'Maze', sub: 'Obstacle Race', stars: 3, limit: 900, finishZ: -715.5, finishY: 0,
     colors: ['#ff6b9d', '#4cc9f0'], blurb: 'A long candy-park race: doors to dash through, water to hop over, giant fans, GRAB-SWINGS, a boat ride, huge hammers and seesaws. Be first to the finish!' },
+  { id: 5, key: 'annoy', name: 'Annoying Maze', sub: 'Tricky Race', stars: 4, limit: 900, finishZ: -297, finishY: 0,
+    colors: ['#b58cff', '#ff6b9d'], blurb: '5 coloured tunnels (only one goes through!), 2 ferris wheels, a fan over the water, trampolines, flag platforms with giant slamming blades, 5 cutters - and a tiny safe lane on the right.' },
 ];

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { flagTexture } from './flags.js';
 
 export const P = {
   R: 0.42, H: 1.55, STEP: 0.34, EDGE: 0.28, G: 34, RUN: 9.4, JUMP: 12.2,
@@ -122,6 +123,21 @@ export class World {
     const d = { cx, cz, top, r, th, omega, phase: o.phase ?? 0, bounce: o.bounce || 0, push: o.push || null, ice: !!o.ice, theta: o.phase ?? 0, dTheta: 0, kind: 'disc', squash: 0, first: true };
     this.discs.push(d);
     if (this.headless) return d;
+    if (o.fan) { // a big horizontal FAN hovering over the water: jump on it and the wind throws you forward
+      const g = new THREE.Group(); g.position.set(cx, top, cz);
+      const ringG = new THREE.Mesh(new THREE.TorusGeometry(r, 0.32, 10, 40), this.mat(o.color ?? '#ff3d68', { rough: 0.3 })); ringG.rotation.x = Math.PI / 2; g.add(ringG);
+      const disk = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.2, r - 0.2, 0.18, 40), this.mat('#dff6ff', { rough: 0.5 })); disk.position.y = -0.12; g.add(disk);
+      const blades = new THREE.Group();
+      for (let i = 0; i < 4; i++) { const bl = new THREE.Mesh(this.rbox(r * 0.95, 0.12, 1.1, 0.04), this.mat(i % 2 ? '#ffffff' : '#ffd23f')); bl.position.set(r * 0.5, 0.08, 0); const pv = new THREE.Group(); pv.rotation.y = i * Math.PI / 2; pv.add(bl); blades.add(pv); }
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.5, 14), this.mat('#ffffff')); hub.position.y = 0.1; g.add(hub, blades);
+      this.add(g);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 14, 10), this.mat(this.theme.hub)); pole.position.set(cx, top - 8, cz); this.group.add(pole);
+      const sm = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false });
+      const st = []; for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.6, 0.07), sm); this.group.add(m); st.push({ m, k: i / 6, a: i * 1.9 }); }
+      d.mesh = g;
+      this.updaters.push((t, dt) => { blades.rotation.y = -t * 14; d.squash = Math.max(0, d.squash - dt * 4); for (const q of st) { const u = (q.k + t * 0.7) % 1; q.m.position.set(cx + Math.cos(q.a) * r * 0.6 * (0.3 + u), top + 0.3 + u * 5, cz + Math.sin(q.a) * r * 0.6 * (0.3 + u)); sm.opacity = 0.4; } });
+      return d;
+    }
     if (o.bounce) {
       const g = new THREE.Group(); g.position.set(cx, top, cz);
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.55, r * 0.7, 1.4, 20), this.mat(o.stem ?? '#fff3d6'));
@@ -576,6 +592,64 @@ export class World {
     this.main.add(new THREE.TorusGeometry(1.1, 0.2, 8, 18), cx, 4.4, cz - dz * 0.5, this.theme.accent, Math.PI / 2 - dz * 0.64, 0, 0);
   }
 
+
+
+  // FLAG SHUTTLE (Annoying Maze): a platform with a flag that rides back and forth along z. A big BLADE hangs on a gantry above it,
+  // waits 2 s so you can see it coming, then SLAMS down on the middle of the platform (the two ends stay safe) and leaves a blue splat.
+  // Two shuttles in opposite phase meet in the middle every T/2 seconds - the blades slam at that moment.
+  flagShuttle(cx, top, cz0, D, T, phase, w, dp, kind, o = {}) {
+    const pos = (t) => -D * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / T + phase));
+    const T0 = T / 4, HALF = T / 2, slabZ = o.slabZ ?? 3.0;
+    const tau = (t) => (((t - T0 + HALF / 2) % HALF) + HALF) % HALF - HALF / 2;     // seconds relative to the nearest meeting
+    // blade height above the platform top (hover 2 s, slam, stay down, rise)
+    const bladeH = (t) => {
+      const u = tau(t), HI = 11, HOV = 4.2, LOW = 0.35;
+      if (u < -3.0) return HI;
+      if (u < -2.4) return HI + (HOV - HI) * ((u + 3.0) / 0.6);
+      if (u < -0.4) return HOV;
+      if (u < -0.15) return HOV + (LOW - HOV) * ((u + 0.4) / 0.25);
+      if (u < 0.6) return LOW;
+      if (u < 1.4) return LOW + (HOV - LOW) * ((u - 0.6) / 0.8);
+      return HOV + (HI - HOV) * Math.min(1, (u - 1.4) / 0.6);
+    };
+    const s = this.mover(cx, top, cz0, w, dp, (t) => [0, 0, pos(t)], { h: 0.8, color: o.color ?? '#f4efe6', pad: false });
+    const hz = {
+      type: 'blade', test: (b, t, out) => {
+        const u = tau(t); if (u < -0.3 || u > 0.25) return false;
+        const pz = cz0 + pos(t), dx = b.x - cx, dz = b.z - pz;
+        if (Math.abs(dx) > w / 2 + 0.3 || Math.abs(dz) > slabZ + 0.4) return false;
+        if (b.y > top + 3.2 || b.y + 1.55 < top) return false;
+        out.nx = (Math.sign(dx) || 1) * 0.25; out.nz = Math.sign(dz) || 1; const l = Math.hypot(out.nx, out.nz); out.nx /= l; out.nz /= l; out.pow = 15;
+        return true;
+      },
+    };
+    this.hazards.push(hz);
+    this.shuttles = this.shuttles || []; this.shuttles.push({ cx, top, cz0, D, T, phase, w, dp, pos, tau, bladeH, slabZ });
+    if (this.headless) return s;
+    const g = new THREE.Group(); this.add(g);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(w - 1.2, (w - 1.2) * 0.667), new THREE.MeshBasicMaterial({ map: flagTexture(kind), toneMapped: false })); flag.rotation.x = -Math.PI / 2; flag.position.y = 0.06; g.add(flag);
+    // blue splat (shows after each slam, fades)
+    const blue = new THREE.MeshBasicMaterial({ color: '#1e6bff', transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
+    const splat = new THREE.Group(); splat.position.y = 0.1;
+    [[0, 0, 2.6], [1.9, 1.3, 1.1], [-2.0, 1.5, 0.9], [1.4, -1.9, 1.0], [-1.6, -1.6, 0.8], [0.2, 2.6, 0.7]].forEach(([x, z, r]) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 18), blue); m.rotation.x = -Math.PI / 2; m.position.set(x, 0, z); splat.add(m); });
+    g.add(splat);
+    // gantry + blade
+    for (const sd of [-1, 1]) { const post = new THREE.Mesh(this.rbox(0.6, 12.5, 0.6, 0.15), this.mat(this.theme.hub)); post.position.set(sd * (w / 2 + 0.1), 6.2, 0); g.add(post); }
+    const beam = new THREE.Mesh(this.rbox(w + 1.2, 0.7, 0.8, 0.15), this.mat(this.theme.hub)); beam.position.y = 12.6; g.add(beam);
+    const bl = new THREE.Group();
+    const slab = new THREE.Mesh(this.rbox(w - 0.6, 0.5, slabZ * 2, 0.1), this.mat('#c9d3df', { rough: 0.2 })); bl.add(slab);
+    for (let i = 0; i < 8; i++) { const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.9, 4), this.mat('#eef3f8', { rough: 0.15 })); tooth.rotation.x = Math.PI; tooth.position.set(-(w - 1.6) / 2 + i * ((w - 1.6) / 7), -0.65, 0); bl.add(tooth); }
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 12, 6), this.mat('#8a8f99')); rod.position.y = 6; bl.add(rod);
+    const warn = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, slabZ * 2), new THREE.MeshBasicMaterial({ color: '#ff3d3d', transparent: true, opacity: 0, depthWrite: false, toneMapped: false })); warn.rotation.x = -Math.PI / 2; warn.position.y = 0.09; g.add(warn);
+    g.add(bl);
+    this.updaters.push((t) => {
+      const oz = pos(t); g.position.set(cx, top + 0.4, cz0 + oz);
+      const h = bladeH(t), u = tau(t); bl.position.y = h + 0.5 + (u > -2.4 && u < -0.4 ? Math.sin(t * 40) * 0.06 : 0);
+      warn.material.opacity = u > -2.4 && u < -0.1 ? 0.18 + 0.12 * Math.sin(t * 12) : 0;
+      blue.opacity = u > -0.15 && u < 3.4 ? Math.min(0.85, (3.4 - u) / 3.0) : 0;
+    });
+    return s;
+  }
 
   // ---------------------------------------------------------------- fans, swings, doors (Maze level)
   // FAN: a wind column that pushes you sideways (ax, az in m/s of drift) while you are inside the box x0..x1 / z0..z1, y0..y1.

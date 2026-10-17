@@ -11,6 +11,11 @@ function draw(kind, w, h) {
     g.beginPath(); g.arc(cx + R * 0.28, cy - R * 0.12, R * 0.82, 0, Math.PI * 2); g.fillStyle = '#01411c'; g.fill();   // cut-out makes the crescent
     const sx = cx + R * 0.52, sy = cy - R * 0.34, r1 = R * 0.34, r2 = r1 * 0.4; // five-point star
     g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5 + 0.35, rr = i % 2 ? r2 : r1; g.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } g.closePath(); g.fillStyle = '#ffffff'; g.fill();
+  } else if (kind === 'es') { // Spain: red / yellow (double height) / red, small crest on the hoist side
+    g.fillStyle = '#aa151b'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#f1bf00'; g.fillRect(0, h / 4, w, h / 2);
+    g.fillStyle = '#aa151b'; g.fillRect(w * 0.17, h * 0.4, w * 0.1, h * 0.2);
+    g.fillStyle = '#c8a000'; g.fillRect(w * 0.15, h * 0.37, w * 0.14, h * 0.04); g.fillRect(w * 0.15, h * 0.59, w * 0.14, h * 0.04);
   } else { // Palestine: black / white / green stripes with a red triangle at the hoist
     g.fillStyle = '#000000'; g.fillRect(0, 0, w, h / 3);
     g.fillStyle = '#ffffff'; g.fillRect(0, h / 3, w, h / 3);
