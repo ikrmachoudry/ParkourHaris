@@ -226,6 +226,7 @@ class Race {
     if (info.cars) {
       for (const cd of info.cars) { const mesh = buildCarMesh(cd.id); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
       this.skyG = 0; try { this.racerOk = localStorage.getItem('ph_racer') === '1'; } catch { this.racerOk = false; }
+      this.applyFree();
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
 
@@ -436,11 +437,13 @@ class Race {
       this.skyG++; A.sfx.checkpoint();
       this.particles.emit(st.x, st.y + 1.5, st.z, 24, { color: i === sk.gates.length - 1 ? '#ff3b3b' : '#7cff3d', speed: 6, up: 5, life: 0.8, size: 0.4 });
       if (i === sk.gates.length - 1) {
-        this.racerOk = true; try { localStorage.setItem('ph_racer', '1'); } catch { /* ignore */ }
-        A.sfx.win(); this.toast('\uD83C\uDFC1 SKY SPEEDWAY CLEARED! RED RACERS UNLOCKED - stop on the RACER GARAGE plaza and press ' + (IS_TOUCH ? 'the red car button' : 'R'));
+        this.racerOk = true; this.applyFree(); try { localStorage.setItem('ph_racer', '1'); } catch { /* ignore */ }
+        A.sfx.win(); this.toast('\uD83C\uDFC1 SKY SPEEDWAY CLEARED! RED RACERS UNLOCKED & the sky road is now obstacle-free! Stop on the RACER GARAGE plaza and press ' + (IS_TOUCH ? 'the red car button' : 'R'));
       } else this.toast('SKY GATE ' + (i + 1) + ' / ' + (sk.gates.length - 1) + '  \u2713');
     }
   }
+  // once you own the racers the sky road is an obstacle-free speedway for you (your own copy of the world: obstacles hidden + switched off)
+  applyFree() { if (this.info.track) this.info.track.free = !!this.racerOk; if (this.world && this.world.skyObst) this.world.skyObst.visible = !this.racerOk; }
   garageSpot(st) { const sk = this.info.sky; return !!sk && st.y > sk.y - 3 && Math.hypot(st.x - sk.garage.x, st.z - sk.garage.z) < sk.garage.r; }
   swapRacer() {
     if (!this.drive || this.over || this.menuOpen) return;

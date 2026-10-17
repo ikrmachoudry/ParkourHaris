@@ -1,6 +1,7 @@
 // Sky Speedway checks: no clash with the rides, the whole route is drivable (ramps, plazas, gates), obstacles hit hard, racers are faster.
 import { buildLevel } from '../public/js/levels.js';
 import { newCar, stepCar, CAR_SPECS, corridor } from '../public/js/car.js';
+import { skyLayout } from '../public/js/sky.js';
 const DT = 1 / 90;
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
 const { world, info } = buildLevel(5, true);
@@ -13,11 +14,7 @@ ok(info.cars.filter((c) => c.id >= 4).every((c) => { const q = corridor(TR, c.x,
   const pts = []; // [x, z, radius, y0, y1]  volumes the sky structure uses
   for (const s of TR.segs) { if ((s.y0 || 0) < 0.5 && (s.y1 || 0) < 0.5) continue; const L = Math.hypot(s.bx - s.ax, s.bz - s.az), n = Math.ceil(L / 2); for (let i = 0; i <= n; i++) { const t = i / n, x = s.ax + (s.bx - s.ax) * t, z = s.az + (s.bz - s.az) * t, h = (s.y0 || 0) + ((s.y1 === undefined ? s.y0 : s.y1) - (s.y0 || 0)) * t; pts.push([x, z, s.hw + 0.5, h - 1.3, h + 4]); } }
   for (const p of TR.plazas) if (p.y > 0) pts.push([p.x, p.z, p.r + 0.5, p.y - 1.3, p.y + 4]);
-  const cols = [];
-  for (const sd of [1, -1]) {
-    for (let z = -40; z > -405; z -= 30) if (Math.abs(z + 26) > 20) { cols.push([sd * 56 - 10.2, z], [sd * 56 + 10.2, z]); }
-    cols.push([sd * 38 - 6.6, -380], [sd * 38 + 6.6, -380], [sd * 38 - 6.6, -365], [sd * 38 + 6.6, -365], [sd * 56, -4], [sd * 34, -421], [sd * 44, -404]);
-  }
+  const cols = SK.pillars.map((p) => [p.kind === 'gantry' ? p.x + p.span : p.x, p.z]).concat(SK.pillars.filter((p) => p.kind === 'gantry').map((p) => [p.x, p.z]));
   let clashes = [], maxSolidTopOnRoad = 0;
   for (let tt = 0; tt < 30; tt += 0.5) {
     world.update(tt, 0.5);
@@ -52,41 +49,45 @@ function drive(startCar, pts, maxT, trk, gas0 = 1) {
   return { c, t, wi, outside, maxY, gates, nearGarage };
 }
 const clean = { ...TR, dyn: null, slicks: [] };
-const route = [[56, -60], [56, -300], [50, -326], [38, -352], [38, -404], [44, -418], [55, -412], [56, -380], [56, -20], [50, -4], [20, -4], [-50, -4], [-56, -20], [-56, -380], [-50, -412], [-47, -416]];
+const route = [[56, -250], [56, -318], [47, -336], [38, -350], [38, -404], [44, -418], [55, -412], [56, -380], [56, -20], [50, -4], [20, -4], [-50, -4], [-56, -20], [-56, -380], [-50, -412], [-47, -416]];
 {
   const car = newCar(0, info.cars[0].x, info.cars[0].z, info.cars[0].yaw);
-  const r = drive(car, [[56, -150], ...route], 150, clean);
-  ok(r.wi === route.length + 1 && r.maxY > Y - 0.3, `bot drives station -> ramp -> sky road -> garage in ${r.t.toFixed(0)} s (waypoints ${r.wi}/${route.length + 1}, max height ${r.maxY.toFixed(1)} m)`);
+  const r = drive(car, [[56, -150], ...route], 160, clean);
+  ok(r.wi === route.length + 1 && r.maxY > Y - 0.3, `bot drives station -> ground loop -> ramp -> sky road -> garage in ${r.t.toFixed(0)} s (waypoints ${r.wi}/${route.length + 1}, max height ${r.maxY.toFixed(1)} m)`);
   ok(r.outside === 0, `bot never leaves the road/ramp (${r.outside} frames outside)`);
   ok(r.gates === SK.gates.length, `all ${SK.gates.length} sky gates are hit in order (${r.gates})`);
   ok(r.nearGarage, 'route ends inside the racer garage');
-  // way back down: exit ramp onto the left highway
-  const down = drive(r.c, [[-38, -406], [-38, -352], [-52, -326], [-56, -300]], 60, clean);
-  ok(down.wi === 4 && down.c.y < 0.5 && down.outside === 0, `exit ramp brings the car back to the ground (y ${down.c.y.toFixed(2)})`);
+  // no shortcut: the only way down is the way you came - back along the sky road, round the corners and down the ramp
+  const back = drive(r.c, [[-56, -380], [-56, -20], [-50, -4], [20, -4], [50, -4], [56, -20], [56, -380], [50, -412], [44, -418], [38, -404], [38, -350], [47, -336]], 160, clean);
+  ok(back.wi === 12 && back.c.y < 0.5 && back.outside === 0, `return trip: the same road back down the ramp to the ground loop (y ${back.c.y.toFixed(2)}, ${back.t.toFixed(0)} s)`);
+  // there is exactly one ramp, no way up or down anywhere else
+  const ramps = TR.segs.filter((s) => (s.y0 || 0) !== (s.y1 === undefined ? (s.y0 || 0) : s.y1));
+  ok(ramps.length === 1 && ramps[0].ax === 38, 'exactly one ramp (right side) - no exit shortcut');
+  // a car at ground level can never end up on the sky layer except through that ramp
+  let leak = 0; for (let x = -75; x <= 75; x += 3) for (let z = -430; z <= 10; z += 3) { const q = corridor(TR, x, z, 0, 0); if (q.d < 0 && q.h > 2 && !(x > 30 && x < 46 && z < -340)) leak++; }
+  ok(leak === 0, 'from the ground the sky layer is only reachable through the ramp');
 }
-// ---- the same route WITH obstacles: every obstacle exists, and a sloppy driver gets knocked about (spin / crash) but can't leave the road
+// ---- obstacles: static only (no moving parts); gone once the racers are owned
 {
-  const dyn = TR.dyn(3.0); ok(dyn.length > 60, `${dyn.length} obstacle circles on the sky road`);
-  const car = newCar(0, info.cars[0].x, info.cars[0].z, info.cars[0].yaw);
-  const r = drive(car, [[56, -150], ...route], 400, TR);
-  ok(r.outside === 0, `with obstacles the car still never leaves the road (${r.outside} frames outside), it got as far as waypoint ${r.wi}/${route.length + 1}`);
+  ok(skyLayout().defs.every((d) => d.k === 'barrel' || d.k === 'block'), 'no moving obstacles anywhere (only barrels, blocks, oil slicks)');
+  const dyn = TR.dyn(3.0); ok(dyn.length > 25, `${dyn.length} static obstacle circles on the sky road`);
+  const c = newCar(4, 56 - 2.2, -405, 0); c.y = Y; c.vz = 30; c.speed = 30; c.vx = 0; let hit = false;
+  for (let i = 0; i < 90 * 1.2; i++) if (stepCar(c, DT, { gas: 0, steer: 0, hb: false }, TR, [], 0)) hit = true;
+  ok(hit, 'with obstacles on, a racer driving straight into a barrel crashes');
+  const f = newCar(4, 56 - 2.2, -405, 0); f.y = Y; f.vz = 30; f.speed = 30; f.vx = 0; let hit2 = false; const free = { ...TR, free: true };
+  for (let i = 0; i < 90 * 1.2; i++) if (stepCar(f, DT, { gas: 0, steer: 0, hb: false }, free, [], 0)) hit2 = true;
+  ok(!hit2 && f.z > -405 + 25, 'once the racers are unlocked the obstacles are gone: the same run goes straight through at full speed');
 }
 // ---- crash into a static barrel at speed -> big jolt
 {
-  const c = newCar(0, 56 - 3.2 + 0.9, -405, 0); c.y = Y; c.driver = 1; c.yaw = 0; let ev = '', maxSpin = 0, evs = [];
+  const c = newCar(0, 56 - 2.2 + 0.9, -405, 0); c.y = Y; c.driver = 1; c.yaw = 0; let ev = '', maxSpin = 0, evs = [];
   c.vz = 22; c.speed = 22; c.vx = 0;
   for (let i = 0; i < 90 * 2; i++) { const e = stepCar(c, DT, { gas: 0, steer: 0, hb: false }, TR, [], 0); if (e) evs.push(e); if (e === 'crash') ev = e; maxSpin = Math.max(maxSpin, Math.abs(c.spin || 0)); }
   ok(ev === 'crash' && maxSpin > 0.2 && c.speed < 14, `hitting a barrel at 79 km/h: crash event, spin ${maxSpin.toFixed(2)} rad/s, speed drops to ${(c.speed * 3.6).toFixed(0)} km/h ${evs.join(',')}`);
 }
-// ---- moving sweeper knocks the car sideways
-{
-  let hit = false;
-  for (let ph = 0; ph < 6 && !hit; ph += 0.5) { const c = newCar(0, 56, -345, 0); c.y = Y; c.vz = 24; c.speed = 24; for (let i = 0; i < 90 * 1.5; i++) { const e = stepCar(c, DT, { gas: 0, steer: 0, hb: false }, TR, [], ph + i * DT); if (e) hit = true; } }
-  ok(hit, 'a car driving straight into the sweeping wall gets hit at some timing');
-}
 // ---- oil slick = no grip
 {
-  const sl = TR.slicks[0], a = newCar(0, sl.x, sl.z + 4, 0), b = newCar(0, sl.x + 30, sl.z + 4, 0); a.y = b.y = Y;
+  const sl = TR.slicks[0], a = newCar(0, sl.x, sl.z - 4, 0), b = newCar(0, sl.x + 30, sl.z + 4, 0); a.y = b.y = Y;
   const clearTR = { ...TR, dyn: null };
   for (const c of [a, b]) { c.vz = 20; c.speed = 20; }
   let da = 0, db = 0, sawSlick = false;

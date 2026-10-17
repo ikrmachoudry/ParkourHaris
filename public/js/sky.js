@@ -1,93 +1,61 @@
 // SKY SPEEDWAY: an elevated road (y = 16) above the two highways of the Fun Map.  Drive up the ramp on the right, race along the
 // right side, across the park, and down the left side through moving obstacles (sweeping walls, spinners, barrels, oil slicks).
-// Clear it and you unlock 4 red RACER cars waiting on the sky plaza at the far left end.
+// Clear it and you unlock 4 red RACER cars waiting on the sky plaza at the far left end.  There is ONE way in (the ramp on the right) and
+// the same way out: you drive back along the same road, so there is no shortcut.  Once the racers are unlocked the obstacles vanish for you.
 // The layout + obstacle maths are pure (no DOM) so the same code runs in the car physics, the tests and the visuals.
 import * as THREE from 'three';
 import { textBoard } from './flags.js';
+import { Batch } from './world.js';
 
-export const SKY_Y = 16, SKY_HW = 7, HX = 56;
+export const SKY_Y = 16, SKY_HW = 7, HX = 56, GZT = -262, GZB = -336;   // GZT / GZB: the two ground cross roads of the rectangle loop
 const CROSS_Z = -4, FAR_Z = -416;
 
 export function skyLayout() {
   const segs = [], plazas = [], boosts = [], slicks = [], defs = [], gates = [], pillars = [];
-  // ground branches that lead to / from the ramps, and the ramps themselves
-  const ground = [
-    { ax: HX, az: -322, bx: 38, bz: -350, hw: 7, g: 'sbr+' },
-    { ax: -HX, az: -322, bx: -38, bz: -350, hw: 7, g: 'sbr-' },
-  ];
-  segs.push({ ax: 38, az: -350, bx: 38, bz: -410, hw: 6, y0: 0, y1: SKY_Y, g: 'ramp+' });
+  // the one ramp: it starts on the lower cross road of the ground loop (right side) and climbs south to the sky plaza
+  segs.push({ ax: 38, az: GZB - 7, bx: 38, bz: -410, hw: 6, y0: 0, y1: SKY_Y, g: 'ramp+' });
   segs.push({ ax: HX, az: FAR_Z, bx: HX, bz: CROSS_Z, hw: SKY_HW, y0: SKY_Y, y1: SKY_Y, g: 's2' });
   segs.push({ ax: HX, az: CROSS_Z, bx: -HX, bz: CROSS_Z, hw: SKY_HW, y0: SKY_Y, y1: SKY_Y, g: 'sx' });
   segs.push({ ax: -HX, az: CROSS_Z, bx: -HX, bz: FAR_Z, hw: SKY_HW, y0: SKY_Y, y1: SKY_Y, g: 's3' });
-  segs.push({ ax: -38, az: -410, bx: -38, bz: -350, hw: 6, y0: SKY_Y, y1: 0, g: 'ramp-' });
   plazas.push({ x: 47, z: FAR_Z, r: 15, y: SKY_Y, g: 'pa' }, { x: HX, z: CROSS_Z, r: 12, y: SKY_Y, g: 'pb' },
     { x: -HX, z: CROSS_Z, r: 12, y: SKY_Y, g: 'pc' }, { x: -47, z: FAR_Z, r: 15, y: SKY_Y, g: 'pd' });
 
-  // ---- obstacles.  sweep: a wall that slides along its own axis;  spin: two-armed bar;  barrel / block: static
-  const sweep = (x, z, ux, uz, amp, w, ph, len = 7) => defs.push({ k: 'sweep', x, z, ux, uz, amp, w, ph, len });
-  const spin = (x, z, w, ph = 0, arm = 3.6) => defs.push({ k: 'spin', x, z, w, ph, arm });
+  // ---- obstacles: only STATIC ones (barrels, concrete blocks, oil slicks) - no moving parts.  They disappear once you own the racers.
   const barrel = (x, z) => defs.push({ k: 'barrel', x, z, r: 1.3 });
   const blocks = (x, z0, z1) => { for (let z = z0; z <= z1 + 0.01; z += 2.4) defs.push({ k: 'block', x, z, r: 1.2 }); };
   const slick = (x, z, r = 7) => { slicks.push({ x, z, r, y: SKY_Y }); };
   const boost = (x, z) => boosts.push({ x, z, r: 4, y: SKY_Y });
+  const LX = -HX, W = 2.2;   // barrels sit W either side of the centre line, so you have to weave
   // right side (heading north, +z)
-  boost(HX, -396); barrel(HX - 3.2, -385); barrel(HX + 3.2, -375); barrel(HX - 3.2, -365); barrel(HX + 3.2, -355); boost(HX, -345);
-  sweep(HX, -330, 1, 0, 2.0, 1.3, 0);
-  blocks(HX - 3.2, -292, -284); blocks(HX + 3.2, -276, -268);
-  boost(HX, -255); slick(HX, -238); sweep(HX, -215, 1, 0, 2.2, 1.7, 1.2); boost(HX, -190);
-  spin(HX, -165, 1.6);
-  barrel(HX + 3.2, -135); barrel(HX - 3.2, -125); barrel(HX + 3.2, -115);
-  boost(HX, -100); sweep(HX, -85, 1, 0, 2.2, 2.1, 2.4); spin(HX, -45, -1.9, 1); boost(HX, -22);
-  // across the park (heading west, -x): obstacles slide along z
-  sweep(32, CROSS_Z, 0, 1, 2.0, 1.8, 0.5); boost(15, CROSS_Z); spin(0, CROSS_Z, -1.8, 0.3); boost(-15, CROSS_Z); sweep(-30, CROSS_Z, 0, 1, 2.2, 2.3, 1.5);
-  // left side (heading south, -z) - the hard half
-  const LX = -HX;
-  boost(LX, -25); barrel(LX - 3.2, -40); barrel(LX + 3.2, -50); barrel(LX - 3.2, -60); barrel(LX + 3.2, -70);
-  sweep(LX, -100, 1, 0, 2.2, 2.0, 0); sweep(LX, -115, 1, 0, 2.2, 2.0, 3.1);
-  boost(LX, -128); spin(LX, -150, 1.9); spin(LX, -172, -2.2, 0.8); boost(LX, -190);
-  slick(LX, -205); blocks(LX - 3.2, -238, -230); blocks(LX + 3.2, -222, -214);
-  boost(LX, -246); sweep(LX, -262, 1, 0, 2.3, 2.4, 0.4); sweep(LX, -277, 1, 0, 2.3, -2.6, 2.0);
-  slick(LX, -300); spin(LX, -325, 2.4, 0.5); boost(LX, -338);
-  barrel(LX - 3.2, -348); barrel(LX + 3.2, -356); barrel(LX - 3.2, -364); sweep(LX, -376, 1, 0, 2.3, 2.8, 1.0); boost(LX, -388);
+  boost(HX, -396); barrel(HX - W, -385); barrel(HX + W, -375); barrel(HX - W, -365); barrel(HX + W, -355); boost(HX, -345);
+  blocks(HX - 3.2, -300, -292); blocks(HX + 3.2, -284, -276);
+  boost(HX, -255); slick(HX, -235); boost(HX, -190);
+  barrel(HX + W, -150); barrel(HX - W, -140); barrel(HX + W, -130); boost(HX, -100); boost(HX, -22);
+  // across the park (heading west, -x)
+  barrel(36, CROSS_Z + W); barrel(26, CROSS_Z - W); boost(15, CROSS_Z); boost(-15, CROSS_Z); barrel(-26, CROSS_Z + W); barrel(-36, CROSS_Z - W);
+  // left side (heading south, -z)
+  boost(LX, -25); barrel(LX - W, -45); barrel(LX + W, -55); barrel(LX - W, -65); boost(LX, -128);
+  slick(LX, -205); blocks(LX - 3.2, -250, -242); blocks(LX + 3.2, -234, -226);
+  boost(LX, -190); slick(LX, -300); boost(LX, -338);
+  barrel(LX - W, -350); barrel(LX + W, -358); barrel(LX - W, -366); boost(LX, -388);
 
   gates.push({ x: HX, z: -250, w: 8 }, { x: 15, z: CROSS_Z, w: 8 }, { x: LX, z: -185, w: 8 }, { x: LX, z: -397, w: 8 });
   // the garage: where the red racers wait (sky plaza at the far end of the left side)
   const garage = { x: -47, z: FAR_Z, r: 15 };
   const racers = [-57, -51, -45, -39].map((x, i) => ({ id: 4 + i, x, z: -423, y: SKY_Y, yaw: 0 }));
-  // support pillars: standing on the ground beside the highways (never inside a road lane)
+  // support pillars: standing on the ground beside the highways (never inside a road lane, never on a cross road)
   for (const sd of [1, -1]) {
-    for (let z = -40; z > -405; z -= 30) if (Math.abs(z + 26) > 20) pillars.push({ x: sd * HX - 10.2, z, kind: 'gantry', sd, span: 10.2 });
-    pillars.push({ x: sd * 38 - 6.6, z: -380, kind: 'col' }, { x: sd * 38 + 6.6, z: -380, kind: 'col' }, { x: sd * 38 - 6.6, z: -365, kind: 'col' }, { x: sd * 38 + 6.6, z: -365, kind: 'col' });
+    for (let z = -40; z > -405; z -= 30) if (Math.abs(z + 26) > 20 && Math.abs(z - GZT) > 11 && Math.abs(z - GZB) > 11) pillars.push({ x: sd * HX - 10.2, z, kind: 'gantry', sd, span: 10.2 });
+    if (sd > 0) pillars.push({ x: 38 - 6.6, z: -380, kind: 'col' }, { x: 38 + 6.6, z: -380, kind: 'col' }, { x: 38 - 6.6, z: -362, kind: 'col' }, { x: 38 + 6.6, z: -362, kind: 'col' });
     pillars.push({ x: sd * HX, z: CROSS_Z, kind: 'plaza' }, { x: sd * 34, z: -421, kind: 'plaza' }, { x: sd * 44, z: -404, kind: 'plaza' });
   }
-  return { ground, segs, plazas, boosts, slicks, defs, gates, garage, racers, pillars };
+  return { ground: [], segs, plazas, boosts, slicks, defs, gates, garage, racers, pillars };
 }
 
-// ---- moving circles at time t (shared by physics + visuals).  The same list object is reused every call.
+// ---- obstacle circles (all static now; the list object is reused).  `t` is kept so the physics call stays the same.
 export function makeDyn(defs) {
-  const out = [];
-  const items = defs.map((d) => {
-    const circles = [];
-    if (d.k === 'sweep') { const n = Math.round(d.len / 1.5) + 1; for (let i = 0; i < n; i++) circles.push({ x: 0, z: 0, y: SKY_Y, r: 0.9, vx: 0, vz: 0, off: -d.len / 2 + i * d.len / (n - 1) }); }
-    else if (d.k === 'spin') { circles.push({ x: d.x, z: d.z, y: SKY_Y, r: 1.2, vx: 0, vz: 0, rr: 0, side: 1 }); for (let r = 2; r <= d.arm + 0.01; r += 1.4) for (const side of [1, -1]) circles.push({ x: 0, z: 0, y: SKY_Y, r: 0.9, vx: 0, vz: 0, rr: r, side }); }
-    else circles.push({ x: d.x, z: d.z, y: SKY_Y, r: d.r, vx: 0, vz: 0 });
-    for (const c of circles) out.push(c);
-    return { d, circles };
-  });
-  const fn = (t) => {
-    for (const { d, circles } of items) {
-      if (d.k === 'sweep') {
-        const s = d.amp * Math.sin(d.w * t + d.ph), v = d.amp * d.w * Math.cos(d.w * t + d.ph);
-        for (const c of circles) { const o = c.off + s; c.x = d.x + d.ux * o; c.z = d.z + d.uz * o; c.vx = d.ux * v; c.vz = d.uz * v; }
-      } else if (d.k === 'spin') {
-        const th = d.ph + d.w * t;
-        for (const c of circles) if (c.rr) { const co = Math.cos(th), si = Math.sin(th); c.x = d.x + c.side * c.rr * co; c.z = d.z + c.side * c.rr * si; c.vx = -c.side * c.rr * d.w * si; c.vz = c.side * c.rr * d.w * co; }
-      }
-    }
-    return out;
-  };
-  fn.items = items;
-  return fn;
+  const out = defs.map((d) => ({ x: d.x, z: d.z, y: SKY_Y, r: d.r, vx: 0, vz: 0 }));
+  return () => out;
 }
 
 // ---- visuals ---------------------------------------------------------------------------------------------------------
@@ -127,32 +95,17 @@ export function buildSkyVisuals(world, L, th, segsAll) {
     } else if (pl.kind === 'col') { wm.add(new THREE.CylinderGeometry(0.5, 0.65, Y * 0.85, 10), pl.x, Y * 0.42, pl.z, '#9aa3b8'); }
     else { wm.add(new THREE.CylinderGeometry(1.1, 1.5, Y - 0.9, 12), pl.x, (Y - 0.9) / 2, pl.z, '#9aa3b8'); }
   }
-  // turbo pads + oil slicks
+  // turbo pads (always there)
   for (const b of L.boosts) { wm.add(box(10, 0.07, 8), b.x, b.y + 0.04, b.z, '#ff9f1c'); for (let i = 0; i < 3; i++) wm.add(new THREE.ConeGeometry(1.5, 2.0, 3), b.x, b.y + 0.1, b.z + 2 - i * 2, '#fff3b0', 0, Math.PI, 0); }
-  for (const s of L.slicks) { wm.add(new THREE.CylinderGeometry(s.r, s.r, 0.05, 28), s.x, s.y + 0.04, s.z, '#1c1030'); wg.add(new THREE.CylinderGeometry(s.r * 0.62, s.r * 0.62, 0.03, 24), s.x, s.y + 0.07, s.z, '#3a1f66'); }
-  // static obstacles
+  // obstacles (barrels, blocks, oil slicks) live in their own mesh so they can be switched off once you own the racers
+  const ob = new Batch();
+  for (const s of L.slicks) { ob.add(new THREE.CylinderGeometry(s.r, s.r, 0.05, 28), s.x, s.y + 0.04, s.z, '#1c1030'); ob.add(new THREE.CylinderGeometry(s.r * 0.62, s.r * 0.62, 0.03, 24), s.x, s.y + 0.07, s.z, '#3a1f66'); }
   for (const d of L.defs) {
-    if (d.k === 'barrel') { wm.add(new THREE.CylinderGeometry(d.r * 0.85, d.r * 0.85, 1.5, 14), d.x, Y + 0.75, d.z, '#ff7a1a'); wm.add(new THREE.CylinderGeometry(d.r * 0.88, d.r * 0.88, 0.28, 14), d.x, Y + 0.95, d.z, '#ffffff'); }
-    if (d.k === 'block') { wm.add(box(d.r * 2, 1.3, d.r * 2), d.x, Y + 0.65, d.z, '#aeb4c6'); wm.add(box(d.r * 2.02, 0.2, d.r * 0.7), d.x, Y + 1.32, d.z, '#ffd23f'); }
+    if (d.k === 'barrel') { ob.add(new THREE.CylinderGeometry(d.r * 0.85, d.r * 0.85, 1.5, 14), d.x, Y + 0.75, d.z, '#ff7a1a'); ob.add(new THREE.CylinderGeometry(d.r * 0.88, d.r * 0.88, 0.28, 14), d.x, Y + 0.95, d.z, '#ffffff'); }
+    if (d.k === 'block') { ob.add(box(d.r * 2, 1.3, d.r * 2), d.x, Y + 0.65, d.z, '#aeb4c6'); ob.add(box(d.r * 2.02, 0.2, d.r * 0.7), d.x, Y + 1.32, d.z, '#ffd23f'); }
   }
-  // moving obstacles (own meshes, animated)
-  const dyn = L.dyn;
-  const stripeTex = (() => { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 32; const g = cv.getContext('2d'); for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#e8252f'; g.fillRect(i * 16, 0, 16, 32); } const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-  const barMat = new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.4 }), hubMat = new THREE.MeshStandardMaterial({ color: '#3a3f55', roughness: 0.5 }), armMat = new THREE.MeshStandardMaterial({ color: '#ffd23f', roughness: 0.4 });
-  const anim = [];
-  for (const it of dyn.items) {
-    const d = it.d;
-    if (d.k === 'sweep') {
-      const m = new THREE.Mesh(box(d.len + 1.8, 1.3, 1.3), barMat); m.castShadow = true; m.rotation.y = d.ux ? 0 : Math.PI / 2; grp.add(m);
-      wg.add(box(d.ux ? 2 * d.amp + d.len + 2 : 0.5, 0.05, d.ux ? 0.5 : 2 * d.amp + d.len + 2), d.x, Y + 0.05, d.z, '#ff9f1c');   // warning strip on the deck
-      anim.push(() => { const c = it.circles; const mid = (c[0].x + c[c.length - 1].x) / 2, midz = (c[0].z + c[c.length - 1].z) / 2; m.position.set(mid, Y + 0.7, midz); });
-    } else if (d.k === 'spin') {
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.5, 14), hubMat); hub.position.set(d.x, Y + 0.75, d.z); grp.add(hub);
-      const arm = new THREE.Mesh(box(2 * d.arm + 1.8, 1.0, 0.95), armMat); arm.castShadow = true; grp.add(arm);
-      anim.push((t) => { arm.position.set(d.x, Y + 0.85, d.z); arm.rotation.y = -(d.ph + d.w * t); });
-    }
-  }
-  world.updaters.push((t) => { for (const f of anim) f(t); });
+  const om = ob.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5 }));
+  if (om) { om.castShadow = true; grp.add(om); world.skyObst = om; }
   // gate arches
   const mk = (txt, w, h, o, x, y, z, ry) => { const b = textBoard(txt, w, h, o); b.position.set(x, y, z); b.rotation.y = ry; grp.add(b); return b; };
   const gateStyle = { bg: ['#22c55e', '#0b7a3a'], fg: '#ffffff', stroke: '#053b1c', border: '#ffd23f' };
@@ -162,13 +115,11 @@ export function buildSkyVisuals(world, L, th, segsAll) {
     const bx = alongX ? g.x : g.x, bz = alongX ? CROSS_Z : g.z;
     mk(last ? 'FINISH - RACERS UNLOCKED!' : `SKY GATE ${i + 1}`, last ? 15 : 9, last ? 2.6 : 2, last ? { bg: ['#e0001f', '#8f0014'], fg: '#ffffff', stroke: '#33000a', border: '#ffd23f' } : gateStyle, bx, Y + 7.4, bz, alongX ? Math.PI / 2 : 0);
   });
-  // entrance gantries over the ramps + the racer garage sign
+  // entrance gantry over the ramp (it starts on the lower cross road of the rectangle loop) + a sign on the highway
   const entry = { bg: ['#ff9f1c', '#e0601a'], fg: '#ffffff', stroke: '#4a1c00', border: '#ffffff' };
-  for (const sd of [1, -1]) {
-    for (const sx of [-1, 1]) wm.add(box(0.8, 8, 0.8), sd * 38 + sx * 7.2, 4, -354, '#2b1c6b');
-    mk(sd > 0 ? 'SKY SPEEDWAY ▲  WIN A RACER' : 'SKY EXIT ▼  (one way)', 17, 3.2, entry, sd * 38, 8.8, -354, 0);
-    mk(sd > 0 ? 'SKY SPEEDWAY →' : '← SKY SPEEDWAY', 14, 3.2, entry, sd * HX, 5.2, -332, 0);
-  }
+  for (const sx of [-1, 1]) wm.add(box(0.8, 8, 0.8), 38 + sx * 7.2, 4, GZB - 12, '#2b1c6b');
+  mk('SKY SPEEDWAY \u25B2  WIN A RACER', 17, 3.2, entry, 38, 8.8, GZB - 12, 0);
+  mk('SKY SPEEDWAY \u2192', 14, 3.2, entry, HX, 5.4, GZB + 20, 0);
   const garage = L.garage;
   for (const sx of [-1, 1]) wm.add(box(0.8, 9, 0.8), garage.x + sx * 12, Y + 4.5, garage.z - 9, '#2b1c6b');
   mk('RACER GARAGE', 24, 4.6, { bg: ['#e0001f', '#8f0014'], fg: '#ffffff', stroke: '#33000a', border: '#ffd23f' }, garage.x, Y + 10.2, garage.z - 9, 0);

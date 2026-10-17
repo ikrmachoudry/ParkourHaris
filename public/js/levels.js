@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { flagBoard, textBoard } from './flags.js';
-import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y } from './sky.js';
+import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y, GZT, GZB } from './sky.js';
 
 export const THEMES = {
   candy: {
@@ -325,21 +325,21 @@ export function buildLevel(idx, headless = false, arrow = null) {
 
     world.checkpoint(0, 0, -244, 16);
 
-    // ---- F: HIGHWAY + SPEEDWAY: a long road down the whole right side of the park, joined to an oval track.  The 4 cars wait at the CAR STATION near the start.
-    const HX = 56, HW = 7, RC = { x: 0, z: -300 }, RR = 29, RSZ = 1.35, RN = 72, SZ0 = -27, SZ1 = -420;
-    const SIDES = [1, -1];   // a highway on BOTH sides of the park (x = +56 and x = -56), joined by the oval in the middle
+    // ---- F: HIGHWAYS + RECTANGLE LOOP: a long road down each side of the park, joined by two cross roads into one big rectangle (obstacle-free racing track).
+    //          The 4 cars wait at the two CAR STATIONS near the start.
+    const HX = 56, HW = 7, RC = { x: 0, z: (GZT + GZB) / 2 }, SZ0 = -27, SZ1 = -420;
+    const SIDES = [1, -1];
     const segs = [], plazas = [];
-    const ringPt = (i) => { const a = (i / RN) * Math.PI * 2; return [RC.x + RR * Math.cos(a), RC.z + RR * RSZ * Math.sin(a)]; };
-    for (let i = 0; i < RN; i++) { const [ax, az] = ringPt(i), [bx, bz] = ringPt(i + 1); segs.push({ ax, az, bx, bz, hw: HW, g: 'ring' }); }
     for (const sd of SIDES) {
       plazas.push({ x: HX * sd, z: SZ0, r: 13, g: 'p0' + sd }, { x: HX * sd, z: SZ1, r: 13, g: 'p1' + sd });
       segs.push({ ax: HX * sd, az: SZ0, bx: HX * sd, bz: SZ1, hw: HW, g: 'hwy' + sd });
-      segs.push({ ax: HX * sd, az: -300, bx: RC.x + RR * sd, bz: -300, hw: HW, g: 'con' + sd });
     }
-    const TR = { segs, plazas, boosts: [{ x: HX, z: -110, r: 4 }, { x: HX, z: -210, r: 4 }, { x: HX, z: -370, r: 4 }, { x: -HX, z: -110, r: 4 }, { x: -HX, z: -210, r: 4 }, { x: -HX, z: -370, r: 4 }, { x: -RR, z: -300, r: 4 }, { x: 0, z: RC.z - RR * RSZ, r: 4 }] };
+    segs.push({ ax: -HX, az: GZT, bx: HX, bz: GZT, hw: HW, g: 'con-top' }, { ax: -HX, az: GZB, bx: HX, bz: GZB, hw: HW, g: 'con-bot' });
+    const hb = []; for (const sd of SIDES) for (const z of [-110, -210, -370]) hb.push({ x: HX * sd, z, r: 4 });
+    const TR = { segs, plazas, boosts: [...hb, { x: 30, z: GZT, r: 4 }, { x: -30, z: GZT, r: 4 }, { x: 30, z: GZB, r: 4 }, { x: -30, z: GZB, r: 4 }] };
     info.track = TR;
     info.cars = [[HX - 3.5, -33], [HX + 3.5, -33], [-HX - 3.5, -33], [-HX + 3.5, -33]].map(([x, z], i) => ({ id: i, x, z, yaw: Math.PI }));   // 2 cars at each CAR STATION
-    const SK = skyLayout(); for (const g of SK.ground) segs.push(g);   // the ground branches that lead to the sky ramps
+    const SK = skyLayout();
     if (!world.headless) {
       const wm = world.main, ASPH = '#3b3f4d';
       const nearOther = (x, z, g) => { for (const q of segs) { if (q.g === g) continue; const abx = q.bx - q.ax, abz = q.bz - q.az, l2 = abx * abx + abz * abz; let t = ((x - q.ax) * abx + (z - q.az) * abz) / l2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(x - (q.ax + abx * t), z - (q.az + abz * t)) < q.hw - 0.4) return true; } for (const p of plazas) if (p.g !== g && Math.hypot(x - p.x, z - p.z) < p.r - 0.4) return true; return false; };
@@ -380,7 +380,7 @@ export function buildLevel(idx, headless = false, arrow = null) {
     segs.push(...SK.segs); TR.plazas.push(...SK.plazas); TR.boosts.push(...SK.boosts); TR.slicks = SK.slicks;
     SK.dyn = makeDyn(SK.defs); TR.dyn = SK.dyn;
     info.cars.push(...SK.racers);
-    info.sky = { y: SKY_Y, gates: SK.gates, garage: SK.garage, racerIds: [4, 5, 6, 7] };
+    info.sky = { y: SKY_Y, gates: SK.gates, garage: SK.garage, racerIds: [4, 5, 6, 7], pillars: SK.pillars };
     if (!world.headless) buildSkyVisuals(world, SK, th);
     if (!world.headless) {
       const mk = (txt, w, h, o, x, y, z, ry) => { const b = textBoard(txt, w, h, o); b.position.set(x, y, z); b.rotation.y = ry; world.group.add(b); return b; };

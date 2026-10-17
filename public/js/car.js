@@ -76,10 +76,19 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
   { const q = corridor(track, c.x, c.z, 1.5, c.y);
     c.gx = q.gx; c.gz = q.gz;
     { const py = c.y; c.y += (q.h - c.y) * Math.min(1, dt * 14); const mv = Math.hypot(c.vx, c.vz) * dt; c.pitch += ((mv > 1e-3 ? Math.atan2(c.y - py, mv) : 0) * (c.speed >= 0 ? 1 : -1) - c.pitch) * Math.min(1, dt * 10); }
-    if (q.d > 0) {
-      c.x = q.px + q.nx * q.lim; c.z = q.pz + q.nz * q.lim;
-      const vn = c.vx * q.nx + c.vz * q.nz;
-      if (vn > 0) { c.vx -= (1 + 0.35) * vn * q.nx; c.vz -= (1 + 0.35) * vn * q.nz; c.vx *= 0.93; c.vz *= 0.93; if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn); }
+    // walls: the nose and the tail are tested separately (with the car's real width), so a long car never pokes through a rail;
+    // hitting a wall with one end swings the car round
+    for (const a of [1.25, -1.25]) {
+      const e = corridor(track, c.x + nfx * a, c.z + nfz * a, 1.6, c.y);
+      if (e.d <= 0) continue;
+      c.x -= e.nx * e.d; c.z -= e.nz * e.d;
+      const vn = c.vx * e.nx + c.vz * e.nz;
+      if (vn > 0) {
+        const dvx = -(1 + 0.35) * vn * e.nx, dvz = -(1 + 0.35) * vn * e.nz;
+        c.vx += dvx; c.vz += dvz; c.vx *= 0.95; c.vz *= 0.95;
+        c.spin = Math.max(-3, Math.min(3, (c.spin || 0) + (nfz * a * dvx - nfx * a * dvz) * 0.1));
+        if (vn > 5) ev = 'bump'; c.bump = Math.max(c.bump, vn);
+      }
     } }
   // other cars: two circles per car (nose + tail) so long cars collide properly; a hit gives a bounce, a spin and a jolt
   for (const o of others || []) {
@@ -104,7 +113,7 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
     }
   }
   // sky-road obstacles: static barrels / blocks and moving sweepers + spinners (heavy: they never give way), oil slicks
-  if (track.dyn) {
+  if (track.dyn && !track.free) {
     const list = track.dyn(tm);
     for (const ob of list) {
       if (Math.abs(ob.y - c.y) > 4 || (c.x - ob.x) ** 2 + (c.z - ob.z) ** 2 > 30) continue;
@@ -126,7 +135,7 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
     }
   }
   c.slick = 0;
-  for (const sl of track.slicks || []) if (Math.abs(sl.y - c.y) < 3 && (c.x - sl.x) ** 2 + (c.z - sl.z) ** 2 < sl.r * sl.r) c.slick = 1;
+  for (const sl of (track.free ? [] : track.slicks) || []) if (Math.abs(sl.y - c.y) < 3 && (c.x - sl.x) ** 2 + (c.z - sl.z) ** 2 < sl.r * sl.r) c.slick = 1;
   if (c.spin) { c.yaw += c.spin * dt; c.spin *= Math.exp(-3.6 * dt); if (Math.abs(c.spin) < 0.02) c.spin = 0; }
   c.speed = c.vx * nfx + c.vz * nfz;
   return ev;
@@ -175,19 +184,37 @@ export function buildCarMesh(id) {
     add(rb(1.8, 0.1, 0.1, 0.04), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0, 0.75, 2.4); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0.6, 0.85, 2.38); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), -0.6, 0.85, 2.38);
     add(rb(0.35, 0.22, 0.1, 0.04), lamp, 0.7, 0.98, 2.36); add(rb(0.35, 0.22, 0.1, 0.04), lamp, -0.7, 0.98, 2.36);
     add(rb(0.3, 0.2, 0.1, 0.04), tail, 0.8, 1.0, -2.36); add(rb(0.3, 0.2, 0.1, 0.04), tail, -0.8, 1.0, -2.36);
-  } else if (id >= 4) { // RACER: low red GT racing car - wide stance, big rear wing, twin white stripes, glowing exhausts
-    wr = 0.5; wx = 1.1; wzF = 1.5; wzB = -1.45; seat = { y: 0.46, z: -0.25 };
-    const red = std('#e0001f', { r: 0.18, m: 0.45 }), blk = std('#15161c', { r: 0.5, m: 0.2 }), wht = std('#ffffff', { r: 0.25, m: 0.1 }), glow = std('#ff7a1a', { e: '#ff5a00', ei: 1.8 });
-    add(rb(2.0, 0.42, 4.7, 0.2), red, 0, 0.52, 0);                                  // tub
-    add(rb(1.75, 0.3, 1.9, 0.18), red, 0, 0.7, 1.55, -0.1);                         // long nose
-    add(rb(1.5, 0.34, 1.7, 0.16), red, 0, 0.82, -1.1);                              // engine cover
-    add(rb(1.15, 0.3, 1.5, 0.2), glass(), 0, 0.98, -0.05);                          // cockpit canopy
-    add(rb(0.22, 0.03, 4.5, 0.01), wht, 0.28, 0.99, 0.2); add(rb(0.22, 0.03, 4.5, 0.01), wht, -0.28, 0.99, 0.2);   // racing stripes
-    add(rb(2.2, 0.08, 0.7, 0.03), blk, 0, 0.3, 2.35);                               // front splitter
-    for (const sx of [-1, 1]) { add(rb(0.12, 0.28, 0.9, 0.03), blk, sx * 1.02, 0.55, 0.5); add(rb(0.08, 0.6, 0.7, 0.03), blk, sx * 1.12, 1.45, -2.2); }  // side skirts + wing end-plates
-    add(rb(2.3, 0.1, 0.75, 0.03), red, 0, 1.72, -2.2); add(rb(2.3, 0.05, 0.4, 0.02), blk, 0, 1.62, -2.0);            // big rear wing
-    for (const sx of [-1, 1]) add(rb(0.1, 0.7, 0.1, 0.02), blk, sx * 0.5, 1.2, -2.0);                                  // wing struts
-    for (const sx of [-1, 1]) { add(rb(0.38, 0.14, 0.1, 0.04), lamp, sx * 0.6, 0.68, 2.4); add(rb(0.5, 0.12, 0.1, 0.04), tail, sx * 0.6, 0.9, -2.35); add(new THREE.CylinderGeometry(0.1, 0.12, 0.3, 10), glow, sx * 0.4, 0.55, -2.4, Math.PI / 2, 0, 0); }
+  } else if (id >= 4) { // RACER: low red drop-top sports car - wedge body (one extruded profile = very light), open cockpit, big rear wing, blue underglow, exhaust flames
+    wr = 0.5; wx = 1.12; wzF = 1.5; wzB = -1.5; seat = { y: 0.62, z: -0.2 };
+    const red = std('#e0001f', { r: 0.16, m: 0.55 }), blk = std('#15161c', { r: 0.5, m: 0.2 }), wht = std('#ffffff', { r: 0.25, m: 0.1 }), glow = std('#ff7a1a', { e: '#ff5a00', ei: 2 });
+    // side profile (z forward, y up): low nose, long hood, open cockpit tub, high tail
+    const prof = new THREE.Shape(); [[-2.4, 0.3], [-2.4, 0.84], [-1.7, 1.0], [-0.95, 0.96], [-0.8, 0.66], [0.5, 0.66], [0.72, 0.78], [2.2, 0.56], [2.46, 0.44], [2.46, 0.3]].forEach(([z, y], i) => (i ? prof.lineTo(z, y) : prof.moveTo(z, y)));
+    const wedge = new THREE.ExtrudeGeometry(prof, { depth: 1.7, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1, bevelSegments: 2, steps: 1 });
+    wedge.rotateY(-Math.PI / 2); wedge.translate(0.85, 0, 0);      // extrusion runs along x, centred
+    add(wedge, red, 0, 0, 0);
+    add(rb(1.2, 0.04, 1.3, 0.02), blk, 0, 0.7, -0.1);              // dark cockpit floor (the car is open on top)
+    add(rb(1.0, 0.32, 0.18, 0.06), red, 0, 0.88, -1.05);            // head-rest hump behind the seat
+    add(rb(1.5, 0.42, 0.08, 0.03), glass(), 0, 0.98, 0.6, -0.62);   // low windscreen
+    for (const sx of [-1, 1]) {
+      add(rb(0.12, 0.34, 0.1, 0.03), blk, sx * 0.76, 0.9, 0.62, -0.62);                               // windscreen posts
+      add(rb(0.42, 0.34, 1.7, 0.14), red, sx * 1.03, 0.6, -1.6);                                      // wide rear haunches
+      add(rb(0.3, 0.3, 0.9, 0.1), red, sx * 1.0, 0.55, 1.5);                                          // front wheel arches
+      add(rb(0.1, 0.3, 0.8, 0.03), blk, sx * 0.98, 0.5, -0.35);                                       // side air intakes
+      add(rb(0.07, 0.62, 0.8, 0.02), blk, sx * 1.12, 1.52, -2.28);                                    // wing end-plates
+      add(rb(0.09, 0.62, 0.09, 0.02), blk, sx * 0.55, 1.2, -2.15);                                    // wing struts
+    }
+    add(rb(0.46, 0.03, 1.9, 0.01), wht, 0, 0.8, 1.4, 0.07);        // racing stripe on the hood
+    add(rb(2.3, 0.1, 0.8, 0.03), red, 0, 1.52, -2.28);              // big rear wing
+    add(rb(2.3, 0.07, 0.34, 0.02), blk, 0, 1.45, -2.0);
+    add(rb(2.3, 0.08, 0.55, 0.03), blk, 0, 0.3, 2.46);              // front splitter
+    add(rb(1.9, 0.12, 0.3, 0.04), blk, 0, 0.3, -2.4);               // rear diffuser
+    for (const sx of [-1, 1]) { add(rb(0.42, 0.14, 0.1, 0.04), lamp, sx * 0.62, 0.62, 2.5); add(rb(0.5, 0.12, 0.1, 0.04), tail, sx * 0.6, 0.86, -2.48); add(new THREE.CylinderGeometry(0.1, 0.12, 0.3, 10), blk, sx * 0.42, 0.52, -2.5, Math.PI / 2, 0, 0); }
+    // blue underglow + exhaust flames (animated in animateCar)
+    const ug = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 4.6), new THREE.MeshBasicMaterial({ color: '#27b6ff', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    ug.rotation.x = -Math.PI / 2; ug.position.set(0, 0.12, 0); g.add(ug);
+    const flames = [];
+    for (const sx of [-1, 1]) for (const [rad, len, col] of [[0.17, 1.3, '#ff6a00'], [0.09, 0.8, '#ffe14a']]) { const fg = new THREE.ConeGeometry(rad, len, 8); fg.rotateX(-Math.PI / 2); fg.translate(0, 0, -len / 2); const f = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9, toneMapped: false })); f.position.set(sx * 0.42, 0.52, -2.62); g.add(f); flames.push(f); }
+    g.userData.flames = flames;
   } else { // Bubble: round green bug car with big headlights and a surfboard
     wr = 0.42; wx = 0.98; wzF = 1.15; wzB = -1.1; seat = { y: 0.5, z: -0.05 };
     const bub = add(new THREE.SphereGeometry(1.15, 24, 16), body, 0, 0.95, -0.05); bub.scale.set(0.9, 0.62, 1.55);
@@ -207,7 +234,7 @@ export function buildCarMesh(id) {
   // soft shadow blob
   const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; blob.scale.set(0.9, 1.25, 1); g.add(blob);
-  g.userData = { wheels, pivots, seat, spec };
+  g.userData = { wheels, pivots, seat, spec, flames: g.userData.flames };
   return g;
 }
 
@@ -221,4 +248,5 @@ export function animateCar(mesh, car, dt) {
   const acc = (car.speed - (car._ps === undefined ? car.speed : car._ps)) / Math.max(dt, 0.001); car._ps = car.speed;
   car._sq = (car._sq || 0) + (THREE.MathUtils.clamp(acc, -30, 30) * 0.0045 - (car._sq || 0)) * Math.min(1, dt * 7);
   mesh.rotation.x = -(car.pitch || 0) - car._sq;
+  if (u.flames) { const k = THREE.MathUtils.clamp(0.2 + Math.max(0, car.speed) / 45 + (car.boost > 0 ? 0.9 : 0) + (car.driver !== -1 ? 0.15 : 0), 0.15, 2) * (0.85 + Math.random() * 0.3); for (const f of u.flames) { f.scale.set(1, 1, k); f.visible = car.driver !== -1 || car.boost > 0; } }
 }
