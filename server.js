@@ -230,10 +230,11 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now();
         if (t - (p.lastCar || 0) < 250) return;
-        if (!num(m.c, 0, 3) || !num(m.x, -100, 100) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
+        if (!num(m.c, 0, 7) || !num(m.x, -100, 100) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
-        room.cars[m.c | 0] = { x: m.x, z: m.z, r: m.r };
-        bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, z: m.z, r: m.r }, p.id);
+        const cy = num(m.y, -5, 60) ? m.y : 0;
+        room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
+        bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, y: cy, z: m.z, r: m.r }, p.id);
         break;
       }
       case 'bat': { // baseball bat hit: relay a push to the victim (never kills)

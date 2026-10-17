@@ -14,8 +14,8 @@ const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color()
 // Merges lots of static meshes into ONE draw call (vertex colours) -> no lag.
 export class Batch {
   constructor() { this.list = []; }
-  add(geo, x, y, z, color, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
-    _e.set(rx, ry, rz); _q.setFromEuler(_e); _p.set(x, y, z); _s.set(sx, sy, sz); _m.compose(_p, _q, _s);
+  add(geo, x, y, z, color, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, ord = 'XYZ') {
+    _e.set(rx, ry, rz, ord); _q.setFromEuler(_e); _p.set(x, y, z); _s.set(sx, sy, sz); _m.compose(_p, _q, _s);
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     if (g.attributes.uv) g.deleteAttribute('uv');
     g.applyMatrix4(_m);

@@ -54,6 +54,7 @@ export const sfx = {
   hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
   door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
   honk() { tone('square', 392, 392, 0.34, 0.2); tone('square', 494, 494, 0.34, 0.2); },
+  honkBig() { tone('sawtooth', 130, 128, 0.95, 0.3); tone('square', 164, 162, 0.95, 0.24); tone('sawtooth', 196, 194, 0.95, 0.22); tone('square', 262, 258, 0.95, 0.14); noise(0.12, 0.12, 'lowpass', 900, 300); },
   skid() { noise(0.18, 0.1, 'bandpass', 2600, 1800, 0, 3); },
   vroom() { tone('sawtooth', 70, 160, 0.35, 0.2); tone('sawtooth', 90, 210, 0.3, 0.1, 0.05); },
   splash() { noise(0.6, 0.45, 'bandpass', 1800, 260, 0, 0.8); noise(0.3, 0.2, 'highpass', 2400, 900, 0.05); tone('sine', 220, 80, 0.3, 0.12); },

@@ -21,5 +21,5 @@ export const LEVEL_META = [
   { id: 4, key: 'fair', name: 'Funfair Frenzy', sub: 'Extreme', stars: 5, limit: 180, finishZ: -421.6, finishY: 0,
     colors: ['#ffd23f', '#ff4d6d'], blurb: 'Seesaws, bungee bounce, roller coaster and pitfalls' },
   { id: 5, key: 'fun', name: 'Fun Map', sub: 'Chill', stars: 1, limit: 400, finishZ: -424, finishY: 0.15,
-    colors: ['#80ed99', '#4cc9f0'], blurb: 'Giant theme park: rides, a speedway with 4 cars to drive, then the maze. Nothing can kill you!' },
+    colors: ['#80ed99', '#4cc9f0'], blurb: 'Giant theme park: rides, highways with cars to drive, a SKY SPEEDWAY to win red racers, then the maze. Nothing can kill you!' },
 ];

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { flagBoard, textBoard } from './flags.js';
+import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y } from './sky.js';
 
 export const THEMES = {
   candy: {
@@ -338,6 +339,7 @@ export function buildLevel(idx, headless = false, arrow = null) {
     const TR = { segs, plazas, boosts: [{ x: HX, z: -110, r: 4 }, { x: HX, z: -210, r: 4 }, { x: HX, z: -370, r: 4 }, { x: -HX, z: -110, r: 4 }, { x: -HX, z: -210, r: 4 }, { x: -HX, z: -370, r: 4 }, { x: -RR, z: -300, r: 4 }, { x: 0, z: RC.z - RR * RSZ, r: 4 }] };
     info.track = TR;
     info.cars = [[HX - 3.5, -33], [HX + 3.5, -33], [-HX - 3.5, -33], [-HX + 3.5, -33]].map(([x, z], i) => ({ id: i, x, z, yaw: Math.PI }));   // 2 cars at each CAR STATION
+    const SK = skyLayout(); for (const g of SK.ground) segs.push(g);   // the ground branches that lead to the sky ramps
     if (!world.headless) {
       const wm = world.main, ASPH = '#3b3f4d';
       const nearOther = (x, z, g) => { for (const q of segs) { if (q.g === g) continue; const abx = q.bx - q.ax, abz = q.bz - q.az, l2 = abx * abx + abz * abz; let t = ((x - q.ax) * abx + (z - q.az) * abz) / l2; t = Math.max(0, Math.min(1, t)); if (Math.hypot(x - (q.ax + abx * t), z - (q.az + abz * t)) < q.hw - 0.4) return true; } for (const p of plazas) if (p.g !== g && Math.hypot(x - p.x, z - p.z) < p.r - 0.4) return true; return false; };
@@ -374,6 +376,12 @@ export function buildLevel(idx, headless = false, arrow = null) {
         wm.add(world.rbox(17.6, 1.0, 1.2, 0.2), X, 6.4, -48, th.hazard);
       }
     }
+    // ---- G: SKY SPEEDWAY (elevated obstacle road; clearing it unlocks the 4 red racers waiting on the sky plaza)
+    segs.push(...SK.segs); TR.plazas.push(...SK.plazas); TR.boosts.push(...SK.boosts); TR.slicks = SK.slicks;
+    SK.dyn = makeDyn(SK.defs); TR.dyn = SK.dyn;
+    info.cars.push(...SK.racers);
+    info.sky = { y: SKY_Y, gates: SK.gates, garage: SK.garage, racerIds: [4, 5, 6, 7] };
+    if (!world.headless) buildSkyVisuals(world, SK, th);
     if (!world.headless) {
       const mk = (txt, w, h, o, x, y, z, ry) => { const b = textBoard(txt, w, h, o); b.position.set(x, y, z); b.rotation.y = ry; world.group.add(b); return b; };
       const station = { bg: ['#1f8de6', '#14609f'], fg: '#ffffff', stroke: '#06223d', border: '#ffd23f' };

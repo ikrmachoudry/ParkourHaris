@@ -215,7 +215,7 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
 {
   ph.startSingle(5); step(300);
   const R = ph.race, b = R.me.body, c0 = R.cars[0], c1 = R.cars[1];
-  ok(R.cars.length === 4 && new Set(R.cars.map((c) => c.st.id)).size === 4, '4 cars are parked at the station');
+  ok(R.cars.length === 8 && new Set(R.cars.map((c) => c.st.id)).size === 8 && R.cars.filter((c) => c.st.id < 4).length === 4, '4 cars at the stations + 4 red racers in the sky garage');
   b.x = c0.st.x - 3.2; b.z = c0.st.z; b.y = 0.05; step(3);
   ok(R.nearestFreeCar(b) === c0, 'a free car is offered when you stand next to it');
   c0.st.driver = 7; ok(R.nearestFreeCar(b) !== c0, 'a car somebody else is driving cannot be entered'); c0.st.driver = -1;
@@ -227,6 +227,18 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   key('KeyS'); key('KeyS', false); c0.st.vx = c0.st.vz = 0; c0.st.speed = 0; step(2);
   R.toggleCar(); ok(!R.drive && Math.hypot(b.x - c0.st.x, b.z - c0.st.z) > 1.8 && b.grounded === false || !R.drive, 'GET OUT puts you beside the parked car');
   step(3); ok(Math.hypot(b.x - c0.st.x, b.z - c0.st.z) > 1.5, 'player stands outside the car (not inside it)');
+  // ---- SKY SPEEDWAY: gates in order unlock the racers, then you can swap into one on the garage plaza
+  const sk = R.info.sky, rc = R.cars.filter((c) => c.st.id >= 4); R.racerOk = false; R.skyG = 0;
+  ok(rc.length === 4 && rc.every((c) => c.st.y === 16), 'racers wait up on the sky plaza (y 16)');
+  b.x = rc[0].st.x; b.z = rc[0].st.z + 3; b.y = 0.05; { const sy = rc[0].st.y; rc[0].st.y = 0; ok(R.nearestFreeCar(b) === null, 'a locked racer cannot be entered before the sky road is cleared'); rc[0].st.y = sy; }
+  const fake = { x: 0, y: 16, z: 0 };
+  const gateAt = (i) => { const g = sk.gates[i]; fake.x = g.x; fake.z = g.z; R.skyGates(fake); };
+  gateAt(1); ok(R.skyG === 0, 'gates out of order do not count');
+  for (let i = 0; i < 4; i++) gateAt(i);
+  ok(R.skyG === 4 && R.racerOk, 'all 4 sky gates in order unlock the racers');
+  R.drive = null; { const sy = rc[0].st.y; rc[0].st.y = 0; b.y = 0.05; b.x = rc[0].st.x; b.z = rc[0].st.z + 3; ok(R.nearestFreeCar(b) === rc[0], 'after clearing the sky road a racer (left on the ground) can be entered'); rc[0].st.y = sy; }
+  c1.st.x = sk.garage.x; c1.st.z = sk.garage.z + 2; c1.st.y = 16; c1.st.speed = 0; c1.st.driver = R.localId; R.drive = c1;
+  R.swapRacer(); ok(R.drive && R.drive.st.id >= 4 && c1.st.driver === -1, 'swap on the garage plaza puts you in a racer and parks the old car');
 }
 mk('b-profile-back').onclick(); step(2);
 ph.race && ph.race.destroy && 0;

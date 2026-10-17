@@ -272,3 +272,8 @@ body.touch .carbtn { padding: 0; width: clamp(66px, 17vmin, 92px); height: clamp
 body.touch .carbtn em, body.touch .carbtn kbd { display: none; }
 body.touch .carbtn .ic svg { width: clamp(46px, 12vmin, 64px); height: auto; }
 body.touch.driving .carbtn.exit { right: max(18px, 3vw); bottom: auto; top: 28%; }
+
+/* sky speedway: swap into a red racer */
+.carbtn.racer { background: linear-gradient(#ff6a78, #d1102a); box-shadow: 0 5px 0 #7d0716, 0 8px 18px rgba(0,0,0,.4); bottom: 28%; }
+body.driving.sky-swap #b-racer { display: flex; animation: carpulse 1s infinite; }
+body.touch.driving .carbtn.racer { right: max(18px, 3vw); left: auto; bottom: auto; top: calc(28% + clamp(76px, 20vmin, 104px)); transform: none; animation: none; }
