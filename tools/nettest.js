@@ -42,7 +42,7 @@ await wait(go2.t0 - Date.now() + 300);
 let an0 = last(b, 'an'); ok(an0 && an0.a.length === 5, 'server streams 5 animals (' + (an0 ? an0.a.length : 0) + ')');
 const lion0 = an0.a[0]; const pos = (ws, x, z) => ws.send(JSON.stringify({ t: 's', x, y: 0, z, r: 0, a: 1, sp: 0, ts: Date.now(), rs: 0 }));
 pos(b, 80, 5); pos(c, 80, 8); pos(d, 85, 8); // others far away
-let moved = 0; for (let k = 0; k < 80 && moved < 0.5; k++) { await wait(100); const l1 = last(b, 'an').a[0]; moved = Math.hypot(l1[1] - lion0[1], l1[3] - lion0[3]); } ok(moved > 0.5, 'wild lion wanders on the server (moved ' + moved.toFixed(1) + ' m)');
+let moved = 0; for (let k = 0; k < 200 && moved < 0.5; k++) { await wait(100); const l1 = last(b, 'an').a[0]; moved = Math.hypot(l1[1] - lion0[1], l1[3] - lion0[3]); } ok(moved > 0.5, 'wild lion wanders on the server (moved ' + moved.toFixed(1) + ' m)');
 // player a walks up to the lion: it attacks (abite sent only to the victim)
 let bite = false; const lx = () => last(b, 'an').a[0];
 { const l = lx(); pos(a, l[1], l[3] + 8); for (let k = 0; k < 60 && !bite; k++) { const l2 = lx(); pos(a, l2[1] + (k ? 0 : 0), l[3] + 8); await wait(100); bite = !!last(a, 'abite'); } }

@@ -4,6 +4,8 @@ import { World } from './world.js';
 import { flagBoard, textBoard } from './flags.js';
 import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y, GZT, GZB } from './sky.js';
 import { buildJungle } from './jungle.js';
+import { buildQuest } from './questworld.js';
+import { questLayout } from './quest.js';
 
 export const THEMES = {
   fun: {
@@ -14,10 +16,14 @@ export const THEMES = {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff7a1a', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#5a3a1e', belt: '#a3d36b',
   },
+  quest: {
+    plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
+  },
 };
-const KEYS = ['fun', 'jungle'];
+const KEYS = ['fun', 'jungle', 'quest'];
 
-export function buildLevel(idx, headless = false, arrow = null) {
+export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
   const key = KEYS[idx], th = THEMES[key];
   const world = new World(th, headless);
   world.arrowTexture = arrow;
@@ -220,6 +226,9 @@ export function buildLevel(idx, headless = false, arrow = null) {
     world.checkpoint(0, 0, MZ + 2, 16);
     c.z = MZ - N * CELL; c.y = 0.15;
     finish();
+  } else if (idx === 2) { // ------------------------------------------ JUNGLE QUEST (road of random mazes, team circles, beasts, dragon)
+    buildQuest(world, th, info, seed);
+    info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: questLayout().dr.endZ };
   } else { // ------------------------------------------------------ JUNGLE (free roam: animals, a dinosaur hill, no race)
     buildJungle(world, th, info);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: -230 }; // free roam: there is no finish line

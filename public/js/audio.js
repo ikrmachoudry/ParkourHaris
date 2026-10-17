@@ -78,6 +78,7 @@ const SCALES = {
 const THEMES = [
   { bpm: 112, root: 65, scale: 'lydian', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3400 },  // fun map (relaxed)
   { bpm: 124, root: 57, scale: 'dorian', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // jungle (bouncy)
+  { bpm: 128, root: 62, scale: 'lydian', prog: [0, 4, 5, 3], lead: 'triangle', bright: 3400 },  // jungle quest (adventure)
   { bpm: 120, root: 60, scale: 'major', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // menu
 ];
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -105,7 +106,7 @@ function musicKick(t) {
 export function startMusic(levelIdx) {
   stopMusic();
   if (!ctx) return;
-  const th = THEMES[levelIdx] || THEMES[2];
+  const th = THEMES[levelIdx] || THEMES[THEMES.length - 1];
   const sc = SCALES[th.scale];
   const step = 60 / th.bpm / 4;
   // deterministic melody patterns (2 bars of 16ths per chord), seeded per theme so it is catchy not random noise

@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 2, 'level select with 2 cards (Fun Map + Jungle)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 3, 'level select with 3 cards (Fun Map + Jungle + Jungle Quest)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
@@ -291,6 +291,34 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   step(1500); for (const a of an.list) if (a.kind !== 'dino' && (Math.abs(a.x) > 90 || a.z > 12 || a.z < -228 || (a.y < 1 && L.inHill(a.x, a.z, -1)))) bad++;
   ok(bad === 0, 'animals never leave the park or climb into the hill');
   R.destroy && 0;
+}
+
+// ---- JUNGLE QUEST (single player): maze -> circle -> boulder -> beast -> gate -> ... -> dragon -> victory
+{
+  mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
+  ph.startSingle(2); step(300);
+  const R = ph.race, b = R.me.body, an = R.an, Q = R.quest;
+  ok(R.meta.key === 'quest' && Q && an && an.list.length === 5 && an.list.every((a) => a.st === 8), 'Jungle Quest loads: 5 hidden beasts, quest state');
+  ok(mk('body').classes.has('free-map') && R.info.finishZ < -9999, 'quest is free-roam (no race, no finish line)');
+  const L = Q.L, tp = (x, z) => { b.x = x; b.z = z; b.y = 0.05; b.vx = b.vz = 0; b.vy = 0; b.stun = 0; };
+  for (let c = 0; c < 5; c++) {
+    const C = L.chapters[c];
+    tp(0, C.plazaZ); step(120);
+    ok(Q.q.ph === 1 && Q.q.ch === c, `ch${c + 1}: standing on the circle drops the boulder -> beast phase`);
+    ok(!R.info.quest.chapters[c].boulder.solid.active, `ch${c + 1}: boulder collider removed`);
+    step(120); ok(R.info.quest.chapters[c].boulder.grp.visible === false, `ch${c + 1}: boulder fell and vanished`);
+    const beast = an.list[c]; ok(beast.st !== 8 && an.items[c].o.root.visible, `ch${c + 1}: ${beast.kind} appeared`);
+    for (const a of an.list) if (a !== beast && a.st !== 8) { a.x = 0; a.z = 999; }
+    const need = beast.hp; for (let i = 0; i < need; i++) { beast.stagger = 0; beast.x = 0; beast.z = C.arenaC; tp(0, C.arenaC + 2.8); b.yaw = Math.PI; R.an.batHit(b); }
+    step(3); ok(!!beast.owner, `ch${c + 1}: ${need} bat hits -> ${beast.kind} is tamed`);
+    if (c < 4) { ok(Q.q.ph === 0 && Q.q.ch === c + 1, `ch${c + 1}: gate opens, next maze`); step(100); ok(!R.info.quest.chapters[c].gate.solid.active, `ch${c + 1}: gate collider removed`); }
+  }
+  ok(Q.q.ph === 2, 'dragon phase after the 5th beast');
+  tp(0, L.dr.circlesZ); step(150);
+  ok(Q.q.ph === 3 && !R.info.quest.dragon.solid.active, 'circle frees the dragon (cage opens)');
+  step(60 * 11); ok(Q.q.ph === 4 && R.victory > 0, 'dragon flew away -> VICTORY');
+  ok(/VICTORY/.test(R.questHud()), 'HUD says VICTORY');
+  ok(Q.vis.dragon.root.position.y > 20, 'the dragon flies high above (y ' + Q.vis.dragon.root.position.y.toFixed(0) + ')');
 }
 mk('b-profile-back').onclick(); step(2);
 ph.race && ph.race.destroy && 0;

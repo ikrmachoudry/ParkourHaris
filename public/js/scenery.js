@@ -5,6 +5,7 @@ import { Batch } from './world.js';
 export const VIS = {
   fun: { top: '#35a7ff', horizon: '#e8fbff', bottom: '#fff6d8', fog: '#d9f4ff', fogNear: 120, fogFar: 640, sun: '#fff4d6', sunPos: [-40, 90, -60], sunI: 2.7, hemiSky: '#d4ecff', hemiGround: '#bfe8a0', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.6 },
   jungle: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
+  quest: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
 };
 
 // ---------------------------------------------------------------- textures
@@ -186,7 +187,7 @@ export class Ambient {
     const pos = new Float32Array(n * 3); this.seed = new Float32Array(n * 3);
     for (let i = 0; i < n * 3; i++) this.seed[i] = Math.random();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const colors = { fun: '#fff6a8', jungle: '#fffbb0' };
+    const colors = { fun: '#fff6a8', jungle: '#fffbb0', quest: '#fff6c0' };
     this.mat = new THREE.PointsMaterial({ color: colors[kind] || '#fff', size: kind === 'frost' ? 0.28 : 0.22, transparent: true, opacity: 0.85, depthWrite: false, map: softTexture(), blending: kind === 'neon' || kind === 'canyon' ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     this.pos = pos;
@@ -282,6 +283,14 @@ export function buildScenery(scene, key, info, world) {
       c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
       dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 300) c.position.x = -300; });
     }
+  } else if (key === 'quest') {
+    // clouds drifting along the whole road
+    for (let i = 0; i < 40; i++) {
+      const c = new THREE.Group(), x = (R() - 0.5) * 420, z = 40 - R() * 640, y = 70 + R() * 50, k = 3 + Math.floor(R() * 3);
+      for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(6 + R() * 6, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, fog: false })); m.position.set(q * 8 - k * 4, R() * 3, R() * 5); m.scale.y = 0.55; c.add(m); }
+      c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
+      dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 260) c.position.x = -260; });
+    }
   }
 
   const m1 = main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }));
@@ -289,7 +298,7 @@ export function buildScenery(scene, key, info, world) {
   const m2 = glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
   if (m2) group.add(m2);
 
-  if (key !== 'jungle') {
+  if (key !== 'jungle' && key !== 'quest') {
   // ---- HARIS branding (never touches gameplay) ----------------------------------------
   const brand = new THREE.Group(); brand.name = 'brand'; group.add(brand);
   const tex = harisTexture('HARIS', 'MADE THIS GAME');

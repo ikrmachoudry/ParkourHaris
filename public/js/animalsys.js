@@ -1,13 +1,14 @@
 // Client side of the Jungle animals: meshes, tags, ropes, taming (bat), riding. Single player runs the brain locally (jlayout.js);
 // multiplayer mirrors the server's brain (messages 'an' / 'aev' / 'abite').
 import * as THREE from 'three';
-import { KINDS, ST, HILL, newAnimals, stepAnimals, hitAnimal, jungleLayout } from './jlayout.js';
+import { KINDS, ST, HILL, ANIMAL_DEFS, active, newAnimals, stepAnimals, hitAnimal, jungleLayout } from './jlayout.js';
+import { QUEST_DEFS, questAnimalLayout } from './quest.js';
 import { buildAnimalMesh, animateAnimal } from './animals3d.js';
 import { makeNameTag } from './characters.js';
 import { STAKES } from './jungle.js';
 import * as A from './audio.js';
 
-const TAG_Y = { lion: 3.0, leopard: 2.7, elephant: 5.3, horse: 3.8, dino: 5.6 };
+const TAG_Y = { lion: 3.0, leopard: 2.7, elephant: 5.3, horse: 3.8, dino: 5.6, coyote: 2.7, boar: 2.8, hyena: 2.8, bear: 4.6, gorilla: 4.9 };
 const lerp = (a, b, k) => a + (b - a) * k;
 const lerpAng = (a, b, k) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * k; };
 const ropeGeo = new THREE.CylinderGeometry(0.07, 0.07, 1, 5);
@@ -16,8 +17,10 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 export class AnimalSys {
   constructor(race) {
-    this.r = race; this.multi = race.multi; this.L = jungleLayout();
-    this.list = newAnimals(); this.mount = null; this.mountT = 0; this.t = 0; this.near = null; this.evAcc = [];
+    this.r = race; this.multi = race.multi; this.quest = !!race.meta.quest;
+    this.defs = this.quest ? QUEST_DEFS() : ANIMAL_DEFS; active.defs = this.defs;
+    this.L = this.quest ? questAnimalLayout() : jungleLayout();
+    this.list = newAnimals(this.defs); this.mount = null; this.mountT = 0; this.t = 0; this.near = null; this.evAcc = [];
     this.items = this.list.map((a) => {
       const o = buildAnimalMesh(a.kind); o.root.position.set(a.x, a.y, a.z); o.root.rotation.y = a.yaw; race.scene.add(o.root);
       const it = { a, o, x: a.x, y: a.y, z: a.z, yaw: a.yaw, speed: 0, tag: null, tagKey: '', ropes: [], px: a.x, pz: a.z, hitFx: 0 };
@@ -47,7 +50,8 @@ export class AnimalSys {
       else { const f = 1 - Math.exp(-13 * dt); const far = Math.hypot(a.x - it.x, a.z - it.z) > 14; it.x = far ? a.x : lerp(it.x, a.x, f); it.y = lerp(it.y, a.y, f); it.z = far ? a.z : lerp(it.z, a.z, f); it.yaw = lerpAng(it.yaw, a.yaw, 1 - Math.exp(-10 * dt)); }
       const sp = dt > 0 ? Math.hypot(it.x - it.px, it.z - it.pz) / dt : 0; it.speed = lerp(it.speed, Math.min(sp, 14), 0.25); it.px = it.x; it.pz = it.z;
       const o = it.o, root = o.root;
-      root.position.set(it.x, it.y, it.z); root.rotation.y = it.yaw;
+      root.position.set(it.x, it.y, it.z); root.rotation.y = it.yaw; root.visible = a.st !== ST.HIDDEN;
+      if (a.st === ST.HIDDEN) continue;
       it.atk = a.st === ST.ATTACK ? (it.atk || 0) + dt : 0;
       animateAnimal(o, this.t, dt, mine ? Math.min(14, Math.hypot(b.vx, b.vz)) : it.speed, a.st, a.st === ST.ATTACK ? Math.max(0.02, 1 - it.atk / 0.5) : 0);
       this.updateTag(it, K);
@@ -92,7 +96,7 @@ export class AnimalSys {
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), id = this.me(); let any = false;
     if (this.mount) return false;
     for (const it of this.items) {
-      const a = it.a, K = KINDS[a.kind]; if (a.owner || a.rider) continue;
+      const a = it.a, K = KINDS[a.kind]; if (a.owner || a.rider || a.st === ST.HIDDEN) continue;
       const dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz);
       if (d > K.r + 2.7 || Math.abs(a.y - b.y) > 3.5 || d < 1e-3) continue;
       if ((dx * fx + dz * fz) / d < -0.15) continue;

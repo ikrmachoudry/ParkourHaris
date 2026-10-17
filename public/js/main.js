@@ -12,7 +12,9 @@ import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 import { AnimalSys } from './animalsys.js';
-import { KINDS, ANIMAL_DEFS } from './jlayout.js';
+import { KINDS, active as animalTable } from './jlayout.js';
+import { newQuest, stepQuest, questLayout, PH, Q as QC } from './quest.js';
+import { QuestVis } from './questworld.js';
 
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
@@ -184,7 +186,7 @@ class Remote {
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
     g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
-    if (this.flags & 8192) { const ad = ANIMAL_DEFS[(this.flags >> 14) & 7]; if (ad) g.position.y += KINDS[ad.kind].seat; }
+    if (this.flags & 8192) { const ad = animalTable.defs[(this.flags >> 14) & 7]; if (ad) g.position.y += KINDS[ad.kind].seat; }
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
@@ -212,7 +214,7 @@ class Race {
     scene.environment = envTex; scene.environmentIntensity = v.env;
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1800);
 
-    const { world, info } = buildLevel(levelIdx, false, arrowTexture());
+    const { world, info } = buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
     this.world = world; this.info = info; scene.add(world.group);
     world.onEvent = null;
     this.sky = makeSky(v); scene.add(this.sky);
@@ -254,6 +256,7 @@ class Race {
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
     this.spawn(this.slot);
     this.an = this.meta.free ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
+    this.quest = this.meta.quest ? { q: newQuest(), vis: new QuestVis(world, info), L: questLayout() } : null; this.victory = 0; this.hopT = 0;
     this.buildProgress(); this.buildBoxes();
     document.body.classList.add('in-race');
     $('hud-level').textContent = this.meta.name;
@@ -264,6 +267,28 @@ class Race {
     A.duckMusic(false);
     this.pos = this.me.body;
   }
+  // ---- Jungle Quest: state machine runs here (single player) or arrives from the server ('q' / 'qev')
+  updateQuest(dt) {
+    const Qs = this.quest, b = this.me.body;
+    if (!this.multi && this.levelTime >= 0 && !this.over) {
+      const evs = stepQuest(Qs.q, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.an.list, 1, Qs.L, []);
+      for (const e of evs) this.questEvent(e);
+    }
+    Qs.vis.setState(Qs.q); Qs.vis.update(dt);
+    if (this.victory > 0) { // everybody jumps for joy + confetti
+      this.victory += dt; this.hopT -= dt;
+      if (this.hopT <= 0 && b.grounded && !(this.an && this.an.mount)) { this.hopT = 0.7 + Math.random() * 0.3; b.vy = 9.5; b.grounded = false; }
+      if (Math.random() < dt * 14) this.particles.emit(b.x + (Math.random() - 0.5) * 8, b.y + 7, b.z + (Math.random() - 0.5) * 8, 3, { color: ['#ff5fa8', '#ffd23f', '#4cc9f0', '#80ed99'][(Math.random() * 4) | 0], speed: 2.5, up: -1, life: 1.6, size: 0.4, gravity: 3, spread: 1 });
+    }
+  }
+  questEvent(e) {
+    const Qs = this.quest, L = Qs.L; Qs.vis.event(e);
+    if (e.k === 'boulder') { const z = L.chapters[e.ch].boulderZ; A.sfx.roar(1); this.toast('THE BOULDER FALLS! A BEAST APPEARS - hit it with the BAT!'); this.particles.emit(0, 3, z, 60, { color: '#bdb6a8', speed: 8, up: 4, life: 1.2, size: 0.8, gravity: 4, spread: 1 }); }
+    else if (e.k === 'gate') { A.sfx.tame(); this.toast(e.ch >= QC.CH - 1 ? 'BEAST BEATEN! Now free the DRAGON!' : 'BEAST BEATEN - the GATE opens! Next maze ahead...'); }
+    else if (e.k === 'cage') { A.sfx.roar(1); this.toast('THE DRAGON IS FREE!'); }
+    else if (e.k === 'victory') { this.victory = 0.001; A.sfx.go(); this.toast('VICTORY! YOU FREED THE DRAGON!'); }
+  }
+  questNet(m) { Object.assign(this.quest.q, { ch: m.ch, ph: m.ph, n: m.n, occ: m.occ || [], hold: m.hold || 0 }); }
   setShadows(on) { this.sun.castShadow = on; }
 
   spawnPoint(slot) { return [(slot - 1.5) * 3.6, 0, this.info.spawn.z]; }
@@ -351,7 +376,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
     else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); if (this.an) this.an.seatLocal(g); }
-    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : b.grounded, vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf), swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : b.grounded, vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -371,6 +396,7 @@ class Race {
 
     this.updateCars(dt, canMove);
     if (this.an) this.an.update(dt);
+    if (this.quest) this.updateQuest(dt);
 
 
     this.updateCamera(dt);
@@ -832,7 +858,7 @@ class Race {
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
-    $('hud-rank').textContent = this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    $('hud-rank').textContent = this.quest ? this.questHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);
@@ -841,6 +867,14 @@ class Race {
     if (want !== hint.classList.contains('show')) hint.classList.toggle('show', want);
     { const tb2 = $('t-bat'); if (tb2) tb2.classList.toggle('cd', this.batCd > 0); }
     if (this.multi) $('hud-net').textContent = `ping ${Math.round(app.net.rtt)} ms`;
+  }
+
+  questHud() {
+    const q = this.quest.q, occ = (q.occ || []).filter((v) => v).length;
+    if (q.ph === PH.MAZE) return `Ch ${q.ch + 1}/${QC.CH} \u2022 Circles ${occ}/${q.n}`;
+    if (q.ph === PH.BEAST) return `Ch ${q.ch + 1}/${QC.CH} \u2022 BEAT THE BEAST!`;
+    if (q.ph === PH.DRAGON) return `DRAGON \u2022 Circles ${occ}/${q.n}`;
+    return q.ph === PH.WIN ? 'VICTORY!' : 'FREE!';
   }
 
   render() { renderer.render(this.scene, this.camera); }
@@ -939,7 +973,7 @@ function startSingle(levelIdx) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600 });
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) });
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -1002,6 +1036,8 @@ async function ensureNet() {
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
   net.on('an', (m) => { if (race && race.an) race.an.onNet(m); });
   net.on('aev', (m) => { if (race && race.an) race.an.onEvent(m); });
+  net.on('q', (m) => { if (race && race.quest) race.questNet(m); });
+  net.on('qev', (m) => { if (race && race.quest) race.questEvent(m); });
   net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
@@ -1069,7 +1105,7 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
-  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0 });
+  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed });
   resize(); show('none'); tryLock();
 }
 
