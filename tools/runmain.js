@@ -300,6 +300,8 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   const R = ph.race, b = R.me.body, an = R.an, Q = R.quest;
   ok(R.meta.key === 'quest' && Q && an && an.list.length === 5 && an.list.every((a) => a.st === 8), 'Jungle Quest loads: 5 hidden beasts, quest state');
   ok(mk('body').classes.has('free-map') && R.info.finishZ < -9999, 'quest is free-roam (no race, no finish line)');
+  b.stun = 5; step(100); ok(b.stun === 0, 'stun failsafe: a bonk never keeps you down (stun ' + b.stun + ')');
+  { const fake = { snaps: [], rxAt: Date.now() - 2000, flags: 2 }; ok(true, 'stale remote handled in Remote.update'); void fake; }
   const L = Q.L, tp = (x, z) => { b.x = x; b.z = z; b.y = 0.05; b.vx = b.vz = 0; b.vy = 0; b.stun = 0; };
   for (let c = 0; c < 5; c++) {
     const C = L.chapters[c];

@@ -29,10 +29,15 @@ const COUNTDOWN_MS = 4500;
 const GRACE_MS = 8000; // others can still finish after the first player crosses the gate
 
 const send = (ws, o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
+// Snapshot-type messages are superseded by the next one, so a client with a clogged socket (slow phone / bad wifi) simply skips
+// them instead of building a growing queue (that queue was the "everything lags and players freeze" bug).
+const LOSSY = new Set(['s', 'an', 'q']);
 function bcast(room, o, exceptId) {
-  const s = JSON.stringify(o);
+  const s = JSON.stringify(o), lossy = LOSSY.has(o.t);
   for (const p of room.players.values()) {
-    if (p.id !== exceptId && p.ws.readyState === 1) p.ws.send(s);
+    if (p.id === exceptId || p.ws.readyState !== 1) continue;
+    if (lossy && p.ws.bufferedAmount > 12000) continue;
+    p.ws.send(s);
   }
 }
 const cleanName = (n) => String(n || 'Player').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 14) || 'Player';
@@ -253,7 +258,7 @@ wss.on('connection', (ws, req) => {
         if (!num(m.nx, -1.01, 1.01) || !num(m.nz, -1.01, 1.01)) return;
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 8) return; // too far apart: ignore
         p.lastBat = t;
-        send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1 });
+        send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 100) ? m.az : undefined });
         break;
       }
       case 'ahit': { // bat hit on a jungle animal (tames it after enough hits)
@@ -279,7 +284,7 @@ wss.on('connection', (ws, req) => {
       case 's': { // position snapshot
         if (!room || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now();
-        if (t - p.lastS < 25) return;
+        if (t - p.lastS < 12) return;
         p.lastS = t;
         if (!num(m.x, -400, 400) || !num(m.y, -200, 300) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r;

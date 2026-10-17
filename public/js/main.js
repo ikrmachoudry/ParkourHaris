@@ -153,12 +153,13 @@ class Remote {
     this.info = info; this.id = info.id; this.name = info.name;
     this.model = new Character(info.char); scene.add(this.model.group);
     this.tag = makeNameTag(info.name, CHARACTERS[info.char].color); this.tag.position.set(0, this.model.height + 0.7, 0); this.model.group.add(this.tag);
-    this.snaps = []; this.x = 0; this.y = -50; this.z = 0; this.yaw = Math.PI; this.speed = 0; this.flags = 0; this.vy = 0; this.vx = 0; this.vz = 0; this.sw = 0; this.ds = []; this.dMin = 0; this.jit = 0; this.rs = 0; this.has = false; this.finished = false; this.lastLanded = false;
+    this.snaps = []; this.x = 0; this.y = -50; this.z = 0; this.yaw = Math.PI; this.speed = 0; this.flags = 0; this.vy = 0; this.vx = 0; this.vz = 0; this.sw = 0; this.ds = []; this.dMin = 0; this.jit = 0; this.rs = 0; this.has = false; this.finished = false; this.lastLanded = false; this.rxAt = Date.now(); this.stunT = 0;
   }
   push(m) {
     if (m.rs !== this.rs) { this.snaps.length = 0; this.rs = m.rs; }
     const last = this.snaps[this.snaps.length - 1];
-    if (last && m.ts <= last.ts) return;
+    this.rxAt = Date.now();
+    if (last && m.ts <= last.ts) { if (last.ts - m.ts < 400) return; this.snaps.length = 0; this.ds.length = 0; } // slightly late / duplicate: ignore; big jump back (their clock re-synced): start a fresh timeline
     // Clock-proof timing: learn (arrival time - sender time) from the fastest recent packets, so a phone whose
     // clock sync is a bit off still plays the other player's movement smoothly instead of freezing.
     const now = Date.now(), d = now - m.ts;
@@ -183,10 +184,14 @@ class Remote {
     }
     this.yaw = lerpAngle(this.yaw, b.r, 1 - Math.exp(-16 * dt));
     this.speed = (b.a & 8192) ? 0 : lerp(a.sp, b.sp, clamp(k, 0, 1)); this.flags = b.a;
+    if (Date.now() - this.rxAt > 700) { this.flags &= ~(2 | 4 | 16); this.speed = 0; } // their packets stopped (slow / hidden window): stand them up instead of freezing them lying down
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
     g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
     if (this.flags & 8192) { const ad = animalTable.defs[(this.flags >> 14) & 7]; if (ad) g.position.y += KINDS[ad.kind].seat; }
+    // a lost packet must never leave somebody lying down forever on my screen: stun is at most ~1.2 s long
+    if (this.flags & 2) this.stunT = (this.stunT || 0) + dt; else this.stunT = 0;
+    if (this.stunT > 1.2) this.flags &= ~2;
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
@@ -344,6 +349,9 @@ class Race {
     const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive };
     press.jump = false; press.dive = false;
 
+    // a bonk can never keep you down: stun is always <1 s, even while driving (stepBody is not run then) or after a long frame
+    if (this.drive && b.stun > 0) b.stun = Math.max(0, b.stun - dt);
+    if (b.stun > 0) { this.stunReal = (this.stunReal || 0) + dt; if (this.stunReal > 1.25) { b.stun = 0; b.immune = 0.6; this.stunReal = 0; } } else this.stunReal = 0;
     const steps = Math.max(1, Math.ceil(dt / (1 / 90))), sdt = dt / steps;
     let landed = false;
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
@@ -387,11 +395,7 @@ class Race {
         if ((r.flags & 64) && Math.random() < 0.6) this.particles.emit(r.x, r.y + 0.3, r.z, 1, { color: '#5fc2ff', speed: 1, up: 0.5, life: 0.35, size: 0.35 });
       }
       this.sendT += dt;
-      if (this.sendT >= 0.033) {
-        this.sendT = 0;
-        const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0);
-        app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: Math.round(app.net.now()), rs: this.rs });
-      }
+      if (this.sendT >= 0.033) this.sendSnap();
     }
 
     this.updateCars(dt, canMove);
@@ -616,7 +620,7 @@ class Race {
     if (this.finished) return;
     const lim = P.R * 2 + 0.06;
     for (const r of this.remotes.values()) {
-      if (!r.has || (r.flags & 8)) continue;
+      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 500) continue; // never collide with a ghost whose packets stopped
       const dx = b.x - r.x, dz = b.z - r.z, dy = b.y - r.y;
       if (Math.abs(dy) > P.H * 0.8) continue;
       const d = Math.hypot(dx, dz);
@@ -651,6 +655,13 @@ class Race {
     this.particles.emit(b.x, b.y + 1, b.z, 14, { color: '#ffd23f', speed: 8, up: 4, life: 0.45, size: 0.28 });
   }
 
+  // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
+  sendSnap() {
+    const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0);
+    app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
+  }
+
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
     if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || (this.an && this.an.mount)) return false;
@@ -672,12 +683,12 @@ class Race {
     if (this.an) this.an.batHit(b);
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     for (const r of this.remotes.values()) {
-      if (!r.has || (r.flags & 8)) continue;
+      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
       if (d > (this.swingMega ? 4.4 : 2.9) || Math.abs(dy) > 1.7 || d < 1e-3) continue;
       if ((dx * fx + dz * fz) / d < 0.1) continue;                        // must be in front of me
       let nx = fx * 0.7 + (dx / d) * 0.3, nz = fz * 0.7 + (dz / d) * 0.3; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
-      app.net.send({ t: 'bat', to: r.id, nx: +nx.toFixed(3), nz: +nz.toFixed(3), p: this.swingMega ? 2 : 1 });
+      app.net.send({ t: 'bat', to: r.id, nx: +nx.toFixed(3), nz: +nz.toFixed(3), p: this.swingMega ? 2 : 1, ax: +b.x.toFixed(1), az: +b.z.toFixed(1) });
       A.sfx.bonk(); this.toast('BONK!  \u2022 ' + (r.name || ''));
       this.particles.emit(r.x, r.y + 1, r.z, 24, { color: '#ffd23f', speed: 7, up: 4, life: 0.5, size: 0.3 });
       this.particles.emit(r.x, r.y + 1, r.z, 14, { color: '#ffffff', speed: 5, up: 3, life: 0.4, size: 0.25 });
@@ -688,6 +699,7 @@ class Race {
     const b = this.me.body; if (this.over || this.levelTime < 0) return;
     if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
     const big = m.big ? 1 : 0, nm = (this.an && this.an.list[m.id]) ? KINDS[this.an.list[m.id].kind] : null;
+    if (b.immune > 0 || b.stun > 0.2) return;
     b.hitCd = 0;
     if (knock(b, m.nx, m.nz, big ? 21 : 15)) { b.vy = big ? 10 : 8; b.stun = big ? 0.9 : 0.7; this.bonked(nm ? nm.sound : 'GRRR!', '', b); this.shake = Math.max(this.shake || 0, 0.8); }
   }
@@ -699,6 +711,8 @@ class Race {
   onBat(m) { // somebody hit ME
     const b = this.me.body; if (this.over || this.finished || this.levelTime < 0) return;
     const who = (this.players.find((p) => p.id === m.from) || {}).name || '';
+    if (b.immune > 0 || b.stun > 0.2) return; // already flying / just recovered
+    if (Number.isFinite(m.ax) && Number.isFinite(m.az) && Math.hypot(m.ax - b.x, m.az - b.z) > 7) return; // I had already run away from where they swung: no phantom hits
     b.hitCd = 0;
     if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
     const big = m.p === 2;
@@ -1213,10 +1227,20 @@ async function boot() {
   if (roomParam) { openProfile('multi'); gtoast('Pick your name & player, then CONTINUE and JOIN ROOM'); }
 
   $('loader').classList.add('done'); setTimeout(() => $('loader').remove(), 600);
-  let last = performance.now();
+  let last = performance.now(), bgLast = performance.now();
+  // keeps the game (and our position packets) alive when this window is hidden / behind another one (e.g. two windows on one PC): a worker timer is not throttled
+  try {
+    const wk = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),50)'], { type: 'text/javascript' })));
+    wk.onmessage = () => {
+      if (!race || !race.multi || race.paused) return;
+      const nw = performance.now();
+      if (nw - bgLast > 200) { const dt = Math.min(0.25, (nw - bgLast) / 1000); bgLast = nw; last = nw; race.update(dt); } // frames stopped: advance the game from here
+      else if (nw - (race.lastSend || 0) > 100) race.sendSnap();
+    };
+  } catch { /* no workers: fine */ }
   const loop = (now) => {
     requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt);
     if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); race.render(); }
     else { stage.update(dt); renderer.render(stage.scene, stage.camera); }
