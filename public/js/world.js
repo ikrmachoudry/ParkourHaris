@@ -47,7 +47,7 @@ export class World {
     this.headless = headless;
     this.group = new THREE.Group();
     this.solids = []; this.ramps = []; this.discs = []; this.hazards = []; this.updaters = [];
-    this.checkpoints = []; this.zones = []; this.pools = [];
+    this.checkpoints = []; this.zones = []; this.pools = []; this.winds = []; this.swings = [];
     this.main = new Batch(); this.glow = new Batch();
     this.waterY = -5; this.killY = -9;
     this.geoCache = new Map(); this.matCache = new Map();
@@ -574,6 +574,101 @@ export class World {
     const dz = push[1] < 0 ? -1 : 1; // direction of travel
     this.main.add(new THREE.CylinderGeometry(1.0, 1.35, 5.5, 14), cx, 2.4, cz - dz * 2.8, this.theme.hub, dz * 0.93, 0, 0);
     this.main.add(new THREE.TorusGeometry(1.1, 0.2, 8, 18), cx, 4.4, cz - dz * 0.5, this.theme.accent, Math.PI / 2 - dz * 0.64, 0, 0);
+  }
+
+
+  // ---------------------------------------------------------------- fans, swings, doors (Maze level)
+  // FAN: a wind column that pushes you sideways (ax, az in m/s of drift) while you are inside the box x0..x1 / z0..z1, y0..y1.
+  fan(x0, x1, z0, z1, y0, y1, ax, az) {
+    const f = { x0, x1, z0, z1, y0, y1, ax, az }; this.winds.push(f);
+    if (this.headless) return f;
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, dirX = Math.sign(ax) || 0, dirZ = Math.sign(az) || 0;
+    // the fan itself stands at the upwind edge: pole, cage and spinning blades
+    const px = dirX ? (dirX > 0 ? x0 - 0.8 : x1 + 0.8) : cx, pz = dirZ ? (dirZ > 0 ? z0 - 0.8 : z1 + 0.8) : cz, fy = y0 + 2.2;
+    this.main.add(new THREE.CylinderGeometry(0.3, 0.45, 9.4, 8), px, y0 - 3.1, pz, this.theme.hub);
+    const g = new THREE.Group(); g.position.set(px, fy, pz); g.rotation.y = dirX ? (dirX > 0 ? Math.PI / 2 : -Math.PI / 2) : (dirZ > 0 ? 0 : Math.PI);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.18, 8, 28), this.mat(this.theme.hazard)); g.add(ring);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.5, 12), this.mat('#ffffff')); hub.rotation.x = Math.PI / 2; g.add(hub);
+    const blades = new THREE.Group();
+    for (let i = 0; i < 4; i++) { const bl = new THREE.Mesh(this.rbox(0.6, 1.4, 0.1, 0.04), this.mat(i % 2 ? '#ffffff' : this.theme.accent)); bl.position.y = 0.9; const pv = new THREE.Group(); pv.rotation.z = i * Math.PI / 2; pv.add(bl); blades.add(pv); }
+    g.add(blades); this.add(g);
+    // moving "wind streaks" along the push direction so you can SEE where it blows
+    const sm = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false });
+    const streaks = [], L = Math.abs(dirX) ? x1 - x0 : z1 - z0;
+    for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(dirX ? 2.2 : 0.07, 0.07, dirX ? 0.07 : 2.2), sm); this.group.add(m); streaks.push({ m, k: i / 7, o: ((i * 0.37) % 1) }); }
+    this.updaters.push((t) => {
+      blades.rotation.z = t * 16;
+      for (const s of streaks) {
+        const u = (s.k + t * 0.55) % 1, d = u * L;
+        s.m.position.set(dirX ? (dirX > 0 ? x0 + d : x1 - d) : x0 + (x1 - x0) * s.o, y0 + 0.8 + ((s.o * 7) % 1) * (y1 - y0 - 1.2), dirZ ? (dirZ > 0 ? z0 + d : z1 - d) : z0 + (z1 - z0) * s.o);
+      }
+    });
+    return f;
+  }
+
+  // SWING (trapeze): a rope that swings along z. Deterministic from level time (same phase for everybody).
+  // The player-side code (main.js) lets you GRAB the handle when it passes close, and let go with JUMP.
+  swing(sx, sy, sz, len, amp, period, phase = 0, color) {
+    const w = { x: sx, y: sy, z: sz, len, amp, om: 2 * Math.PI / period, ph: phase };
+    this.swings.push(w);
+    if (this.headless) return w;
+    const col = color ?? this.theme.hazard;
+    // support frame (static): two posts + beam
+    const span = 3.0;
+    for (const sd of [-1, 1]) this.main.add(this.rbox(0.8, sy + 1, 0.8, 0.2), sx + sd * span, (sy - 1) / 2 + 0.5, sz, this.theme.hub);
+    this.main.add(this.rbox(span * 2 + 0.8, 0.8, 0.8, 0.2), sx, sy + 0.4, sz, this.theme.hub);
+    this.glow.add(new THREE.SphereGeometry(0.35, 10, 8), sx - span, sy + 1.2, sz, '#ffffff'); this.glow.add(new THREE.SphereGeometry(0.35, 10, 8), sx + span, sy + 1.2, sz, '#ffffff');
+    const g = new THREE.Group(); g.position.set(sx, sy, sz);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, len, 6), this.mat('#fff2c4')); rope.position.y = -len / 2; g.add(rope);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3.0, 12), this.mat('#ffd23f', { rough: 0.3 })); bar.rotation.z = Math.PI / 2; bar.position.y = -len; g.add(bar);
+    for (const sd of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), this.mat('#ffffff')); k.position.set(sd * 1.5, -len, 0); g.add(k); }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 6, 16), this.mat('#ffd23f')); ring.position.y = -len + 0.0; ring.rotation.y = Math.PI / 2; g.add(ring);
+    this.add(g);
+    w.mesh = g;
+    this.updaters.push((t) => { g.rotation.x = -this.swingAngle(w, t); });
+    return w;
+  }
+  swingAngle(w, t) { return w.amp * Math.sin(w.om * t + w.ph); }
+  // handle position + velocity at time t
+  swingTip(w, t, out = {}) {
+    const th = this.swingAngle(w, t), dth = w.amp * w.om * Math.cos(w.om * t + w.ph);
+    out.x = w.x; out.y = w.y - w.len * Math.cos(th); out.z = w.z + w.len * Math.sin(th);
+    out.vz = w.len * dth * Math.cos(th); out.vy = w.len * dth * Math.sin(th);
+    return out;
+  }
+
+  // DOOR WALL: n doors across width w at z. `fake[i]` doors are SOLID (they don't open); the others swing open when you run into them.
+  doorWall(cx, top, cz, w, n, fake, o = {}) {
+    const dh = o.h ?? 4.2, dw = w / n, cols = o.colors ?? ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#ff9f1c', '#b58cff', '#ff7a7a'];
+    const doors = [];
+    for (let i = 0; i < n; i++) {
+      const x = cx - w / 2 + dw * (i + 0.5);
+      const s = fake[i] ? this.addSolid(x - dw / 2 + 0.05, top, cz - 0.4, x + dw / 2 - 0.05, top + dh, cz + 0.4, { name: 'fakedoor' }) : null;
+      const d = { x, z: cz, i, fake: !!fake[i], solid: s, open: 0, mesh: null };
+      if (!this.headless) {
+        const g = new THREE.Group(); g.position.set(x - dw / 2 + 0.05, top, cz);        // hinge on the left edge
+        const panel = new THREE.Mesh(this.rbox(dw - 0.1, dh, 0.5, 0.12), this.mat(cols[i % cols.length], { rough: 0.35 })); panel.position.set((dw - 0.1) / 2, dh / 2, 0); g.add(panel);
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), this.mat('#ffffff')); knob.position.set(dw - 0.5, dh * 0.45, 0.35); g.add(knob);
+        const band = new THREE.Mesh(this.rbox(dw - 0.5, 0.35, 0.56, 0.05), this.mat('#ffffff')); band.position.set((dw - 0.1) / 2, dh * 0.82, 0); g.add(band);
+        this.add(g); d.mesh = g;
+      }
+      doors.push(d);
+    }
+    if (!this.headless) { // frame
+      this.main.add(this.rbox(0.9, dh + 1.2, 1.0, 0.2), cx - w / 2 - 0.45, top + (dh + 1.2) / 2, cz, this.theme.hub); this.main.add(this.rbox(0.9, dh + 1.2, 1.0, 0.2), cx + w / 2 + 0.45, top + (dh + 1.2) / 2, cz, this.theme.hub);
+      this.main.add(this.rbox(w + 1.8, 1.0, 1.0, 0.2), cx, top + dh + 0.5, cz, this.theme.hub);
+    }
+    this.doorWalls = this.doorWalls || []; this.doorWalls.push({ cx, cz, w, doors });
+    this.updaters.push((t, dt) => {
+      const pl = this.nearPlayers || [];
+      for (const d of doors) {
+        if (!d.mesh) continue;
+        let tgt = 0; if (!d.fake) for (const p of pl) if (Math.abs(p.z - cz) < 3.2 && Math.abs(p.x - d.x) < dw * 0.9) tgt = 1;
+        d.open += (tgt - d.open) * Math.min(1, dt * 9); d.mesh.rotation.y = -d.open * 1.45;
+        if (d.fake && tgt === 0) { /* fake doors stay shut */ }
+      }
+    });
+    return doors;
   }
 
   // ---------------------------------------------------------------- checkpoints & gates

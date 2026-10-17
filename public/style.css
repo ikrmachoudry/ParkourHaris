@@ -291,3 +291,10 @@ body.free-map #b-exit em::after { content: 'GET OFF'; font-size: 20px; }
 
 .jonly { display: none; }
 body.free-map .jonly { display: block; }
+
+/* grab-swing prompt (Maze): shown when you are near a swing */
+.carbtn.grab { background: linear-gradient(#ffd23f, #ff9f1c); box-shadow: 0 5px 0 #a8620b, 0 8px 18px rgba(0,0,0,.4); color: #4a2a00; }
+.carbtn.grab .ic { font-size: 34px; }
+body.near-swing #b-grab { display: flex; }
+body.touch .carbtn.grab em { display: block; position: absolute; bottom: -22px; font-size: 12px; white-space: nowrap; text-shadow: 0 1px 2px #000; color: #fff; }
+body.touch .carbtn.grab { bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104px) * 2 + 60px); }

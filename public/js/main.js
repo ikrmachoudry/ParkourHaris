@@ -1,4 +1,5 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
+import { stepSwing, newSwingState } from './swingsys.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
@@ -18,7 +19,7 @@ import { QuestVis } from './questworld.js';
 
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
-const touch = { x: 0, y: 0, jump: false };
+const touch = { x: 0, y: 0, jump: false, grab: false };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -211,7 +212,7 @@ class Race {
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
     this.camYaw = 0; this.camPitch = 0.34; this.camDist = 8.2; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
-    this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
+    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
@@ -354,7 +355,10 @@ class Race {
     if (b.stun > 0) { this.stunReal = (this.stunReal || 0) + dt; if (this.stunReal > 1.25) { b.stun = 0; b.immune = 0.6; this.stunReal = 0; } } else this.stunReal = 0;
     const steps = Math.max(1, Math.ceil(dt / (1 / 90))), sdt = dt / steps;
     let landed = false;
+    w.nearPlayers = [b, ...[...this.remotes.values()]];
+    const hanging = this.updateSwing(dt, lt, b, inp, canMove);
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
+    else if (hanging) { b.events.length = 0; }
     else {
     for (let i = 0; i < steps; i++) {
       stepBody(w, b, sdt, inp);
@@ -384,7 +388,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
     else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); if (this.an) this.an.seatLocal(g); }
-    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : b.grounded, vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -459,7 +463,7 @@ class Race {
     } else {
       const c = this.nearestFreeCar(b); if (!c) return;
       this.drive = c; c.st.driver = this.localId; c.st.parked = false;
-      b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car');
+      b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
       A.engineStart(); A.sfx.door(); A.sfx.vroom(); this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
       this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'use the joystick to drive, tap the door to get out' : 'W/S drive • A/D steer • C get out'));
     }
@@ -656,9 +660,26 @@ class Race {
   }
 
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
+  // ---------- grab-swings (Maze): HOLD to hang on the handle, JUMP (or let go of the button) to let go
+  updateSwing(dt, lt, b, inp, canMove) {
+    const w = this.world, sws = w.swings;
+    if (!sws || !sws.length) return false;
+    const S = this.swSt || (this.swSt = newSwingState());
+    let nd = 1e9; for (const sw of sws) nd = Math.min(nd, Math.hypot(sw.x - b.x, (sw.y - sw.len * 0.6) - b.y, sw.z - b.z));
+    const close = !S.hang && !this.drive && !this.over && nd < sws[0].len + 7;
+    if (close !== document.body.classList.contains('near-swing')) document.body.classList.toggle('near-swing', close);
+    if (close && !this.hangHint) { this.hangHint = true; this.toast(IS_TOUCH ? 'Hold GRAB to hang on the swing - tap JUMP to let go!' : 'Hold G to grab the swing - press SPACE to let go!'); }
+    const was = !!S.hang, held = keys.has('KeyG') || touch.grab, jump = inp.jumpPressed;
+    const hang = stepSwing(w, b, S, lt, dt, held && !this.drive, jump, canMove);
+    if (!was && S.hang) { A.sfx.land(6); this.particles.emit(b.x, b.y + 1.6, b.z, 10, { color: '#ffffff', speed: 3, up: 2, life: 0.4, size: 0.25 }); }
+    if (was && !S.hang) { A.sfx.jump && A.sfx.jump(); inp.jumpPressed = false; press.jump = false; }
+    this.hang = S.hang; if (hang) { inp.jumpPressed = false; press.jump = false; b.stunReal = 0; this.stunReal = 0; }
+    return hang;
+  }
+
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
-    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0);
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0);
     app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
@@ -894,7 +915,7 @@ class Race {
   render() { renderer.render(this.scene, this.camera); }
 
   destroy() {
-    A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('driving'); document.body.classList.remove('near-car');
+    A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
     document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
@@ -1298,6 +1319,7 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
   btn('c-horn', () => { if (race) race.honk(); });
   btn('b-racer', () => { if (race) race.swapRacer(); });
+  btn('b-grab', () => { touch.grab = true; }, () => { touch.grab = false; });
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });
   for (const id of ['b-car', 'b-exit', 'b-racer']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) (id === 'b-racer' ? race.swapRacer() : race.toggleCar()); el.blur(); }); }
 })();

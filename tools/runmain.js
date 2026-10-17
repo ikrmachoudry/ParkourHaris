@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 4, 'level select with 4 cards (Fun Map + Jungle + Jungle Quest + Small Room)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 5, 'level select with 5 cards (Fun Map + Jungle + Jungle Quest + Small Room + Maze)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
@@ -321,6 +321,26 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   step(60 * 11); ok(Q.q.ph === 4 && R.victory > 0, 'dragon flew away -> VICTORY');
   ok(/VICTORY/.test(R.questHud()), 'HUD says VICTORY');
   ok(Q.vis.dragon.root.position.y > 20, 'the dragon flies high above (y ' + Q.vis.dragon.root.position.y.toFixed(0) + ')');
+}
+
+// ---- MAZE (single player): swing sign appears near a swing, hold G to hang, jump to let go; fans push; doors open
+{
+  mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
+  ph.startSingle(4); step(300);
+  const R = ph.race, b = R.me.body, w = R.world;
+  ok(R.meta.key === 'maze' && !R.meta.free && w.swings.length === 5 && w.winds.length === 4, 'Maze loads: race level with 5 swings and 4 fans');
+  ok(!mk('body').classes.has('near-swing'), 'no swing sign far from swings');
+  const sw = w.swings[0]; R.hang = null; ph.keys.delete('KeyG');
+  b.x = 0; b.z = sw.z + 7.5; b.y = 0.05; b.vx = b.vz = b.vy = 0; step(10);
+  ok(mk('body').classes.has('near-swing'), 'swing sign (GRAB button) appears when you walk up to a swing');
+  ph.keys.add('KeyG'); let hung = false; for (let i = 0; i < 400 && !hung; i++) { step(1); hung = !!R.hang; }
+  ok(hung, 'holding G grabs the swing handle when it swings by');
+  const z0 = b.z; step(40); ok(!!R.hang && Math.abs(b.z - z0) > 0.5, 'while hanging you travel with the swing');
+  ok(!mk('body').classes.has('near-swing'), 'sign hides while hanging');
+  ph.press.jump = true; step(2); ph.keys.delete('KeyG');
+  ok(!R.hang && b.vy !== 0, 'jump lets go');
+  ph.keys.delete('KeyG'); step(200);
+  mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
 }
 mk('b-profile-back').onclick(); step(2);
 ph.race && ph.race.destroy && 0;

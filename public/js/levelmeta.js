@@ -18,4 +18,6 @@ export const LEVEL_META = [
     colors: ['#7b3fe4', '#ffd23f'], blurb: 'Walk the long road with your team! Solve 5 mazes, stand on the glowing circles together to drop the boulder, beat each beast with the BAT to open the gate - then FREE THE DRAGON! Nobody can die.' },
   { id: 3, key: 'arena', name: 'Small Room', sub: 'Bat Fight', stars: 1, limit: 0, finishZ: -99999, finishY: 99999, free: true, arena: true,
     colors: ['#cfe3ff', '#ffd9a8'], blurb: 'One small plain room, everybody in sight. Beat each other with the BAT! A high SLIDE to ride and 4 BUNGEE pads - nothing else.' },
+  { id: 4, key: 'maze', name: 'Maze', sub: 'Obstacle Race', stars: 3, limit: 900, finishZ: -715.5, finishY: 0,
+    colors: ['#ff6b9d', '#4cc9f0'], blurb: 'A long candy-park race: doors to dash through, water to hop over, giant fans, GRAB-SWINGS, a boat ride, huge hammers and seesaws. Be first to the finish!' },
 ];

@@ -5,6 +5,7 @@ import { Batch } from './world.js';
 export const VIS = {
   fun: { top: '#35a7ff', horizon: '#e8fbff', bottom: '#fff6d8', fog: '#d9f4ff', fogNear: 120, fogFar: 640, sun: '#fff4d6', sunPos: [-40, 90, -60], sunI: 2.7, hemiSky: '#d4ecff', hemiGround: '#bfe8a0', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.6 },
   jungle: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
+  maze: { top: '#5cc8ff', horizon: '#ffe0f0', bottom: '#fff4fb', fog: '#ffd6ea', fogNear: 90, fogFar: 520, sun: '#fff0d8', sunPos: [-40, 90, -60], sunI: 2.7, hemiSky: '#ffe6f6', hemiGround: '#ffb7dc', hemiI: 1.1, exp: 1.05, waterA: '#7fe8ff', waterB: '#2b9be8', water: 'water', env: 0.6 },
   arena: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
   quest: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
 };
@@ -188,7 +189,7 @@ export class Ambient {
     const pos = new Float32Array(n * 3); this.seed = new Float32Array(n * 3);
     for (let i = 0; i < n * 3; i++) this.seed[i] = Math.random();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const colors = { fun: '#fff6a8', jungle: '#fffbb0', quest: '#fff6c0' };
+    const colors = { fun: '#fff6a8', jungle: '#fffbb0', quest: '#fff6c0', maze: '#ffe6f6' };
     this.mat = new THREE.PointsMaterial({ color: colors[kind] || '#fff', size: kind === 'frost' ? 0.28 : 0.22, transparent: true, opacity: 0.85, depthWrite: false, map: softTexture(), blending: kind === 'neon' || kind === 'canyon' ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     this.pos = pos;
@@ -284,13 +285,23 @@ export function buildScenery(scene, key, info, world) {
       c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
       dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 300) c.position.x = -300; });
     }
-  } else if (key === 'quest') {
+  } else if (key === 'quest' || key === 'maze') {
     // clouds drifting along the whole road
     for (let i = 0; i < 40; i++) {
-      const c = new THREE.Group(), x = (R() - 0.5) * 420, z = 40 - R() * 640, y = 70 + R() * 50, k = 3 + Math.floor(R() * 3);
+      const c = new THREE.Group(), x = (R() - 0.5) * 420, z = 40 - R() * (key === 'maze' ? 860 : 640), y = 70 + R() * 50, k = 3 + Math.floor(R() * 3);
       for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(6 + R() * 6, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, fog: false })); m.position.set(q * 8 - k * 4, R() * 3, R() * 5); m.scale.y = 0.55; c.add(m); }
       c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
       dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 260) c.position.x = -260; });
+    }
+  }
+
+  if (key === 'maze') { // candy park: giant lollipops, donuts and ice-cream cones standing in the sea
+    const cols = ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#b58cff', '#ff9f1c'];
+    for (let i = 0; i < 100; i++) {
+      const z = 30 - i * 8.6 - R() * 4, side = i % 2 ? 1 : -1, x = side * (24 + R() * 55), c = cols[Math.floor(R() * cols.length)], k = Math.floor(R() * 3), sc = 0.8 + R() * 0.9;
+      if (k === 0) { main.add(cyl(0.6 * sc, 0.6 * sc, 16 * sc, 8), x, -3 + 8 * sc, z, '#ffffff'); main.add(sph(4.4 * sc, 18, 12), x, -3 + 17 * sc, z, c); main.add(new THREE.TorusGeometry(3.0 * sc, 0.55 * sc, 8, 20), x, -3 + 17 * sc, z + 3.4 * sc, '#ffffff'); }
+      else if (k === 1) { main.add(new THREE.TorusGeometry(5 * sc, 2.2 * sc, 10, 22).rotateX(Math.PI / 2), x, -2.2 + 2.2 * sc, z, '#e8b878'); main.add(new THREE.TorusGeometry(5 * sc, 1.7 * sc, 10, 22).rotateX(Math.PI / 2), x, -2.2 + 3.1 * sc, z, c); }
+      else { main.add(cone(3.4 * sc, 9 * sc, 14).rotateX(Math.PI), x, -3 + 4.5 * sc, z, '#e8b878'); main.add(sph(3.8 * sc, 16, 10), x, -3 + 10 * sc, z, c); main.add(sph(1.2 * sc, 10, 8), x, -3 + 14 * sc, z, '#ff3d68'); }
     }
   }
 

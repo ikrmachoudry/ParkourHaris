@@ -4,7 +4,7 @@ import { P } from './world.js';
 export function newBody() {
   return {
     x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: Math.PI, grounded: false, ground: null,
-    coyote: 0, jumpBuf: 0, stun: 0, dive: 0, diveCd: 0, noSnap: 0, hitCd: 0, boost: 0,
+    coyote: 0, jumpBuf: 0, stun: 0, dive: 0, diveCd: 0, noSnap: 0, hitCd: 0, immune: 0, boost: 0,
     jumping: false, noCtrl: 0, landSpeed: 0, inWater: false, events: [], moveT: 0, yawOff: 0, swim: 0, waterSurf: 0,
   };
 }
@@ -20,7 +20,8 @@ function approach(b, tx, tz, maxD) {
 export function stepBody(w, b, dt, inp) {
   b.coyote = b.grounded ? 0.11 : b.coyote - dt;
   b.jumpBuf = inp.jumpPressed ? 0.13 : b.jumpBuf - dt;
-  if (b.stun > 0) b.stun = Math.max(0, b.stun - dt);
+  if (b.immune > 0) b.immune -= dt;
+  if (b.stun > 0) { b.stun = Math.max(0, b.stun - dt); if (b.stun <= 0) b.immune = 1.0; } // after a bonk you can't be chain-stunned for a second: you always get to run again
   if (b.dive > 0) b.dive = Math.max(0, b.dive - dt);
   if (b.diveCd > 0) b.diveCd -= dt;
   if (b.noSnap > 0) b.noSnap -= dt;
@@ -88,6 +89,11 @@ export function stepBody(w, b, dt, inp) {
       if (b.vy < tv) b.vy = Math.min(tv, b.vy + z.lift * dt);
       b.noSnap = Math.max(b.noSnap, 0.12); if (!b.air) { b.air = true; b.events.push('air'); }
     } else b.air = false;
+  }
+
+  // ---- fans: wind columns push you sideways
+  for (const f of w.winds) {
+    if (b.x > f.x0 && b.x < f.x1 && b.z > f.z0 && b.z < f.z1 && b.y > f.y0 - 0.5 && b.y < f.y1) { const k = b.grounded ? 1 : 0.75; b.x += f.ax * k * dt; b.z += f.az * k * dt; }
   }
 
   // ---- conveyors / boost pads act directly on the position

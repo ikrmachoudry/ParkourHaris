@@ -20,13 +20,18 @@ export const THEMES = {
     plat: ['#e9d9bd', '#e9d9bd', '#e9d9bd', '#e9d9bd', '#e9d9bd'], pad: '#f6efe0', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff6b6b', hazard2: '#ffffff', hub: '#8a8f99', accent: '#ffd23f', convBase: '#9aa3b5', belt: '#dfe6f5',
   },
+  maze: {
+    plat: ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#b58cff'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff3d68', hazard2: '#fff7d6', hub: '#8a4fd1', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
+  },
   quest: {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
 };
-const KEYS = ['fun', 'jungle', 'quest', 'arena'];
+const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze'];
 
+const CANNON_VY = 37, CANNON_VZ = 28;
 export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
   const key = KEYS[idx], th = THEMES[key];
   const world = new World(th, headless);
@@ -229,6 +234,88 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     info.mazePath = path;
     world.checkpoint(0, 0, MZ + 2, 16);
     c.z = MZ - N * CELL; c.y = 0.15;
+    finish();
+  } else if (idx === 4) { // ------------------------------------------ MAZE: one long candy obstacle race (doors, water hops, fans, swings, boat, hammers, seesaws)
+    world.waterY = -3; world.killY = -9;
+    info.startArch = 3;
+    let rs = ((seed | 0) * 9301 + 49297) % 233280; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+    const P = th.plat;
+    // ---- start
+    const st = plat(22, 22, { gap: -4, color: P[3] });
+    cp(st, 4);
+    // ---- A: DOOR DASH - two walls of doors; some are solid fakes, run into the real ones
+    const a = plat(21, 30, { color: P[1] });
+    const fakes = (n, keep) => { const f = Array.from({ length: n }, () => rnd() < 0.62); if (f.every(Boolean)) f[keep] = false; return f; };
+    world.doorWall(0, a.top, a.near - 7, 21, 7, fakes(7, 2 + Math.floor(rnd() * 3)));
+    world.doorWall(0, a.top, a.near - 20, 21, 5, fakes(5, Math.floor(rnd() * 5)));
+    cp(a, 27);
+    // ---- B: vanishing candy tiles over the water
+    const rows = 5; let bz = c.z - 5;
+    for (let r = 0; r < rows; r++) for (let k = 0; k < 3; k++) world.tile((k - 1) * 7.5, c.y, bz - r * 8, 5.4, 5.4, { period: 4, solidT: 1.6, warn: 0.8, off: k * 1.33 + r * 0.9, color: P[(r + k) % 5] });
+    c.z = bz - (rows - 1) * 8 - 5.4 / 2 - 3.2;
+    const b2 = plat(20, 14, { color: P[2] }); cp(b2, 4);
+    // ---- C: FAN BRIDGE - a narrow beam, giant fans blowing you sideways
+    const cb = plat(10, 56, { color: P[4] });
+    [[6, 14, 1], [20, 28, -1], [34, 42, 1], [46, 54, -1]].forEach(([n0, n1, sg]) => world.fan(sg > 0 ? -5 : -5, 5, cb.near - n1, cb.near - n0, cb.top - 0.5, cb.top + 5, sg * 4.6, 0));
+    cp(cb, 54);
+    const c2 = plat(16, 12, { color: P[0] });
+    // ---- D: GRAB-SWINGS across three gaps (hold G / GRAB, jump to let go)
+    const swingGap = (gap, ph, per = 4.2) => {
+      const s0 = c.z, far = plat(9, 10, { gap, color: P[(Math.floor(rnd() * 5))] });
+      world.swing(0, far.top + 8.5, s0 - gap / 2, 9, 0.95, per, ph);
+      return far;
+    };
+    swingGap(14, 0); const d2 = swingGap(15, 1.9); cp(d2, 4); const d3 = swingGap(16, 3.9, 4.6);
+    const d4 = plat(14, 12, { color: P[1], gap: 0 }); cp(d4, 4);
+    // ---- E: THE BOAT - a rowing boat shuttles across the lake
+    const bdock = plat(14, 10, { color: P[2] });
+    const BA = 34, BT = 18, boatTop = bdock.top;
+    const bz0 = bdock.far - 5.5;
+    world.mover(0, boatTop, bz0, 9, 7, (t) => { const u = 0.5 - 0.5 * Math.cos(2 * Math.PI * t / BT); return [0, 0, -BA * u]; }, { h: 1.2, color: '#b5651d', padColor: '#e8c48a', stripes: false });
+    if (!world.headless) {
+      const bg = new THREE.Group(); world.add(bg);
+      const bow = new THREE.Mesh(new THREE.ConeGeometry(2.0, 3.2, 4), world.mat('#b5651d')); bow.rotation.x = -Math.PI / 2; bow.rotation.z = Math.PI / 4; bow.position.set(0, -0.3, -5.1); bg.add(bow);
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.5, 8), world.mat('#ffffff')); mast.position.set(0, 2.2, 1.6); bg.add(mast);
+      const flag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.8), world.mat(th.hazard)); flag.position.set(0, 3.9, 0.7); bg.add(flag);
+      const oars = [-1, 1].map((sd) => { const pv = new THREE.Group(); pv.position.set(sd * 4.5, 0.9, 0); const o = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 5.4), world.mat('#7a4a1e')); o.position.set(sd * 1.2, 0, 0); o.rotation.y = 0; const bl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 1.4), world.mat('#ffd23f')); bl.position.set(sd * 2.0, 0, 0); pv.add(o, bl); pv.rotation.y = sd * 1.5; bg.add(pv); return { pv, sd }; });
+      world.updaters.push((t) => { const u = 0.5 - 0.5 * Math.cos(2 * Math.PI * t / BT); bg.position.set(0, boatTop, bz0 - BA * u); oars.forEach(({ pv, sd }) => { pv.rotation.z = Math.sin(t * 3.2) * 0.35 * sd; }); flag.rotation.y = Math.sin(t * 5) * 0.2; });
+    }
+    c.z = bdock.far - 45; // far dock sits 2 m past the boat's far end
+    const bfar = plat(14, 12, { gap: 0, color: P[3] }); cp(bfar, 4);
+    info.cannon = { x: -4.5, z: bdock.far + 3.5, vy: CANNON_VY, push: [0, -CANNON_VZ] };
+    world.cannon(info.cannon.x, info.cannon.z, CANNON_VY, info.cannon.push);
+    info.boatFar = bfar;
+    // ---- F: GIANT HAMMERS
+    const hm = plat(14, 44, { color: P[0] });
+    [8, 22, 36].forEach((o, i) => world.hammer(0, hm.top + 11.6, hm.near - o, 10, { amp: 1.0, omega: 1.5, phase: i * 2.1, r: 2.0, span: 9, baseY: hm.top - 0.5 }));
+    cp(hm, 42);
+    // ---- G: SEESAW RIDGE
+    const sp0 = plat(12, 8, { color: P[4] });
+    for (let i = 0; i < 4; i++) { world.seesaw(0, c.y + 0.4, c.z - 5.5 - i * 13.5, 8, 11, 0.9, 3.6 + (i % 2) * 0.6, i * 2.1); }
+    c.z -= 4 * 13.5 + 0.0; // past the last plank (2.5 m jump gaps)
+    const sp1 = plat(14, 10, { color: P[2], gap: 0 }); cp(sp1, 4);
+    // ---- G2: ROLLING CANDY BALLS - giant balls roll down the lanes towards you
+    const bl = plat(14, 64, { color: P[3] });
+    [[-4.6, [0, 1.9]], [0, [0.95, 2.85]], [4.6, [1.9, 3.8]]].forEach(([x, ph]) => world.balls(x, bl.far, bl.near, () => 0, 1.5, 10, 3.8, ph));
+    cp(bl, 60);
+    // ---- G3: DONUT SWEEPER - a round platform with a spinning arm (jump over it!)
+    const sw0 = plat(10, 8, { color: P[1] });
+    const swc = c.z - 1.3 - 9.5;
+    world.disc(0, 0, swc, 9.5, { color: P[4] });
+    world.bar(0, 0.4, swc, 17, { omega: 1.0, h: 0.9, w: 1.0, arms: 1 });
+    c.z = swc - 9.5 - 1.3;
+    const sw1 = plat(12, 8, { color: P[2], gap: 0 }); cp(sw1, 4);
+    // ---- G4: BOUNCE LADDER - bouncy mushrooms launch you up two sky decks, then an icy slide brings you back down
+    const lad0 = plat(14, 12, { color: P[0] });
+    world.disc(0, 0, lad0.far + 1.5, 3.2, { bounce: 30, color: th.hazard });
+    const lad1 = plat(12, 12, { gap: 7, dy: 7, color: P[4] });
+    world.disc(0, 7, lad1.far + 1.5, 3.2, { bounce: 30, color: th.hazard });
+    const lad2 = plat(12, 12, { gap: 7, dy: 7, color: P[1] }); cp(lad2, 4);
+    world.ramp(0, lad2.far, 14, lad2.far - 46, 0, 8, { conv: [0, -14], ice: true, color: P[2], padColor: '#ffffff' });
+    c.z = lad2.far - 46; c.y = 0;
+    const lad3 = plat(14, 12, { gap: 0, color: P[3] }); cp(lad3, 4);
+    // ---- H: SKY SWINGS - two high swings and a shaky tile between them, then the finish
+    const e1 = swingGap(15, 0.7, 3.8); const e2 = swingGap(16, 2.8, 4.0); cp(e2, 4);
     finish();
   } else if (idx === 3) { // ------------------------------------------ SMALL ROOM (120 x 120, plain walls, one high slide, four bungee pads)
     info.startArch = 99; info.spawn = { x: 0, y: 0, z: -10 };
