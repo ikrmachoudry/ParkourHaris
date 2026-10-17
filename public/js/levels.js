@@ -16,12 +16,16 @@ export const THEMES = {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff7a1a', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#5a3a1e', belt: '#a3d36b',
   },
+  arena: {
+    plat: ['#e9d9bd', '#e9d9bd', '#e9d9bd', '#e9d9bd', '#e9d9bd'], pad: '#f6efe0', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff6b6b', hazard2: '#ffffff', hub: '#8a8f99', accent: '#ffd23f', convBase: '#9aa3b5', belt: '#dfe6f5',
+  },
   quest: {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
 };
-const KEYS = ['fun', 'jungle', 'quest'];
+const KEYS = ['fun', 'jungle', 'quest', 'arena'];
 
 export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
   const key = KEYS[idx], th = THEMES[key];
@@ -226,6 +230,24 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     world.checkpoint(0, 0, MZ + 2, 16);
     c.z = MZ - N * CELL; c.y = 0.15;
     finish();
+  } else if (idx === 3) { // ------------------------------------------ SMALL ROOM (120 x 120, plain walls, one high slide, four bungee pads)
+    info.startArch = 99; info.spawn = { x: 0, y: 0, z: -10 };
+    world.checkpoints.push({ x: 0, y: 0, z: 0, w: 14, spawn: [0, 0, -10] });
+    world.waterY = -40; world.killY = -60;
+    const Z0 = 6, Z1 = -114, WALL = 30, wc = ['#d9e6f7', '#cfe0f5'];
+    world.platform(0, 0, (Z0 + Z1) / 2, 120, 120, { h: 2, color: '#efe3c8', pad: false });
+    world.platform(-61, WALL, (Z0 + Z1) / 2, 2, 124, { h: WALL, color: wc[0], pad: false }); world.platform(61, WALL, (Z0 + Z1) / 2, 2, 124, { h: WALL, color: wc[0], pad: false });
+    world.platform(0, WALL, Z0 + 1, 124, 2, { h: WALL, color: wc[1], pad: false }); world.platform(0, WALL, Z1 - 1, 124, 2, { h: WALL, color: wc[1], pad: false });
+    // the high slide (left side): walk up the ramp, then ride the icy slide down
+    const SX = -40, SH = 16;
+    world.ramp(SX, -6, 0, -46, SH, 8, { color: '#f2a65a', padColor: '#ffe3b8' });
+    world.platform(SX, SH, -52, 12, 12, { h: 3, color: '#f2a65a', padColor: '#ffe3b8' });
+    world.ramp(SX, -58, SH, -100, 0, 8, { conv: [0, -14], ice: true, color: '#5bc0eb', padColor: '#ffffff' });
+    info.slide = { x: SX, top: SH, zTop: -58, zEnd: -100 };
+    // four bungee pads on the right side
+    info.pads = [[22, -28], [46, -28], [22, -88], [46, -88]];
+    for (const [x, z] of info.pads) world.bungee(x, z, 0, 5.5, 30, 15);
+    info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: Z1 };
   } else if (idx === 2) { // ------------------------------------------ JUNGLE QUEST (road of random mazes, team circles, beasts, dragon)
     buildQuest(world, th, info, seed);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: questLayout().dr.endZ };

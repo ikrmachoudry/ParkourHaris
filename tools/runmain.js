@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 3, 'level select with 3 cards (Fun Map + Jungle + Jungle Quest)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 4, 'level select with 4 cards (Fun Map + Jungle + Jungle Quest + Small Room)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);

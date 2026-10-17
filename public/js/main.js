@@ -255,7 +255,7 @@ class Race {
     this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag);
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
     this.spawn(this.slot);
-    this.an = this.meta.free ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
+    this.an = this.meta.free && !this.meta.arena ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
     this.quest = this.meta.quest ? { q: newQuest(), vis: new QuestVis(world, info), L: questLayout() } : null; this.victory = 0; this.hopT = 0;
     this.buildProgress(); this.buildBoxes();
     document.body.classList.add('in-race');
@@ -858,7 +858,7 @@ class Race {
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
-    $('hud-rank').textContent = this.quest ? this.questHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    $('hud-rank').textContent = this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);

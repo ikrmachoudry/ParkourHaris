@@ -16,4 +16,6 @@ export const LEVEL_META = [
     colors: ['#6bbf59', '#ffd23f'], blurb: 'Wild lion, leopard, elephant & horse roam the trees. Beat them with the BAT to tame them as pets and RIDE them - then climb the hill and free the DINOSAUR! No race, just fun.' },
   { id: 2, key: 'quest', name: 'Jungle Quest', sub: 'Team Co-op', stars: 2, limit: 0, finishZ: -99999, finishY: 99999, free: true, quest: true,
     colors: ['#7b3fe4', '#ffd23f'], blurb: 'Walk the long road with your team! Solve 5 mazes, stand on the glowing circles together to drop the boulder, beat each beast with the BAT to open the gate - then FREE THE DRAGON! Nobody can die.' },
+  { id: 3, key: 'arena', name: 'Small Room', sub: 'Bat Fight', stars: 1, limit: 0, finishZ: -99999, finishY: 99999, free: true, arena: true,
+    colors: ['#cfe3ff', '#ffd9a8'], blurb: 'One small plain room, everybody in sight. Beat each other with the BAT! A high SLIDE to ride and 4 BUNGEE pads - nothing else.' },
 ];

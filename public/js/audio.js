@@ -79,6 +79,7 @@ const THEMES = [
   { bpm: 112, root: 65, scale: 'lydian', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3400 },  // fun map (relaxed)
   { bpm: 124, root: 57, scale: 'dorian', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // jungle (bouncy)
   { bpm: 128, root: 62, scale: 'lydian', prog: [0, 4, 5, 3], lead: 'triangle', bright: 3400 },  // jungle quest (adventure)
+  { bpm: 132, root: 64, scale: 'major', prog: [0, 4, 3, 4], lead: 'triangle', bright: 3400 },  // small room (bat fight)
   { bpm: 120, root: 60, scale: 'major', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // menu
 ];
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
