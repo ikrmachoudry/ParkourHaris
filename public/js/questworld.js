@@ -79,10 +79,9 @@ export function buildQuest(world, th, info, seed = 1) {
     // obstacles on the solution path (harder every chapter)
     const sol = mz.sol, cand = []; for (let i = 2; i < sol.length - 1; i++) cand.push(i);
     const straight = cand.filter((i) => sol[i][1] === sol[i - 1][1] && sol[i][1] === sol[i + 1][1]);
-    const nBar = [0, 2, 3, 4, 5][C.c], nConv = [0, 0, 2, 3, 3][C.c], om = [0, 1.5, 1.9, 2.3, 2.7][C.c], cv = [0, 0, 5, 6, 7][C.c];
+    const nConv = [0, 1, 2, 3, 4][C.c], cv = [0, 4, 5, 6, 7][C.c];
     const used = new Set(), take = (list, n, gap) => { const out = []; const idx = list.slice(); for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; } for (const i of idx) { if (out.length >= n) break; if ([...used].some((u) => Math.abs(u - i) < gap)) continue; used.add(i); out.push(i); } return out; };
     for (const i of take(straight, nConv, 2)) { const [r, k] = sol[i]; world.conveyor(cx(k), 0.05, cz(r), CELL - 1.2, CELL - WT - 0.2, cv); }
-    for (const i of take(cand, nBar, 2)) { const [r, k] = sol[i]; world.bar(cx(k), 0.1, cz(r), 3.5, { omega: (i % 2 ? 1 : -1) * om, h: 1.0, w: 0.6, arms: C.c >= 3 && i % 2 ? 2 : 1, phase: R() * 6 }); }
 
     // plaza: team circles + sign; boulder wall; arena; gate
     const bz = C.boulderZ, gz = C.gateZ;
