@@ -86,8 +86,12 @@ const I = (o = {}) => ({ mx: 0, mz: 0, jumpPressed: false, jumpHeld: false, dive
   ok(got, 'holding grab next to a passing swing hangs you on the handle');
   let moved = 0; for (let i = 0; i < 90; i++) { t += DT; world.update(t, DT); stepSwing(world, b2, st, t, DT, true, false, true); moved = Math.max(moved, Math.abs(b2.z - sw.z)); }
   ok(moved > 3, `hanging follows the swing (swung ${moved.toFixed(1)} m)`);
-  stepSwing(world, b2, st, t, DT, false, false, true);
-  ok(!st.hang && st.released === 'let go', 'releasing the button lets go');
+  for (let i = 0; i < 60; i++) { t += DT; world.update(t, DT); stepSwing(world, b2, st, t, DT, false, false, true); }
+  ok(!!st.hang, 'letting go of the grab button does NOT drop you (you stay hanging)');
+  for (let i = 0; i < 60; i++) { t += DT; world.update(t, DT); stepSwing(world, b2, st, t, DT, false, false, true, false); }
+  ok(!!st.hang, 'still hanging after 1 more second with no input');
+  t += DT; world.update(t, DT); stepSwing(world, b2, st, t, DT, false, true, true);
+  ok(!st.hang && st.released === 'jump', 'JUMP lets go');
 }
 
 // ---- doors: at least one real door per wall; fake doors are solid

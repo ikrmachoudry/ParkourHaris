@@ -336,8 +336,8 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   ph.keys.add('KeyG'); let hung = false; for (let i = 0; i < 400 && !hung; i++) { step(1); hung = !!R.hang; }
   ok(hung, 'holding G grabs the swing handle when it swings by');
   const z0 = b.z; step(40); ok(!!R.hang && Math.abs(b.z - z0) > 0.5, 'while hanging you travel with the swing');
-  ok(!mk('body').classes.has('near-swing'), 'sign hides while hanging');
-  ph.press.jump = true; step(2); ph.keys.delete('KeyG');
+  ok(mk('body').classes.has('near-swing'), 'sign stays visible while hanging (shows JUMP TO LET GO)');
+  ph.keys.delete('KeyG'); step(30); ok(!!R.hang, 'releasing the G key does not drop you'); ph.press.jump = true; step(2);
   ok(!R.hang && b.vy !== 0, 'jump lets go');
   ph.keys.delete('KeyG'); step(200);
   mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);

@@ -203,7 +203,7 @@ class Remote {
 
 // ------------------------------------------------------------------ the race
 const keys = new Set();
-const press = { jump: false, dive: false };
+const press = { jump: false, dive: false, grab: false };
 
 class Race {
   constructor(levelIdx, players, localId, o) {
@@ -666,11 +666,12 @@ class Race {
     if (!sws || !sws.length) return false;
     const S = this.swSt || (this.swSt = newSwingState());
     let nd = 1e9; for (const sw of sws) nd = Math.min(nd, Math.hypot(sw.x - b.x, (sw.y - sw.len * 0.6) - b.y, sw.z - b.z));
-    const close = !S.hang && !this.drive && !this.over && nd < sws[0].len + 7;
+    const close = (!!S.hang || nd < sws[0].len + 7) && !this.drive && !this.over;
     if (close !== document.body.classList.contains('near-swing')) document.body.classList.toggle('near-swing', close);
-    if (close && !this.hangHint) { this.hangHint = true; this.toast(IS_TOUCH ? 'Hold GRAB to hang on the swing - tap JUMP to let go!' : 'Hold G to grab the swing - press SPACE to let go!'); }
-    const was = !!S.hang, held = keys.has('KeyG') || touch.grab, jump = inp.jumpPressed;
-    const hang = stepSwing(w, b, S, lt, dt, held && !this.drive, jump, canMove);
+    if (close && !this.hangHint) { this.hangHint = true; this.toast(IS_TOUCH ? 'Tap GRAB when the swing is close - tap JUMP to let go!' : 'Press G to grab the swing - press SPACE to let go!'); }
+    const was = !!S.hang, held = keys.has('KeyG') || touch.grab, jump = inp.jumpPressed, pr = press.grab; press.grab = false;
+    const hang = stepSwing(w, b, S, lt, dt, held && !this.drive, jump, canMove, pr && !this.drive);
+    if (!!S.hang !== !!this.hangLbl) { this.hangLbl = !!S.hang; const em = document.querySelector('#b-grab em'); if (em) em.textContent = S.hang ? 'JUMP TO LET GO' : 'GRAB'; }
     if (!was && S.hang) { A.sfx.land(6); this.particles.emit(b.x, b.y + 1.6, b.z, 10, { color: '#ffffff', speed: 3, up: 2, life: 0.4, size: 0.25 }); }
     if (was && !S.hang) { A.sfx.jump && A.sfx.jump(); inp.jumpPressed = false; press.jump = false; }
     this.hang = S.hang; if (hang) { inp.jumpPressed = false; press.jump = false; b.stunReal = 0; this.stunReal = 0; }
@@ -1168,6 +1169,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
   if (e.code === 'KeyM') toggleSound();
+  if (e.code === 'KeyG') press.grab = true;
   if (e.code === 'KeyB' && race && !race.menuOpen) race.swing();
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honk();
@@ -1319,7 +1321,8 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
   btn('c-horn', () => { if (race) race.honk(); });
   btn('b-racer', () => { if (race) race.swapRacer(); });
-  btn('b-grab', () => { touch.grab = true; }, () => { touch.grab = false; });
+  btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
+  { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });
   for (const id of ['b-car', 'b-exit', 'b-racer']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) (id === 'b-racer' ? race.swapRacer() : race.toggleCar()); el.blur(); }); }
 })();
