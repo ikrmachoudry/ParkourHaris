@@ -251,7 +251,7 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     cp(a, 27);
     // ---- B: vanishing candy tiles over the water
     const rows = 5; let bz = c.z - 5;
-    for (let r = 0; r < rows; r++) for (let k = 0; k < 3; k++) world.tile((k - 1) * 7.5, c.y, bz - r * 8, 5.4, 5.4, { period: 4, solidT: 1.6, warn: 0.8, off: k * 1.33 + r * 0.9, color: P[(r + k) % 5] });
+    for (let r = 0; r < rows; r++) for (let k = 0; k < 3; k++) world.tile((k - 1) * 7.5, c.y, bz - r * 8, 5.4, 5.4, { period: 7, solidT: 5.2, warn: 1.2, off: k * 2.33 + r * 1.3, color: P[(r + k) % 5] });
     c.z = bz - (rows - 1) * 8 - 5.4 / 2 - 3.2;
     const b2 = plat(20, 14, { color: P[2] }); cp(b2, 4);
     // ---- C: FAN BRIDGE - a narrow beam, giant fans blowing you sideways
