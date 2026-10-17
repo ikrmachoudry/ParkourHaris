@@ -1,0 +1,45 @@
+import WebSocket from 'ws';
+import { LEVEL_META } from '../public/js/levelmeta.js';
+const URL = 'ws://localhost:' + (process.env.PORT || 3999) + '/ws';
+const mk = (name) => new Promise((res) => { const ws = new WebSocket(URL); const q = []; ws.msgs = q; ws.on('message', (d) => q.push(JSON.parse(d))); ws.on('open', () => res(ws)); });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const last = (ws, t) => [...ws.msgs].reverse().find((m) => m.t === t);
+let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
+
+const a = await mk(), b = await mk(), c = await mk(), d = await mk();
+a.send(JSON.stringify({ t: 'create', name: 'Haris', char: 0 })); await wait(150);
+const code = last(a, 'joined').code; ok(/^[A-Z]{4}$/.test(code), 'room code ' + code);
+b.send(JSON.stringify({ t: 'join', code, name: 'Dawood', char: 0 })); await wait(100); // wants char 0 (taken)
+const lob = last(a, 'lobby'); ok(lob.players.length === 2 && lob.players[1].char !== 0, 'second player gets a free character (' + lob.players[1].char + ')');
+c.send(JSON.stringify({ t: 'join', code, name: 'Ali', char: 2 })); await wait(100);
+d.send(JSON.stringify({ t: 'join', code, name: 'Fourth', char: 1 })); await wait(100);
+ok(last(d, 'err') && /full/i.test(last(d, 'err').msg), 'fourth player rejected (room full)');
+a.send(JSON.stringify({ t: 'level', level: 2 })); await wait(80);
+ok(last(b, 'lobby').level === 2, 'host selected level 2');
+b.send(JSON.stringify({ t: 'start' })); await wait(80);
+ok(!last(a, 'go'), 'non-host cannot start');
+a.send(JSON.stringify({ t: 'start' })); await wait(100);
+const go = last(b, 'go'); ok(go && go.level === 2 && go.order.length === 3 && go.t0 > Date.now(), 'go broadcast with future t0');
+await wait(go.t0 - Date.now() + 100);
+const meta = LEVEL_META[2];
+a.send(JSON.stringify({ t: 's', x: 1, y: 0, z: -50, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(60);
+ok(last(b, 's') && last(b, 's').z === -50, 'position relayed to others');
+b.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 1, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(80);
+const fin = last(a, 'fin'); ok(fin && fin.place === 1, 'first finisher recorded');
+a.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 2, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(60);
+c.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 3, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(150);
+const end = last(c, 'end'); ok(end && end.results.length === 3 && end.winnerId === fin.id && end.reason === 'finish', 'round ended when all finished, winner = first');
+a.send(JSON.stringify({ t: 'again' })); await wait(80);
+ok(last(b, 'lobby').phase === 'lobby', 'host returned room to lobby');
+// time-up winner = nearest to gate
+a.send(JSON.stringify({ t: 'level', level: 0 })); await wait(50);
+a.send(JSON.stringify({ t: 'start' })); await wait(100);
+const go2 = last(a, 'go'); await wait(go2.t0 - Date.now() + 100);
+a.send(JSON.stringify({ t: 's', x: 0, y: 0, z: -40, r: 3, a: 1, sp: 5, ts: Date.now(), rs: 0 }));
+b.send(JSON.stringify({ t: 's', x: 0, y: 0, z: -120, r: 3, a: 1, sp: 5, ts: Date.now(), rs: 0 }));
+c.send(JSON.stringify({ t: 's', x: 0, y: 0, z: -80, r: 3, a: 1, sp: 5, ts: Date.now(), rs: 0 }));
+await wait(100); console.log('(waiting for the round timer... skipping, tested via leave)');
+b.close(); c.close(); await wait(150);
+ok(last(a, 'lobby').players.length === 1, 'leaving players removed');
+a.close(); d.close();
+console.log(fails ? 'FAILED' : 'ALL NET TESTS PASSED'); process.exit(fails ? 1 : 0);

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Parkour Haris</title>
+<meta name="theme-color" content="#2b1c6b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="loader"><div class="logo-small">PARKOUR <span>HARIS</span></div><div class="bar"><i></i></div><p>Loading the fun...</p></div>
+
+<div id="ui">
+  <!-- ============ TITLE ============ -->
+  <section id="s-title" class="screen">
+    <div class="logo">
+      <div class="logo-main">PARKOUR</div>
+      <div class="logo-by">MADE BY <b>HARIS</b></div>
+      <div class="logo-sub">3D Obstacle Race &bull; 1&ndash;3 Players</div>
+    </div>
+    <div class="menu">
+      <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
+      <button class="btn big pink" id="b-multi"><b>MULTIPLAYER</b><small>Play with friends online</small></button>
+      <div class="row">
+        <button class="btn blue" id="b-help">HOW TO PLAY</button>
+        <button class="btn purple" id="b-sound">SOUND: ON</button>
+      </div>
+    </div>
+    <div class="made">&copy; HARIS &bull; Parkour</div>
+  </section>
+
+  <!-- ============ PROFILE / CHARACTER ============ -->
+  <section id="s-profile" class="screen panel-screen">
+    <div class="panel">
+      <h2 id="profile-title">Choose your player</h2>
+      <label class="field"><span>Your name</span><input id="inp-name" maxlength="14" placeholder="Enter name" autocomplete="off"></label>
+      <div id="char-cards" class="cards chars"></div>
+      <div class="row end">
+        <button class="btn grey" id="b-profile-back">BACK</button>
+        <button class="btn green" id="b-profile-next">CONTINUE</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LEVEL SELECT (single) ============ -->
+  <section id="s-levels" class="screen panel-screen">
+    <div class="panel wide">
+      <h2>Select level</h2>
+      <div id="level-cards" class="cards levels"></div>
+      <div class="row end"><button class="btn grey" id="b-levels-back">BACK</button></div>
+    </div>
+  </section>
+
+  <!-- ============ MULTIPLAYER MENU ============ -->
+  <section id="s-mp" class="screen panel-screen">
+    <div class="panel">
+      <h2>Multiplayer</h2>
+      <p class="note">Up to <b>4 players</b> on the same server. No codes needed!</p>
+      <button class="btn big green" id="b-create"><b>CREATE ROOM</b><small>Start a new room &ndash; you are the host</small></button>
+      <button class="btn big pink" id="b-join"><b>JOIN ROOM</b><small>Enter the room a friend already created</small></button>
+      <div id="mp-status" class="status"></div>
+      <div class="row end"><button class="btn grey" id="b-mp-back">BACK</button></div>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="s-lobby" class="screen lobby">
+    <div class="lobby-top">
+      <div class="code-box"><span>ROOM</span><b id="lobby-code" style="font-size:22px;letter-spacing:4px">----</b><span class="note" style="margin:0">Friends tap MULTIPLAYER &rarr; JOIN ROOM</span><button class="btn small blue hidden" id="b-copy">COPY INVITE LINK</button></div>
+      <button class="btn grey small" id="b-leave">LEAVE</button>
+    </div>
+    <div class="lobby-bottom">
+      <div class="lobby-block"><h3>Players <em id="lobby-count">1/3</em></h3><div id="lobby-players" class="slots"></div></div>
+      <div class="lobby-block"><h3>Your character</h3><div id="lobby-chars" class="cards chars small"></div></div>
+      <div class="lobby-block"><h3>Level <em id="lobby-level-note"></em></h3><div id="lobby-levels" class="cards levels small"></div></div>
+      <div class="lobby-block start"><button class="btn big green" id="b-start"><b>START RACE</b></button><div id="lobby-hint" class="note"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ HUD ============ -->
+  <section id="hud" class="hidden">
+    <div id="touch">
+      <div id="joy"><i id="joy-knob"></i></div>
+      <button id="t-jump">JUMP</button>
+      <button id="t-dive">DIVE</button>
+      <button id="t-bat">BAT</button>
+    </div>
+    <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
+    <div id="hud-top">
+      <div class="pill" id="hud-level">Level</div>
+      <div class="timer" id="hud-timer">0:00</div>
+      <div class="pill" id="hud-rank">1st</div>
+      <button id="b-menu">&#9776; MENU</button>
+    </div>
+    <div id="hud-right"><span id="hud-net"></span><span id="hud-fps"></span><button id="b-timer" class="hidden">&#9201; TIMER: ON (T)</button></div>
+    <div id="hud-fx"></div>
+    <div id="hud-count"></div>
+    <div id="hud-toast"></div>
+    <div id="hud-hint">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</div>
+      <div><kbd>SPACE</kbd> Jump</div>
+      <div><kbd>SHIFT</kbd> Dive</div>
+      <div><kbd>MOUSE</kbd> Camera</div>
+      <div class="mponly"><kbd>T</kbd> Timer on/off</div>
+    </div>
+    <div id="click-hint">Click to play &bull; mouse look</div>
+    <div id="flash"></div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="s-results" class="screen results hidden">
+    <div class="panel">
+      <h2 id="res-title">Results</h2>
+      <p id="res-sub" class="note"></p>
+      <div id="res-list"></div>
+      <div class="row end" id="res-buttons">
+        <button class="btn grey" id="b-res-menu">MENU</button>
+        <button class="btn blue" id="b-res-retry">RETRY</button>
+        <button class="btn green" id="b-res-next">NEXT LEVEL</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <section id="s-help" class="screen panel-screen hidden">
+    <div class="panel">
+      <h2>How to play</h2>
+      <ul class="help">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows &ndash; run (relative to the camera)</li>
+        <li><kbd>SPACE</kbd> &ndash; jump (hold for a higher jump)</li>
+        <li><kbd>SHIFT</kbd> or <kbd>F</kbd> &ndash; dive forward (great for long gaps)</li>
+        <li><kbd>MOUSE</kbd> or <kbd>Q</kbd>/<kbd>E</kbd> &ndash; turn the camera &bull; <kbd>M</kbd> &ndash; mute</li>
+      </ul>
+      <p class="note">Reach the <b>FINISH</b> gate before the timer ends. Spinning bars, hammers and rolling balls knock you back &ndash; fall into the water and you restart at the last checkpoint flag. When time runs out, the player <b>nearest to the finish gate wins</b>.</p>
+      <div class="row end"><button class="btn green" id="b-help-close">GOT IT</button></div>
+    </div>
+  </section>
+
+  <!-- ============ IN-GAME MENU ============ -->
+  <section id="pause" class="hidden">
+    <div class="panel">
+      <h2 id="p-title">Menu</h2>
+      <p class="note" id="p-info"></p>
+      <div id="p-prog">
+        <div id="hud-progress"><div class="track"><i id="prog-flag">&#127937;</i></div></div>
+      </div>
+      <button class="btn big green" id="p-resume"><b>&#9654; RESUME</b></button>
+      <div class="pgrid">
+        <button class="btn purple" id="p-sound">SOUND: ON</button>
+        <button class="btn blue" id="p-timer">TIMER: ON</button>
+        <button class="btn blue" id="p-full">FULLSCREEN</button>
+        <button class="btn pink" id="p-retry">RESTART</button>
+        <button class="btn grey" id="p-gfx">GFX: AUTO</button>
+      </div>
+      <ul class="help pkeys">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>
+        <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>T</kbd> timer &bull; <kbd>M</kbd> mute</li>
+        <li><kbd>B</kbd> or <kbd>CLICK</kbd> swing the bat (multiplayer) &bull; dive into rivals to tackle!</li>
+      </ul>
+      <button class="btn grey" id="p-quit">&#8962; MAIN MENU</button>
+    </div>
+  </section>
+
+  <div id="toast-global"></div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

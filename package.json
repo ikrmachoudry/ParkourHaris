@@ -1,0 +1,23 @@
+{
+  "name": "parkour-haris",
+  "version": "1.0.0",
+  "description": "Parkour Haris - 3D multiplayer obstacle race",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/test.js"
+  },
+  "keywords": [],
+  "author": "HARIS",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "compression": "^1.8.2",
+    "express": "^5.3.0",
+    "three": "^0.186.1",
+    "ws": "^8.22.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}
