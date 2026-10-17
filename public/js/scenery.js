@@ -3,12 +3,8 @@ import * as THREE from 'three';
 import { Batch } from './world.js';
 
 export const VIS = {
-  candy: { top: '#3fb0ff', horizon: '#ffd6ee', bottom: '#ffe9f6', fog: '#ffd9ef', fogNear: 90, fogFar: 520, sun: '#fff1cf', sunPos: [-60, 90, -40], sunI: 2.5, hemiSky: '#d6eeff', hemiGround: '#ffc2e6', hemiI: 1.0, exp: 1.05, waterA: '#2ec8ff', waterB: '#168ae0', water: 'water', env: 0.55 },
-  canyon: { top: '#47207a', horizon: '#ff9a52', bottom: '#ffcf8a', fog: '#ffa769', fogNear: 80, fogFar: 460, sun: '#ffb06b', sunPos: [80, 45, -70], sunI: 2.7, hemiSky: '#ffd0a6', hemiGround: '#a8402f', hemiI: 0.9, exp: 1.0, waterA: '#ff4a12', waterB: '#ffc21a', water: 'lava', env: 0.45 },
-  frost: { top: '#4aa6ff', horizon: '#e4f4ff', bottom: '#ffffff', fog: '#d8ecff', fogNear: 80, fogFar: 480, sun: '#fff6ea', sunPos: [50, 80, -40], sunI: 2.4, hemiSky: '#dff1ff', hemiGround: '#9fc9ee', hemiI: 1.1, exp: 1.08, waterA: '#2a8fd6', waterB: '#0b4d8c', water: 'water', env: 0.65 },
-  fair: { top: '#2f8bff', horizon: '#fff0c2', bottom: '#ffe9b0', fog: '#ffe6bd', fogNear: 90, fogFar: 520, sun: '#fff0cf', sunPos: [-50, 85, -50], sunI: 2.6, hemiSky: '#cfe6ff', hemiGround: '#ffd9a0', hemiI: 1.0, exp: 1.05, waterA: '#2fe0c8', waterB: '#0e8fb0', water: 'water', env: 0.55 },
   fun: { top: '#35a7ff', horizon: '#e8fbff', bottom: '#fff6d8', fog: '#d9f4ff', fogNear: 120, fogFar: 640, sun: '#fff4d6', sunPos: [-40, 90, -60], sunI: 2.7, hemiSky: '#d4ecff', hemiGround: '#bfe8a0', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.6 },
-  neon: { top: '#04010d', horizon: '#3b0c70', bottom: '#12033a', fog: '#1d0750', fogNear: 60, fogFar: 380, sun: '#a58bff', sunPos: [-40, 70, -30], sunI: 1.5, hemiSky: '#6c4cff', hemiGround: '#1a0a3a', hemiI: 0.95, exp: 1.15, waterA: '#2b0b5e', waterB: '#d11cff', water: 'grid', env: 0.5 },
+  jungle: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
 };
 
 // ---------------------------------------------------------------- textures
@@ -190,7 +186,7 @@ export class Ambient {
     const pos = new Float32Array(n * 3); this.seed = new Float32Array(n * 3);
     for (let i = 0; i < n * 3; i++) this.seed[i] = Math.random();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const colors = { frost: '#ffffff', canyon: '#ffb347', candy: '#fff6a8', neon: '#7cf9ff', fair: '#ffd6f0', fun: '#fff6a8' };
+    const colors = { fun: '#fff6a8', jungle: '#fffbb0' };
     this.mat = new THREE.PointsMaterial({ color: colors[kind] || '#fff', size: kind === 'frost' ? 0.28 : 0.22, transparent: true, opacity: 0.85, depthWrite: false, map: softTexture(), blending: kind === 'neon' || kind === 'canyon' ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     this.pos = pos;
@@ -218,8 +214,8 @@ export function buildScenery(scene, key, info, world) {
   const v = VIS[key], group = new THREE.Group(); group.name = 'scenery';
   const R = rng(key.length * 9973 + 17), main = new Batch(), glow = new Batch();
   const len = info.length, end = -len - 40;
-  const wy = key === 'fun' ? 0 : world.waterY;
-  const sideOff = key === 'fun' ? 82 : 0; // keep decorations outside the park fence
+  const wy = 0;
+  const sideOff = 82; // keep decorations outside the park fence
   const dyn = []; // things animated each frame
 
   const sideX = (min, max) => (R() < 0.5 ? -1 : 1) * (min + sideOff + R() * (max - min));
@@ -228,78 +224,7 @@ export function buildScenery(scene, key, info, world) {
   const cyl = (rt, rb, h, s = 14) => new THREE.CylinderGeometry(rt, rb, h, s);
   const cone = (r, h, s = 14) => new THREE.ConeGeometry(r, h, s);
 
-  // floating islands (all themes) for depth
-  const islandCols = { candy: ['#ff9bd0', '#7be8c8', '#ffd479', '#b9a4ff'], canyon: ['#d9743b', '#e8a15a', '#b9472f'], frost: ['#e5f4ff', '#a8d8ff', '#ffffff'], neon: ['#2d1c78', '#4a1a86', '#1f2f8a'], fair: ['#8bd450', '#ffd23f', '#ff9bd0', '#7be8ff'], fun: ['#8bd450', '#ffd23f', '#ff9bd0', '#7be8ff'] }[key];
-  for (let i = 0; i < 26; i++) {
-    const z = 60 - R() * (len + 160), x = sideX(38, 150), y = -4 + R() * 40, s = 5 + R() * 14;
-    const c = pickc(islandCols);
-    main.add(cyl(s, s * 0.9, s * 0.25, 20), x, y, z, c);
-    main.add(cone(s * 0.9, s * 1.3, 20), x, y - s * 0.25 / 2 - s * 0.65, z, key === 'frost' ? '#9fc8ee' : key === 'neon' ? '#241a60' : '#8a5a3a', Math.PI);
-    if (key === 'neon') glow.add(new THREE.TorusGeometry(s, 0.18, 6, 32), x, y + s * 0.13, z, pickc(['#22f2ff', '#ff2bd6']), Math.PI / 2);
-  }
-
-  if (key === 'candy') {
-    for (let i = 0; i < 70; i++) {
-      const z = 70 - R() * (len + 200), x = sideX(26, 130), s = 1 + R() * 2.2, t = R();
-      const y0 = wy - 1;
-      if (t < 0.35) { // lollipop
-        const col = pickc(['#ff5fa8', '#ffb347', '#8f7bff', '#3fd6c2', '#ffd84d']);
-        main.add(cyl(0.45 * s, 0.45 * s, 12 * s, 8), x, y0 + 6 * s, z, '#fff3f8');
-        main.add(sph(3.4 * s, 20, 14), x, y0 + 13.5 * s, z, col, 0, 0, 0, 1, 1, 0.45);
-        main.add(new THREE.TorusGeometry(2.2 * s, 0.35 * s, 8, 24), x, y0 + 13.5 * s, z + 1.45 * s, '#ffffff');
-        main.add(new THREE.TorusGeometry(1.1 * s, 0.3 * s, 8, 20), x, y0 + 13.5 * s, z + 1.5 * s, '#ffffff');
-      } else if (t < 0.65) { // gumdrop
-        main.add(sph(4 * s, 18, 12), x, y0, z, pickc(['#ff6b9e', '#6be8c4', '#ffd24d', '#a58bff']), 0, 0, 0, 1, 0.85, 1);
-        main.add(cyl(0.9 * s, 1.3 * s, 0.6 * s, 10), x, y0 + 3.2 * s, z, '#ffffff');
-      } else if (t < 0.85) { // cupcake
-        main.add(cyl(2.8 * s, 2 * s, 3.2 * s, 14), x, y0 + 1.6 * s, z, pickc(['#ffd29b', '#c9a0ff', '#8be0ff']));
-        main.add(sph(3.1 * s, 16, 10), x, y0 + 4 * s, z, '#ff9ccb', 0, 0, 0, 1, 0.8, 1);
-        main.add(sph(0.7 * s, 10, 8), x, y0 + 6.1 * s, z, '#ff2d55');
-      } else { // donut
-        main.add(new THREE.TorusGeometry(4.2 * s, 1.9 * s, 12, 28), x, y0 + 2 * s, z, '#ffbd6b', Math.PI / 2 - 0.4);
-        main.add(new THREE.TorusGeometry(4.2 * s, 1.9 * s, 12, 28), x, y0 + 2.5 * s, z, pickc(['#ff7ab8', '#7be8ff']), Math.PI / 2 - 0.4, 0, 0, 1.03, 1.03, 0.6);
-      }
-    }
-    // rainbow arches across the track
-    const cols = ['#ff3b3b', '#ff9a3b', '#ffe03b', '#4ddc6a', '#3bb0ff', '#9b6bff'];
-    [-0.12, -0.5, -0.88].forEach((f) => cols.forEach((c, i) => main.add(new THREE.TorusGeometry(46 - i * 1.6, 0.9, 6, 48, Math.PI), 0, wy - 2, f * len - 8, c, 0, 0, 0, 1, 1.4, 1)));
-    // balloons
-    for (let i = 0; i < 22; i++) {
-      const b = new THREE.Group(), c = pickc(['#ff5fa8', '#ffd84d', '#4dd0ff', '#9b7bff', '#5ee89a']);
-      const body = new THREE.Mesh(sph(1.6, 16, 12), new THREE.MeshStandardMaterial({ color: c, roughness: 0.25 })); body.scale.y = 1.2;
-      const knot = new THREE.Mesh(cone(0.25, 0.4, 8), new THREE.MeshStandardMaterial({ color: c })); knot.position.y = -1.9; knot.rotation.x = Math.PI;
-      const str = new THREE.Mesh(cyl(0.03, 0.03, 4, 4), new THREE.MeshBasicMaterial({ color: '#ffffff' })); str.position.y = -4;
-      b.add(body, knot, str);
-      b.position.set(sideX(14, 70), 8 + R() * 30, 40 - R() * (len + 120)); b.userData.ph = R() * 6;
-      group.add(b); dyn.push((t) => { b.position.y += Math.sin(t * 0.8 + b.userData.ph) * 0.004; b.rotation.z = Math.sin(t * 0.6 + b.userData.ph) * 0.08; });
-    }
-  } else if (key === 'canyon') {
-    for (let i = 0; i < 60; i++) {
-      const z = 70 - R() * (len + 200), x = sideX(28, 150), s = 1 + R() * 2.4, t = R(), y0 = wy - 2;
-      if (t < 0.55) { // layered mesa
-        const layers = 3 + Math.floor(R() * 3);
-        for (let l = 0; l < layers; l++) main.add(cyl(5 * s - l * 0.35 * s, 5.3 * s - l * 0.3 * s, 4 * s, 12), x, y0 + 2 * s + l * 4 * s, z, ['#b8452f', '#d9743b', '#e8a15a', '#c4503d', '#f0b46a'][(l + i) % 5]);
-      } else if (t < 0.85) { // rock spire
-        main.add(cone(2.4 * s, 16 * s, 7), x, y0 + 8 * s, z, pickc(['#9c3f2c', '#c4573a', '#7a2f3d']));
-      } else { // arch
-        main.add(new THREE.TorusGeometry(6 * s, 2 * s, 8, 20, Math.PI), x, y0, z, '#d2693b', 0, R() * 3);
-      }
-    }
-    glow.add(sph(34, 24, 16), 120, 52, -len - 140, '#ffd27a'); glow.add(sph(34, 24, 16), -150, 40, -60, '#ffb35e');
-  } else if (key === 'frost') {
-    for (let i = 0; i < 80; i++) {
-      const z = 70 - R() * (len + 200), x = sideX(26, 150), s = 1 + R() * 2.2, t = R(), y0 = wy - 2;
-      if (t < 0.3) { // mountain
-        main.add(cone(14 * s, 30 * s, 8), x, y0 + 15 * s, z, '#bcd8f2');
-        main.add(cone(6.5 * s, 12 * s, 8), x, y0 + 24 * s, z, '#ffffff');
-      } else if (t < 0.8) { // pine
-        for (let l = 0; l < 4; l++) { main.add(cone(3.4 * s - l * 0.65 * s, 4.4 * s, 9), x, y0 + (3 + l * 2.6) * s, z, l % 2 ? '#2f7d6f' : '#3a9684'); main.add(cone(2.4 * s - l * 0.5 * s, 2 * s, 9), x, y0 + (4.4 + l * 2.6) * s, z, '#ffffff'); }
-        main.add(cyl(0.5 * s, 0.6 * s, 3 * s, 6), x, y0 + 1.4 * s, z, '#6b4a34');
-      } else { // ice crystal
-        glow.add(new THREE.OctahedronGeometry(3 * s, 0), x, y0 + 5 * s + R() * 10, z, '#bfe8ff', 0, R() * 3, 0, 0.7, 1.8, 0.7);
-      }
-    }
-  } else if (key === 'fair' || key === 'fun') {
+  if (key === 'fun') {
     for (let i = 0; i < 46; i++) { // circus tents, flag poles, striped towers
       const z = 70 - R() * (len + 200), x = sideX(26, 140), s = 1 + R() * 1.8, t = R(), y0 = wy - 1;
       if (t < 0.4) { // big-top tent
@@ -340,29 +265,23 @@ export function buildScenery(scene, key, info, world) {
       b.add(body, str); b.position.set(sideX(14, 80), 8 + R() * 34, 40 - R() * (len + 120)); b.userData.ph = R() * 6;
       group.add(b); dyn.push((t) => { b.position.y += Math.sin(t * 0.8 + b.userData.ph) * 0.004; b.rotation.z = Math.sin(t * 0.6 + b.userData.ph) * 0.08; });
     }
-  } else { // neon
-    for (let i = 0; i < 70; i++) {
-      const z = 70 - R() * (len + 200), x = sideX(24, 140), s = 1 + R() * 2.2, t = R();
-      const c = pickc(['#22f2ff', '#ff2bd6', '#7cff3d', '#ffe03b']);
-      if (t < 0.35) { // pylon
-        main.add(cyl(1.4 * s, 1.8 * s, 24 * s, 6), x, wy + 10 * s, z, '#190f4d');
-        glow.add(cyl(1.5 * s, 1.5 * s, 0.6, 6), x, wy + 6 * s, z, c); glow.add(cyl(1.5 * s, 1.5 * s, 0.6, 6), x, wy + 14 * s, z, c);
-      } else if (t < 0.7) { // floating cube/octa
-        glow.add(new THREE.OctahedronGeometry(2.4 * s, 0), x, 6 + R() * 40, z, c, R() * 3, R() * 3, 0);
-      } else { // ring
-        glow.add(new THREE.TorusGeometry(5 * s, 0.35, 6, 40), x, 10 + R() * 30, z, c, R() * 3, R() * 3, 0);
-      }
+  } else if (key === 'jungle') {
+    // far side of the walls: a ring of big trees + misty mountains + clouds (seen from the hill top)
+    for (let i = 0; i < 90; i++) {
+      const a = R() * Math.PI * 2, rx = 120 + R() * 90, rz = 150 + R() * 90, x = Math.cos(a) * rx, z = -108 + Math.sin(a) * rz, s2 = 1.4 + R() * 2.4;
+      main.add(cyl(0.7 * s2, 1.0 * s2, 9 * s2, 6), x, 4.5 * s2, z, '#6b4423');
+      main.add(sph(4.4 * s2, 8, 6), x, 11 * s2, z, pickc(['#2e9b3f', '#3fb14c', '#27863a']));
     }
-    // planet with ring
-    main.add(sph(60, 32, 24), -170, 90, -len * 0.55, '#3a1a8c');
-    glow.add(new THREE.TorusGeometry(95, 1.5, 6, 80), -170, 90, -len * 0.55, '#ff2bd6', Math.PI / 2 - 0.35, 0, 0.2);
-    glow.add(sph(26, 20, 16), 200, 120, -len * 0.2, '#ff7ad9');
-    // stars
-    const N = 900, sp = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { const a = R() * Math.PI * 2, e = Math.acos(R() * 1.6 - 0.2), r = 800; sp[i * 3] = Math.sin(e) * Math.cos(a) * r; sp[i * 3 + 1] = Math.cos(e) * r; sp[i * 3 + 2] = Math.sin(e) * Math.sin(a) * r; }
-    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-    const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 2.2, sizeAttenuation: false, fog: false, depthWrite: false }));
-    stars.frustumCulled = false; stars.renderOrder = -9; group.add(stars); group.userData.stars = stars;
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2 + R() * 0.3, x = Math.cos(a) * (260 + R() * 60), z = -108 + Math.sin(a) * (300 + R() * 60), s2 = 1 + R() * 1.4;
+      main.add(cone(40 * s2, 70 * s2, 7), x, 30 * s2, z, pickc(['#5f9a7a', '#6aa88a', '#4f8a6c'])); main.add(cone(14 * s2, 20 * s2, 7), x, 66 * s2, z, '#ffffff');
+    }
+    for (let i = 0; i < 26; i++) {
+      const c = new THREE.Group(), x = (R() - 0.5) * 520, z = -108 + (R() - 0.5) * 520, y = 85 + R() * 50, k = 3 + Math.floor(R() * 3);
+      for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(7 + R() * 6, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, fog: false })); m.position.set(q * 9 - k * 4, R() * 3, R() * 5); m.scale.y = 0.55; c.add(m); }
+      c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
+      dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 300) c.position.x = -300; });
+    }
   }
 
   const m1 = main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }));
@@ -370,6 +289,7 @@ export function buildScenery(scene, key, info, world) {
   const m2 = glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
   if (m2) group.add(m2);
 
+  if (key !== 'jungle') {
   // ---- HARIS branding (never touches gameplay) ----------------------------------------
   const brand = new THREE.Group(); brand.name = 'brand'; group.add(brand);
   const tex = harisTexture('HARIS', 'MADE THIS GAME');
@@ -391,6 +311,8 @@ export function buildScenery(scene, key, info, world) {
   const board = new THREE.Mesh(new THREE.PlaneGeometry(30, 15), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false, fog: false }));
   board.position.set(0, sp.top + 21, info.finishZ - 0.5); brand.add(board);
   dyn.push((t) => { board.position.y = sp.top + 21 + Math.sin(t * 1.2) * 0.4; });
+
+  }
 
   scene.add(group);
   return {

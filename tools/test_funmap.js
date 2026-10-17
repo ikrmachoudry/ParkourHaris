@@ -4,7 +4,7 @@ import { newBody, stepBody, respawn } from '../public/js/physics.js';
 import { newCar, stepCar, CAR_SPECS, corridor } from '../public/js/car.js';
 const DT = 1 / 90, idle = { mx: 0, mz: 0, jumpPressed: false, jumpHeld: false, divePressed: false };
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
-const { world, info } = buildLevel(5, true);
+const { world, info } = buildLevel(0, true);
 ok(world.waterY < -30 && world.killY < -50, 'kill plane far below the park (nothing to fall into)');
 
 function walk(waypoints, startPos, maxT = 200) {

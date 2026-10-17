@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
+import { KINDS, newAnimals, stepAnimals, hitAnimal, releaseOwner, packAnimals, jungleLayout } from './public/js/jlayout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -85,7 +86,8 @@ function startRound(room) {
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
-  for (const p of room.players.values()) { p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
+  room.an = meta.free ? newAnimals() : null; room.anT = Date.now();
+  for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {
     t: 'go', t0: room.t0, level: room.level, limit: meta.limit,
     order: [...room.players.values()].map((p) => p.id),
@@ -97,6 +99,7 @@ function startRound(room) {
 function removePlayer(p) {
   const room = p.room;
   if (!room) return;
+  if (room.an) releaseOwner(room.an, p.id);
   room.players.delete(p.id);
   p.room = null;
   if (room.players.size === 0) { clearTimers(room); rooms.delete(room.code); return; }
@@ -120,6 +123,7 @@ function joinRoom(p, room) {
     const meta = LEVEL_META[room.level];
     send(p.ws, { t: 'go', t0: room.t0, level: room.level, limit: meta.limit, order: [...room.players.values()].map((q) => q.id) });
     if (room.cars && Object.keys(room.cars).length) send(p.ws, { t: 'cars', cars: room.cars });
+    if (room.an) send(p.ws, { t: 'an', a: packAnimals(room.an) });
   }
 }
 
@@ -249,13 +253,33 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1 });
         break;
       }
+      case 'ahit': { // bat hit on a jungle animal (tames it after enough hits)
+        if (!room || room.phase !== 'race' || !room.an) return;
+        const a = room.an[m.id | 0]; if (!a || !Number.isInteger(m.id)) return;
+        const t = Date.now(); if (t - (p.lastAHit || 0) < 380) return;
+        const K = KINDS[a.kind];
+        if (Math.hypot((p.x || 0) - a.x, (p.z || 0) - a.z) > K.r + 6 || Math.abs((p.y || 0) - a.y) > 5 || p.mounted) return;
+        p.lastAHit = t;
+        for (const e of hitAnimal(a, p.id, p.x || 0, p.z || 0)) bcast(room, { t: 'aev', k: e.k, id: e.id, hp: e.hp, pid: e.pid });
+        break;
+      }
+      case 'aride': { // get on / off an animal you tamed
+        if (!room || room.phase !== 'race' || !room.an) return;
+        const a = room.an[m.id | 0]; if (!a) return;
+        if (m.on) {
+          if (a.owner !== p.id || a.rider || p.mounted) return;
+          if (Math.hypot((p.x || 0) - a.x, (p.z || 0) - a.z) > 10 || Math.abs((p.y || 0) - a.y) > 5) return;
+          a.rider = p.id; p.mounted = 1;
+        } else if (a.rider === p.id) { a.rider = 0; p.mounted = 0; }
+        break;
+      }
       case 's': { // position snapshot
         if (!room || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now();
         if (t - p.lastS < 25) return;
         p.lastS = t;
         if (!num(m.x, -400, 400) || !num(m.y, -200, 300) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
-        p.x = m.x; p.y = m.y; p.z = m.z;
+        p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r;
         bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];
         if (room.phase === 'race' && !p.finished && m.z < meta.finishZ && m.y > meta.finishY - 3 && Math.abs(m.x) < 16) {
@@ -278,6 +302,23 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => removePlayer(p));
   ws.on('error', () => {});
 });
+
+// ---- jungle animals: one brain per room, 20 steps/second
+setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.values()) {
+    if (!room.an || room.phase !== 'race') continue;
+    const dt = Math.min(0.1, (now - (room.anT || now)) / 1000); room.anT = now;
+    const pl = [...room.players.values()].map((q) => ({ id: q.id, x: q.x || 0, y: q.y || 0, z: q.z || 0, r: q.r || 0, mounted: q.mounted ? 1 : 0 }));
+    for (const q of room.players.values()) if (q.mounted && !room.an.some((a) => a.rider === q.id)) q.mounted = 0;
+    const evs = stepAnimals(room.an, dt, pl, jungleLayout());
+    for (const e of evs) {
+      if (e.k !== 'bite') continue;
+      const q = room.players.get(e.pid); if (q) send(q.ws, { t: 'abite', id: e.id, nx: +e.nx.toFixed(3), nz: +e.nz.toFixed(3), big: e.big });
+    }
+    bcast(room, { t: 'an', a: packAnimals(room.an) });
+  }
+}, 50);
 
 // drop dead connections (proxies sometimes leave half-open sockets)
 setInterval(() => {

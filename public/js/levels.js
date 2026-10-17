@@ -3,42 +3,25 @@ import * as THREE from 'three';
 import { World } from './world.js';
 import { flagBoard, textBoard } from './flags.js';
 import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y, GZT, GZB } from './sky.js';
+import { buildJungle } from './jungle.js';
 
 export const THEMES = {
-  candy: {
-    plat: ['#ff7ab8', '#ffb347', '#5ad6c4', '#a78bfa', '#ffd84d'], pad: '#fff6fc', icePad: '#e8fbff',
-    hazard: '#ff3b6b', hazard2: '#ffffff', hub: '#6b4de6', accent: '#ffdc3a', convBase: '#7a56e8', belt: '#ffe8f4',
-  },
-  canyon: {
-    plat: ['#e0793a', '#f2b05e', '#c4503d', '#b8452f', '#f5c77e'], pad: '#ffe6c2', icePad: '#fff',
-    hazard: '#4b2a9e', hazard2: '#ffd23f', hub: '#4a2a1c', accent: '#ffd23f', convBase: '#5a2d1e', belt: '#ffb35e',
-  },
-  frost: {
-    plat: ['#d6efff', '#9fd6ff', '#bfe9ff', '#8ec5f5', '#f4fbff'], pad: '#ffffff', icePad: '#f4fcff',
-    hazard: '#ff4d6d', hazard2: '#ffffff', hub: '#2f5d9e', accent: '#ff8a5b', convBase: '#3a6db0', belt: '#cfe9ff',
-  },
-  fair: {
-    plat: ['#ff5d73', '#ffd23f', '#3ec6e0', '#8bd450', '#ff9f43'], pad: '#fff7e0', icePad: '#fff', edgeGlow: null,
-    hazard: '#ff2d55', hazard2: '#fff6d6', hub: '#5b2a86', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
-  },
   fun: {
     plat: ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#ff9f1c'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff3d68', hazard2: '#fff7d6', hub: '#6a3fa0', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
   },
-  neon: {
-    plat: ['#2a1d6e', '#3a1785', '#1f2f7a', '#4c1a7c', '#2f2273'], pad: '#4a36b0', icePad: '#4a36b0', edgeGlow: '#22f2ff',
-    hazard: '#ff2bd6', hazard2: '#22f2ff', hub: '#0e0a2e', accent: '#7cff3d', convBase: '#18104a', belt: '#3a2a9a',
+  jungle: {
+    plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff7a1a', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#5a3a1e', belt: '#a3d36b',
   },
 };
-const KEYS = ['candy', 'canyon', 'frost', 'neon', 'fair', 'fun'];
-
-const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const KEYS = ['fun', 'jungle'];
 
 export function buildLevel(idx, headless = false, arrow = null) {
   const key = KEYS[idx], th = THEMES[key];
   const world = new World(th, headless);
   world.arrowTexture = arrow;
-  world.key = key; world.waterY = idx === 5 ? -40 : -5.5; world.killY = idx === 5 ? -60 : -9.5;
+  world.key = key; world.waterY = -40; world.killY = -60;
   const c = { z: 0, y: 0 };
   const info = { key, spawn: { x: 0, y: 0, z: 1.5 }, signs: [], pads: [] };
 
@@ -51,116 +34,6 @@ export function buildLevel(idx, headless = false, arrow = null) {
   }
   function cp(p, off = 3.5) { return world.checkpoint(p.x, p.top, p.near - off, Math.min(p.w, 16)); }
 
-  const start = () => { c.z = 6; c.y = 0; const p = plat(18, 22); info.startArch = p.near - 8; return p; };
-  function stones(n, size, gap, spread, o = {}) {
-    let p;
-    for (let i = 0; i < n; i++) p = plat(size, size, { gap, x: Math.sin(i * 2.1 + 0.6) * spread, ...o });
-    return p;
-  }
-  function ramp(len, dy, w = 12, o = {}) {
-    const r = world.ramp(0, c.z, c.y, c.z - len, c.y + dy, w, o);
-    c.z -= len; c.y += dy; return r;
-  }
-  function moversX(gapLen, count, w, d, amp, period) {
-    const sp = gapLen / (count + 1);
-    for (let i = 0; i < count; i++) {
-      const z = c.z - sp * (i + 1), ph = i * Math.PI;
-      world.mover(0, c.y, z, w, d, (t) => [amp * Math.sin(t * 2 * Math.PI / period + ph), 0, 0]);
-    }
-    c.z -= gapLen;
-  }
-  function elevators(gapLen, count, w, d, rise, period) {
-    const sp = gapLen / (count + 1);
-    for (let i = 0; i < count; i++) {
-      const z = c.z - sp * (i + 1), ph = i * Math.PI * 0.9;
-      world.mover(0, c.y, z, w, d, (t) => [0, rise * (0.5 - 0.5 * Math.cos(t * 2 * Math.PI / period + ph)), 0], { stripes: true });
-    }
-    c.z -= gapLen;
-  }
-  function bouncePads(n, spacing, power) {
-    for (let i = 0; i < n; i++) {
-      const z = c.z - 4.5 - i * spacing;
-      world.disc((i % 2 ? 2 : -2), c.y, z, 2.5, { bounce: power, color: i % 2 ? th.hazard : th.accent });
-    }
-    c.z -= 9 + (n - 1) * spacing;
-  }
-  function discs(n, r, omegas, edge, withBar) {
-    for (let i = 0; i < n; i++) {
-      const cz = c.z - edge - r;
-      world.disc(0, c.y, cz, r, { omega: omegas[i % omegas.length], phase: i * 1.3 });
-      if (withBar) world.bar(0, c.y + 0.12, cz, r * 1.9, { omega: -withBar * (i % 2 ? -1 : 1), h: 1.0, w: 1.0, phase: i });
-      c.z = cz - r;
-    }
-  }
-  function liftGates(rows, w, spacing, gap = 0) {
-    const p = plat(w, rows * spacing + 8, { gap });
-    for (let r = 0; r < rows; r++) {
-      const z = p.near - 7 - r * spacing, n = 3, dw = w / n;
-      for (let k = 0; k < n; k++) {
-        const ph = r * 1.7 + k * 2.1, per = 3.4 + (k % 2) * 0.6;
-        world.mover(p.x - w / 2 + dw * (k + 0.5), p.top + 3.4, z, dw - 0.08, 0.9,
-          (t) => [0, 2.9 * sstep(0.35, 0.62, 0.5 + 0.5 * Math.sin(t * 2 * Math.PI / per + ph)), 0], { h: 3.4, stripes: true, pad: false, color: th.hazard2 });
-      }
-    }
-    return p;
-  }
-  function hammerHall(w, d, count, L, spacing, gap = 0, omega = 1.5) {
-    const p = plat(w, d, { gap });
-    for (let i = 0; i < count; i++) {
-      world.hammer(p.x, p.top + L + 1.45, p.near - 7 - i * spacing, L, { amp: 1.2, omega: omega + 0.08 * i, phase: i * 1.9, span: w / 2 + 0.8, baseY: p.top, r: 1.3 });
-    }
-    return p;
-  }
-  function pistons(w, d, rows, gap = 0) {
-    const p = plat(w, d, { gap });
-    const half = w / 2;
-    for (let r = 0; r < rows; r++) {
-      const z = p.near - 7 - r * ((d - 12) / Math.max(1, rows - 1) || 8);
-      const pw = 5.5, A = half - pw / 2, per = 3.2 + (r % 2) * 0.5;
-      world.mover(p.x - half + pw / 2, p.top + 2.6, z, pw, 1.1, (t) => [A * (0.5 - 0.5 * Math.cos(t * 2 * Math.PI / per + r)) * 2 * (r % 2 ? 1 : 1), 0, 0], { h: 2.6, stripes: true, pad: false, color: th.hazard2 });
-      world.mover(p.x + half - pw / 2, p.top + 2.6, z - 3.2, pw, 1.1, (t) => [-A * (0.5 - 0.5 * Math.cos(t * 2 * Math.PI / (per + 0.4) + r + 1)) * 2, 0, 0], { h: 2.6, stripes: true, pad: false, color: th.hazard2 });
-    }
-    return p;
-  }
-  function tiles(rows, cols, size, edge = 2.2, gapZ = 1.8) {
-    for (let r = 0; r < rows; r++) {
-      const z = c.z - edge - size / 2 - r * (size + gapZ);
-      for (let k = 0; k < cols; k++) {
-        const x = (k - (cols - 1) / 2) * (size + 1.4);
-        world.platform(x, c.y, z, size, size, { color: th.plat[(r + k) % th.plat.length] }); // solid stepping tiles (the old vanishing tiles were too hard)
-      }
-    }
-    c.z -= edge + rows * size + (rows - 1) * gapZ;
-  }
-  function rampBalls(len, dy, w, speed, period, r) {
-    const rp = ramp(len, dy, w);
-    const yAt = (z) => rp.yN + (rp.yF - rp.yN) * ((rp.zN - z) / (rp.zN - rp.zF));
-    const lanes = [-w * 0.32, 0, w * 0.32];
-    lanes.forEach((x, i) => world.balls(x, rp.zF, rp.zN - 2, yAt, r, speed, period, [i * period / 3], {}));
-    return rp;
-  }
-  function seesaw(w, L, end, period, phase, gap = 1.4) {
-    const near = c.z - gap, cz = near - L / 2;
-    const r = world.seesaw(0, c.y, cz, w, L, end, period, phase);
-    c.z = near - L;
-    return r;
-  }
-  // grid of square floor cells; '#' = floor, '.' = hole (pitfall: fall in and you restart at the checkpoint)
-  function pitfield(rows, cell, gap = 0) {
-    c.z -= gap;
-    rows.forEach((row, r) => {
-      const cz = c.z - cell / 2 - r * cell;
-      for (let k = 0; k < row.length; k++) {
-        if (row[k] !== '#') continue;
-        world.platform((k - (row.length - 1) / 2) * cell, c.y, cz, cell, cell, { color: th.plat[(r + k) % th.plat.length], pad: true });
-      }
-    });
-    c.z -= rows.length * cell;
-  }
-  function bungeeGap(gapLen, discFrom, depth, power) {
-    world.bungee(0, c.z - discFrom, c.y - depth, 5.5, power, c.y + 15);
-    c.z -= gapLen;
-  }
   // two roller-coaster carts shuttling between stations (staggered), riding a hilly curved rail
   function coaster(D, T, cx = 0) {
     const zA = c.z - 0.9 - 3, lanes = [-4.7 + cx, 4.7 + cx];
@@ -184,85 +57,9 @@ export function buildLevel(idx, headless = false, arrow = null) {
     return p;
   }
 
-  // ------------------------------------------------------------ the levels
-  if (idx === 0) { // ---------------------------------------------- CANDY MEADOW
-    start();
-    stones(5, 6, 3, 3.2);
-    let p = plat(16, 10, { gap: 3 }); cp(p, 3);
-    p = plat(18, 34, { gap: 2.5 });
-    world.bar(p.x, p.top, p.near - 10, 18, { omega: 1.3, h: 1.0, w: 1.1 });
-    world.bar(p.x, p.top, p.near - 24, 18, { omega: -1.6, h: 1.0, w: 1.1, phase: 1 });
-    cp(p, 3.5);
-    ramp(14, 3, 12); p = plat(14, 10); cp(p, 3);
-    moversX(20, 2, 6.2, 6.2, 5, 5.2);
-    p = plat(14, 10); cp(p, 3);
-    bouncePads(3, 9, 16.5);
-    p = plat(14, 10); cp(p, 3);
-    discs(3, 5, [0.9, -1.0, 1.1], 2.6);
-    p = plat(16, 10, { gap: 2.6 }); cp(p, 3);
-    p = liftGates(3, 18, 11, 1);
-    ramp(16, -3, 12);
-    finish();
-  } else if (idx === 1) { // ---------------------------------------- SUNSET CANYON (lava)
-    start();
-    stones(3, 7, 3, 2.6);
-    let p = plat(18, 10, { gap: 3 }); cp(p, 3);
-    p = hammerHall(18, 36, 3, 8, 11, 2.5, 1.5);
-    p = plat(14, 8, { gap: 3 }); cp(p, 3);
-    p = world.conveyor(0, c.y, c.z - 15, 14, 30, +5.0);
-    world.bar(0, c.y, c.z - 10, 14, { omega: 1.5, h: 1.0 });
-    world.bar(0, c.y, c.z - 23, 14, { omega: -1.8, h: 1.0, phase: 2 });
-    c.z -= 30;
-    p = plat(14, 8); cp(p, 3);
-    tiles(6, 3, 4.6);
-    p = plat(14, 8, { gap: 2.2 }); cp(p, 3);
-    rampBalls(40, 5, 14, 11, 6, 1.5);
-    p = plat(22, 28);
-    world.bar(p.x, p.top, p.near - 14, 22, { omega: 1.05, arms: 2, h: 1.1 });
-    cp(p, 3);
-    p = pistons(16, 36, 3, 2.5);
-    finish();
-  } else if (idx === 2) { // ---------------------------------------- FROZEN PEAK (ice)
-    start();
-    let p = plat(10, 40, { gap: 2.5, ice: true });
-    world.bar(p.x, p.top, p.near - 14, 10, { omega: 0.9, h: 0.95, w: 1.0 });
-    world.bar(p.x, p.top, p.near - 28, 10, { omega: -1.1, h: 0.95, w: 1.0, phase: 1.5 });
-    stones(4, 6.5, 3.2, 2.5, { ice: true });
-    p = plat(16, 10, { gap: 3.2, ice: true }); cp(p, 3);
-    discs(3, 6, [0.8, -1.0, 1.2], 2.8, 1.9);
-    p = plat(18, 10, { gap: 2.8 }); cp(p, 3);
-    rampBalls(36, 6, 14, 12, 5.4, 1.4);
-    p = plat(16, 10); cp(p, 3);
-    elevators(18, 2, 6.2, 6.2, 3.2, 4.4);
-    p = plat(14, 10); cp(p, 3);
-    world.disc(0, c.y, c.z - 4, 3, { bounce: 22, color: th.hazard });
-    p = plat(16, 12, { gap: 11, dy: 4.5 }); cp(p, 3);
-    p = plat(12, 24, { ice: true });
-    world.bar(p.x, p.top, p.near - 12, 12, { omega: 1.4, h: 1.0 });
-    p = plat(22, 32, { ice: true });
-    world.bar(p.x, p.top, p.near - 16, 22, { omega: -1.25, arms: 2, h: 1.1 });
-    finish();
-  } else if (idx === 4) { // --------------------------------------- FUNFAIR FRENZY (rides + pitfalls)
-    start();
-    let p;
-    for (let i = 0; i < 3; i++) { seesaw(9, 12, 1.4, 3.4 + i * 0.5, i * 2.1); p = plat(12, 6, { gap: 1.4 }); }
-    cp(p, 3);
-    pitfield(['#####', '#.#.#', '##.##', '.#.#.', '.##..', '..#.#', '.###.', '#####'], 3.2, 1.2);
-    world.checkpoint(0, c.y, c.z + 1.6, 14);
-    ramp(30, 8, 12); p = plat(12, 12); cp(p, 3);
-    bungeeGap(20, 9, 9, 32);
-    p = plat(16, 14); cp(p, 3);
-    ramp(30, -8, 12); p = plat(16, 8); cp(p, 3);
-    coaster(44, 12);
-    p = plat(16, 10); cp(p, 3);
-    tiles(5, 3, 4.6, 2.2, 1.7);
-    p = plat(14, 8, { gap: 2.2 }); cp(p, 3);
-    discs(3, 6, [0.9, -1.1, 1.0], 2.6, 1.6);
-    p = plat(16, 10, { gap: 2.6 }); cp(p, 3);
-    p = plat(22, 30);
-    world.bar(p.x, p.top, p.near - 15, 22, { omega: 1.2, arms: 2, h: 1.1 });
-    finish();
-  } else if (idx === 5) { // --------------------------------------- FUN MAP (nothing can kill you - just play, then find the final door)
+
+  // ------------------------------------------------------------ the maps
+  if (idx === 0) { // --------------------------------------- FUN MAP (nothing can kill you - just play, then find the final door)
     const GW = 140, ZEND = 440;
     info.startArch = -2; c.z = -16; c.y = 0;
     // one huge floor + tall fences around the whole park (so there is no way to fall off)
@@ -423,30 +220,9 @@ export function buildLevel(idx, headless = false, arrow = null) {
     world.checkpoint(0, 0, MZ + 2, 16);
     c.z = MZ - N * CELL; c.y = 0.15;
     finish();
-  } else { // ------------------------------------------------------ NEON SPACE (hard)
-    start();
-    for (let i = 0; i < 4; i++) plat(2.8, 12, { gap: 3.3, x: i % 2 ? 2.6 : -2.6 });
-    let p = plat(18, 12, { gap: 3.3 }); cp(p, 3);
-    tiles(6, 3, 4.4, 2.2, 1.9);
-    p = plat(16, 10, { gap: 2.2 }); cp(p, 3);
-    discs(3, 6.5, [1.0, -1.2, 1.4], 2.8, 1.7);
-    p = plat(16, 10, { gap: 2.8 }); cp(p, 3);
-    p = world.conveyor(0, c.y, c.z - 17, 14, 34, +6.0);
-    world.hammer(0, c.y + 8.5, c.z - 10, 7, { amp: 1.2, omega: 1.7, phase: 0, span: 8, baseY: c.y, r: 1.2 });
-    world.hammer(0, c.y + 8.5, c.z - 24, 7, { amp: 1.2, omega: 1.7, phase: 2.2, span: 8, baseY: c.y, r: 1.2 });
-    c.z -= 34;
-    p = plat(16, 10); cp(p, 3);
-    p = pistons(18, 38, 3, 0);
-    cp(p, 3);
-    moversX(18, 2, 6, 6, 5.5, 4.4);
-    p = plat(14, 8); cp(p, 3);
-    elevators(20, 2, 6, 6, 3.4, 4.0);
-    p = plat(14, 10); cp(p, 3);
-    world.disc(0, c.y, c.z - 4, 3, { bounce: 24, color: th.hazard });
-    p = plat(16, 12, { gap: 11.5, dy: 5 }); cp(p, 3);
-    p = plat(22, 36);
-    world.bar(p.x, p.top, p.near - 18, 22, { omega: 1.25, arms: 3, h: 1.15 });
-    finish();
+  } else { // ------------------------------------------------------ JUNGLE (free roam: animals, a dinosaur hill, no race)
+    buildJungle(world, th, info);
+    info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: -230 }; // free roam: there is no finish line
   }
 
   world.finalize();

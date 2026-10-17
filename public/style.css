@@ -277,3 +277,17 @@ body.touch.driving .carbtn.exit { right: max(18px, 3vw); bottom: auto; top: 28%;
 .carbtn.racer { background: linear-gradient(#ff6a78, #d1102a); box-shadow: 0 5px 0 #7d0716, 0 8px 18px rgba(0,0,0,.4); bottom: 28%; }
 body.driving.sky-swap #b-racer { display: flex; animation: carpulse 1s infinite; }
 body.touch.driving .carbtn.racer { right: max(18px, 3vw); left: auto; bottom: auto; top: calc(28% + clamp(76px, 20vmin, 104px)); transform: none; animation: none; }
+
+/* ---------- JUNGLE (free roam): ride button, no race progress ---------- */
+body.free-map #hud-progress { display: none !important; }
+body.riding #b-exit { display: flex; animation: none; }
+body.touch.riding .carbtn.exit { right: max(18px, 3vw); bottom: auto; top: 28%; }
+body.free-map .carbtn .ic svg { display: none; }
+body.free-map .carbtn .ic::before { content: '\1F40E'; font-size: 38px; line-height: 1; filter: drop-shadow(0 2px 0 rgba(0,0,0,.35)); }
+body.touch.free-map .carbtn .ic::before { font-size: clamp(34px, 9vmin, 48px); }
+body.free-map #b-car em, body.free-map #b-exit em { font-size: 0; }
+body.free-map #b-car em::after { content: 'RIDE'; font-size: 20px; }
+body.free-map #b-exit em::after { content: 'GET OFF'; font-size: 20px; }
+
+.jonly { display: none; }
+body.free-map .jonly { display: block; }

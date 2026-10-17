@@ -4,7 +4,7 @@ import { newCar, stepCar, CAR_SPECS, corridor } from '../public/js/car.js';
 import { skyLayout } from '../public/js/sky.js';
 const DT = 1 / 90;
 let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
-const { world, info } = buildLevel(5, true);
+const { world, info } = buildLevel(0, true);
 const TR = info.track, SK = info.sky, Y = SK.y;
 ok(!!SK && info.cars.length === 8 && info.cars.filter((c) => c.id >= 4).every((c) => c.y === Y), '8 cars: 4 normal + 4 red racers parked up on the sky plaza');
 ok(info.cars.filter((c) => c.id >= 4).every((c) => { const q = corridor(TR, c.x, c.z, 1.5, c.y); return q.d < 0 && Math.abs(q.h - Y) < 0.01; }), 'racers sit inside the sky garage plaza');

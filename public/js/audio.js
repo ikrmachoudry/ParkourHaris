@@ -41,6 +41,8 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 export const sfx = {
   click() { tone('triangle', 520, 780, 0.09, 0.25); },
+  roar(big = 1) { tone('sawtooth', big ? 180 : 260, big ? 60 : 110, 0.5, 0.22); tone('square', big ? 120 : 200, 50, 0.4, 0.12, 0.03); noise(0.4, 0.14, 'lowpass', 800, 200); },
+  tame() { tone('triangle', 520, 780, 0.12, 0.25); tone('triangle', 660, 990, 0.12, 0.25, 0.1); tone('triangle', 880, 1320, 0.2, 0.25, 0.2); },
   select() { tone('triangle', 660, 990, 0.12, 0.28); tone('sine', 990, 1320, 0.1, 0.18, 0.06); },
   back() { tone('triangle', 520, 330, 0.12, 0.22); },
   jump() { tone('sine', 280, 640, 0.17, 0.3); tone('triangle', 420, 880, 0.12, 0.08, 0.02); },
@@ -74,12 +76,8 @@ const SCALES = {
   major: [0, 2, 4, 7, 9, 12, 14, 16], minor: [0, 3, 5, 7, 10, 12, 15, 17], lydian: [0, 2, 4, 6, 7, 9, 11, 12], dorian: [0, 2, 3, 5, 7, 9, 10, 12],
 };
 const THEMES = [
-  { bpm: 132, root: 60, scale: 'major', prog: [0, 5, 3, 4], lead: 'square', bright: 3200 },   // candy
-  { bpm: 118, root: 57, scale: 'minor', prog: [0, 0, 3, 4], lead: 'sawtooth', bright: 2200 }, // canyon
-  { bpm: 108, root: 62, scale: 'lydian', prog: [0, 4, 5, 3], lead: 'triangle', bright: 4200 },// frost
-  { bpm: 140, root: 55, scale: 'dorian', prog: [0, 3, 0, 5], lead: 'sawtooth', bright: 2600 }, // neon
-  { bpm: 126, root: 62, scale: 'major', prog: [0, 4, 5, 3], lead: 'square', bright: 3600 },    // funfair
   { bpm: 112, root: 65, scale: 'lydian', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3400 },  // fun map (relaxed)
+  { bpm: 124, root: 57, scale: 'dorian', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // jungle (bouncy)
   { bpm: 120, root: 60, scale: 'major', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // menu
 ];
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -107,7 +105,7 @@ function musicKick(t) {
 export function startMusic(levelIdx) {
   stopMusic();
   if (!ctx) return;
-  const th = THEMES[levelIdx] || THEMES[6];
+  const th = THEMES[levelIdx] || THEMES[2];
   const sc = SCALES[th.scale];
   const step = 60 / th.bpm / 4;
   // deterministic melody patterns (2 bars of 16ths per chord), seeded per theme so it is catchy not random noise

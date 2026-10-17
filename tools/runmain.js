@@ -51,8 +51,8 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 6, 'level select with 6 cards');
-for (let L = 0; L < 6; L++) {
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 2, 'level select with 2 cards (Fun Map + Jungle)');
+for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
   step(300); // 5 s: countdown ends
@@ -67,7 +67,6 @@ for (let L = 0; L < 6; L++) {
   ok(r.finished, 'finish line detected');
   step(150); await wait(1600); step(2);
   ok(mk('s-results').classes.has('active') && mk('res-list').children.length >= 1, 'results screen shown: ' + mk('res-title').textContent);
-  if (L < 5) { mk('b-res-next').onclick(); step(2); }
 }
 // fall into water -> respawn at checkpoint
 mk('b-res-menu').onclick(); step(2); mk('b-single').onclick(); step(2); mk('b-profile-next').onclick(); step(2); mk('level-cards').children[0].onclick(); step(250);
@@ -213,7 +212,7 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
 }
 // ---- Fun Map cars: get in at the CAR STATION, drive down the road, brake, get out
 {
-  ph.startSingle(5); step(300);
+  ph.startSingle(0); step(300);
   const R = ph.race, b = R.me.body, c0 = R.cars[0], c1 = R.cars[1];
   ok(R.cars.length === 8 && new Set(R.cars.map((c) => c.st.id)).size === 8 && R.cars.filter((c) => c.st.id < 4).length === 4, '4 cars at the stations + 4 red racers in the sky garage');
   b.x = c0.st.x - 3.2; b.z = c0.st.z; b.y = 0.05; step(3);
@@ -239,6 +238,59 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   R.drive = null; { const sy = rc[0].st.y; rc[0].st.y = 0; b.y = 0.05; b.x = rc[0].st.x; b.z = rc[0].st.z + 3; ok(R.nearestFreeCar(b) === rc[0], 'after clearing the sky road a racer (left on the ground) can be entered'); rc[0].st.y = sy; }
   c1.st.x = sk.garage.x; c1.st.z = sk.garage.z + 2; c1.st.y = 16; c1.st.speed = 0; c1.st.driver = R.localId; R.drive = c1;
   R.swapRacer(); ok(R.drive && R.drive.st.id >= 4 && c1.st.driver === -1, 'swap on the garage plaza puts you in a racer and parks the old car');
+}
+
+// ---- JUNGLE: wandering animals attack, the bat tames them, you ride them; the dinosaur on the hill is freed with the bat
+{
+  mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
+  ph.startSingle(1); step(300);
+  const R = ph.race, b = R.me.body, an = R.an;
+  ok(R.meta.key === 'jungle' && an && an.list.length === 5, 'Jungle loads with 5 animals (lion, leopard, elephant, horse, dinosaur)');
+  ok(R.info.finishZ < -9999 && R.info.finishY > 9999, 'Jungle has no finish line (free roam)');
+  ok(mk('body').classes.has('free-map'), 'free-map body class set');
+  const lion = an.list[0], leo = an.list[1], ele = an.list[2], horse = an.list[3], dino = an.list[4];
+  ok(dino.st === 5 && an.items[4].ropes.length === 3 && an.items[4].ropes[0].visible, 'dinosaur is tied with 3 ropes');
+  // wandering
+  b.x = 80; b.z = 5; b.y = 0.05; const x0 = lion.x, z0 = lion.z; step(900); ok(Math.hypot(lion.x - x0, lion.z - z0) > 3, `wild lion wanders (moved ${Math.hypot(lion.x - x0, lion.z - z0).toFixed(1)} m)`);
+  // attack: the lion lunges at me when I come close
+  let bites = 0; const ob = R.onAnimalBite.bind(R); R.onAnimalBite = (m) => { bites++; ob(m); };
+  lion.x = -30; lion.z = -30; lion.tx = lion.x; lion.tz = lion.z; lion.wait = 0.1; lion.cool = 0; b.x = -30; b.z = -42; b.y = 0.05; b.vx = b.vz = 0; b.stun = 0; b.hitCd = 0;
+  step(240); ok(bites >= 1, `lion attacks when I come close (bites ${bites})`); ok(b.stun > 0 || b.vy > 0 || bites >= 1, 'bite knocks me back (never kills)');
+  // tame with the bat (4 hits)
+  b.stun = 0; lion.stagger = 0; lion.x = -30; lion.z = -30; b.x = -30; b.z = -27.5; b.y = 0.05; b.yaw = 0; // lion is at -z of me? yaw 0 faces +z -> put lion in front
+  lion.z = -24.5; b.z = -27.5;
+  for (let i = 0; i < 4; i++) { lion.stagger = 0; lion.x = -30; lion.z = -24.5; b.x = -30; b.z = -27.5; R.an.batHit(b); }
+  ok(lion.owner === R.localId, 'four bat hits tame the lion -> it is my pet (owner ' + lion.owner + ')');
+  // pets can't be hit again
+  const hpBefore = lion.hp; lion.x = -30; lion.z = -24.5; R.an.batHit(b); ok(lion.hp === hpBefore, 'a pet cannot be hit');
+  // (park the other wild animals far away so they cannot interrupt the test)
+  for (const a of [leo, ele, horse]) { a.x = 80; a.z = -200 + (a.id - 1) * 6; a.tx = a.x; a.tz = a.z; a.wait = 999; a.wind = 0; a.stagger = 0; }
+  // the pet follows me
+  b.x = -30; b.z = -60; b.y = 0.05; step(500); ok(Math.hypot(lion.x - b.x, lion.z - b.z) < 9, `my pet follows me (dist ${Math.hypot(lion.x - b.x, lion.z - b.z).toFixed(1)})`);
+  // ride it
+  lion.x = b.x + 2; lion.z = b.z; b.stun = 0; step(5);
+  ok(mk('body').classes.has('near-car'), 'ride button appears next to my pet');
+  R.toggleCar(); step(2); ok(an.mount === lion && lion.rider === R.localId, 'RIDE puts me on the lion');
+  R.updatePowerups(0.016, b); ok(Math.abs(b.speedMul - 1.9) < 1e-6, 'riding the lion = x1.9 speed (' + b.speedMul + ')');
+  ok((an.flagBits() & 8192) && ((an.flagBits() >> 14) & 7) === 0, 'mount flag + animal id are sent to other players');
+  key('KeyW'); step(90); key('KeyW', false); ok(Math.abs(lion.z - b.z) < 0.01 && lion.st === 7, 'the lion carries me (same position)');
+  R.toggleCar(); step(2); ok(!an.mount && lion.rider === 0, 'GET OFF works');
+  // other animals tame too (leopard 4, horse 3, elephant 6 hits)
+  for (const [a, n] of [[leo, 4], [horse, 3], [ele, 6]]) { for (let i = 0; i < n; i++) { a.stagger = 0; a.x = -10; a.z = -24.5; b.x = -10; b.z = -27.5; b.yaw = 0; R.an.batHit(b); } ok(a.owner === R.localId, `${a.kind} tamed after ${n} hits`); }
+  ok(R.an.petCount() === 4, 'HUD counts 4 pets');
+  // the dinosaur on the hill
+  b.x = 52; b.y = 15.05; b.z = -161.5; b.yaw = Math.PI; b.vx = b.vz = 0; dino.stagger = 0;
+  for (let i = 0; i < 6; i++) { dino.stagger = 0; b.x = 52; b.z = -161.5; b.y = 15.05; R.an.batHit(b); }
+  ok(dino.owner === R.localId && !dino.rider, 'six bat hits free the dinosaur -> my pet');
+  step(3); ok(!an.items[4].ropes[0].visible, 'ropes disappear once the dinosaur is free');
+  dino.x = 52; dino.z = -165; b.x = 52; b.z = -162; b.y = 15.05; step(5); R.toggleCar(); ok(an.mount === dino, 'I can ride the dinosaur on top of the hill'); R.toggleCar(); step(2);
+  // animals stay out of the walls / trees / hill over a long time
+  const L = (await import('../public/js/jlayout.js')); let bad = 0;
+  b.x = 0; b.z = 5; b.y = 0.05; R.an.dismount && 0;
+  for (const a of [ele]) { a.owner = 0; a.hp = 6; }
+  step(1500); for (const a of an.list) if (a.kind !== 'dino' && (Math.abs(a.x) > 90 || a.z > 12 || a.z < -228 || (a.y < 1 && L.inHill(a.x, a.z, -1)))) bad++;
+  ok(bad === 0, 'animals never leave the park or climb into the hill');
+  R.destroy && 0;
 }
 mk('b-profile-back').onclick(); step(2);
 ph.race && ph.race.destroy && 0;

@@ -10,16 +10,8 @@ export const CHARACTERS = [
 ];
 
 export const LEVEL_META = [
-  { id: 0, key: 'candy', name: 'Candy Meadow', sub: 'Easy', stars: 1, limit: 110, finishZ: -321.9, finishY: 0,
-    colors: ['#ff7ab8', '#7be8ff'], blurb: 'Sweet hills, bouncy mushrooms, spinning bars' },
-  { id: 1, key: 'canyon', name: 'Sunset Canyon', sub: 'Medium', stars: 2, limit: 130, finishZ: -314, finishY: 5,
-    colors: ['#ff8a3d', '#8b2fc9'], blurb: 'Lava, hammers, conveyors and rolling balls' },
-  { id: 2, key: 'frost', name: 'Frozen Peak', sub: 'Hard', stars: 3, limit: 150, finishZ: -332.7, finishY: 10.5,
-    colors: ['#9fe3ff', '#3b82f6'], blurb: 'Slippery ice, snowballs, lifts and bounce pads' },
-  { id: 3, key: 'neon', name: 'Neon Space', sub: 'Insane', stars: 4, limit: 170, finishZ: -412.5, finishY: 5,
-    colors: ['#22f2ff', '#ff2bd6'], blurb: 'Vanishing tiles, giant fans and pistons in space' },
-  { id: 4, key: 'fair', name: 'Funfair Frenzy', sub: 'Extreme', stars: 5, limit: 180, finishZ: -421.6, finishY: 0,
-    colors: ['#ffd23f', '#ff4d6d'], blurb: 'Seesaws, bungee bounce, roller coaster and pitfalls' },
-  { id: 5, key: 'fun', name: 'Fun Map', sub: 'Chill', stars: 1, limit: 400, finishZ: -424, finishY: 0.15,
+  { id: 0, key: 'fun', name: 'Fun Map', sub: 'Chill', stars: 1, limit: 400, finishZ: -424, finishY: 0.15,
     colors: ['#80ed99', '#4cc9f0'], blurb: 'Giant theme park: rides, highways with cars to drive, a SKY SPEEDWAY to win red racers, then the maze. Nothing can kill you!' },
+  { id: 1, key: 'jungle', name: 'Jungle', sub: 'Free Roam', stars: 1, limit: 0, finishZ: -99999, finishY: 99999, free: true,
+    colors: ['#6bbf59', '#ffd23f'], blurb: 'Wild lion, leopard, elephant & horse roam the trees. Beat them with the BAT to tame them as pets and RIDE them - then climb the hill and free the DINOSAUR! No race, just fun.' },
 ];

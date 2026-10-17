@@ -11,6 +11,8 @@ import * as A from './audio.js';
 import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
+import { AnimalSys } from './animalsys.js';
+import { KINDS, ANIMAL_DEFS } from './jlayout.js';
 
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
@@ -78,7 +80,7 @@ const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 // ------------------------------------------------------------------ menu stage (3D scene behind menus)
 class Stage {
   constructor() {
-    const v = VIS.candy;
+    const v = VIS.fun;
     this.scene = new THREE.Scene(); this.scene.fog = new THREE.Fog(v.fog, 70, 420);
     this.scene.environment = envTex; this.scene.environmentIntensity = 0.7;
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1500);
@@ -104,7 +106,7 @@ class Stage {
     const bn = new THREE.Mesh(new THREE.PlaneGeometry(26, 13), new THREE.MeshBasicMaterial({ map: texS, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
     bn.position.set(0, 9.5, -24); this.scene.add(bn); this.banner = bn;
     this.chars = [0, 1, 2, 3].map((id) => { const c = new Character(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
-    this.ambient = new Ambient('candy', 160); this.scene.add(this.ambient.points);
+    this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(260); this.scene.add(this.particles.points);
     this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = [];
   }
@@ -178,10 +180,11 @@ class Remote {
       if (dt > 0) { const k2 = 0.25; this.vx += ((this.x - px) / dt - this.vx) * k2; this.vz += ((this.z - pz) / dt - this.vz) * k2; }
     }
     this.yaw = lerpAngle(this.yaw, b.r, 1 - Math.exp(-16 * dt));
-    this.speed = lerp(a.sp, b.sp, clamp(k, 0, 1)); this.flags = b.a;
+    this.speed = (b.a & 8192) ? 0 : lerp(a.sp, b.sp, clamp(k, 0, 1)); this.flags = b.a;
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
     g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
+    if (this.flags & 8192) { const ad = ANIMAL_DEFS[(this.flags >> 14) & 7]; if (ad) g.position.y += KINDS[ad.kind].seat; }
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
@@ -250,6 +253,7 @@ class Race {
     this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag);
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
     this.spawn(this.slot);
+    this.an = this.meta.free ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
     this.buildProgress(); this.buildBoxes();
     document.body.classList.add('in-race');
     $('hud-level').textContent = this.meta.name;
@@ -346,8 +350,8 @@ class Race {
     const m = this.me.model, g = m.group;
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
-    else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); }
-    m.update(dt, { speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : b.grounded, vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf), swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); if (this.an) this.an.seatLocal(g); }
+    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : b.grounded, vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf), swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -360,12 +364,13 @@ class Race {
       this.sendT += dt;
       if (this.sendT >= 0.033) {
         this.sendT = 0;
-        const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0);
+        const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0);
         app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: Math.round(app.net.now()), rs: this.rs });
       }
     }
 
     this.updateCars(dt, canMove);
+    if (this.an) this.an.update(dt);
 
 
     this.updateCamera(dt);
@@ -407,6 +412,7 @@ class Race {
     return best;
   }
   toggleCar() {
+    if (this.an) { this.an.toggleMount(); return; }
     if (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length) return;
     const b = this.me.body;
     if (this.drive) { // get out
@@ -548,8 +554,8 @@ class Race {
     // cars: pose + wheels
     for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
     // "get in" prompt
-    const near = !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
-    if (!!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
+    const near = !this.an && !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
+    if (!this.an && !!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     { const sw = !!this.drive && this.racerOk && !CAR_SPECS[this.drive.st.id].racer && this.garageSpot(this.drive.st) && Math.abs(this.drive.st.speed) < 5; if (sw !== document.body.classList.contains('sky-swap')) document.body.classList.toggle('sky-swap', sw); }
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
   }
@@ -621,7 +627,7 @@ class Race {
 
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
-    if (!this.multi || this.over || this.finished || this.levelTime < 0 || this.batCd > 0) return false;
+    if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || (this.an && this.an.mount)) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
     this.batCd = 1.1; this.swingT = 0.001; this.batPending = true; A.sfx.swing();
@@ -637,6 +643,7 @@ class Race {
     }
   }
   batHit(b) {
+    if (this.an) this.an.batHit(b);
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     for (const r of this.remotes.values()) {
       if (!r.has || (r.flags & 8)) continue;
@@ -649,6 +656,14 @@ class Race {
       this.particles.emit(r.x, r.y + 1, r.z, 24, { color: '#ffd23f', speed: 7, up: 4, life: 0.5, size: 0.3 });
       this.particles.emit(r.x, r.y + 1, r.z, 14, { color: '#ffffff', speed: 5, up: 3, life: 0.4, size: 0.25 });
     }
+  }
+  sendNet(o) { if (this.multi) app.net.send(o); }
+  onAnimalBite(m) { // a wild animal lunged at ME (knock-back + short stun, never hurts)
+    const b = this.me.body; if (this.over || this.levelTime < 0) return;
+    if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
+    const big = m.big ? 1 : 0, nm = (this.an && this.an.list[m.id]) ? KINDS[this.an.list[m.id].kind] : null;
+    b.hitCd = 0;
+    if (knock(b, m.nx, m.nz, big ? 21 : 15)) { b.vy = big ? 10 : 8; b.stun = big ? 0.9 : 0.7; this.bonked(nm ? nm.sound : 'GRRR!', '', b); this.shake = Math.max(this.shake || 0, 0.8); }
   }
   onShove(m) { // somebody is running into ME: move out of their way (a shield makes you immovable)
     const b = this.me.body; if (this.over || this.finished || this.levelTime < 0 || b.shield > 0) return;
@@ -709,7 +724,7 @@ class Race {
       if (Math.abs(b.x - bx.x) < 1.3 && Math.abs(b.z - bx.z) < 1.3 && b.y < bx.y + 0.8 && b.y + P.H > bx.y - 0.5) this.pickup(bx);
     }
     for (const k of ['turbo', 'jump', 'shield']) if (f[k] > 0) f[k] = Math.max(0, f[k] - dt);
-    b.speedMul = f.turbo > 0 ? 1.4 : 1; b.jumpMul = f.jump > 0 ? 1.3 : 1; b.shield = f.shield;
+    b.speedMul = (f.turbo > 0 ? 1.4 : 1) * (this.an ? this.an.speedK() : 1); b.jumpMul = f.jump > 0 ? 1.3 : 1; b.shield = f.shield;
     if (f.turbo > 0 && Math.hypot(b.vx, b.vz) > 3 && Math.random() < 0.7) this.particles.emit(b.x, b.y + 0.3, b.z, 1, { color: '#5fc2ff', speed: 1, up: 0.5, life: 0.35, size: 0.35 });
     const sig = ['turbo', 'jump', 'shield'].map((k) => f[k] > 0 ? k + Math.ceil(f[k]) : '').join('|') + '|' + f.mega;
     if (sig !== this.fxSig) {
@@ -782,7 +797,8 @@ class Race {
       const st = this.drive.st; this.lookT -= dt; dist = 9.2 + Math.min(4, Math.abs(st.speed) * 0.12);
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
-    const tx = b.x, ty = b.y + (this.drive ? 1.1 : 1.35), tz = b.z;
+    if (this.an && this.an.mount) dist += this.an.camLift() * 1.1;
+    const tx = b.x, ty = b.y + (this.drive ? 1.1 : 1.35) + (this.an ? this.an.camLift() * 0.7 : 0), tz = b.z;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-14 * dt);
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
@@ -815,8 +831,8 @@ class Race {
     if (this.hudT < 0.066) return; this.hudT = 0;
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
-    $('hud-hint').classList.toggle('single', !this.multi); document.body.classList.toggle('single', !this.multi);
-    $('hud-rank').textContent = this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
+    $('hud-rank').textContent = this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);
@@ -831,6 +847,7 @@ class Race {
 
   destroy() {
     A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('driving'); document.body.classList.remove('near-car');
+    if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
     document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
@@ -983,6 +1000,9 @@ async function ensureNet() {
   net.on('s', (m) => { if (race && race.multi) { const r = race.remotes.get(m.id); if (r) r.push(m); } });
   net.on('fin', (m) => { if (race && race.multi) race.onFin(m); });
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
+  net.on('an', (m) => { if (race && race.an) race.an.onNet(m); });
+  net.on('aev', (m) => { if (race && race.an) race.an.onEvent(m); });
+  net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
