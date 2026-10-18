@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Parkour Haris</title>
 <meta name="theme-color" content="#2b1c6b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Haris GTA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Noto+Nastaliq+Urdu&family=Noto+Sans+Devanagari:wght@700&display=swap" rel="stylesheet">
@@ -12,6 +18,8 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<button id="b-full" aria-label="Fullscreen"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<div id="ios-hint" class="hidden"><div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> &rarr; <b>Add to Home Screen</b><br><small>then open it from there for full screen</small></div></div>
 
 <div id="uw"></div>
 <div id="loader"><div class="logo-small">PARKOUR <span>HARIS</span></div><div class="bar"><i></i></div><p>Loading the fun...</p></div>
@@ -100,7 +108,7 @@
       <button id="b-racer" class="carbtn racer" aria-label="Swap into a racer"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M3 32 L10 24 Q14 20 24 20 L38 19 Q46 19 52 24 L68 27 L69 33 L3 33 Z" fill="#ff2a3d"/><path d="M26 21 L38 21 L43 25 L22 25 Z" fill="#8fd3ff"/><rect x="1" y="14" width="10" height="3" fill="#15161c"/><rect x="4" y="17" width="2" height="8" fill="#15161c"/><rect x="26" y="26" width="22" height="2" fill="#fff"/><circle cx="18" cy="34" r="7" fill="#23252e"/><circle cx="18" cy="34" r="3" fill="#e8eaf2"/><circle cx="54" cy="34" r="7" fill="#23252e"/><circle cx="54" cy="34" r="3" fill="#e8eaf2"/></svg></span><em>RACER</em><kbd>R</kbd></button>
       <div id="car-speed"><b>0</b><small>km/h</small></div>
       <div id="car-keys"><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd><kbd>D</kbd> steer &nbsp;<kbd>SPACE</kbd> drift &nbsp;<kbd>H</kbd> horn</div>
-      <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button></div>
+      <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button><button id="c-hb" aria-label="Handbrake"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 16v.5"/></svg></button></div>
     </div>
     <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
     <div id="hud-top">

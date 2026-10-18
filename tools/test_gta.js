@@ -3,7 +3,7 @@ import { newBody, stepBody } from '../public/js/physics.js';
 import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings, gtaCars } from '../public/js/gta.js';
 import { newCar, stepCar, corridor } from '../public/js/car.js';
 let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
-const { world, info } = buildLevel(7, true, null, 1);
+const { world, info } = buildLevel(0, true, null, 1);
 ok(world.terrain === gtaH && info.cars.length === 8, 'city built: 8 vehicles, terrain on');
 ok(Math.abs(gtaH(0, 0)) < 1e-6 && Math.abs(gtaH(90, -40)) < 1e-6, 'city is flat');
 const top = mtRoad(1); ok(gtaH(top.x, top.z) > 38, 'summit is high (' + gtaH(top.x, top.z).toFixed(1) + ')');

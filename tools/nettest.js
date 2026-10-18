@@ -1,5 +1,4 @@
 import WebSocket from 'ws';
-import { LEVEL_META } from '../public/js/levelmeta.js';
 const URL = 'ws://localhost:' + (process.env.PORT || 3999) + '/ws';
 const mk = (name) => new Promise((res) => { const ws = new WebSocket(URL); const q = []; ws.msgs = q; ws.on('message', (d) => q.push(JSON.parse(d))); ws.on('open', () => res(ws)); });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -16,25 +15,17 @@ d.send(JSON.stringify({ t: 'join', code, name: 'Fourth', char: 1 })); await wait
 ok(last(a, 'lobby').players.length === 4, 'fourth player accepted (limit is 4)');
 e.send(JSON.stringify({ t: 'join', code, name: 'Fifth', char: 1 })); await wait(100);
 ok(last(e, 'err') && /full/i.test(last(e, 'err').msg), 'fifth player rejected (room full)');
+a.send(JSON.stringify({ t: 'level', level: 0 })); await wait(80);
+ok(last(b, 'lobby').level === 0, 'the only map (Punjabi GTA) is selected');
 a.send(JSON.stringify({ t: 'level', level: 5 })); await wait(80);
-ok(last(b, 'lobby').level === 5, 'host selected Annoying Maze');
+ok(last(b, 'lobby').level === 0, 'there is no other map to select');
 b.send(JSON.stringify({ t: 'start' })); await wait(80);
 ok(!last(a, 'go'), 'non-host cannot start');
 a.send(JSON.stringify({ t: 'start' })); await wait(100);
-const go = last(b, 'go'); ok(go && go.level === 5 && go.order.length === 4 && go.t0 > Date.now(), 'go broadcast with future t0');
+const go = last(b, 'go'); ok(go && go.level === 0 && go.order.length === 4 && go.t0 > Date.now(), 'go broadcast with future t0');
 await wait(go.t0 - Date.now() + 100);
-const meta = LEVEL_META[5];
 a.send(JSON.stringify({ t: 's', x: 1, y: 0, z: -50, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(60);
 ok(last(b, 's') && last(b, 's').z === -50, 'position relayed to others');
-b.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 1, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(80);
-const fin = last(a, 'fin'); ok(fin && fin.place === 1, 'first finisher recorded');
-a.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 2, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(60);
-c.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 3, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(60);
-d.send(JSON.stringify({ t: 's', x: 0, y: meta.finishY, z: meta.finishZ - 4, r: 3.14, a: 1, sp: 10, ts: Date.now(), rs: 0 })); await wait(150);
-const end = last(c, 'end'); ok(end && end.results.length === 4 && end.winnerId === fin.id && end.reason === 'finish', 'round ended when all finished, winner = first');
-a.send(JSON.stringify({ t: 'again' })); await wait(80);
-ok(last(b, 'lobby').phase === 'lobby', 'host returned room to lobby');
-// hidden (deleted) maps cannot be picked any more
-a.send(JSON.stringify({ t: 'level', level: 1 })); await wait(80);
-ok(last(b, 'lobby').level === 5, 'a deleted map (Jungle) cannot be selected');
+c.close(); await wait(100);
+ok(last(a, 'left'), 'a leaving player is announced');
 console.log(fails ? 'FAILED' : 'ALL NET TESTS PASSED'); process.exit(fails ? 1 : 0);

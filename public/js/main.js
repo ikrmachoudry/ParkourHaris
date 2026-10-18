@@ -1,5 +1,4 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
-import { stepSwing, newSwingState } from './swingsys.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
@@ -10,23 +9,17 @@ import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { cityVeh } from './cityveh.js';
 import { setCityCamera } from './cityvis.js';
+import { Peds } from './peds.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
 import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
-import { AnimalSys } from './animalsys.js';
-import { KINDS, active as animalTable } from './jlayout.js';
-import { newQuest, stepQuest, questLayout, PH, Q as QC } from './quest.js';
-import { QuestVis } from './questworld.js';
-import { HuntVis } from './huntworld.js';
-import { PH as HPH, HU, stepHunt, applyHunt, shootAnimal } from './hunt.js';
-import { GUN, makeGun, pickTarget } from './huntgun.js';
 
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
-const touch = { x: 0, y: 0, jump: false, grab: false };
+const touch = { x: 0, y: 0, jump: false, grab: false, hb: false };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -83,7 +76,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 // ------------------------------------------------------------------ app state
-const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), level: 5, net: null, room: null, myId: null, pendingJoin: null, muted: false };
+const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
 let race = null, stage = null, thumbs = [];
 const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 
@@ -196,7 +189,6 @@ class Remote {
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
     g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
-    if (this.flags & 8192) { const ad = animalTable.defs[(this.flags >> 14) & 7]; if (ad) g.position.y += KINDS[ad.kind].seat; }
     // a lost packet must never leave somebody lying down forever on my screen: stun is at most ~1.2 s long
     if (this.flags & 2) this.stunT = (this.stunT || 0) + dt; else this.stunT = 0;
     if (this.stunT > 1.2) this.flags &= ~2;
@@ -238,6 +230,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
+    if (this.meta.city) this.peds = new Peds(scene, IS_TOUCH ? 10 : 16);
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -248,8 +241,7 @@ class Race {
     this.cars = []; this.drive = null; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
       for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
-      this.skyG = 0; try { this.racerOk = localStorage.getItem('ph_racer') === '1'; } catch { this.racerOk = false; }
-      this.applyFree();
+      this.racerOk = false;
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
 
@@ -273,11 +265,7 @@ class Race {
     this.me.tag = null; if (!NO_TEXT) { this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag); }
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
     this.spawn(this.slot);
-    this.an = this.meta.free && !this.meta.arena && !this.meta.city ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
-    this.quest = this.meta.quest ? { q: newQuest(), vis: new QuestVis(world, info), L: questLayout() } : null; this.victory = 0; this.hopT = 0;
-    this.hunt = this.meta.hunt ? { vis: new HuntVis(world, info, scene), h: info.hunt.st, L: info.hunt.L } : null; this.gunCd = 0; this.fireHeld = false;
-    document.body.classList.toggle('hunt-map', !!this.hunt);
-    if (this.hunt) { this.me.model.group.add(makeGun()); for (const r of this.remotes.values()) r.model.group.add(makeGun()); }
+    this.victory = 0; this.hopT = 0;
     this.buildProgress(); this.buildBoxes();
     document.body.classList.add('in-race');
     $('hud-level').textContent = this.meta.name;
@@ -287,100 +275,6 @@ class Race {
     if (this.meta.city) { A.stopMusic(); A.cityAmbience(true); } else A.startMusic(levelIdx);
     A.duckMusic(false);
     this.pos = this.me.body;
-  }
-  // ---- Jungle Quest: state machine runs here (single player) or arrives from the server ('q' / 'qev')
-  updateQuest(dt) {
-    const Qs = this.quest, b = this.me.body;
-    if (!this.multi && this.levelTime >= 0 && !this.over) {
-      const evs = stepQuest(Qs.q, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.an.list, 1, Qs.L, []);
-      for (const e of evs) this.questEvent(e);
-    }
-    Qs.vis.setState(Qs.q); Qs.vis.update(dt);
-    if (this.victory > 0) { // everybody jumps for joy + confetti
-      this.victory += dt; this.hopT -= dt;
-      if (this.hopT <= 0 && b.grounded && !(this.an && this.an.mount)) { this.hopT = 0.7 + Math.random() * 0.3; b.vy = 9.5; b.grounded = false; }
-      if (Math.random() < dt * 14) this.particles.emit(b.x + (Math.random() - 0.5) * 8, b.y + 7, b.z + (Math.random() - 0.5) * 8, 3, { color: ['#ff5fa8', '#ffd23f', '#4cc9f0', '#80ed99'][(Math.random() * 4) | 0], speed: 2.5, up: -1, life: 1.6, size: 0.4, gravity: 3, spread: 1 });
-    }
-  }
-  questEvent(e) {
-    const Qs = this.quest, L = Qs.L; Qs.vis.event(e);
-    if (e.k === 'boulder') { const z = L.chapters[e.ch].boulderZ; A.sfx.roar(1); this.toast('THE BOULDER FALLS! A BEAST APPEARS - hit it with the BAT!'); this.particles.emit(0, 3, z, 60, { color: '#bdb6a8', speed: 8, up: 4, life: 1.2, size: 0.8, gravity: 4, spread: 1 }); }
-    else if (e.k === 'gate') { A.sfx.tame(); this.toast(e.ch >= QC.CH - 1 ? 'BEAST BEATEN! Now free the DRAGON!' : 'BEAST BEATEN - the GATE opens! Next maze ahead...'); }
-    else if (e.k === 'cage') { A.sfx.roar(1); this.toast('THE DRAGON IS FREE!'); }
-    else if (e.k === 'victory') { this.victory = 0.001; A.sfx.go(); this.toast('VICTORY! YOU FREED THE DRAGON!'); }
-  }
-  questNet(m) { Object.assign(this.quest.q, { ch: m.ch, ph: m.ph, n: m.n, occ: m.occ || [], hold: m.hold || 0 }); }
-  // ---- Jungle Hunt: the state machine runs here (single player) or arrives from the server ('h' / 'hev')
-  updateHunt(dt) {
-    const hu = this.hunt, b = this.me.body;
-    if (this.gunCd > 0) this.gunCd -= dt;
-    if (!this.multi && this.levelTime >= 0 && !this.over) {
-      for (const e of stepHunt(hu.h, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.an.list, 1, hu.L, [])) this.huntEvent(e);
-    }
-    if (this.fireHeld || keys.has('KeyB') || touch.fire) this.fire();
-    hu.vis.update(dt);
-    if (hu.h.ph === HPH.DONE && Math.random() < dt * 14) this.particles.emit(b.x + (Math.random() - 0.5) * 8, b.y + 7, b.z + (Math.random() - 0.5) * 8, 3, { color: ['#ff5fa8', '#ffd23f', '#4cc9f0', '#80ed99'][(Math.random() * 4) | 0], speed: 2.5, up: -1, life: 1.6, size: 0.4, gravity: 3 });
-  }
-  huntEvent(e) {
-    const hu = this.hunt; hu.vis.event(e);
-    if (e.k === 'wave') { A.sfx.roar(1); this.toast(`CHAPTER ${e.ch + 1}: ${e.n} BEASTS! SHOOT THEM ALL!`); }
-    else if (e.k === 'gate') { A.sfx.tame(); this.toast('ALL BEASTS DOWN! THE GATE OPENS - now the MACHINE...'); }
-    else if (e.k === 'door') { A.sfx.door(); this.toast('THE GEARS TURN - THE HEAVY DOOR RISES!'); }
-    else if (e.k === 'lift') { A.sfx.tame(); this.toast('TOP OF THE CLIFF! Friends: ride up too!'); }
-    else if (e.k === 'freeze') this.toast(e.on ? 'CRUSHERS RETRACTED - RUN! (keep the plate held)' : 'The crushers are back!');
-    else if (e.k === 'armed') this.toast(e.on ? 'CANNON ARMED - jump on the orange pad!' : 'Cannon off - a friend must stand on a blue plate');
-    else if (e.k === 'pump') { A.sfx.pickup(); this.hunt.vis.pumpK = Math.max(0, e.v - 0.2); }
-    else if (e.k === 'bridge') { A.sfx.tame(); this.toast('THE BRIDGE RISES!'); }
-    else if (e.k === 'note') { A.sfx.pickup(); this.toast(`\u266a ${e.step}/4`); }
-    else if (e.k === 'wrong') { A.sfx.hit && A.sfx.hit(); this.toast('WRONG PAD - start again!'); }
-    else if (e.k === 'solved') { A.sfx.tame(); this.toast('RIDDLE SOLVED - THE DOOR OPENS!'); }
-    else if (e.k === 'chapter') { A.sfx.go(); this.toast(`CHAPTER ${e.ch + 1}!`); }
-    else if (e.k === 'end') { A.sfx.go(); this.toast('VICTORY! YOU BEAT THE JUNGLE HUNT!'); }
-  }
-  huntNet(m) { applyHunt(this.hunt.h, m); }
-  huntObjective() { // plain-words instruction for what the team must do right now
-    const h = this.hunt.h, m = h.m[h.ch], solo = h.n < 2;
-    if (h.ph === HPH.DONE) return 'YOU WIN! Great teamwork!';
-    if (h.ph === HPH.WAIT) return h.ch === 0 ? 'Walk forward along the road. HOLD CLICK (or FIRE) to shoot beasts.' : 'Keep going down the road.';
-    if (h.ph === HPH.BEAST) return `Shoot ALL the beasts (${h.left} left) - hold CLICK / FIRE. The gate opens when they are gone.`;
-    switch (h.ch) {
-      case 0: return `Everybody stand on a glowing plate (${(h.occ || []).filter((v) => v).length}/${h.n}) and wait 1 second.`;
-      case 1: return solo ? 'Step on the wooden lift and ride up to the cliff top.' : 'Ride the lift up! If it will not rise, a friend must stand on the blue pan.';
-      case 2: return solo ? 'Wait until a beam lifts, then run through the crushers.' : m.wa ? 'Crushers are stopped - everybody RUN! Last one: stand on the far plate first.' : 'One friend stands on the yellow plate to stop the crushers. Others run through and hold the far plate.';
-      case 3: return solo ? 'Jump on the orange pad - the cannon throws you over the canyon.' : m.wa ? 'Cannon ready - jump on the orange pad! Then stand on the far blue plate for the last friend.' : 'A friend stands on a blue plate to fire the cannon. Others jump on the orange pad.';
-      case 4: return m.done ? 'The bridge is up - cross it!' : `Step on the LEFT plate, then the RIGHT plate, again and again to pump (${Math.round(m.v * 100)}%). Hop in turns with a friend!`;
-      default: return m.done ? 'Riddle solved - the door is open!' : `Watch the flashing pads, then stand on them in the SAME order (${Math.round(m.v)}/4). Wrong pad = start again.`;
-    }
-  }
-  huntHud() {
-    const h = this.hunt.h, c = `Ch ${h.ch + 1}/${HU.CH}`;
-    if (h.ph === HPH.WAIT) return `${c} \u2022 GO ON!`;
-    if (h.ph === HPH.BEAST) return `${c} \u2022 BEASTS LEFT: ${h.left}`;
-    if (h.ph === HPH.MACH) {
-      const m = h.m[h.ch];
-      if (h.ch === 0) return `${c} \u2022 PLATES ${(h.occ || []).filter((v) => v).length}/${h.n}`;
-      if (h.ch === 1) return `${c} \u2022 COUNTERWEIGHT LIFT`;
-      if (h.ch === 2) return `${c} \u2022 CRUSHERS ${m.wa ? '(HELD!)' : '- hold a plate'}`;
-      if (h.ch === 3) return `${c} \u2022 CANNON ${m.wa ? 'READY!' : '- friend on a blue plate'}`;
-      if (h.ch === 4) return `${c} \u2022 PRESSURE ${Math.round(m.v * 100)}%`;
-      return `${c} \u2022 PADS ${m.done ? 'SOLVED' : Math.round(m.v) + '/4'}`;
-    }
-    return 'THE END (for now)';
-  }
-  fire() {
-    const hu = this.hunt; if (!hu || this.over || this.levelTime < 0 || this.menuOpen || this.drive || this.gunCd > 0) return;
-    const b = this.me.body; if (b.stun > 0) return;
-    this.gunCd = GUN.rate;
-    const fy = this.camYaw + Math.PI, a = pickTarget(this.an.list, b, fy), yaw = a ? Math.atan2(a.x - b.x, a.z - b.z) : fy;
-    b.yaw = yaw;
-    const r1 = (v) => +v.toFixed(1), ox = b.x + Math.sin(yaw) * 0.95 + Math.cos(yaw) * 0.36, oy = b.y + 1.2, oz = b.z + Math.cos(yaw) * 0.95 - Math.sin(yaw) * 0.36;
-    let tx, ty, tz;
-    if (a) { const K = KINDS[a.kind]; tx = a.x; ty = a.y + K.seat * 0.55; tz = a.z; } else { tx = ox + Math.sin(yaw) * 32; ty = oy; tz = oz + Math.cos(yaw) * 32; }
-    hu.vis.tracer(ox, oy, oz, tx, ty, tz); A.sfx.shot();
-    this.particles.emit(ox, oy, oz, 5, { color: '#ffe27a', speed: 3, up: 1, life: 0.2, size: 0.25 });
-    if (a) this.particles.emit(tx, ty, tz, 8, { color: '#ff6b3d', speed: 4, up: 2, life: 0.3, size: 0.3 });
-    if (this.multi) this.sendNet({ t: 'shoot', id: a ? a.id : -1, ox: r1(ox), oy: r1(oy), oz: r1(oz), tx: r1(tx), ty: r1(ty), tz: r1(tz) });
-    else if (a) this.an.handle(shootAnimal(a, this.localId));
   }
   setShadows(on) { this.sun.castShadow = on; }
 
@@ -444,7 +338,7 @@ class Race {
     const steps = Math.max(1, Math.ceil(dt / (1 / 90))), sdt = dt / steps;
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
-    const hanging = this.updateSwing(dt, lt, b, inp, canMove);
+    const hanging = false;
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
     else {
@@ -475,8 +369,8 @@ class Race {
     const m = this.me.model, g = m.group;
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
-    else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); if (this.an) this.an.seatLocal(g); }
-    m.update(dt, { seated: !!this.drive, speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); }
+    m.update(dt, { seated: !!this.drive, speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -491,11 +385,9 @@ class Race {
     }
 
     this.updateCars(dt, canMove);
-    if (this.an) this.an.update(dt);
-    if (this.quest) this.updateQuest(dt);
-    if (this.hunt) this.updateHunt(dt);
 
 
+    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); });
     this.updateCamera(dt);
     this.updateLights();
     this.water.material.uniforms.time.value = performance.now() / 1000;
@@ -535,7 +427,7 @@ class Race {
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
-    for (const c of this.cars) { const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 1.5 : 0); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 1.5 : 0); if (d < bd) { bd = d; best = c; } }
     return best;
   }
   spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
@@ -545,14 +437,13 @@ class Race {
   }
   onJack(m) { const c = this.cars[m.c | 0]; if (c && c === this.drive) this.toggleCar(true); } // somebody stole my car: I am thrown out
   toggleCar(force) {
-    if (this.an && !force) { this.an.toggleMount(); return; }
     if (!force && (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length)) return;
     if (force && !this.drive) return;
     const b = this.me.body;
     if (this.drive) { // get out
       const c = this.drive, st = c.st;
       if (!force && Math.abs(st.speed) > 5) { this.toast('Slow down to get out!'); return; }
-      if (!force && st.y > 1.2 && !this.world.terrain) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
+      if (!force && st.y > 1.2 && !this.world.terrain) { return; }
       const hero = !!c.mesh.userData.hero, lx = Math.cos(st.yaw) * (hero ? -1 : 1), lz = -Math.sin(st.yaw) * (hero ? -1 : 1);
       let ox = st.x + lx * 2.4, oz = st.z + lz * 2.4;
       if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
@@ -574,54 +465,16 @@ class Race {
     }
   }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
-  // ---- SKY SPEEDWAY: gates in order -> RACERS unlocked; swap into a red racer on the garage plaza
-  skyGates(st) {
-    const sk = this.info.sky; if (!sk || st.y < sk.y - 4 || this.skyG >= sk.gates.length) return;
-    const i = this.skyG, g = sk.gates[i], alongX = i === 1;
-    if (Math.abs(st.x - g.x) < (alongX ? 4 : g.w) && Math.abs(st.z - g.z) < (alongX ? g.w : 4)) {
-      this.skyG++; A.sfx.checkpoint();
-      this.particles.emit(st.x, st.y + 1.5, st.z, 24, { color: i === sk.gates.length - 1 ? '#ff3b3b' : '#7cff3d', speed: 6, up: 5, life: 0.8, size: 0.4 });
-      if (i === sk.gates.length - 1) {
-        this.racerOk = true; this.applyFree(); try { localStorage.setItem('ph_racer', '1'); } catch { /* ignore */ }
-        A.sfx.win(); this.toast('\uD83C\uDFC1 SKY SPEEDWAY CLEARED! RED RACERS UNLOCKED & the sky road is now obstacle-free! Stop on the RACER GARAGE plaza and press ' + (IS_TOUCH ? 'the red car button' : 'R'));
-      } else this.toast('SKY GATE ' + (i + 1) + ' / ' + (sk.gates.length - 1) + '  \u2713');
-    }
-  }
-  // once you own the racers the sky road is an obstacle-free speedway for you (your own copy of the world: obstacles hidden + switched off)
-  applyFree() { if (this.info.track) this.info.track.free = !!this.racerOk; if (this.world && this.world.skyObst) this.world.skyObst.visible = !this.racerOk; }
-  garageSpot(st) { const sk = this.info.sky; return !!sk && st.y > sk.y - 3 && Math.hypot(st.x - sk.garage.x, st.z - sk.garage.z) < sk.garage.r; }
-  swapRacer() {
-    if (!this.drive || this.over || this.menuOpen) return;
-    const old = this.drive, st = old.st, sk = this.info.sky;
-    if (CAR_SPECS[st.id].racer) { this.toast('You already drive a RACER!'); return; }
-    if (!this.racerOk) { this.toast('Finish the SKY SPEEDWAY to unlock the RACERS!'); return; }
-    if (!this.garageSpot(st)) { this.toast('Drive to the RACER GARAGE (end of the sky road) to swap'); return; }
-    if (Math.abs(st.speed) > 5) { this.toast('Slow down first!'); return; }
-    let best = null, bd = 22;
-    for (const c of this.cars) { if (!CAR_SPECS[c.st.id].racer || (c.st.driver !== -1 && c !== old)) continue; const d = Math.hypot(st.x - c.st.x, st.z - c.st.z); if (d < bd) { bd = d; best = c; } }
-    if (!best) { this.toast('All 4 racers are taken - wait for one!'); return; }
-    st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true;
-    if (this.multi) app.net.send({ t: 'carpark', c: st.id, x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
-    this.drive = best; best.st.driver = this.localId; best.st.parked = false; best.st.vx = best.st.vz = best.st.speed = 0;
-    A.sfx.door(); A.sfx.vroom(); this.shake = 0.3; this.camYaw = best.st.yaw + Math.PI;
-    this.toast('\uD83C\uDFCE RACER!  Top speed 150 km/h \u2022 big horn on ' + (IS_TOUCH ? 'the horn button' : 'H'));
-  }
   updateDrive(dt, canMove) {
     const c = this.drive, st = c.st, b = this.me.body;
     let gas = 0, steer = 0, hb = false;
     if (canMove) {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
-      hb = keys.has('Space');
-      if (touch.x || touch.y) { // phone: the same left-screen joystick as on foot -> push where you want to go (camera-relative)
-        const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw);
-        let mx = -sy * touch.y + cy * touch.x, mz = -cy * touch.y - sy * touch.x; const m = Math.min(1, Math.hypot(mx, mz));
-        if (m > 0.12) {
-          const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l;
-          const dot = mx * Math.sin(st.yaw) + mz * Math.cos(st.yaw), side = -mx * Math.cos(st.yaw) + mz * Math.sin(st.yaw);
-          if (dot > -0.35) { gas += Math.min(1, m * 1.25) * (0.45 + 0.55 * Math.max(0, dot)); steer += dot < 0.2 ? Math.sign(side || 1) : Math.max(-1, Math.min(1, side * 2.4)); }
-          else { gas -= Math.min(1, m * 1.25); steer += Math.max(-1, Math.min(1, side * 2)); }
-        }
+      hb = keys.has('Space') || touch.hb;
+      if (touch.x || touch.y) { // phone: left-screen joystick like a steering wheel + pedal: up = gas, down = brake / reverse, left / right = steer (works while accelerating)
+        const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, tx = Math.abs(touch.x) < 0.1 ? 0 : touch.x;
+        gas += ty; steer += Math.sign(tx) * Math.min(1, Math.abs(tx) * 1.35);
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
@@ -635,7 +488,6 @@ class Race {
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
     if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
-    this.skyGates(st);
     this.hornCd -= dt; this.skidT -= dt;
     if (c.mesh.userData.hero) {
       if (st.skid > 0.3 && Math.abs(st.speed) > 6) for (const sgn of [-1, 1]) this.particles.emit(st.x - Math.sin(st.yaw) * 1.3 + Math.cos(st.yaw) * sgn * 0.8, st.y + 0.2, st.z - Math.cos(st.yaw) * 1.3 - Math.sin(st.yaw) * sgn * 0.8, 1, { color: '#dcdcdc', speed: 1.0, up: 1.1, life: 0.55, size: 0.5, gravity: -0.4 });
@@ -703,9 +555,8 @@ class Race {
     // cars: pose + wheels
     for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
     // "get in" prompt
-    const near = !this.an && !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
-    if (!this.an && !!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
-    { const sw = !!this.drive && this.racerOk && !CAR_SPECS[this.drive.st.id].racer && this.garageSpot(this.drive.st) && Math.abs(this.drive.st.speed) < 5; if (sw !== document.body.classList.contains('sky-swap')) document.body.classList.toggle('sky-swap', sw); }
+    const near = !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
+    if (!!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
   }
 
@@ -775,24 +626,6 @@ class Race {
   }
 
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
-  // ---------- grab-swings (Maze): HOLD to hang on the handle, JUMP (or let go of the button) to let go
-  updateSwing(dt, lt, b, inp, canMove) {
-    const w = this.world, sws = w.swings;
-    if (!sws || !sws.length) return false;
-    const S = this.swSt || (this.swSt = newSwingState());
-    let nd = 1e9; for (const sw of sws) nd = Math.min(nd, Math.hypot(sw.x - b.x, (sw.y - sw.len * 0.6) - b.y, sw.z - b.z));
-    const close = (!!S.hang || nd < sws[0].len + 7) && !this.drive && !this.over;
-    if (close !== document.body.classList.contains('near-swing')) document.body.classList.toggle('near-swing', close);
-    if (close && !this.hangHint) { this.hangHint = true; this.toast(IS_TOUCH ? 'Tap GRAB when the swing is close - tap JUMP to let go!' : 'Press G to grab the swing - press SPACE to let go!'); }
-    const was = !!S.hang, held = keys.has('KeyG') || touch.grab, jump = inp.jumpPressed, pr = press.grab; press.grab = false;
-    const hang = stepSwing(w, b, S, lt, dt, held && !this.drive, jump, canMove, pr && !this.drive);
-    if (!!S.hang !== !!this.hangLbl) { this.hangLbl = !!S.hang; const em = document.querySelector('#b-grab em'); if (em) em.textContent = S.hang ? 'JUMP TO LET GO' : 'GRAB'; }
-    if (!was && S.hang) { A.sfx.land(6); this.particles.emit(b.x, b.y + 1.6, b.z, 10, { color: '#ffffff', speed: 3, up: 2, life: 0.4, size: 0.25 }); }
-    if (was && !S.hang) { A.sfx.jump && A.sfx.jump(); inp.jumpPressed = false; press.jump = false; }
-    this.hang = S.hang; if (hang) { inp.jumpPressed = false; press.jump = false; b.stunReal = 0; this.stunReal = 0; }
-    return hang;
-  }
-
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
     const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0);
@@ -801,8 +634,8 @@ class Race {
 
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
-    if (this.hunt || this.meta.city) return false;
-    if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || (this.an && this.an.mount)) return false;
+    if (this.meta.city) return false;
+    if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
     this.batCd = 1.1; this.swingT = 0.001; this.batPending = true; A.sfx.swing();
@@ -818,7 +651,6 @@ class Race {
     }
   }
   batHit(b) {
-    if (this.an) this.an.batHit(b);
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     for (const r of this.remotes.values()) {
       if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
@@ -833,14 +665,6 @@ class Race {
     }
   }
   sendNet(o) { if (this.multi) app.net.send(o); }
-  onAnimalBite(m) { // a wild animal lunged at ME (knock-back + short stun, never hurts)
-    const b = this.me.body; if (this.over || this.levelTime < 0) return;
-    if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
-    const big = m.big ? 1 : 0, nm = (this.an && this.an.list[m.id]) ? KINDS[this.an.list[m.id].kind] : null;
-    if (b.immune > 0 || b.stun > 0.2) return;
-    b.hitCd = 0;
-    if (knock(b, m.nx, m.nz, big ? 21 : 15)) { b.vy = big ? 10 : 8; b.stun = big ? 0.9 : 0.7; this.bonked(nm ? nm.sound : 'GRRR!', '', b); this.shake = Math.max(this.shake || 0, 0.8); }
-  }
   onShove(m) { // somebody is running into ME: move out of their way (a shield makes you immovable)
     const b = this.me.body; if (this.over || this.finished || this.levelTime < 0 || b.shield > 0) return;
     const p = clamp(+m.p || 0, 0, 12), nx = +m.nx, nz = +m.nz; if (!Number.isFinite(nx) || !Number.isFinite(nz)) return;
@@ -902,7 +726,7 @@ class Race {
       if (Math.abs(b.x - bx.x) < 1.3 && Math.abs(b.z - bx.z) < 1.3 && b.y < bx.y + 0.8 && b.y + P.H > bx.y - 0.5) this.pickup(bx);
     }
     for (const k of ['turbo', 'jump', 'shield']) if (f[k] > 0) f[k] = Math.max(0, f[k] - dt);
-    b.speedMul = (f.turbo > 0 ? 1.4 : 1) * (this.an ? this.an.speedK() : 1); b.jumpMul = f.jump > 0 ? 1.3 : 1; b.shield = f.shield;
+    b.speedMul = (f.turbo > 0 ? 1.4 : 1) * 1; b.jumpMul = f.jump > 0 ? 1.3 : 1; b.shield = f.shield;
     if (f.turbo > 0 && Math.hypot(b.vx, b.vz) > 3 && Math.random() < 0.7) this.particles.emit(b.x, b.y + 0.3, b.z, 1, { color: '#5fc2ff', speed: 1, up: 0.5, life: 0.35, size: 0.35 });
     const sig = ['turbo', 'jump', 'shield'].map((k) => f[k] > 0 ? k + Math.ceil(f[k]) : '').join('|') + '|' + f.mega;
     if (sig !== this.fxSig) {
@@ -976,10 +800,9 @@ class Race {
       const st = this.drive.st; this.lookT -= dt; dist = 9.2 + Math.min(4, Math.abs(st.speed) * 0.12);
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
-    if (this.an && this.an.mount) dist += this.an.camLift() * 1.1;
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
     this.shoulder += ((NO_TEXT && !this.drive ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
-    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive ? 1.1 : (NO_TEXT ? 1.5 : 1.35)) + (this.an ? this.an.camLift() * 0.7 : 0), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
+    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive ? 1.1 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-14 * dt);
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
@@ -1032,8 +855,8 @@ class Race {
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
-    if (this.hunt) { const o = $('hud-obj'), t = this.huntObjective(); o.classList.remove('hidden'); if ($('hud-obj-t').textContent !== t) $('hud-obj-t').textContent = t; } else $('hud-obj').classList.add('hidden');
-    $('hud-rank').textContent = this.meta.city ? 'Punjabi GTA' : this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.hunt ? this.huntHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    $('hud-obj').classList.add('hidden');
+    $('hud-rank').textContent = this.meta.city ? 'Punjabi GTA' : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);
@@ -1044,19 +867,11 @@ class Race {
     if (this.multi) $('hud-net').textContent = `ping ${Math.round(app.net.rtt)} ms`;
   }
 
-  questHud() {
-    const q = this.quest.q, occ = (q.occ || []).filter((v) => v).length;
-    if (q.ph === PH.MAZE) return `Ch ${q.ch + 1}/${QC.CH} \u2022 Circles ${occ}/${q.n}`;
-    if (q.ph === PH.BEAST) return `Ch ${q.ch + 1}/${QC.CH} \u2022 BEAT THE BEAST!`;
-    if (q.ph === PH.DRAGON) return `DRAGON \u2022 Circles ${occ}/${q.n}`;
-    return q.ph === PH.WIN ? 'VICTORY!' : 'FREE!';
-  }
-
   render() { renderer.render(this.scene, this.camera); }
 
   destroy() {
+    if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    if (this.hunt) this.hunt.vis.dispose(); document.body.classList.remove('hunt-map'); if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
     document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
@@ -1211,14 +1026,6 @@ async function ensureNet() {
   net.on('s', (m) => { if (race && race.multi) { const r = race.remotes.get(m.id); if (r) r.push(m); } });
   net.on('fin', (m) => { if (race && race.multi) race.onFin(m); });
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
-  net.on('an', (m) => { if (race && race.an) race.an.onNet(m); });
-  net.on('aev', (m) => { if (race && race.an) race.an.onEvent(m); });
-  net.on('h', (m) => { if (race && race.hunt) race.huntNet(m); });
-  net.on('hev', (m) => { if (race && race.hunt) race.huntEvent(m); });
-  net.on('shot', (m) => { if (race && race.hunt && [m.ox, m.oy, m.oz, m.tx, m.ty, m.tz].every(Number.isFinite)) { race.hunt.vis.tracer(m.ox, m.oy, m.oz, m.tx, m.ty, m.tz); A.sfx.shot(); } });
-  net.on('q', (m) => { if (race && race.quest) race.questNet(m); });
-  net.on('qev', (m) => { if (race && race.quest) race.questEvent(m); });
-  net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
@@ -1315,10 +1122,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
   if (e.code === 'KeyM') toggleSound();
   if (e.code === 'KeyG') press.grab = true;
-  if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.hunt) race.fire(); else race.swing(); }
+  if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
-  if (e.code === 'KeyR' && race && !race.over && !e.repeat) race.swapRacer();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
 });
 window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyH') A.hornStop(); });
@@ -1361,6 +1167,22 @@ $('p-full').onclick = () => {
   const d = document, el = d.documentElement;
   try { if (!d.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }); else if (d.exitFullscreen && d.fullscreenElement) d.exitFullscreen(); } catch { /* not supported */ }
 };
+// ---- fullscreen button (Android / PC: real fullscreen + landscape lock; iPhone Safari has no fullscreen API -> "Add to Home Screen" hint, the installed app opens fullscreen)
+{
+  const d = document, el = d.documentElement, isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = () => window.navigator.standalone === true || (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches);
+  const isFull = () => !!(d.fullscreenElement || d.webkitFullscreenElement);
+  const sync = () => { document.body.classList.toggle('is-full', isFull()); document.body.classList.toggle('standalone', standalone()); };
+  d.addEventListener('fullscreenchange', sync); d.addEventListener('webkitfullscreenchange', sync); sync();
+  $('b-full').addEventListener('click', () => {
+    try {
+      if (isFull()) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); return; }
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) { const r = req.call(el, { navigationUI: 'hide' }); const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch { /* ignore */ } }; if (r && r.then) r.then(lock).catch(() => {}); else lock(); }
+      else if (isIOS) { const h = $('ios-hint'); h.classList.remove('hidden'); h.onclick = () => h.classList.add('hidden'); setTimeout(() => h.classList.add('hidden'), 6000); }
+    } catch { /* not supported */ }
+  });
+}
 $('p-retry').onclick = () => { A.sfx.click(); const l = app.level; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; startSingle(l); };
 $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); leaveToTitle(); };
 
@@ -1379,7 +1201,7 @@ async function boot() {
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
   $('b-profile-back').onclick = () => { A.sfx.back(); stage.setTitle(); show('title'); };
-  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') openLevels(); else openMp(); };
+  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };
   $('b-mp-back').onclick = () => { A.sfx.back(); stopJoin(); openProfile('multi'); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
@@ -1463,12 +1285,11 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   };
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
-  btn('t-fire', () => { touch.fire = true; if (race && !race.over && !race.menuOpen) race.fire(); }, () => { touch.fire = false; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
+  btn('c-hb', () => { touch.hb = true; }, () => { touch.hb = false; });
   btn('c-horn', () => { if (race) race.honkOn(); }, () => A.hornStop());
-  btn('b-racer', () => { if (race) race.swapRacer(); });
   btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
   { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });
-  for (const id of ['b-car', 'b-exit', 'b-racer']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) (id === 'b-racer' ? race.swapRacer() : race.toggleCar()); el.blur(); }); }
+  for (const id of ['b-car', 'b-exit']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) race.toggleCar(); el.blur(); }); }
 })();

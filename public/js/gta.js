@@ -106,6 +106,6 @@ export function trafficPos(L, k, t) {
   const lane = 3.25, x0 = L.x0 + lane, x1 = L.x1 - lane, z0 = L.z0 + lane, z1 = L.z1 - lane, w = x1 - x0, h = z1 - z0, per = 2 * (w + h);
   let s = (((t * L.sp + k * per / L.n) % per) + per) % per, x, z, yaw;
   // anti-clockwise: west along the north edge, south along the west edge, east along the south edge, north along the east edge
-  if (s < w) { x = x1 - s; z = z0; yaw = -Math.PI / 2; } else if ((s -= w) < h) { x = x0; z = z0 + s; yaw = Math.PI; } else if ((s -= h) < w) { x = x0 + s; z = z1; yaw = Math.PI / 2; } else { s -= w; x = x1; z = z1 - s; yaw = 0; }
+  if (s < w) { x = x1 - s; z = z0; yaw = -Math.PI / 2; } else if ((s -= w) < h) { x = x0; z = z0 + s; yaw = 0; } else if ((s -= h) < w) { x = x0 + s; z = z1; yaw = Math.PI / 2; } else { s -= w; x = x1; z = z1 - s; yaw = Math.PI; }
   return { x, z, yaw, vx: Math.sin(yaw) * L.sp, vz: Math.cos(yaw) * L.sp };
 }

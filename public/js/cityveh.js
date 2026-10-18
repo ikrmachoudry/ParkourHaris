@@ -57,6 +57,9 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
   // ---- longitudinal force
   const P = spec.kW * 1000;
+  // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
+  const slipRe = Math.atan((vl - b * c.yr) / (u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5)));
+  if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.09) / 0.14, 0, 0.9);
   let Fx = 0;
   if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= (u > spec.top * 1.02 ? 0 : 1); }
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
@@ -88,6 +91,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const axTotal = (Fnet - Ff * sd) / m;
   let yawAcc = (a * Ff * cd - b * Fr) / Iz;
   if (air) yawAcc = 0;
+  if (!air && !inp.hb && Math.abs(u) > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
   c.yr += yawAcc * dt; c.yr *= Math.exp(-0.08 * dt);                         // a hint of yaw damping from the suspension
   let du = axTotal + vl * c.yr, dvl = ay - u * c.yr;
   if (air) { du = -Fdrag / m; dvl = 0; }

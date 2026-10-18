@@ -1,0 +1,63 @@
+// PEDESTRIANS for the city: people walking along the pavements.  Their walk is a pure function of the shared race clock (so everybody sees
+// the same people, like the traffic), only the ones near the camera exist as real models, and a car that hits one throws him down.
+import * as THREE from 'three';
+import { HeroActor } from './actor.js';
+import { GT } from './gta.js';
+
+const LOOKS = [
+  { top: '#e8e4d8', pants: '#3d4a63', skinTone: '#c68e63', hair: '#16110d' }, { top: '#2f5d7a', pants: '#2a2a2e', skinTone: '#8d5a3b', hair: '#0d0a08' },
+  { top: '#a83a3a', pants: '#1f2a44', skinTone: '#d9a077', hair: '#2a1a10' }, { top: '#4d7a4f', pants: '#5a4a3a', skinTone: '#b07a52', hair: '#0d0a08' },
+  { top: '#d6c15a', pants: '#2b2f3a', skinTone: '#e0ac85', hair: '#4a3020' }, { top: '#6b5aa8', pants: '#3a3a44', skinTone: '#a8714e', hair: '#120d0a' },
+  { top: '#f2f2f2', pants: '#54606e', skinTone: '#c68e63', hair: '#1a120c' }, { top: '#8a5a32', pants: '#26303f', skinTone: '#7a4d32', hair: '#0a0806' },
+  { top: '#3b3b44', pants: '#3b3b44', skinTone: '#d2996f', hair: '#16110d' }, { top: '#c46a2a', pants: '#2a2f3a', skinTone: '#b98058', hair: '#120d0a' },
+];
+const rng = (seed) => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
+const SHOW = 46, SHOW2 = SHOW * SHOW;
+
+export class Peds {
+  constructor(scene, count = 14) {
+    this.scene = scene; this.list = [];
+    const R = rng(777), G = GT.GRID;
+    for (let i = 0; i < count; i++) {
+      const axis = i % 2, g = G[Math.floor(R() * G.length)], side = R() < 0.5 ? -1 : 1, lo = -112, hi = 112, span = hi - lo;
+      this.list.push({ i, axis, g, off: side * 8.1, lo, span, sp: 1.25 + R() * 0.5, ph: R() * 2 * span, look: LOOKS[i % LOOKS.length], actor: null, x: 0, z: 0, yaw: 0, st: 'walk', hitT: 0, vx: 0, vz: 0, vy: 0, y: 0, lie: 0, wait: 0, pause: 0, prevS: 0 });
+    }
+  }
+  pose(p, t) {   // where this person is on his pavement at race time t (a back-and-forth walk)
+    const per = p.span * 2, s = ((t * p.sp + p.ph) % per + per) % per, fwd = s < p.span, u = fwd ? s : per - s, a = p.lo + u;
+    if (p.axis === 0) { p.x = p.g + p.off; p.z = a; p.yaw = fwd ? 0 : Math.PI; } else { p.x = a; p.z = p.g + p.off; p.yaw = fwd ? Math.PI / 2 : -Math.PI / 2; }
+  }
+  // vehicles: array of car states (x, z, yaw, speed, vx, vz, hl, hw);  me: { x, z }
+  update(dt, t, camPos, vehicles, me, onHit) {
+    for (const p of this.list) {
+      if (p.st === 'walk') { this.pose(p, t); }
+      else if (p.st === 'fly') {
+        p.vy -= 9.81 * dt; p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
+        if (p.y <= 0) { p.y = 0; p.vx *= 0.3; p.vz *= 0.3; if (Math.abs(p.vy) > 1.5) p.vy = -p.vy * 0.25; else { p.vy = 0; p.st = 'lie'; p.wait = 0; } }
+        p.lie = Math.min(1, p.lie + dt * 4);
+      } else if (p.st === 'lie') { p.wait += dt; p.vx = p.vz = 0; if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
+      else if (p.st === 'gone') { p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; } }
+      const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
+      if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
+      if (!p.actor) { p.actor = new HeroActor(p.i, p.look); this.scene.add(p.actor.group); }
+      const a = p.actor; a.group.visible = true;
+      // people stand still while you stand right next to them, and a car that hits one throws him
+      let speed = p.st === 'walk' ? p.sp : 0;
+      if (p.st === 'walk') {
+        if (me) { const mx = me.x - p.x, mz = me.z - p.z; if (mx * mx + mz * mz < 1.3) speed = 0; }
+        for (const c of vehicles) {
+          if (Math.abs(c.speed) < 2.5 || c.y > 1) continue;
+          const rx = p.x - c.x, rz = p.z - c.z, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), al = rx * fx + rz * fz, ac = -rx * fz + rz * fx;
+          if (Math.abs(al) < (c.hl || 2.2) + 0.35 && Math.abs(ac) < (c.hw || 1) + 0.35) {
+            p.st = 'fly'; p.vx = c.vx * 0.85 + (-fz * (ac > 0 ? 1 : -1)) * 1.2; p.vz = c.vz * 0.85 + (fx * (ac > 0 ? 1 : -1)) * 1.2; p.vy = 2.6 + Math.min(4, Math.abs(c.speed) * 0.14); p.lie = 0; speed = 0;
+            if (onHit) onHit(p, Math.abs(c.speed)); break;
+          }
+        }
+      }
+      a.group.position.set(p.x, p.y, p.z); a.group.rotation.y = p.yaw;
+      a.group.rotation.x = -1.45 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0);
+      a.update(dt, { speed, grounded: p.st === 'walk' || p.st === 'lie', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false });
+    }
+  }
+  dispose() { for (const p of this.list) if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.length = 0; }
+}

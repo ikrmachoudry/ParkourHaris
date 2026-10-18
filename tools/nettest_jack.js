@@ -7,7 +7,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); 
 const a = await mk(), b = await mk();
 a.send(JSON.stringify({ t: 'create', name: 'A', char: 0 })); await wait(150);
 const code = last(a, 'joined').code; b.send(JSON.stringify({ t: 'join', code, name: 'B', char: 1 })); await wait(100);
-a.send(JSON.stringify({ t: 'level', level: 7 })); await wait(80); a.send(JSON.stringify({ t: 'start' })); await wait(100);
+a.send(JSON.stringify({ t: 'level', level: 0 })); await wait(80); a.send(JSON.stringify({ t: 'start' })); await wait(100);
 const go = last(b, 'go'); await wait(go.t0 - Date.now() + 100);
 const idA = last(b, 'lobby').players.find((p) => p.name === 'A').id;
 a.send(JSON.stringify({ t: 's', x: 0, y: 0, z: 0, r: 0, a: 256, sp: 0, ts: Date.now(), rs: 0 }));

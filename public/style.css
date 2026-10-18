@@ -319,3 +319,13 @@ body.city-mode #t-bat { display: none !important; }
 body.city-mode #t-jump, body.city-mode #t-dive { font-size: 0 !important; }
 body.city-mode #t-jump::before { content: "\2B06"; font-size: 30px; }
 body.city-mode #t-dive::before { content: "\2B07"; font-size: 30px; }
+
+/* fullscreen button (every screen, PC + phone) */
+#b-full { position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: rgba(20,14,50,.55); display: grid; place-items: center; z-index: 60; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#b-full:active { transform: scale(.92); }
+body.is-full #b-full, body.standalone #b-full { display: none; }
+#ios-hint { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(10,6,30,.78); color: #fff; text-align: center; font-size: 20px; }
+#ios-hint.hidden { display: none; }
+#ios-hint small { opacity: .8; font-size: 14px; }
+#c-hb { position: absolute; border-radius: 50%; opacity: .78; right: calc(max(18px, 3vw) + clamp(48px, 12vmin, 70px) + 14px); bottom: calc(max(14px, 4vh) + clamp(70px, 18vmin, 104px) + 14px); width: clamp(48px, 12vmin, 70px); height: clamp(48px, 12vmin, 70px); display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #ff8a8a, #d63030); box-shadow: 0 4px 0 #8f1c1c; border: 0; }
+#b-racer, #t-fire, #b-grab { display: none !important; }
