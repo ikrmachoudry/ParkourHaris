@@ -1,7 +1,7 @@
 // HARIS CITY: builds the 3D city (terrain, roads, buildings, trees, lamps, traffic) and its collision into the World.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GT, gtaH, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -68,9 +68,9 @@ function terrainGeo() {
   const N = 160, S = GT.HALF * 2, step = S / N, pos = new Float32Array((N + 1) * (N + 1) * 3), cs = new Float32Array((N + 1) * (N + 1) * 3), idx = [];
   const R = rng(99), tmp = new THREE.Color();
   for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
-    const x = -GT.HALF + i * step, z = -GT.HALF + j * step, h = gtaH(x, z), k = (j * (N + 1) + i) * 3;
+    const x = -GT.HALF + i * step, z = -GT.HALF + j * step, h = gtaBase(x, z), k = (j * (N + 1) + i) * 3;
     pos[k] = x; pos[k + 1] = h; pos[k + 2] = z;
-    const gx = (gtaH(x + 2, z) - gtaH(x - 2, z)) / 4, gz = (gtaH(x, z + 2) - gtaH(x, z - 2)) / 4, slope = Math.hypot(gx, gz), box = Math.max(Math.abs(x), Math.abs(z));
+    const gx = (gtaBase(x + 2, z) - gtaBase(x - 2, z)) / 4, gz = (gtaBase(x, z + 2) - gtaBase(x, z - 2)) / 4, slope = Math.hypot(gx, gz), box = Math.max(Math.abs(x), Math.abs(z));
     const city = 1 - smooth(150, 205, box);
     tmp.set(R() < 0.5 ? '#6fc24f' : '#62b947');
     if (h < 0.9 && box > 250) tmp.lerp(col.set('#f0dd9f'), smooth(0.9, 0.2, h) * 0.9 + 0.1);   // beach
@@ -88,13 +88,15 @@ function terrainGeo() {
 export function buildGta(world, th, info, seed) {
   world.waterY = GT.SEA; world.killY = -2.6;
   world.terrain = gtaH;
-  const roads = gtaRoads(); info.track = roads; info.cars = gtaCars(); info.spawn = { x: 4, y: 0, z: 9 };
+  const roads = gtaRoads(); info.track = roads; info.cars = gtaCars();
+  roads.terrain = gtaH;   // cars drive anywhere: they follow the ground, jump off ramps, bounce off buildings info.spawn = { x: 4, y: 0, z: 9 };
   info.finishZ = -99999; info.finishY = 99999;
   const B = gtaBuildings();
   // ---- collision: blocks (a low kerb), buildings, the park fountains
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) world.addSolid(bx - 23.5, 0, bz - 23.5, bx + 23.5, 0.2, bz + 23.5, { name: 'block' });
   for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2, { name: 'building' });
   for (const [px, pz] of PARKS) world.addSolid(px - 2.6, 0.2, pz - 2.6, px + 2.6, 1.2, pz + 2.6, { name: 'fountain' });
+  roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.6, x1: px + 2.6, z0: pz - 2.6, z1: pz + 2.6, h: 1.2 }))];
   info.gta = { buildings: B, roads };
   if (world.headless) return;
 
@@ -137,6 +139,14 @@ export function buildGta(world, th, info, seed) {
   }
   // ---- lookout + summit props
   { const M = GT.MT, y = mtC(M.Rt); wm.add(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), M.cx, y + 4.5, M.cz, '#ddd'); world.glow.add(new THREE.BoxGeometry(3.4, 1.8, 0.1), M.cx + 1.7, y + 8, M.cz, '#ff6b9d'); }
+  // ---- stunt ramps (orange wedges with white stripes + glowing top edge)
+  for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(len, 0); sh.lineTo(len, hg); sh.lineTo(0, 0);
+    const g1 = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false }); g1.translate(0, 0, -w / 2);
+    wm.add(g1, rx, 0.02, rz, '#ff8a00', 0, yaw - Math.PI / 2, 0);
+    const n = 5; for (let i = 0; i < n; i++) { const u0 = (i + 0.5) / n * len, hh = hg * u0 / len; const st = new THREE.BoxGeometry(len / n * 0.45, 0.06, w * 0.96); st.rotateZ(Math.atan2(hg, len)); wm.add(st, rx + Math.sin(yaw) * u0, hh + 0.08, rz + Math.cos(yaw) * u0, '#ffffff', 0, yaw - Math.PI / 2, 0); }
+    world.glow.add(new THREE.BoxGeometry(0.25, 0.25, w), rx + Math.sin(yaw) * len, hg + 0.12, rz + Math.cos(yaw) * len, '#ffee00', 0, yaw - Math.PI / 2, 0);
+  }
   // ---- traffic: cars drive round the avenues all day (they are scenery; they never hit you)
   const traffic = [];
   TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const m = trafficCar(TCOL[(li * 3 + k) % TCOL.length]); world.group.add(m); traffic.push({ L, k, m }); } });

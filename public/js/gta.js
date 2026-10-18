@@ -18,7 +18,7 @@ export const mtC = (r) => { const M = GT.MT; return r >= M.R ? 0 : M.H * Math.po
 export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th = M.th0 + u * M.T * TAU; return { x: M.cx + r * Math.cos(th), z: M.cz + r * Math.sin(th), r, y: mtC(r) }; };
 
 // terrain height everywhere (flat 0 in the city, hills outside, a mountain with a carved road, a beach and the sea)
-export function gtaH(x, z) {
+export function gtaBase(x, z) {
   const M = GT.MT, dx = x - M.cx, dz = z - M.cz, r = Math.hypot(dx, dz), box = Math.max(Math.abs(x), Math.abs(z));
   const mt = sm(M.R + 25, M.R + 5, r), m = sm(150, 215, box), coast = 6.2 * sm(300, 395, box);
   let hills = 0; for (const [hx, hz, hr, hh] of HILLS) { const d = Math.hypot(x - hx, z - hz) / hr; hills += hh * Math.exp(-d * d); }
@@ -39,6 +39,29 @@ export function gtaH(x, z) {
   }
   return h;
 }
+
+// STUNT RAMPS: wedges that start at (x,z) and rise in direction yaw (forward = sin yaw, cos yaw). They are part of the ground height,
+// so people walk up them and cars fly off them. [x, z, yaw, length, height, width]
+const HP = Math.PI / 2;
+export const RAMPS = [
+  [200, 0, HP, 30, 9, 12], [262, 0, HP, 36, 12, 12],                       // coast highway mega jumps (toward the lookout)
+  [-60, -100, 0, 16, 3.8, 9], [60, 100, Math.PI, 16, 3.8, 9], [100, 60, -HP, 16, 3.8, 9], [-100, -60, HP, 16, 3.8, 9],   // city kickers
+  [0, -40, 0, 22, 5.5, 10], [0, 40, Math.PI, 22, 5.5, 10],                  // two ramps facing each other on the main avenue (jump the gap!)
+  [-217, -215, -HP, 14, 3.4, 10],                                      // off the summit
+  [330, 150, HP, 24, 7, 12], [-250, 120, -HP, 22, 6, 11],                   // beach / west coast jumps
+];
+export function rampH(x, z) {
+  let h = 0;
+  for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
+    const dx = x - rx, dz = z - rz;
+    if (dx * dx + dz * dz > (len + w) * (len + w)) continue;
+    const u = dx * Math.sin(yaw) + dz * Math.cos(yaw), v = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+    if (u < 0 || u > len || Math.abs(v) > w / 2) continue;
+    h = Math.max(h, hg * u / len);
+  }
+  return h;
+}
+export const gtaH = (x, z) => gtaBase(x, z) + rampH(x, z);
 
 // the drivable road network (segments follow the ground height; cars use y0 / y1 as the road surface)
 export function gtaRoads() {
@@ -72,7 +95,8 @@ export function gtaBuildings() {
 }
 
 // parked cars (8: ids repeat so there are 4 looks) and the traffic loops (visual only)
-export function gtaCars() { return [[-24, 3.3], [-16, -3.3], [-8, 3.3], [8, -3.3], [16, 3.3], [24, -3.3], [-36, -3.3], [36, 3.3]].map(([x, z], i) => ({ id: i % 4, x, z, yaw: z > 0 ? Math.PI / 2 : -Math.PI / 2 })); }
+// 8 vehicles (the multiplayer car sync has 3 bits): 4 cars, 2 bikes, a SUPER BIKE (190 km/h) and a SUPER CAR (300 km/h), lined up near the spawn
+export function gtaCars() { return [[0, -26, 3.3], [2, -18, -3.3], [1, -10, 3.3], [3, 14, -3.3], [8, 22, 3.3], [8, 30, -3.3], [9, -34, -3.3], [10, 38, 3.3]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? Math.PI / 2 : -Math.PI / 2 })); }
 export const TRAFFIC = [
   { x0: -60, x1: 60, z0: -60, z1: 60, n: 4, sp: 11 },
   { x0: -120, x1: 120, z0: -120, z1: 120, n: 5, sp: 14 },

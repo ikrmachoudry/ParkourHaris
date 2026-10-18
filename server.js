@@ -244,9 +244,9 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now();
         if (t - (p.lastCar || 0) < 250) return;
-        if (!num(m.c, 0, 7) || !num(m.x, -100, 100) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
+        if (!num(m.c, 0, 7) || !num(m.x, -400, 400) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
-        const cy = num(m.y, -5, 60) ? m.y : 0;
+        const cy = num(m.y, -5, 120) ? m.y : 0;
         room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
         bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, y: cy, z: m.z, r: m.r }, p.id);
         break;
@@ -260,7 +260,7 @@ wss.on('connection', (ws, req) => {
         if (!num(m.nx, -1.01, 1.01) || !num(m.nz, -1.01, 1.01)) return;
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 8) return; // too far apart: ignore
         p.lastBat = t;
-        send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 100) ? m.az : undefined });
+        send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 400) ? m.az : undefined });
         break;
       }
       case 'shoot': { // Jungle Hunt gun: damage a beast (unlimited ammo) and show the tracer to everybody else
@@ -299,7 +299,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now();
         if (t - p.lastS < 12) return;
         p.lastS = t;
-        if (!num(m.x, -400, 400) || !num(m.y, -200, 300) || !num(m.z, -2000, 100) || !num(m.r, -10, 10)) return;
+        if (!num(m.x, -400, 400) || !num(m.y, -200, 300) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r;
         bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];

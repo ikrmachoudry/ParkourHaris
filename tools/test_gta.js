@@ -4,7 +4,7 @@ import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings } from '../public/js/gta.js';
 import { newCar, stepCar, corridor } from '../public/js/car.js';
 let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
 const { world, info } = buildLevel(7, true, null, 1);
-ok(world.terrain === gtaH && info.cars.length === 8, 'city built: 8 cars, terrain on');
+ok(world.terrain === gtaH && info.cars.length === 8, 'city built: 8 vehicles, terrain on');
 ok(Math.abs(gtaH(0, 0)) < 1e-6 && Math.abs(gtaH(90, -40)) < 1e-6, 'city is flat');
 const top = mtRoad(1); ok(gtaH(top.x, top.z) > 38, 'summit is high (' + gtaH(top.x, top.z).toFixed(1) + ')');
 let maxSlope = 0; for (let u = 0; u < 1; u += 0.005) { const a = mtRoad(u), b = mtRoad(u + 0.005); maxSlope = Math.max(maxSlope, Math.abs(b.y - a.y) / Math.hypot(b.x - a.x, b.z - a.z)); }
@@ -21,10 +21,22 @@ const sb = newBody(); sb.x = 250; sb.z = 100; sb.y = gtaH(250, 100); let ev = fa
 ok(ev, 'walking into the sea triggers a respawn (x ' + sb.x.toFixed(0) + ')');
 // building is solid
 const bd = gtaBuildings()[0]; const wb = newBody(); wb.x = bd.x - bd.w / 2 - 3; wb.z = bd.z; wb.y = 0.2; for (let i = 0; i < 120; i++) stepBody(world, wb, 1 / 60, { mx: 1, mz: 0 }); ok(wb.x < bd.x - bd.w / 2 + 0.1, 'buildings block you');
-// car drives up the mountain
-const car = newCar(0, p0.x + 3, p0.z + 3, 0); const tr = info.track; let t = 0; car.y = 0;
-for (let i = 0; i < 60 * 150; i++) { const c = corridor(tr, car.x, car.z, 1.5, car.y); const tgt = mtRoad(Math.min(1, 0.001 + (car._u || 0))); const near = mtRoad(car._u || 0); if (Math.hypot(near.x - car.x, near.z - car.z) < 9) car._u = Math.min(1, (car._u || 0) + 0.004);
-  const T = mtRoad(Math.min(1, (car._u || 0) + 0.03)); const want = Math.atan2(T.x - car.x, T.z - car.z); let d = want - car.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-  stepCar(car, 1 / 60, { gas: 1, steer: Math.max(-1, Math.min(1, -d * 2.5)), hb: false }, tr, [], t); t += 1 / 60; void tgt; void c; }
-console.log('car', car.x.toFixed(1), car.z.toFixed(1), car.speed.toFixed(1), car.yaw.toFixed(2)); ok(car.y > 25, 'car climbs the mountain road (y ' + car.y.toFixed(1) + ', u ' + (car._u || 0).toFixed(2) + ')');
+// ---- cars: free driving over the whole island
+const tr = info.track;
+const drive = (car, tx, tz, secs, gas = 1, cb) => { let t = 0; for (let i = 0; i < 60 * secs; i++) { const want = Math.atan2(tx - car.x, tz - car.z); let d = want - car.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); stepCar(car, 1 / 60, { gas, steer: Math.max(-1, Math.min(1, -d * 2.5)), hb: false }, tr, [], t); t += 1 / 60; if (cb) cb(car, t); } };
+ok(tr.terrain === gtaH && tr.boxes.length > 50, 'cars use the terrain (free driving) and know the buildings');
+// off-road: up the mountain slope from the city side, straight over the grass
+{ const car = newCar(0, -140, -100, Math.atan2(-215 + 140, -215 + 100)); drive(car, -215, -215, 40); ok(car.y > 25, 'a car drives straight up the mountain off-road (y ' + car.y.toFixed(1) + ')'); }
+// ramp: hit the kicker at speed -> airborne, lands again
+{ const car = newCar(0, -60, -140, 0); let air = 0, maxY = 0; drive(car, -60, -60, 8, 1, (c) => { if (c.air) air++; maxY = Math.max(maxY, c.y); }); ok(air > 10 && maxY > 3, 'a ramp launches the car (air frames ' + air + ', top ' + maxY.toFixed(1) + ' m)'); ok(!car.air && Math.abs(car.y - gtaH(car.x, car.z)) < 0.2, 'and it lands on the ground'); }
+// highway mega ramp with the super car: big jump
+{ const car = newCar(10, 150, 0, Math.PI / 2); let air = 0, vmax = 0, far = 0; drive(car, 330, 0, 9, 1, (c) => { if (c.air) air++; vmax = Math.max(vmax, Math.hypot(c.vx, c.vz)); }); ok(vmax * 3.6 > 250, 'super car passes 250 km/h (' + (vmax * 3.6).toFixed(0) + ')'); ok(vmax * 3.6 <= 301, 'super car is limited to ~300 km/h'); ok(air > 20, 'mega ramp = long flight (' + air + ' frames)'); void far; }
+// super bike 190, normal bike less
+{ const a = newCar(9, 0, -60, 0), b2 = newCar(8, 20, -60, 0); let va = 0, vb = 0; drive(a, 0, 100, 12, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 20, 100, 12, 1, (c) => { vb = Math.max(vb, c.speed); }); ok(va * 3.6 > 170 && va * 3.6 < 195, 'super bike ~190 km/h (' + (va * 3.6).toFixed(0) + ')'); ok(vb * 3.6 < 125, 'bike is slower (' + (vb * 3.6).toFixed(0) + ')'); }
+// buildings stop the car
+{ const bd = gtaBuildings()[3]; const car = newCar(0, bd.x, bd.z - bd.d / 2 - 30, 0); drive(car, bd.x, bd.z, 4); ok(car.z < bd.z - bd.d / 2 + 0.5, 'a car cannot drive through a building'); }
+// the sea stops the car
+{ const car = newCar(0, 300, 200, Math.PI / 2); drive(car, 390, 200, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
+// a person can walk up a ramp
+{ const pb = newBody(); pb.x = -60; pb.z = -104; pb.y = 0; for (let i = 0; i < 120; i++) stepBody(world, pb, 1 / 60, { mx: 0, mz: 1 }); ok(pb.y > 2.5, 'a person walks up a stunt ramp (y ' + pb.y.toFixed(1) + ')'); }
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);

@@ -10,11 +10,15 @@ export const CAR_SPECS = [
   { id: 3, name: 'Bubble',   color: '#a855f7', max: 24, acc: 16, grip: 7.5, turn: 2.4, hw: 0.95, hl: 1.8 },
   // ids 4-7: the RED RACERS (prize for clearing the Sky Speedway) - faster, much stronger engine, stickier tyres
   ...[4, 5, 6, 7].map((id) => ({ id, name: 'Racer', color: '#e0001f', max: 42, acc: 36, grip: 9.5, turn: 2.15, hw: 1.05, hl: 2.35, racer: true })),
+  // city vehicles (ids 8-10)
+  { id: 8, name: 'Bike', color: '#ff6b00', max: 31, acc: 22, grip: 7.5, turn: 3.0, hw: 0.5, hl: 1.1, bike: true },
+  { id: 9, name: 'Super Bike', color: '#00c2ff', max: 52.8, acc: 34, grip: 9, turn: 2.7, hw: 0.5, hl: 1.15, bike: true },
+  { id: 10, name: 'Super Car', color: '#ffd400', max: 83.3, acc: 46, grip: 10.5, turn: 2.0, hw: 1.05, hl: 2.35 },
 ];
 const CAR_R = 1.8; // collision radius between cars
 
 export function newCar(id, x, z, yaw) {
-  return { id, x, z, y: 0, pitch: 0, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true, spin: 0, crash: 0, acc: 0 };
+  return { id, x, z, y: 0, pitch: 0, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true, spin: 0, crash: 0, acc: 0, vy: 0, vyg: 0, air: false };
 }
 
 
@@ -73,7 +77,8 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
   c.x += c.vx * dt; c.z += c.vz * dt;
   let ev = '';
   // road boundaries: the drivable area is a chain of road segments + round plazas
-  { const q = corridor(track, c.x, c.z, 1.5, c.y);
+  if (track.terrain) ev = terrainDrive(c, dt, track, nfx, nfz, max) || ev;
+  else { const q = corridor(track, c.x, c.z, 1.5, c.y);
     c.gx = q.gx; c.gz = q.gz;
     { const py = c.y; c.y += (q.h - c.y) * Math.min(1, dt * 14); const mv = Math.hypot(c.vx, c.vz) * dt; c.pitch += ((mv > 1e-3 ? Math.atan2(c.y - py, mv) : 0) * (c.speed >= 0 ? 1 : -1) - c.pitch) * Math.min(1, dt * 10); }
     // walls: the nose and the tail are tested separately (with the car's real width), so a long car never pokes through a rail;
@@ -141,6 +146,47 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
   return ev;
 }
 
+// OPEN WORLD driving (Haris City): the ground is track.terrain(x,z); the car follows it, flies off ramps and crests, lands with a thump,
+// bounces off buildings (track.boxes), the map edge and the sea.
+const TD_SEA = -0.35, TD_EDGE = 352;
+function terrainDrive(c, dt, track, fx, fz, max) {
+  const T = track.terrain; let ev = '';
+  // buildings: nose and tail circles against the boxes (only while the car is lower than the roof)
+  for (const a of [1.15, -1.15]) {
+    const px = c.x + fx * a, pz = c.z + fz * a;
+    for (const b of track.boxes || []) {
+      if (c.y > b.h - 0.4 || px < b.x0 - 1.3 || px > b.x1 + 1.3 || pz < b.z0 - 1.3 || pz > b.z1 + 1.3) continue;
+      const cx = Math.max(b.x0, Math.min(b.x1, px)), cz = Math.max(b.z0, Math.min(b.z1, pz)); let dx = px - cx, dz = pz - cz, d = Math.hypot(dx, dz), nx, nz, pen;
+      if (d > 1e-4) { nx = dx / d; nz = dz / d; pen = 1.15 - d; if (pen <= 0) continue; }
+      else { const l = px - b.x0, r = b.x1 - px, f = pz - b.z0, k = b.z1 - pz, m = Math.min(l, r, f, k); pen = 1.15 + m; if (m === l) { nx = -1; nz = 0; } else if (m === r) { nx = 1; nz = 0; } else if (m === f) { nx = 0; nz = -1; } else { nx = 0; nz = 1; } }
+      c.x += nx * pen; c.z += nz * pen;
+      const vn = c.vx * nx + c.vz * nz;
+      if (vn < 0) {
+        c.vx -= 1.35 * vn * nx; c.vz -= 1.35 * vn * nz; c.vx *= 0.9; c.vz *= 0.9;
+        c.spin = Math.max(-3, Math.min(3, (c.spin || 0) + (fz * a * nx - fx * a * nz) * -vn * 0.05));
+        if (-vn > 5) { ev = -vn > 12 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, -vn); }
+      }
+    }
+  }
+  // the edge of the island and the sea
+  const E = TD_EDGE; if (Math.abs(c.x) > E) { c.x = Math.sign(c.x) * E; c.vx *= -0.3; } if (Math.abs(c.z) > E) { c.z = Math.sign(c.z) * E; c.vz *= -0.3; }
+  if (T(c.x + fx * 2.5, c.z + fz * 2.5) < TD_SEA && T(c.x, c.z) < TD_SEA + 0.6) { c.vx *= -0.35; c.vz *= -0.35; c.x += c.vx * dt * 3; c.z += c.vz * dt * 3; ev = ev || 'bump'; c.bump = 8; }
+  // height: stick to the ground, but leave it over a crest / ramp lip (and fly)
+  const gy = T(c.x, c.z), sp = Math.hypot(c.vx, c.vz), py = c.y;
+  c.gx = (T(c.x + 1.5, c.z) - T(c.x - 1.5, c.z)) / 3; c.gz = (T(c.x, c.z + 1.5) - T(c.x, c.z - 1.5)) / 3;
+  if (c.air) {
+    c.vy -= 30 * dt; c.y += c.vy * dt;
+    if (c.y <= gy) { const hit = -c.vy; c.y = gy; c.air = false; c.vy = 0; c.vyg = 0; if (hit > 7) { ev = hit > 14 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); c.vx *= 0.93; c.vz *= 0.93; } }
+    c.pitch += (Math.atan2(c.vy, Math.max(8, sp)) * 0.8 - c.pitch) * Math.min(1, dt * 4);
+  } else {
+    const rise = (gy - py) / Math.max(dt, 1e-3); c.vyg += (rise - c.vyg) * Math.min(1, dt * 18);
+    if (gy < py - 0.22 - sp * 0.004) { c.air = true; c.vy = Math.max(c.vyg, 0); c.y = py; }
+    else { c.y = gy; const fs = c.gx * fx + c.gz * fz; c.pitch += (Math.atan(fs) - c.pitch) * Math.min(1, dt * 12); }
+  }
+  c.air = c.air && c.y > gy + 1e-4;
+  return ev;
+}
+
 // ------------------------------------------------------------------ visuals (client only)
 const rb = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.01, h / 2 - 0.01, d / 2 - 0.01));
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: o.r ?? 0.35, metalness: o.m ?? 0.25, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1 });
@@ -151,7 +197,7 @@ export function buildCarMesh(id) {
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   const body = id === 0 ? new THREE.MeshStandardMaterial({ map: flagTexture('pk'), roughness: 0.3, metalness: 0.15 }) : std(spec.color, { r: 0.28, m: 0.35 }), trim = std('#ffffff', { r: 0.3, m: 0.1 });
   const lamp = std('#fff6c8', { e: '#fff1a8', ei: 1.4 }), tail = std('#ff3030', { e: '#ff1a1a', ei: 1.2 });
-  const wheels = [], pivots = [];
+  const wheels = [], pivots = []; let custom = false;
   let wr = 0.46, wx = 1.0, wzF = 1.35, wzB = -1.3, seat = { y: 0.55, z: -0.15 };
   if (id === 0) { // Sprinter: low sports car painted with the Pakistan flag
     wr = 0.44; wx = 1.02; wzF = 1.45; wzB = -1.35; seat = { y: 0.5, z: -0.2 };
@@ -184,7 +230,35 @@ export function buildCarMesh(id) {
     add(rb(1.8, 0.1, 0.1, 0.04), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0, 0.75, 2.4); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), 0.6, 0.85, 2.38); add(rb(0.1, 0.5, 0.1, 0.03), std('#c8ccd8', { m: 0.8, r: 0.2 }), -0.6, 0.85, 2.38);
     add(rb(0.35, 0.22, 0.1, 0.04), lamp, 0.7, 0.98, 2.36); add(rb(0.35, 0.22, 0.1, 0.04), lamp, -0.7, 0.98, 2.36);
     add(rb(0.3, 0.2, 0.1, 0.04), tail, 0.8, 1.0, -2.36); add(rb(0.3, 0.2, 0.1, 0.04), tail, -0.8, 1.0, -2.36);
-  } else if (id >= 4) { // RACER: low red drop-top sports car - wedge body (one extruded profile = very light), open cockpit, big rear wing, blue underglow, exhaust flames
+  } else if (id === 8 || id === 9) { // BIKE / SUPER BIKE: two wheels, tank, seat, handlebars; the rider sits on top
+    custom = true; const sup = id === 9, pc = std(spec.color, { r: 0.2, m: 0.5 }), wr2 = sup ? 0.5 : 0.44; seat = { y: sup ? 0.92 : 0.98, z: -0.1 };
+    add(rb(0.34, 0.3, 1.5, 0.1), dark, 0, 0.62, 0.0);                                  // engine block
+    add(rb(sup ? 0.42 : 0.36, sup ? 0.36 : 0.34, 1.0, 0.14), pc, 0, 0.98, 0.35);         // tank / fairing
+    add(rb(0.38, 0.14, 0.95, 0.06), std('#1b1b22', { r: 0.8, m: 0 }), 0, 0.88, -0.55);   // seat
+    if (sup) { add(rb(0.5, 0.5, 0.5, 0.2), pc, 0, 0.95, 0.95, -0.5); add(rb(0.36, 0.28, 0.1, 0.04), glass(), 0, 1.25, 0.98, -0.8); add(rb(0.3, 0.18, 0.7, 0.08), pc, 0, 0.92, -1.05, 0.3); }
+    add(rb(0.9, 0.07, 0.07, 0.03), dark, 0, sup ? 1.18 : 1.3, 0.78);                       // handlebars
+    add(new THREE.SphereGeometry(0.17, 10, 8), lamp, 0, sup ? 1.0 : 1.15, 1.2);
+    add(rb(0.14, 0.1, 0.08, 0.03), tail, 0, 0.95, -1.12);
+    add(new THREE.CylinderGeometry(0.07, 0.09, 1.0, 8), std('#c8ccd8', { m: 0.9, r: 0.2 }), 0.26, 0.5, -0.7, Math.PI / 2, 0, 0);   // exhaust
+    const wG = new THREE.CylinderGeometry(wr2, wr2, 0.24, 18), rG = new THREE.CylinderGeometry(wr2 * 0.55, wr2 * 0.55, 0.26, 10);
+    for (const [z, front] of [[0.95, 1], [-0.95, 0]]) {
+      const pv = new THREE.Group(); pv.position.set(0, wr2, z); g.add(pv); const spin = new THREE.Group(); pv.add(spin);
+      const t = new THREE.Mesh(wG, tyre); t.rotation.z = Math.PI / 2; t.castShadow = true; spin.add(t); const r = new THREE.Mesh(rG, rim); r.rotation.z = Math.PI / 2; spin.add(r);
+      wheels.push(spin); if (front) pivots.push(pv);
+    }
+    add(rb(0.12, 0.7, 0.12, 0.03), dark, 0, 0.75, 0.95, 0.35);                         // front fork
+  } else if (id === 10) { // SUPER CAR: low yellow wedge hyper-car with black stripes, canopy, wing and purple glow
+    wr = 0.5; wx = 1.1; wzF = 1.45; wzB = -1.45; seat = { y: 0.55, z: -0.1 };
+    const yel = std('#ffd400', { r: 0.14, m: 0.6 }), blk = std('#15161c', { r: 0.5, m: 0.2 }), neon = std('#b14bff', { e: '#b14bff', ei: 1.6 });
+    const prof = new THREE.Shape(); [[-2.45, 0.28], [-2.45, 0.78], [-1.6, 0.95], [-0.3, 1.02], [0.7, 0.9], [2.3, 0.5], [2.5, 0.38], [2.5, 0.28]].forEach(([z, y], i) => (i ? prof.lineTo(z, y) : prof.moveTo(z, y)));
+    const wedge = new THREE.ExtrudeGeometry(prof, { depth: 1.75, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1, bevelSegments: 2, steps: 1 }); wedge.rotateY(-Math.PI / 2); wedge.translate(0.87, 0, 0);
+    add(wedge, yel, 0, 0, 0);
+    add(rb(1.3, 0.34, 1.5, 0.16), glass(), 0, 1.0, -0.1, -0.08);                       // canopy
+    add(rb(0.5, 0.03, 3.0, 0.01), blk, 0.35, 0.99, -0.2); add(rb(0.5, 0.03, 3.0, 0.01), blk, -0.35, 0.99, -0.2);   // stripes
+    add(rb(2.2, 0.08, 0.6, 0.03), blk, 0, 1.28, -2.3); for (const sx of [-1, 1]) { add(rb(0.09, 0.4, 0.09, 0.02), blk, sx * 0.7, 1.08, -2.25); add(rb(0.07, 0.4, 0.7, 0.02), yel, sx * 1.1, 1.2, -2.3); add(rb(0.42, 0.14, 0.1, 0.04), lamp, sx * 0.62, 0.62, 2.52); add(rb(0.5, 0.12, 0.1, 0.04), tail, sx * 0.62, 0.8, -2.5); add(rb(0.3, 0.2, 0.9, 0.08), yel, sx * 1.05, 0.55, 1.4); }
+    add(rb(2.3, 0.08, 0.5, 0.03), blk, 0, 0.3, 2.5);
+    const ug = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 4.8), new THREE.MeshBasicMaterial({ color: '#b14bff', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); ug.rotation.x = -Math.PI / 2; ug.position.set(0, 0.12, 0); g.add(ug); void neon;
+  } else if (id >= 4 && id < 8) { // RACER: low red drop-top sports car - wedge body (one extruded profile = very light), open cockpit, big rear wing, blue underglow, exhaust flames
     wr = 0.5; wx = 1.12; wzF = 1.5; wzB = -1.5; seat = { y: 0.62, z: -0.2 };
     const red = std('#e0001f', { r: 0.16, m: 0.55 }), blk = std('#15161c', { r: 0.5, m: 0.2 }), wht = std('#ffffff', { r: 0.25, m: 0.1 }), glow = std('#ff7a1a', { e: '#ff5a00', ei: 2 });
     // side profile (z forward, y up): low nose, long hood, open cockpit tub, high tail
@@ -224,7 +298,7 @@ export function buildCarMesh(id) {
     add(rb(0.5, 0.05, 2.3, 0.02), std('#ff6bd5', { r: 0.4 }), 0.15, 1.52, -0.75, 0, 0, 0.08);   // surfboard on top
   }
   const wGeo = new THREE.CylinderGeometry(wr, wr, 0.42, 20), rGeo = new THREE.CylinderGeometry(wr * 0.56, wr * 0.56, 0.44, 12);
-  for (const [sx, z, front] of [[1, wzF, 1], [-1, wzF, 1], [1, wzB, 0], [-1, wzB, 0]]) {
+  if (!custom) for (const [sx, z, front] of [[1, wzF, 1], [-1, wzF, 1], [1, wzB, 0], [-1, wzB, 0]]) {
     const pv = new THREE.Group(); pv.position.set(sx * wx, wr, z); g.add(pv);
     const spin = new THREE.Group(); pv.add(spin);
     const t = new THREE.Mesh(wGeo, tyre); t.rotation.z = Math.PI / 2; t.castShadow = true; spin.add(t);
@@ -243,7 +317,7 @@ export function animateCar(mesh, car, dt) {
   const u = mesh.userData;
   for (const w of u.wheels) w.rotation.x += (car.speed / 0.5) * dt;
   for (const p of u.pivots) p.rotation.y = -car.steer * 0.5;
-  mesh.rotation.z = THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 20) * 0.07, -0.08, 0.08);
+  mesh.rotation.z = u.spec.bike ? THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 14) * 0.5, -0.55, 0.55) : THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 20) * 0.07, -0.08, 0.08);
   // suspension: the nose lifts when you floor it and dips when you brake; ramps tilt the whole car
   const acc = (car.speed - (car._ps === undefined ? car.speed : car._ps)) / Math.max(dt, 0.001); car._ps = car.speed;
   car._sq = (car._sq || 0) + (THREE.MathUtils.clamp(acc, -30, 30) * 0.0045 - (car._sq || 0)) * Math.min(1, dt * 7);

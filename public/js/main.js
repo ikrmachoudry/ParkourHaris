@@ -519,7 +519,7 @@ class Race {
     g.position.set(st.x + Math.sin(st.yaw) * seat.z, st.y + seat.y, st.z + Math.cos(st.yaw) * seat.z); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8);
   }
   nearestFreeCar(b) {
-    if (b.stun > 0 || b.y > 1.5 || b.swim > 0.3) return null;
+    if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
     for (const c of this.cars) { if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
     return best;
@@ -531,13 +531,13 @@ class Race {
     if (this.drive) { // get out
       const c = this.drive, st = c.st;
       if (Math.abs(st.speed) > 5) { this.toast('Slow down to get out!'); return; }
-      if (st.y > 1.2) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
+      if (st.y > 1.2 && !this.world.terrain) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
       const lx = Math.cos(st.yaw), lz = -Math.sin(st.yaw);
-      respawn(b, st.x + lx * 2.4, 0.05, st.z + lz * 2.4, st.yaw); b.hitCd = 0.3;
+      respawn(b, st.x + lx * 2.4, this.world.terrain ? this.world.terrain(st.x + lx * 2.4, st.z + lz * 2.4) + 0.05 : 0.05, st.z + lz * 2.4, st.yaw); b.hitCd = 0.3;
       st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; this.drive = null;
       document.body.classList.remove('driving'); A.engineStop(); A.sfx.door();
       this.g_g(this.me.model.group);
-      if (this.multi) app.net.send({ t: 'carpark', c: st.id, x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
+      if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false;
     } else {
       const c = this.nearestFreeCar(b); if (!c) return;
