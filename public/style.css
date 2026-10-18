@@ -353,7 +353,7 @@ body.city-mode #t-jump, body.city-mode #t-dive { display: none !important; }
 body.driving.city-mode #car-hp { display: block; }
 #car-hp i { display: block; height: 100%; width: 100%; background: #4ade80; transition: width .25s, background .25s; }
 
-#minimap { display: none; position: absolute; left: max(12px, 2vw); bottom: max(12px, 3vh); width: clamp(116px, 26vmin, 200px); height: clamp(116px, 26vmin, 200px); border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,.5); pointer-events: auto; cursor: pointer; z-index: 18; }
+#minimap { display: none; position: absolute; left: max(12px, env(safe-area-inset-left), 2vw); top: max(10px, env(safe-area-inset-top), 2vh); width: clamp(88px, 19vmin, 142px); height: clamp(88px, 19vmin, 142px); border-radius: 50%; opacity: .68; border: 2px solid rgba(255,255,255,.55); box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: auto; cursor: pointer; z-index: 18; }
 body.in-race.city-mode #minimap { display: block; }
 
 /* ---- title menu: one row of buttons at the bottom so the four characters on the stage are never hidden behind them ---- */

@@ -247,7 +247,7 @@ export function buildGta(world, th, info, seed) {
       const solid = (x0, x1, z0, z1, hh) => { const p = P(x0, z0), q = P(x1, z1); world.addSolid(Math.min(p.x, q.x), 0.2, Math.min(p.z, q.z), Math.max(p.x, q.x), hh, Math.max(p.z, q.z), { name: 'prop' }); };
       put(Bx(20, 0.06, 20), 0, 0.19, 0, '#6fbf4f');                                // lawn
       put(Bx(6.7, 0.06, 8.1), 2.45, 0.25, -3.0, '#b88a5a'); solid(-0.8, 5.7, -6.95, 0.95, 0.28);   // wooden floor (you stand on it)
-      put(Bx(4.6, 0.04, 8.1), -3.4, 0.19, -3.0, '#4a4d53');                       // garage floor
+      put(Bx(4.6, 0.05, 8.1), -3.4, 0.21, -3.0, '#4a4d53');                       // garage floor (its top, 0.235, sits clearly above the lawn's 0.22: no flicker)
       for (const [a, b, c, d, hh] of HOME_WALLS) if (hh === WH) put(Bx(b - a, hh - 0.2, d - c), (a + b) / 2, 0.2 + (hh - 0.2) / 2, (c + d) / 2, wallC[i]);
       for (const [x0, x1, lz] of [[-5.5, -1.1, 1.1], [2.7, 4.1, 1.1], [-1.1, -0.8, -3.8]]) { /* lintels over the openings */
         if (lz === -3.8) put(Bx(0.3, 1.0, 1.6), -0.95, 3.1, lz, wallC[i]); else put(Bx(x1 - x0, 0.9, T), (x0 + x1) / 2, 3.15, lz + 0.05, wallC[i]); }
@@ -274,13 +274,13 @@ export function buildGta(world, th, info, seed) {
       world.glow.add(Bx(0.55, 0.05, 0.55), P(2.5, -1.5).x, 3.58, P(2.5, -1.5).z, '#fff4cf'); world.glow.add(Bx(0.55, 0.05, 0.55), P(2.5, -5.0).x, 3.58, P(2.5, -5.0).z, '#fff4cf'); world.glow.add(Bx(0.55, 0.05, 0.55), P(-3.4, -3.0).x, 3.58, P(-3.4, -3.0).z, '#fff4cf');
       put(Bx(2.6, 0.9, 0.7), -3.4, 0.7, -6.55, '#8a5a34'); put(Bx(0.5, 0.35, 0.35), -4.2, 1.3, -6.55, '#d93a3a'); put(Bx(0.4, 2.0, 1.6), -5.45, 1.2, -6.1, '#6a6f78'); for (let k = 0; k < 3; k++) put(Bx(0.3, 0.3, 0.5), -5.4, 0.8 + k * 0.6, -6.1, ['#e8a33d', '#3d8ee8', '#5fcf6a'][k]);
       put(new THREE.CylinderGeometry(0.42, 0.42, 0.5, 12), -1.7, 0.5, -6.6, '#17171a'); put(new THREE.CylinderGeometry(0.42, 0.42, 0.5, 12), -1.7, 1.0, -6.6, '#202024');
-      for (const dx of [-2.0, 2.0]) put(Bx(0.08, 0.02, 6.4), -3.4 + dx, 0.215, -3.0, '#e8c53a');                // parking bay lines
+      for (const dx of [-2.0, 2.0]) put(Bx(0.08, 0.02, 6.4), -3.4 + dx, 0.245, -3.0, '#e8c53a');                // parking bay lines
       // name plaque on the wall above the garage + a big sign at the garden gate
       { const nm = h.name.toUpperCase() + ' HOME', tex = signTexture(nm, '#12202e', h.color), mk = (wd, ht) => new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
         const pl = mk(4.0, 0.9), pp = P(-3.3, 1.46); pl.position.set(pp.x, 3.15, pp.z); pl.rotation.y = h.yaw; world.group.add(pl);
         const bg = mk(5.6, 1.4), gp = P(3.4, 9.45); bg.position.set(gp.x, 2.7, gp.z); bg.rotation.y = h.yaw; world.group.add(bg);
         put(Bx(0.18, 3.0, 0.18), 0.7, 1.5, 9.45, '#4a4f58'); put(Bx(0.18, 3.0, 0.18), 6.1, 1.5, 9.45, '#4a4f58'); }
-      put(Bx(4.8, 0.04, 8.8), -3.3, 0.2, 5.6, '#3a3d43'); put(Bx(1.3, 0.04, 8.4), 3.4, 0.2, 5.6, '#565a61');   // driveway + footpath
+      put(Bx(4.8, 0.06, 8.8), -3.3, 0.21, 5.6, '#3a3d43'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.21, 5.6, '#565a61');   // driveway + footpath: tops at 0.24, above the lawn (0.22) - same-height tops flickered (z-fighting)
       // boundary fence (inside the lot, never on the pavement): the front has a driveway gap and a footpath gap. It is solid.
       { const fc = (x0, x1, z0, z1) => { put(Bx(x1 - x0, 0.9, z1 - z0), (x0 + x1) / 2, 0.7, (z0 + z1) / 2, '#4b4e55'); const p = P(x0, z0), q = P(x1, z1), X0 = Math.min(p.x, q.x), X1 = Math.max(p.x, q.x), Z0 = Math.min(p.z, q.z), Z1 = Math.max(p.z, q.z);
           world.addSolid(X0, 0.2, Z0, X1, 1.15, Z1, { name: 'prop' }); roads.boxes.push({ x0: X0, x1: X1, z0: Z0, z1: Z1, h: 1.15 }); };
