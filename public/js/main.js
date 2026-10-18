@@ -310,6 +310,7 @@ class Race {
     }
     if (this.fireHeld || keys.has('KeyB') || touch.fire) this.fire();
     hu.vis.update(dt);
+    if (hu.h.ph === HPH.DONE && Math.random() < dt * 14) this.particles.emit(b.x + (Math.random() - 0.5) * 8, b.y + 7, b.z + (Math.random() - 0.5) * 8, 3, { color: ['#ff5fa8', '#ffd23f', '#4cc9f0', '#80ed99'][(Math.random() * 4) | 0], speed: 2.5, up: -1, life: 1.6, size: 0.4, gravity: 3 });
   }
   huntEvent(e) {
     const hu = this.hunt; hu.vis.event(e);
@@ -317,15 +318,30 @@ class Race {
     else if (e.k === 'gate') { A.sfx.tame(); this.toast('ALL BEASTS DOWN! THE GATE OPENS - now the MACHINE...'); }
     else if (e.k === 'door') { A.sfx.door(); this.toast('THE GEARS TURN - THE HEAVY DOOR RISES!'); }
     else if (e.k === 'lift') { A.sfx.tame(); this.toast('TOP OF THE CLIFF! Friends: ride up too!'); }
+    else if (e.k === 'freeze') this.toast(e.on ? 'CRUSHERS RETRACTED - RUN! (keep the plate held)' : 'The crushers are back!');
+    else if (e.k === 'armed') this.toast(e.on ? 'CANNON ARMED - jump on the orange pad!' : 'Cannon off - a friend must stand on a blue plate');
+    else if (e.k === 'pump') { A.sfx.pickup(); this.hunt.vis.pumpK = Math.max(0, e.v - 0.2); }
+    else if (e.k === 'bridge') { A.sfx.tame(); this.toast('THE BRIDGE RISES!'); }
+    else if (e.k === 'note') { A.sfx.pickup(); this.toast(`\u266a ${e.step}/4`); }
+    else if (e.k === 'wrong') { A.sfx.hit && A.sfx.hit(); this.toast('WRONG PAD - start again!'); }
+    else if (e.k === 'solved') { A.sfx.tame(); this.toast('RIDDLE SOLVED - THE DOOR OPENS!'); }
     else if (e.k === 'chapter') { A.sfx.go(); this.toast(`CHAPTER ${e.ch + 1}!`); }
-    else if (e.k === 'end') { A.sfx.go(); this.toast('YOU MADE IT! MORE CHAPTERS COMING SOON!'); }
+    else if (e.k === 'end') { A.sfx.go(); this.toast('VICTORY! YOU BEAT THE JUNGLE HUNT!'); }
   }
   huntNet(m) { applyHunt(this.hunt.h, m); }
   huntHud() {
     const h = this.hunt.h, c = `Ch ${h.ch + 1}/${HU.CH}`;
     if (h.ph === HPH.WAIT) return `${c} \u2022 GO ON!`;
     if (h.ph === HPH.BEAST) return `${c} \u2022 BEASTS LEFT: ${h.left}`;
-    if (h.ph === HPH.MACH) return h.ch === 0 ? `${c} \u2022 PLATES ${(h.occ || []).filter((v) => v).length}/${h.n}` : `${c} \u2022 LIFT!`;
+    if (h.ph === HPH.MACH) {
+      const m = h.m[h.ch];
+      if (h.ch === 0) return `${c} \u2022 PLATES ${(h.occ || []).filter((v) => v).length}/${h.n}`;
+      if (h.ch === 1) return `${c} \u2022 COUNTERWEIGHT LIFT`;
+      if (h.ch === 2) return `${c} \u2022 CRUSHERS ${m.wa ? '(HELD!)' : '- hold a plate'}`;
+      if (h.ch === 3) return `${c} \u2022 CANNON ${m.wa ? 'READY!' : '- friend on a blue plate'}`;
+      if (h.ch === 4) return `${c} \u2022 PRESSURE ${Math.round(m.v * 100)}%`;
+      return `${c} \u2022 PADS ${m.done ? 'SOLVED' : Math.round(m.v) + '/4'}`;
+    }
     return 'THE END (for now)';
   }
   fire() {

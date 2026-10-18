@@ -328,7 +328,7 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
   ph.startSingle(6); step(300);
   const R = ph.race, b = R.me.body, an = R.an, Hh = R.hunt, L = Hh.L;
-  ok(R.meta.key === 'hunt' && Hh && an && an.list.length === 12 && an.list.every((a) => a.st === 8), 'Jungle Hunt loads: 12 hidden beasts, hunt state');
+  ok(R.meta.key === 'hunt' && Hh && an && an.list.length === 36 && an.list.every((a) => a.st === 8), 'Jungle Hunt loads: 36 hidden beasts (6 chapters), hunt state');
   ok(mk('body').classes.has('hunt-map') && R.info.finishZ < -9999, 'hunt: gun mode on, no finish line');
   ok(R.swing() === false, 'the BAT is replaced by the gun');
   const tp = (x, z) => { b.x = x; b.z = z; b.y = 0.05; b.vx = b.vz = 0; b.vy = 0; b.stun = 0; };
@@ -351,6 +351,20 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   ok(Hh.h.m[0].done === 1, 'standing on the plate (single player) opens the door');
   step(60 * 4); ok(!Hh.vis.h.solids[0].door.active && /Ch 1/.test(R.huntHud()), 'door lifted away; HUD ok');
   { const live = Hh.vis.tr.length; step(30); ok(Hh.vis.tr.length <= live, 'tracers fade away'); }
+}
+{ // chapters 3-6 in the client (single player): visuals + machines run
+  const R = ph.race, b = R.me.body, Hh = R.hunt, L = Hh.L, st = Hh.h, V = Hh.vis, tp = (x, z) => { b.x = x; b.z = z; b.y = 0.05; b.vx = b.vz = 0; b.vy = 0; b.stun = 0; };
+  st.ch = 2; st.ph = 2; tp(L.crush.p1.x, L.crush.p1.z); step(60);
+  ok(st.m[2].wb === 1 && R.huntHud().includes('CRUSHERS'), 'ch3: crusher plate sensed, HUD updated');
+  st.ch = 3; st.ph = 2; tp(0, L.cannon.pad.z + 6); step(40); ok(st.m[3].wa === 1 && V.h.cannonDisc.bounce > 0, 'ch4: single player: cannon armed');
+  st.ch = 4; st.ph = 2; for (let k = 0; k < 9; k++) { tp(k % 2 ? L.pump.pr.x : L.pump.pl.x, L.pump.pl.z); step(12); tp(0, L.pump.pl.z + 10); step(8); }
+  ok(st.m[4].done === 1 && /PRESSURE/.test(R.huntHud()), 'ch5: pumping the two plates in turn finishes the bridge');
+  step(200); ok(V.h.disp[4] > 0.95, 'ch5: bridge slabs rose');
+  st.ch = 5; st.ph = 2; const seq = [st.m[5].a >> 6 & 3, st.m[5].a >> 4 & 3, st.m[5].a >> 2 & 3, st.m[5].a & 3];
+  for (const i of seq) { tp(L.simon.pads[i].x, L.simon.pads[i].z); step(10); tp(0, L.simon.pads[0].z + 12); step(8); }
+  step(120); ok(st.m[5].done === 1 && !V.h.doors[5].solid.active, 'ch6: the colour sequence opens the riddle door');
+  tp(0, L.chapters[5].nextZ - 2); step(30); ok(st.ph === 3 && /THE END/.test(R.huntHud()), 'the end: victory');
+  step(60);
 }
 function plateXs1() { return 0; }
 

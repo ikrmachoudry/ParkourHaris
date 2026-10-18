@@ -23,5 +23,5 @@ export const LEVEL_META = [
   { id: 5, key: 'annoy', name: 'Annoying Maze', sub: 'Tricky Race', stars: 4, limit: 900, finishZ: -297, finishY: 0,
     colors: ['#b58cff', '#ff6b9d'], blurb: '5 coloured tunnels (only one goes through!), 2 ferris wheels, a fan over the water, trampolines, flag platforms with giant slamming blades, 5 cutters - and a tiny safe lane on the right.' },
   { id: 6, key: 'hunt', name: 'Jungle Hunt', sub: 'Gun Co-op', stars: 4, limit: 0, finishZ: -99999, finishY: 99999, free: true, hunt: true,
-    colors: ['#2e9b3f', '#ff8a1c'], blurb: 'Grab the GUN (unlimited bullets, auto-aim) and work as a team! Shoot the beast packs, then solve the MACHINES together: weight plates & a huge gear door, a counterweight lift... Nobody can die. More chapters coming!' },
+    colors: ['#2e9b3f', '#ff8a1c'], blurb: 'Grab the GUN (unlimited bullets, auto-aim) and work as a TEAM through 6 chapters: shoot the beast packs, then solve machines together - weight plates & gear door, counterweight lift, crushers (swap who holds the plate), a cannon over a canyon, a pump bridge and a final colour-pad riddle. Nobody can die!' },
 ];

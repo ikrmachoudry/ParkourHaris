@@ -15,7 +15,7 @@ P[1].send(JSON.stringify({ t: 'join', code, name: 'B', char: 1 })); await wait(1
 P[0].send(JSON.stringify({ t: 'level', level: 6 })); await wait(60); P[0].send(JSON.stringify({ t: 'start' })); await wait(120);
 const go = last(P[1], 'go'); ok(go && go.level === 6, 'hunt starts');
 await wait(go.t0 - Date.now() + 400);
-const an0 = last(P[0], 'an'); ok(an0 && an0.a.length === 12 && an0.a.every((x) => x[5] === 8), 'server streams 12 hidden beasts');
+const an0 = last(P[0], 'an'); ok(an0 && an0.a.length === 36 && an0.a.every((x) => x[5] === 8), 'server streams 36 hidden beasts');
 const pos = (i, x, y, z) => P[i].send(JSON.stringify({ t: 's', x, y, z, r: 0, a: 1, sp: 0, ts: Date.now(), rs: 0 }));
 const hold = async (f, ms) => { for (let t = 0; t < ms; t += 100) { f(); await wait(100); } };
 await hold(() => { pos(0, 0, 0, C.trigZ - 2); pos(1, 2, 0, C.trigZ - 2); }, 500);
