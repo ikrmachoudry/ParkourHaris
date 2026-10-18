@@ -61,8 +61,8 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const hp0 = c.hp === undefined ? 100 : c.hp;
   const P = spec.kW * 1300 * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
-  const slipRe = Math.atan((vl - b * c.yr) / (u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5)));
-  if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.09) / 0.14, 0, 0.9);
+  const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
+  if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
   let Fx = 0;
   if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= (u > spec.top * 1.02 ? 0 : 1); }
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
@@ -75,8 +75,8 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const axF = c.ax;
   const Nf = clamp(m * G * b / L - m * axF * h / L, m * G * 0.15, m * G * 0.85), Nr = m * G - Nf;
   // ---- tyres (lateral): slip angles, saturating force, friction circle
-  const uS = u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5);
-  const slipF = Math.atan((vl + a * c.yr) / uS) - delta, slipR = Math.atan((vl - b * c.yr) / uS);
+  const uA = Math.max(Math.abs(u), 0.5), su = u >= 0 ? 1 : -1;   // slip angles use |u|: in reverse the tyre forces must still oppose the sliding (the old sign flip made reversing swing and drift)
+  const slipF = Math.atan((vl + a * c.yr) / uA) - delta * su, slipR = Math.atan((vl - b * c.yr) / uA);
   const frontShare = spec.drive === 'fwd' ? clamp(Math.abs(Fx) / Math.max(1, mu * Nf), 0, 0.95) : 0;
   const rearShare = spec.drive === 'rwd' ? clamp(Math.abs(Fx) / Math.max(1, mu * Nr), 0, 0.95) : 0;
   const brakeShareF = clamp(brake * 0.6, 0, 0.9), brakeShareR = clamp(brake * 0.4 + (inp.hb ? 0.7 : 0), 0, 0.97);
@@ -92,10 +92,10 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   // ---- integrate (body frame, left-positive lateral)
   const cd = Math.cos(delta), sd = Math.sin(delta);
   const ay = (Ff * cd + Fr) / m;                                             // lateral accel in the body frame (leftward)
-  const axTotal = (Fnet - Ff * sd) / m;
+  const axTotal = (Fnet - Ff * sd * 0.2) / m;   // cornering drag, softened: turning must not feel like braking
   let yawAcc = (a * Ff * cd - b * Fr) / Iz;
   if (air) yawAcc = 0;
-  if (!air && !inp.hb && Math.abs(u) > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
+  if (!air && !inp.hb && u > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
   c.yr += yawAcc * dt; c.yr *= Math.exp(-0.5 * dt);
   // steering assist: the car turns at the rate the wheels ask for (limited by what the tyres can hold), so it answers the wheel at once on any surface
   if (!air && Math.abs(u) > 1.2) { const lim = mu * G * 1.35 / Math.abs(u), yrT = clamp(u * Math.tan(delta) / L, -lim, lim); c.yr += (yrT - c.yr) * Math.min(1, dt * (onRd ? 7 : 5.5)); }                         // a hint of yaw damping from the suspension

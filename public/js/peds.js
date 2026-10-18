@@ -59,7 +59,7 @@ export class Peds {
         p.vy -= 9.81 * dt; p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
         if (p.y <= 0) { p.y = 0; p.vx *= 0.3; p.vz *= 0.3; if (Math.abs(p.vy) > 1.5) p.vy = -p.vy * 0.25; else { p.vy = 0; p.st = 'lie'; p.wait = 0; } }
         p.lie = Math.min(1, p.lie + dt * 4);
-      } else if (p.st === 'lie') { p.wait += dt; p.vx = p.vz = 0; if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
+      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { p.x += p.vx * dt; p.z += p.vz * dt; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
       else if (p.st === 'gone') { p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
       const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
       if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
@@ -102,6 +102,25 @@ export class Peds {
     const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz) || 1;
     p.dx = dx / d; p.dz = dz / d; p.yaw = Math.atan2(p.dx, p.dz);
     if (Math.random() < 0.5) { p.st = 'cower'; p.timer = 1.5 + Math.random() * 1.5; p.yaw = Math.atan2(-p.dx, -p.dz); } else { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }
+  }
+  // somebody lying on the ground or cowering in front of you (the punch button then kicks)
+  downed(x, z, fx, fz) {
+    let best = null, bd = 4.2;
+    for (const p of this.list) {
+      if (p.st !== 'lie' && p.st !== 'cower') continue;
+      const dx = p.x - x, dz = p.z - z, d2 = dx * dx + dz * dz;
+      if (d2 > bd || d2 < 1e-4 || (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3) continue;
+      bd = d2; best = p;
+    }
+    return best;
+  }
+  // the kick lands: a lying person slides a little and is shaken, a cowering one is knocked flat
+  kick(p, fx, fz, onHit) {
+    p.hp -= 1;
+    if (p.st === 'lie') { p.vx = fx * 3.2; p.vz = fz * 3.2; p.wait = Math.max(0, p.wait - 1.5); }
+    else { p.st = 'fly'; p.vx = fx * 2.4; p.vz = fz * 2.4; p.vy = 2.0; p.lie = 0; p.punchT = 0; }
+    this.alarm(p.x, p.z, 12, p);
+    if (onHit) onHit(p, false);
   }
   // a punch from the player: hurts the nearest person in front (hidden health, no bar). Some run, some fight back, the rest get scared.
   punch(x, z, fx, fz, onHit) {
