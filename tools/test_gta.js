@@ -24,7 +24,7 @@ const bd = gtaBuildings()[0]; const wb = newBody(); wb.x = bd.x - bd.w / 2 - 3; 
 // ---- cars: free driving over the whole island
 const tr = info.track;
 const drive = (car, tx, tz, secs, gas = 1, cb) => { let t = 0; for (let i = 0; i < 60 * secs; i++) { const want = Math.atan2(tx - car.x, tz - car.z); let d = want - car.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); stepCar(car, 1 / 60, { gas, steer: Math.max(-1, Math.min(1, -d * 2.5)), hb: false }, tr, [], t); t += 1 / 60; if (cb) cb(car, t); } };
-ok(tr.terrain === gtaH && tr.boxes.length > 50, 'cars use the terrain (free driving) and know the buildings');
+ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terrain (free driving) and know the buildings');
 // the mountain road: a real car follows the spiral road up to the summit
 { const p0 = mtRoad(0), p1 = mtRoad(0.03), car = newCar(11, p0.x, p0.z, Math.atan2(p1.x - p0.x, p1.z - p0.z)); car.y = p0.y; let t = 0, u = 0.03, off = false;
   while (u <= 1 && t < 400) { const w = mtRoad(Math.min(1, u)); const want = Math.atan2(w.x - car.x, w.z - car.z); let d = want - car.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));

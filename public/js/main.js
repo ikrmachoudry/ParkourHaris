@@ -242,7 +242,7 @@ class Race {
     }
     this.cars = []; this.rolling = []; this.repairT = 0; this.drive = null; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
-      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
+      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
       this.racerOk = false;
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
