@@ -365,6 +365,10 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   step(120); ok(st.m[5].done === 1 && !V.h.doors[5].solid.active, 'ch6: the colour sequence opens the riddle door');
   tp(0, L.chapters[5].nextZ - 2); step(30); ok(st.ph === 3 && /THE END/.test(R.huntHud()), 'the end: victory');
   step(60);
+  ok(/WIN/.test(R.huntObjective()), 'objective banner: win text');
+  st.ph = 1; st.ch = 0; st.left = 2; ok(/Shoot ALL the beasts \(2 left\)/.test(R.huntObjective()), 'objective banner: tells you to shoot the beasts');
+  st.ph = 2; st.ch = 4; st.m[4].done = 0; ok(/LEFT plate/.test(R.huntObjective()), 'objective banner: pump instructions');
+  step(10); ok(!mk('hud-obj').classes.has('hidden'), 'objective banner is shown on the hunt map');
 }
 function plateXs1() { return 0; }
 

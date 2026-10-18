@@ -302,3 +302,8 @@ body.free-map .jonly { display: block; }
 body.near-swing #b-grab { display: flex; }
 body.touch .carbtn.grab em { display: block; position: absolute; bottom: -22px; font-size: 12px; white-space: nowrap; text-shadow: 0 1px 2px #000; color: #fff; }
 body.touch .carbtn.grab { bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104px) * 2 + 60px); }
+
+/* Jungle Hunt: live objective banner (tells you what to do right now) */
+#hud-obj { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); max-width: min(92vw, 760px); display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-radius: 14px; background: rgba(20,40,20,.78); border: 2px solid #ffd23f; color: #fff; font-size: clamp(13px, 2.6vmin, 19px); text-shadow: 0 2px 2px #000; pointer-events: none; z-index: 5; }
+#hud-obj b { background: #ffd23f; color: #3a1c00; border-radius: 8px; padding: 2px 8px; font-size: .8em; text-shadow: none; }
+#hud-obj.hidden, body:not(.hunt-map) #hud-obj { display: none; }

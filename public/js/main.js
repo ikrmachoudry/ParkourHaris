@@ -329,6 +329,20 @@ class Race {
     else if (e.k === 'end') { A.sfx.go(); this.toast('VICTORY! YOU BEAT THE JUNGLE HUNT!'); }
   }
   huntNet(m) { applyHunt(this.hunt.h, m); }
+  huntObjective() { // plain-words instruction for what the team must do right now
+    const h = this.hunt.h, m = h.m[h.ch], solo = h.n < 2;
+    if (h.ph === HPH.DONE) return 'YOU WIN! Great teamwork!';
+    if (h.ph === HPH.WAIT) return h.ch === 0 ? 'Walk forward along the road. HOLD CLICK (or FIRE) to shoot beasts.' : 'Keep going down the road.';
+    if (h.ph === HPH.BEAST) return `Shoot ALL the beasts (${h.left} left) - hold CLICK / FIRE. The gate opens when they are gone.`;
+    switch (h.ch) {
+      case 0: return `Everybody stand on a glowing plate (${(h.occ || []).filter((v) => v).length}/${h.n}) and wait 1 second.`;
+      case 1: return solo ? 'Step on the wooden lift and ride up to the cliff top.' : 'Ride the lift up! If it will not rise, a friend must stand on the blue pan.';
+      case 2: return solo ? 'Wait until a beam lifts, then run through the crushers.' : m.wa ? 'Crushers are stopped - everybody RUN! Last one: stand on the far plate first.' : 'One friend stands on the yellow plate to stop the crushers. Others run through and hold the far plate.';
+      case 3: return solo ? 'Jump on the orange pad - the cannon throws you over the canyon.' : m.wa ? 'Cannon ready - jump on the orange pad! Then stand on the far blue plate for the last friend.' : 'A friend stands on a blue plate to fire the cannon. Others jump on the orange pad.';
+      case 4: return m.done ? 'The bridge is up - cross it!' : `Step on the LEFT plate, then the RIGHT plate, again and again to pump (${Math.round(m.v * 100)}%). Hop in turns with a friend!`;
+      default: return m.done ? 'Riddle solved - the door is open!' : `Watch the flashing pads, then stand on them in the SAME order (${Math.round(m.v)}/4). Wrong pad = start again.`;
+    }
+  }
   huntHud() {
     const h = this.hunt.h, c = `Ch ${h.ch + 1}/${HU.CH}`;
     if (h.ph === HPH.WAIT) return `${c} \u2022 GO ON!`;
@@ -960,6 +974,7 @@ class Race {
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
+    if (this.hunt) { const o = $('hud-obj'), t = this.huntObjective(); o.classList.remove('hidden'); if ($('hud-obj-t').textContent !== t) $('hud-obj-t').textContent = t; } else $('hud-obj').classList.add('hidden');
     $('hud-rank').textContent = this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.hunt ? this.huntHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
