@@ -231,6 +231,10 @@ body.touch #pause .pkeys { display: none; }
 /* ---------- bat button (multiplayer, phones) ---------- */
 #t-bat { position: absolute; border: 0; color: #fff; font-family: var(--font); text-shadow: 0 2px 0 rgba(0,0,0,.4); touch-action: none; -webkit-user-select: none; user-select: none; display: none; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff9a9a, #e0343a); box-shadow: 0 4px 0 #8f1418, 0 8px 16px rgba(0,0,0,.4); }
 body.touch.in-race:not(.single) #t-bat { display: block; width: clamp(60px, 15vmin, 90px); height: clamp(60px, 15vmin, 90px); right: max(22px, 3vw); bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104px) + 12px); font-size: clamp(15px, 3.6vmin, 22px); opacity: .7; }
+#t-fire { position: absolute; border: 0; color: #fff; font-family: var(--font); text-shadow: 0 2px 0 rgba(0,0,0,.4); touch-action: none; -webkit-user-select: none; user-select: none; display: none; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffd27a, #e07a10); box-shadow: 0 4px 0 #8a4608, 0 8px 16px rgba(0,0,0,.4); }
+body.touch.in-race.hunt-map #t-fire { display: block; width: clamp(66px, 16vmin, 96px); height: clamp(66px, 16vmin, 96px); right: max(22px, 3vw); bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104px) + 12px); font-size: clamp(15px, 3.6vmin, 22px); opacity: .85; }
+body.hunt-map #t-bat { display: none !important; }
+#t-fire:active { transform: translateY(3px) scale(.96); }
 #t-bat.cd { opacity: .28 !important; filter: grayscale(.6); }
 #t-bat:active { transform: translateY(3px) scale(.96); }
 
@@ -263,7 +267,7 @@ body.driving:not(.touch) #car-keys { display: block; }
 #car-keys kbd { background: rgba(255,255,255,.25); border-radius: 5px; padding: 1px 6px; margin: 0 1px; }
 #car-pad { display: none; }
 body.driving.touch #car-pad { display: block; }
-body.driving #t-jump, body.driving #t-dive, body.driving #t-bat, body.driving #hud-hint { display: none !important; }
+body.driving #t-jump, body.driving #t-dive, body.driving #t-bat, body.driving #t-fire, body.driving #hud-hint { display: none !important; }
 body.driving.touch #car-speed { bottom: auto; top: 16%; left: 50%; }
 #c-horn { position: absolute; border-radius: 50%; opacity: .78; }
 #c-horn { right: max(18px, 3vw); bottom: calc(max(14px, 4vh) + clamp(70px, 18vmin, 104px) + 14px); width: clamp(48px, 12vmin, 70px); height: clamp(48px, 12vmin, 70px); font-size: clamp(20px, 5vmin, 30px); background: radial-gradient(circle at 35% 30%, #ffe27a, #e8a417); box-shadow: 0 4px 0 #9a6a05; }

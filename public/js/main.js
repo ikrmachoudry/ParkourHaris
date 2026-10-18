@@ -16,6 +16,9 @@ import { AnimalSys } from './animalsys.js';
 import { KINDS, active as animalTable } from './jlayout.js';
 import { newQuest, stepQuest, questLayout, PH, Q as QC } from './quest.js';
 import { QuestVis } from './questworld.js';
+import { HuntVis } from './huntworld.js';
+import { PH as HPH, HU, stepHunt, applyHunt, shootAnimal } from './hunt.js';
+import { GUN, makeGun, pickTarget } from './huntgun.js';
 
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
@@ -263,6 +266,9 @@ class Race {
     this.spawn(this.slot);
     this.an = this.meta.free && !this.meta.arena ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
     this.quest = this.meta.quest ? { q: newQuest(), vis: new QuestVis(world, info), L: questLayout() } : null; this.victory = 0; this.hopT = 0;
+    this.hunt = this.meta.hunt ? { vis: new HuntVis(world, info, scene), h: info.hunt.st, L: info.hunt.L } : null; this.gunCd = 0; this.fireHeld = false;
+    document.body.classList.toggle('hunt-map', !!this.hunt);
+    if (this.hunt) { this.me.model.group.add(makeGun()); for (const r of this.remotes.values()) r.model.group.add(makeGun()); }
     this.buildProgress(); this.buildBoxes();
     document.body.classList.add('in-race');
     $('hud-level').textContent = this.meta.name;
@@ -295,6 +301,48 @@ class Race {
     else if (e.k === 'victory') { this.victory = 0.001; A.sfx.go(); this.toast('VICTORY! YOU FREED THE DRAGON!'); }
   }
   questNet(m) { Object.assign(this.quest.q, { ch: m.ch, ph: m.ph, n: m.n, occ: m.occ || [], hold: m.hold || 0 }); }
+  // ---- Jungle Hunt: the state machine runs here (single player) or arrives from the server ('h' / 'hev')
+  updateHunt(dt) {
+    const hu = this.hunt, b = this.me.body;
+    if (this.gunCd > 0) this.gunCd -= dt;
+    if (!this.multi && this.levelTime >= 0 && !this.over) {
+      for (const e of stepHunt(hu.h, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.an.list, 1, hu.L, [])) this.huntEvent(e);
+    }
+    if (this.fireHeld || keys.has('KeyB') || touch.fire) this.fire();
+    hu.vis.update(dt);
+  }
+  huntEvent(e) {
+    const hu = this.hunt; hu.vis.event(e);
+    if (e.k === 'wave') { A.sfx.roar(1); this.toast(`CHAPTER ${e.ch + 1}: ${e.n} BEASTS! SHOOT THEM ALL!`); }
+    else if (e.k === 'gate') { A.sfx.tame(); this.toast('ALL BEASTS DOWN! THE GATE OPENS - now the MACHINE...'); }
+    else if (e.k === 'door') { A.sfx.door(); this.toast('THE GEARS TURN - THE HEAVY DOOR RISES!'); }
+    else if (e.k === 'lift') { A.sfx.tame(); this.toast('TOP OF THE CLIFF! Friends: ride up too!'); }
+    else if (e.k === 'chapter') { A.sfx.go(); this.toast(`CHAPTER ${e.ch + 1}!`); }
+    else if (e.k === 'end') { A.sfx.go(); this.toast('YOU MADE IT! MORE CHAPTERS COMING SOON!'); }
+  }
+  huntNet(m) { applyHunt(this.hunt.h, m); }
+  huntHud() {
+    const h = this.hunt.h, c = `Ch ${h.ch + 1}/${HU.CH}`;
+    if (h.ph === HPH.WAIT) return `${c} \u2022 GO ON!`;
+    if (h.ph === HPH.BEAST) return `${c} \u2022 BEASTS LEFT: ${h.left}`;
+    if (h.ph === HPH.MACH) return h.ch === 0 ? `${c} \u2022 PLATES ${(h.occ || []).filter((v) => v).length}/${h.n}` : `${c} \u2022 LIFT!`;
+    return 'THE END (for now)';
+  }
+  fire() {
+    const hu = this.hunt; if (!hu || this.over || this.levelTime < 0 || this.menuOpen || this.drive || this.gunCd > 0) return;
+    const b = this.me.body; if (b.stun > 0) return;
+    this.gunCd = GUN.rate;
+    const fy = this.camYaw + Math.PI, a = pickTarget(this.an.list, b, fy), yaw = a ? Math.atan2(a.x - b.x, a.z - b.z) : fy;
+    b.yaw = yaw;
+    const r1 = (v) => +v.toFixed(1), ox = b.x + Math.sin(yaw) * 0.95 + Math.cos(yaw) * 0.36, oy = b.y + 1.2, oz = b.z + Math.cos(yaw) * 0.95 - Math.sin(yaw) * 0.36;
+    let tx, ty, tz;
+    if (a) { const K = KINDS[a.kind]; tx = a.x; ty = a.y + K.seat * 0.55; tz = a.z; } else { tx = ox + Math.sin(yaw) * 32; ty = oy; tz = oz + Math.cos(yaw) * 32; }
+    hu.vis.tracer(ox, oy, oz, tx, ty, tz); A.sfx.shot();
+    this.particles.emit(ox, oy, oz, 5, { color: '#ffe27a', speed: 3, up: 1, life: 0.2, size: 0.25 });
+    if (a) this.particles.emit(tx, ty, tz, 8, { color: '#ff6b3d', speed: 4, up: 2, life: 0.3, size: 0.3 });
+    if (this.multi) this.sendNet({ t: 'shoot', id: a ? a.id : -1, ox: r1(ox), oy: r1(oy), oz: r1(oz), tx: r1(tx), ty: r1(ty), tz: r1(tz) });
+    else if (a) this.an.handle(shootAnimal(a, this.localId));
+  }
   setShadows(on) { this.sun.castShadow = on; }
 
   spawnPoint(slot) { return [(slot - 1.5) * 3.6, 0, this.info.spawn.z]; }
@@ -405,6 +453,7 @@ class Race {
     this.updateCars(dt, canMove);
     if (this.an) this.an.update(dt);
     if (this.quest) this.updateQuest(dt);
+    if (this.hunt) this.updateHunt(dt);
 
 
     this.updateCamera(dt);
@@ -686,6 +735,7 @@ class Race {
 
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
+    if (this.hunt) return false;
     if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || (this.an && this.an.mount)) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
@@ -894,7 +944,7 @@ class Race {
     const lt = this.levelTime, el = Math.max(0, Math.floor(lt));  // unlimited time: the clock just counts up
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
-    $('hud-rank').textContent = this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    $('hud-rank').textContent = this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.hunt ? this.huntHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);
@@ -917,7 +967,7 @@ class Race {
 
   destroy() {
     A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
+    if (this.hunt) this.hunt.vis.dispose(); document.body.classList.remove('hunt-map'); if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
     document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
@@ -1072,6 +1122,9 @@ async function ensureNet() {
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
   net.on('an', (m) => { if (race && race.an) race.an.onNet(m); });
   net.on('aev', (m) => { if (race && race.an) race.an.onEvent(m); });
+  net.on('h', (m) => { if (race && race.hunt) race.huntNet(m); });
+  net.on('hev', (m) => { if (race && race.hunt) race.huntEvent(m); });
+  net.on('shot', (m) => { if (race && race.hunt && [m.ox, m.oy, m.oz, m.tx, m.ty, m.tz].every(Number.isFinite)) { race.hunt.vis.tracer(m.ox, m.oy, m.oz, m.tx, m.ty, m.tz); A.sfx.shot(); } });
   net.on('q', (m) => { if (race && race.quest) race.questNet(m); });
   net.on('qev', (m) => { if (race && race.quest) race.questEvent(m); });
   net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
@@ -1157,8 +1210,8 @@ document.addEventListener('pointerlockchange', () => {
 });
 let hadLock = false;
 let dragging = false;
-canvas.addEventListener('mousedown', (e) => { dragging = true; if (race && !race.over) { if (e.button === 0 && race.multi && document.pointerLockElement === canvas && !race.menuOpen) race.swing(); else tryLock(); } });
-window.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mousedown', (e) => { dragging = true; if (race && !race.over) { if (e.button === 0 && race.hunt && document.pointerLockElement === canvas && !race.menuOpen) race.fireHeld = true; else if (e.button === 0 && race.multi && document.pointerLockElement === canvas && !race.menuOpen) race.swing(); else tryLock(); } });
+window.addEventListener('mouseup', () => { dragging = false; if (race) race.fireHeld = false; });
 window.addEventListener('mousemove', (e) => { if (race && !race.over && (document.pointerLockElement === canvas || dragging)) race.look(e.movementX, e.movementY); });
 $('click-hint').addEventListener('click', tryLock);
 window.addEventListener('keydown', (e) => {
@@ -1170,7 +1223,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
   if (e.code === 'KeyM') toggleSound();
   if (e.code === 'KeyG') press.grab = true;
-  if (e.code === 'KeyB' && race && !race.menuOpen) race.swing();
+  if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.hunt) race.fire(); else race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honk();
   if (e.code === 'KeyR' && race && !race.over && !e.repeat) race.swapRacer();
@@ -1318,6 +1371,7 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   };
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
+  btn('t-fire', () => { touch.fire = true; if (race && !race.over && !race.menuOpen) race.fire(); }, () => { touch.fire = false; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
   btn('c-horn', () => { if (race) race.honk(); });
   btn('b-racer', () => { if (race) race.swapRacer(); });

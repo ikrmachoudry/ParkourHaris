@@ -6,6 +6,8 @@ import { skyLayout, makeDyn, buildSkyVisuals, SKY_Y, GZT, GZB } from './sky.js';
 import { buildJungle } from './jungle.js';
 import { buildQuest } from './questworld.js';
 import { questLayout } from './quest.js';
+import { buildHunt } from './huntworld.js';
+import { huntLayout } from './hunt.js';
 
 export const THEMES = {
   fun: {
@@ -28,12 +30,16 @@ export const THEMES = {
     plat: ['#ff6b9d', '#ffd23f', '#4cc9f0', '#80ed99', '#b58cff'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff3d68', hazard2: '#fff7d6', hub: '#5b2d9e', accent: '#ffd23f', convBase: '#7a2d9e', belt: '#ffe9a8',
   },
+  hunt: {
+    plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
+  },
   quest: {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
 };
-const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze', 'annoy'];
+const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze', 'annoy', 'hunt'];
 
 const CANNON_VY = 37, CANNON_VZ = 28;
 const FAN_GAP = 15, FAN_VY = 26, FAN_VZ = 11, TR_VY = 28, TR_VZ = 15, TR_GAP = 12;
@@ -395,6 +401,9 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     info.pads = [[22, -28], [46, -28], [22, -88], [46, -88]];
     for (const [x, z] of info.pads) world.bungee(x, z, 0, 5.5, 30, 15);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: Z1 };
+  } else if (idx === 6) { // ------------------------------------------ JUNGLE HUNT (co-op gun map: beasts + machines)
+    buildHunt(world, th, info, seed);
+    info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: huntLayout().endZ };
   } else if (idx === 2) { // ------------------------------------------ JUNGLE QUEST (road of random mazes, team circles, beasts, dragon)
     buildQuest(world, th, info, seed);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: questLayout().dr.endZ };

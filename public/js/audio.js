@@ -52,6 +52,7 @@ export const sfx = {
   bounce() { tone('sine', 180, 920, 0.3, 0.38); tone('triangle', 360, 1400, 0.22, 0.12, 0.03); },
   pickup() { tone('triangle', 520, 1040, 0.18, 0.3); tone('sine', 780, 1560, 0.24, 0.2, 0.07); tone('sine', 1170, 2340, 0.2, 0.12, 0.14); },
   swing() { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); },
+  shot() { tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
   bonk() { tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
   hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
   door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
@@ -82,6 +83,7 @@ const THEMES = [
   { bpm: 132, root: 64, scale: 'major', prog: [0, 4, 3, 4], lead: 'triangle', bright: 3400 },  // small room (bat fight)
   { bpm: 138, root: 67, scale: 'major', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3800 },  // maze (candy race)
   { bpm: 126, root: 59, scale: 'minor', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3200 },  // annoying maze
+  { bpm: 130, root: 55, scale: 'dorian', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3300 },  // jungle hunt
   { bpm: 120, root: 60, scale: 'major', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // menu
 ];
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);

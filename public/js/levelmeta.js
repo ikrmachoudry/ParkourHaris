@@ -22,4 +22,6 @@ export const LEVEL_META = [
     colors: ['#ff6b9d', '#4cc9f0'], blurb: 'A long candy-park race: doors to dash through, water to hop over, giant fans, GRAB-SWINGS, a boat ride, huge hammers and seesaws. Be first to the finish!' },
   { id: 5, key: 'annoy', name: 'Annoying Maze', sub: 'Tricky Race', stars: 4, limit: 900, finishZ: -297, finishY: 0,
     colors: ['#b58cff', '#ff6b9d'], blurb: '5 coloured tunnels (only one goes through!), 2 ferris wheels, a fan over the water, trampolines, flag platforms with giant slamming blades, 5 cutters - and a tiny safe lane on the right.' },
+  { id: 6, key: 'hunt', name: 'Jungle Hunt', sub: 'Gun Co-op', stars: 4, limit: 0, finishZ: -99999, finishY: 99999, free: true, hunt: true,
+    colors: ['#2e9b3f', '#ff8a1c'], blurb: 'Grab the GUN (unlimited bullets, auto-aim) and work as a team! Shoot the beast packs, then solve the MACHINES together: weight plates & a huge gear door, a counterweight lift... Nobody can die. More chapters coming!' },
 ];

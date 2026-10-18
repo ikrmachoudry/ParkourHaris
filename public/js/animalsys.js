@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { KINDS, ST, HILL, ANIMAL_DEFS, active, newAnimals, stepAnimals, hitAnimal, jungleLayout } from './jlayout.js';
 import { QUEST_DEFS, questAnimalLayout } from './quest.js';
+import { HUNT_DEFS, huntAnimalLayout } from './hunt.js';
 import { buildAnimalMesh, animateAnimal } from './animals3d.js';
 import { makeNameTag } from './characters.js';
 import { STAKES } from './jungle.js';
@@ -18,8 +19,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 export class AnimalSys {
   constructor(race) {
     this.r = race; this.multi = race.multi; this.quest = !!race.meta.quest;
-    this.defs = this.quest ? QUEST_DEFS() : ANIMAL_DEFS; active.defs = this.defs;
-    this.L = this.quest ? questAnimalLayout() : jungleLayout();
+    this.hunt = !!race.meta.hunt;
+    this.defs = this.hunt ? HUNT_DEFS() : this.quest ? QUEST_DEFS() : ANIMAL_DEFS; active.defs = this.defs;
+    this.L = this.hunt ? huntAnimalLayout() : this.quest ? questAnimalLayout() : jungleLayout();
     this.list = newAnimals(this.defs); this.mount = null; this.mountT = 0; this.t = 0; this.near = null; this.evAcc = [];
     this.items = this.list.map((a) => {
       const o = buildAnimalMesh(a.kind); o.root.position.set(a.x, a.y, a.z); o.root.rotation.y = a.yaw; race.scene.add(o.root);
@@ -112,6 +114,11 @@ export class AnimalSys {
   handle(evs) {
     for (const e of evs) {
       const a = this.list[e.id], K = a && KINDS[a.kind]; if (!a) continue;
+      if (this.hunt && (e.k === 'hit' || e.k === 'kill')) {
+        const it = this.items[e.id]; if (it) it.tagKey = '';
+        if (e.k === 'hit') { a.hp = e.hp; A.sfx.hit && A.sfx.hit(); } else { a.st = ST.HIDDEN; a.dead = 1; A.sfx.roar(K.big); this.r.particles.emit(a.x, a.y + K.seat * 0.7, a.z, 40, { color: '#ffd23f', speed: 6, up: 5, life: 0.9, size: 0.5 }); this.r.particles.emit(a.x, a.y + K.seat * 0.7, a.z, 20, { color: '#ffffff', speed: 4, up: 3, life: 0.7, size: 0.4 }); }
+        continue;
+      }
       if (e.k === 'hit') { const it = this.items[e.id]; this.r.toast(`${K.name}  ${Math.max(0, e.hp)} hit${e.hp === 1 ? '' : 's'} left!`); if (it) it.tagKey = ''; A.sfx.roar(K.big); }
       else if (e.k === 'tame') {
         const mine = e.pid === this.me(); this.items[e.id].tagKey = '';

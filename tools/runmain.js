@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 6, 'level select with 6 cards (+ Maze + Annoying Maze)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 7, 'level select with 7 cards (+ Jungle Hunt)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
@@ -322,6 +322,37 @@ console.log(`frames simulated: ${frames}, renderer calls ok`);
   ok(/VICTORY/.test(R.questHud()), 'HUD says VICTORY');
   ok(Q.vis.dragon.root.position.y > 20, 'the dragon flies high above (y ' + Q.vis.dragon.root.position.y.toFixed(0) + ')');
 }
+
+// ---- JUNGLE HUNT (single player): gun + auto-aim, beast wave, gate, plates, door
+{
+  mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
+  ph.startSingle(6); step(300);
+  const R = ph.race, b = R.me.body, an = R.an, Hh = R.hunt, L = Hh.L;
+  ok(R.meta.key === 'hunt' && Hh && an && an.list.length === 12 && an.list.every((a) => a.st === 8), 'Jungle Hunt loads: 12 hidden beasts, hunt state');
+  ok(mk('body').classes.has('hunt-map') && R.info.finishZ < -9999, 'hunt: gun mode on, no finish line');
+  ok(R.swing() === false, 'the BAT is replaced by the gun');
+  const tp = (x, z) => { b.x = x; b.z = z; b.y = 0.05; b.vx = b.vz = 0; b.vy = 0; b.stun = 0; };
+  tp(0, L.chapters[0].trigZ - 1); step(30);
+  ok(Hh.h.ph === 1 && an.list.filter((a) => a.st !== 8).length === 3, 'entering the arena wakes 3 beasts (single player)');
+  ok(/BEASTS LEFT: 3/.test(R.huntHud()), 'HUD shows beasts left');
+  // fire at the nearest beast with auto-aim
+  const beast = an.list.find((a) => a.st !== 8); tp(0, beast.z + 14); beast.x = 2; beast.z = b.z - 14; beast.wait = 99; beast.cool = 99;
+  for (const a of an.list) if (a !== beast && a.st !== 8) { a.x = 0; a.z = 999; a.wait = 99; }
+  R.camYaw = 0; const hp0 = beast.hp; R.gunCd = 0; R.fire();
+  ok(beast.hp === hp0 - 1 && Math.abs(Math.atan2(beast.x - b.x, beast.z - b.z) - b.yaw) < 0.01, 'FIRE hits the beast ahead (auto-aim turned you to it)');
+  ok(Hh.vis.tr.length === 1, 'a tracer is drawn');
+  R.fire(); ok(beast.hp === hp0 - 1, 'cannot fire faster than the fire rate'); 
+  let shots = 0; while (beast.st !== 8 && shots < 40) { R.gunCd = 0; R.fire(); shots++; }
+  ok(beast.st === 8 && shots < 40, 'unlimited bullets: the beast goes down');
+  for (const a of an.list) if (a.st !== 8) { a.x = 0; a.z = L.chapters[0].arenaC; a.wait = 99; a.cool = 99; }
+  for (const a of an.list) { let n = 0; while (a.st !== 8 && n++ < 60) { R.gunCd = 0; tp(0, a.z + 8); R.fire(); } }
+  step(10); ok(Hh.h.ph === 2 && !Hh.vis.h.solids[0].gate.active, 'all beasts shot: gate collider removed, machine phase');
+  tp(plateXs1(), L.chapters[0].machZ); step(120);
+  ok(Hh.h.m[0].done === 1, 'standing on the plate (single player) opens the door');
+  step(60 * 4); ok(!Hh.vis.h.solids[0].door.active && /Ch 1/.test(R.huntHud()), 'door lifted away; HUD ok');
+  { const live = Hh.vis.tr.length; step(30); ok(Hh.vis.tr.length <= live, 'tracers fade away'); }
+}
+function plateXs1() { return 0; }
 
 // ---- MAZE (single player): swing sign appears near a swing, hold G to hang, jump to let go; fans push; doors open
 {

@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
+import { HUNT_DEFS, huntAnimalLayout, huntLayout, newHunt, stepHunt, packHunt, shootAnimal } from './public/js/hunt.js';
 import { newQuest, stepQuest, questLayout, questAnimalLayout, QUEST_DEFS } from './public/js/quest.js';
 import { KINDS, newAnimals, stepAnimals, hitAnimal, releaseOwner, packAnimals, jungleLayout } from './public/js/jlayout.js';
 
@@ -92,8 +93,8 @@ function startRound(room) {
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
-  room.an = meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena ? newAnimals() : null; room.anT = Date.now();
-  room.q = meta.quest ? newQuest() : null; room.seed = 1 + Math.floor(Math.random() * 1e9); room.qT = 0;
+  room.an = meta.hunt ? newAnimals(HUNT_DEFS()) : meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena ? newAnimals() : null; room.anT = Date.now();
+  room.h = meta.hunt ? newHunt() : null; room.q = meta.quest ? newQuest() : null; room.seed = 1 + Math.floor(Math.random() * 1e9); room.qT = 0;
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {
     t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed,
@@ -131,6 +132,7 @@ function joinRoom(p, room) {
     send(p.ws, { t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed, order: [...room.players.values()].map((q) => q.id) });
     if (room.cars && Object.keys(room.cars).length) send(p.ws, { t: 'cars', cars: room.cars });
     if (room.an) send(p.ws, { t: 'an', a: packAnimals(room.an) });
+    if (room.h) send(p.ws, { t: 'h', ...packHunt(room.h) });
     if (room.q) send(p.ws, { t: 'q', ch: room.q.ch, ph: room.q.ph, n: room.players.size, occ: room.q.occ, hold: 0 });
   }
 }
@@ -261,6 +263,17 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 100) ? m.az : undefined });
         break;
       }
+      case 'shoot': { // Jungle Hunt gun: damage a beast (unlimited ammo) and show the tracer to everybody else
+        if (!room || room.phase !== 'race' || !room.h || !room.an) return;
+        const t = Date.now(); if (t - (p.lastShot || 0) < 140) return; p.lastShot = t;
+        const a = Number.isInteger(m.id) && m.id >= 0 ? room.an[m.id] : null;
+        if (a) {
+          if (a.st === 8 || a.owner || Math.hypot((p.x || 0) - a.x, (p.z || 0) - a.z) > 70) return;
+          for (const e of shootAnimal(a, p.id)) bcast(room, { t: 'aev', k: e.k, id: e.id, hp: e.hp, pid: e.pid });
+        }
+        if (['ox', 'oy', 'oz', 'tx', 'ty', 'tz'].every((k) => num(m[k], -2000, 400))) bcast(room, { t: 'shot', pid: p.id, ox: m.ox, oy: m.oy, oz: m.oz, tx: m.tx, ty: m.ty, tz: m.tz }, p.id);
+        break;
+      }
       case 'ahit': { // bat hit on a jungle animal (tames it after enough hits)
         if (!room || room.phase !== 'race' || !room.an) return;
         const a = room.an[m.id | 0]; if (!a || !Number.isInteger(m.id) || a.st === 8) return;
@@ -319,7 +332,11 @@ setInterval(() => {
     const dt = Math.min(0.1, (now - (room.anT || now)) / 1000); room.anT = now;
     const pl = [...room.players.values()].map((q) => ({ id: q.id, x: q.x || 0, y: q.y || 0, z: q.z || 0, r: q.r || 0, mounted: q.mounted ? 1 : 0 }));
     for (const q of room.players.values()) if (q.mounted && !room.an.some((a) => a.rider === q.id)) q.mounted = 0;
-    const evs = stepAnimals(room.an, dt, pl, room.q ? questAnimalLayout() : jungleLayout());
+    const evs = stepAnimals(room.an, dt, pl, room.h ? huntAnimalLayout() : room.q ? questAnimalLayout() : jungleLayout());
+    if (room.h) {
+      for (const e of stepHunt(room.h, dt, pl, room.an, room.players.size, huntLayout(), [])) bcast(room, { t: 'hev', ...e });
+      if ((room.hT = (room.hT || 0) + 1) % 2 === 0) bcast(room, { t: 'h', ...packHunt(room.h) });
+    }
     if (room.q) {
       for (const e of stepQuest(room.q, dt, pl, room.an, room.players.size, questLayout(), [])) bcast(room, { t: 'qev', ...e });
       if ((room.qT = (room.qT || 0) + 1) % 2 === 0) bcast(room, { t: 'q', ch: room.q.ch, ph: room.q.ph, n: room.q.n, occ: room.q.occ, hold: +room.q.hold.toFixed(2) });
