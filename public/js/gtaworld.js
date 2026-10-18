@@ -7,13 +7,34 @@ const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-function windowTexture() {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
-  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 64, 64);
-  g.fillStyle = '#7a8aa6'; g.fillRect(14, 12, 36, 40);
-  g.fillStyle = '#bfe3ff'; g.fillRect(16, 14, 32, 17);
-  g.fillStyle = '#9ccbf0'; g.fillRect(16, 33, 32, 17);
-  g.fillStyle = '#ffffff'; g.fillRect(31, 14, 2, 36);
+function windowTexture(glass) {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
+  g.fillStyle = glass ? '#c9d3df' : '#ffffff'; g.fillRect(0, 0, S, S);
+  const wx = glass ? 6 : 26, wy = glass ? 10 : 22, ww = S - wx * 2, wh = glass ? 86 : 78;
+  g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(wx - 3, wy - 3, ww + 6, wh + 10);                     // recess shadow
+  g.fillStyle = glass ? '#5b6676' : '#e9e4dc'; g.fillRect(wx - 2, wy - 2, ww + 4, wh + 4);          // frame
+  const gr = g.createLinearGradient(0, wy, 0, wy + wh); gr.addColorStop(0, glass ? '#7fb2e0' : '#a9d3f5'); gr.addColorStop(0.55, glass ? '#2f5f8f' : '#6b9dc9'); gr.addColorStop(1, glass ? '#1d3a58' : '#4a6f94');
+  g.fillStyle = gr; g.fillRect(wx, wy, ww, wh);
+  g.fillStyle = 'rgba(255,255,255,0.28)'; g.beginPath(); g.moveTo(wx, wy + wh * 0.6); g.lineTo(wx + ww * 0.55, wy); g.lineTo(wx + ww * 0.8, wy); g.lineTo(wx, wy + wh * 0.95); g.fill();   // sky reflection streak
+  g.fillStyle = glass ? '#5b6676' : '#e9e4dc'; g.fillRect(S / 2 - 1.5, wy, 3, wh); if (!glass) g.fillRect(wx, wy + wh * 0.46, ww, 3);   // mullions
+  if (!glass) { g.fillStyle = '#bdb6aa'; g.fillRect(wx - 6, wy + wh + 3, ww + 12, 5); g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(wx - 6, wy + wh + 8, ww + 12, 4); }   // sill + its shadow
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+
+// ---- procedural detail textures (tileable): grain / patchiness for ground, asphalt, concrete
+function grainTexture(size, mean, amp, fine, seed, o = {}) {
+  const R = rng(seed), G = 16, grid = Array.from({ length: G * G }, () => R()), cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const g = cv.getContext('2d'); if (!g || !g.createImageData) return new THREE.Texture();
+  const im = g.createImageData(size, size); if (!im || !im.data) return new THREE.Texture();
+  const at = (i, j) => grid[((j % G) + G) % G * G + ((i % G) + G) % G];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const fx = x / size * G, fy = y / size * G, i = Math.floor(fx), j = Math.floor(fy), tx = fx - i, ty = fy - j, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const lo = at(i, j) * (1 - sx) * (1 - sy) + at(i + 1, j) * sx * (1 - sy) + at(i, j + 1) * (1 - sx) * sy + at(i + 1, j + 1) * sx * sy;
+    const v = Math.max(0, Math.min(255, mean + (lo - 0.5) * amp + (R() - 0.5) * fine)), k = (y * size + x) * 4; im.data[k] = im.data[k + 1] = im.data[k + 2] = v; im.data[k + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  if (o.cracks) { g.strokeStyle = 'rgba(10,10,14,0.2)'; g.lineWidth = 1.2; for (let c = 0; c < o.cracks; c++) { let x = R() * size, y = R() * size; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 7; k++) { x += (R() - 0.5) * 38; y += (R() - 0.3) * 30; g.lineTo(x, y); } g.stroke(); } }
+  if (o.patches) { for (let c = 0; c < o.patches; c++) { g.fillStyle = `rgba(0,0,0,${0.06 + R() * 0.08})`; g.beginPath(); g.ellipse(R() * size, R() * size, 8 + R() * 30, 4 + R() * 14, R() * 3, 0, 7); g.fill(); } }
   const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 
@@ -60,7 +81,7 @@ function roadGeo(roads, h) {
     const seg = 28; for (let i = 0; i < seg; i++) { const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2; quad([p.x, p.y + 0.095, p.z], [p.x + Math.cos(a0) * p.r, p.y + 0.095, p.z + Math.sin(a0) * p.r], [p.x + Math.cos(a1) * p.r, p.y + 0.095, p.z + Math.sin(a1) * p.r], [p.x, p.y + 0.095, p.z], '#464b5a'); }
   }
   void h;
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); { const uv = new Float32Array(pos.length / 3 * 2); for (let i = 0; i < pos.length / 3; i++) { uv[i * 2] = pos[i * 3] / 7; uv[i * 2 + 1] = pos[i * 3 + 2] / 7; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); } g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
 
@@ -72,7 +93,8 @@ function terrainGeo() {
     pos[k] = x; pos[k + 1] = h; pos[k + 2] = z;
     const gx = (gtaBase(x + 2, z) - gtaBase(x - 2, z)) / 4, gz = (gtaBase(x, z + 2) - gtaBase(x, z - 2)) / 4, slope = Math.hypot(gx, gz), box = Math.max(Math.abs(x), Math.abs(z));
     const city = 1 - smooth(150, 205, box);
-    tmp.set(R() < 0.5 ? '#6fc24f' : '#62b947');
+    { const f1 = Math.sin(x * 0.021 + 1.7) * Math.sin(z * 0.017 + 0.3), f2 = Math.sin(x * 0.063 + z * 0.041), f3 = Math.sin(x * 0.011 - z * 0.019 + 2.2);
+      tmp.set('#7dab4a').lerp(col.set('#bcb35c'), smooth(-0.1, 0.8, f1 + f2 * 0.45)).lerp(col.set('#5d8c3b'), smooth(0.1, 1, -f1 - f3 * 0.4) * 0.7).multiplyScalar(0.93 + R() * 0.12); }
     if (h < 0.9 && box > 250) tmp.lerp(col.set('#f0dd9f'), smooth(0.9, 0.2, h) * 0.9 + 0.1);   // beach
     if (h < -0.4) tmp.lerp(col.set('#d8c68a'), 0.8);
     tmp.lerp(col.set('#8d8274'), smooth(0.62, 1.0, slope));                                        // rock on steep ground
@@ -81,7 +103,8 @@ function terrainGeo() {
     cs[k] = tmp.r; cs[k + 1] = tmp.g; cs[k + 2] = tmp.b;
   }
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(cs, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const uvs = new Float32Array((N + 1) * (N + 1) * 2); for (let q = 0; q < (N + 1) * (N + 1); q++) { uvs[q * 2] = pos[q * 3] / 9; uvs[q * 2 + 1] = pos[q * 3 + 2] / 9; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(cs, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
 
@@ -101,21 +124,31 @@ export function buildGta(world, th, info, seed) {
   if (world.headless) return;
 
   // ---- ground
-  const tm = new THREE.Mesh(terrainGeo(), new THREE.MeshLambertMaterial({ vertexColors: true })); tm.receiveShadow = true; world.group.add(tm);
-  const rm = new THREE.Mesh(roadGeo(roads), new THREE.MeshLambertMaterial({ vertexColors: true })); rm.receiveShadow = true; world.group.add(rm);
+  const gTex = grainTexture(256, 215, 38, 30, 11, { patches: 4 }), aTex = grainTexture(256, 195, 36, 50, 21, { cracks: 4, patches: 5 });
+  const tm = new THREE.Mesh(terrainGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, map: gTex, bumpMap: gTex, bumpScale: 1.6, roughness: 0.95, metalness: 0 })); tm.receiveShadow = true; world.group.add(tm);
+  const rm = new THREE.Mesh(roadGeo(roads), new THREE.MeshStandardMaterial({ vertexColors: true, map: aTex, bumpMap: aTex, bumpScale: 1.1, roughness: 0.82, metalness: 0.05 })); rm.receiveShadow = true; world.group.add(rm);
   // ---- buildings (windows) + roofs / awnings
-  const wt = windowTexture(), geos = B.map(buildingGeo);
-  const bm = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshLambertMaterial({ vertexColors: true, map: wt })); bm.castShadow = true; bm.receiveShadow = true; world.group.add(bm);
+  const wt = windowTexture(false), wg = windowTexture(true), wallTex = grainTexture(128, 235, 30, 22, 31);
+  const plain = B.filter((b) => b.zone > 0), towers = B.filter((b) => b.zone === 0);
+  const bm = new THREE.Mesh(mergeGeometries(plain.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wt, bumpMap: wallTex, bumpScale: 0.6, roughness: 0.78, metalness: 0.02 })); bm.castShadow = true; bm.receiveShadow = true; world.group.add(bm);
+  const gm = new THREE.Mesh(mergeGeometries(towers.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wg, roughness: 0.22, metalness: 0.55, envMapIntensity: 1.5 })); gm.castShadow = true; gm.receiveShadow = true; world.group.add(gm);
   const wm = world.main, R = rng(seed || 7), kerb = '#d9dde2';
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
     const park = PARKS.some((p) => p[0] === bx && p[1] === bz);
     wm.add(world.rbox(47, 0.2, 47, 0.05), bx, 0.1, bz, park ? '#7ccf5b' : kerb);
   }
   for (const b of B) {
-    wm.add(world.rbox(b.w + 0.8, 0.5, b.d + 0.8, 0.1), b.x, b.h + 0.25, b.z, '#4a4f5e');                 // roof slab
-    wm.add(world.rbox(b.w + 0.9, 0.4, b.d + 0.9, 0.08), b.x, 3.7, b.z, ['#e63946', '#2a9d8f', '#f4a261', '#457b9d'][Math.floor(R() * 4)]);   // shop awning band
-    if (b.h > 14) { wm.add(world.rbox(3, 1.6, 3, 0.2), b.x + (R() - 0.5) * b.w * 0.4, b.h + 1.3, b.z + (R() - 0.5) * b.d * 0.4, '#9aa3ad'); }
-    if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(world.rbox(b.w * 0.6, 8, b.d * 0.6, 0.3), b.x, b.h + 4, b.z, '#6ea5d6'); }
+    wm.add(new THREE.BoxGeometry(b.w + 0.8, 0.5, b.d + 0.8), b.x, b.h + 0.25, b.z, '#4a4f5e');                 // roof slab
+    wm.add(new THREE.BoxGeometry(b.w + 0.7, 1.3, b.d + 0.7), b.x, 0.65, b.z, '#6a6470');                         // stone plinth
+    wm.add(new THREE.BoxGeometry(b.w + 1.3, 0.55, b.d + 1.3), b.x, b.h - 0.3, b.z, '#ece4d3');                    // cornice
+    if (b.h > 34) for (let y = 20; y < b.h - 6; y += 20) wm.add(new THREE.BoxGeometry(b.w + 0.45, 0.35, b.d + 0.45), b.x, y, b.z, '#d9d2c4');   // floor ledges
+    { const rx = b.x - b.w * 0.25, rz = b.z - b.d * 0.2, ty = b.h + 0.5;                                      // rooftop water tank on legs + dish + AC boxes
+      wm.add(new THREE.BoxGeometry(1.6, 1.3, 1.6), rx, ty + 0.65, rz, '#4a4f5e');
+      wm.add(new THREE.CylinderGeometry(1.05, 1.05, 1.5, 8), rx, ty + 2.0, rz, R() < 0.5 ? '#1e1e24' : '#2b4c7e'); wm.add(new THREE.CylinderGeometry(0.95, 1.05, 0.2, 8), rx, ty + 2.85, rz, '#d9d9d9');
+      wm.add(new THREE.BoxGeometry(1.6, 1.0, 1.0), b.x + b.w * 0.25, ty + 0.5, b.z + b.d * 0.2, '#c8ccd2'); wm.add(new THREE.SphereGeometry(0.55, 6, 3, 0, Math.PI * 2, 0, 1.2), b.x + b.w * 0.1, ty + 1.2, b.z + b.d * 0.3, '#f2f2f2', 0.9, 0, 0); }
+    wm.add(new THREE.BoxGeometry(b.w + 0.9, 0.4, b.d + 0.9), b.x, 3.7, b.z, ['#e63946', '#2a9d8f', '#f4a261', '#457b9d'][Math.floor(R() * 4)]);   // shop awning band
+    if (b.h > 14) { wm.add(new THREE.BoxGeometry(3, 1.6, 3), b.x + (R() - 0.5) * b.w * 0.4, b.h + 1.3, b.z + (R() - 0.5) * b.d * 0.4, '#9aa3ad'); }
+    if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
   }
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {
