@@ -25,7 +25,7 @@ const STYLE_GEO = {
 
 export function newCityState(c, spec) { // add the dynamic fields to a plain car state (see car.js newCar)
   const g = STYLE_GEO[spec.style];
-  Object.assign(c, { yr: 0, vl: 0, ax: 0, ay: 0, rpm: 0.12, gear: 1, load: 0, skid: 0, wheelPh: 0, rollA: 0, pitchA: 0, surf: 0, shiftT: 0, brake: 0, hl: g.L / 2, hw: g.w / 2 });
+  Object.assign(c, { yr: 0, vl: 0, ax: 0, ay: 0, rpm: 0.12, gear: 1, load: 0, skid: 0, wheelPh: 0, rollA: 0, pitchA: 0, surf: 0, shiftT: 0, brake: 0, hl: g.L / 2, hw: g.w / 2, hp: 100, dmgQ: [] });
   return c;
 }
 
@@ -53,10 +53,13 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const dMax = Math.min(0.6, 70 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
   const delta = -c.steer * dMax;                                          // left-positive road-wheel angle
   let throttle = 0, brake = 0;
-  if (gasIn > 0.01) { if (u < -0.8) brake = gasIn; else throttle = gasIn; }
+  const dead = c.hp !== undefined && c.hp <= 0;
+  if (dead) { /* wrecked: engine is dead, only brakes and coasting */ if (Math.abs(gasIn) > 0.01 && Math.abs(u) > 0.8) brake = Math.abs(gasIn) * 0.5; }
+  else if (gasIn > 0.01) { if (u < -0.8) brake = gasIn; else throttle = gasIn; }
   else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
   // ---- longitudinal force
-  const P = spec.kW * 1300;   // arcade-friendly: a bit punchier than the real figure
+  const hp0 = c.hp === undefined ? 100 : c.hp;
+  const P = spec.kW * 1300 * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
   const slipRe = Math.atan((vl - b * c.yr) / (u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5)));
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.09) / 0.14, 0, 0.9);
@@ -172,7 +175,7 @@ function terrain(c, dt, track, spec, geo) {
       else { const l = ci.x - b.x0, r = b.x1 - ci.x, f = ci.z - b.z0, k = b.z1 - ci.z, mm = Math.min(l, r, f, k); pen = ci.r + mm; if (mm === l) { nx = -1; nz = 0; } else if (mm === r) { nx = 1; nz = 0; } else if (mm === f) { nx = 0; nz = -1; } else { nx = 0; nz = 1; } }
       c.x += nx * pen; c.z += nz * pen; ci.x += nx * pen; ci.z += nz * pen;
       const hit = impulse(c, nx, nz, ci.x - c.x, ci.z - c.z, m, Iz, 0.18);
-      if (hit > 0) { c.vx *= 0.985; c.vz *= 0.985; if (hit > 4) { ev = hit > 11 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); } }
+      if (hit > 0) { hurt(c, hit, ci.x - c.x, ci.z - c.z); c.vx *= 0.985; c.vz *= 0.985; if (hit > 4) { ev = hit > 11 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); } }
     }
   }
   // the island edge and the sea
@@ -194,6 +197,15 @@ function terrain(c, dt, track, spec, geo) {
   return ev;
 }
 
+// GTA-style damage: a car has 100 health. Hits below ~9 km/h do nothing, a 50 km/h wall hit costs ~11, so it takes 6+ crashes to smoke and ~10 to wreck.
+// Each hit also queues a visual dent (position in car coordinates: lx forward, lz to the right) for the mesh.
+function hurt(c, hit, rx, rz) {
+  if (!(hit > 2.5)) return;
+  const d = Math.min(55, (hit - 2.5) * 0.95); c.hp = Math.max(0, (c.hp === undefined ? 100 : c.hp) - d);
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw); (c.dmgQ || (c.dmgQ = [])).push({ lx: rx * fx + rz * fz, lz: -rx * fz + rz * fx, d });
+  if (c.dmgQ.length > 8) c.dmgQ.shift();
+}
+
 // car against car (the other car is treated as heavy when parked, lighter when somebody drives it)
 function carVsCar(c, o, spec, geo, m, Iz) {
   if ((c.x - o.x) ** 2 + (c.z - o.z) ** 2 > 40 || Math.abs((o.y || 0) - c.y) > 2.5) return '';
@@ -208,6 +220,6 @@ function carVsCar(c, o, spec, geo, m, Iz) {
   const sx = c.vx, sz = c.vz; c.vx -= ovx; c.vz -= ovz;
   const hit = impulse(c, best.nx, best.nz, rx, rz, heavy ? m : m * 1.0, Iz, 0.25) * (heavy ? 1 : 0.6);
   c.vx += ovx; c.vz += ovz; void sx; void sz;
-  if (hit > 0) { c.vx *= 0.99; c.vz *= 0.99; }
+  if (hit > 0) { hurt(c, hit, rx, rz); c.vx *= 0.99; c.vz *= 0.99; }
   return hit > 9 ? 'crash' : hit > 3.5 ? 'bump' : '';
 }

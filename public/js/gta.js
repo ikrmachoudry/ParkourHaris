@@ -74,6 +74,16 @@ export function gtaRoads() {
 // buildings (deterministic): {x,z,w,d,h,col,kind}.  16 blocks between the avenues, two of them are parks.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 export const PARKS = [[90, 90], [-90, 30]];
+// LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Random).
+// Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
+export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
+export const HOMES = [
+  { char: 0, name: 'Haris', x: -102, z: -103, yaw: Math.PI, color: '#ff5f5f' },
+  { char: 1, name: 'Hannan', x: -78, z: -103, yaw: Math.PI, color: '#3ddc84' },
+  { char: 2, name: 'Hanbal', x: -102, z: -77, yaw: 0, color: '#ffc233' },
+  { char: 3, name: 'Random', x: -78, z: -77, yaw: 0, color: '#8b6cff' },
+];
+const LOT_BLOCKS = [[-30, 30], [-90, -90]];
 export function gtaBuildings() {
   const R = rng(4242), out = [], pal = ['#e8c9a0', '#cfd8e3', '#e89c8a', '#a8c5e8', '#f1e0a6', '#b9d9b0', '#d9b8e0', '#f0b27a', '#9fb4c8'];
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
@@ -85,7 +95,7 @@ export function gtaBuildings() {
     }
   }
   const t = out.find((b) => b.x > 30 && b.x < 45 && b.z > 30 && b.z < 45); if (t) { t.h = 118; t.w = 17; t.d = 17; t.col = '#7fb6e6'; t.tower = true; }
-  return out;
+  return out.filter((b) => !LOT_BLOCKS.some(([cx, cz]) => Math.abs(b.x - cx) < 24 && Math.abs(b.z - cz) < 24));   // the repair-shop block and the housing block are built separately
 }
 
 // parked cars (8: ids repeat so there are 4 looks) and the traffic loops (visual only)

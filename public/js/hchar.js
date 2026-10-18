@@ -306,9 +306,14 @@ export function poseChar(ch, name, t = 0, k = 1) {
       R(b['upperarm.L'], -0.6, -0.2, -0.2); R(b['forearm.L'], -1.25, 0, 0); R(b['hand.L'], 0, 0, 0);
       curl('R', 1.25); curl('L', 0.9);
     }
-  } else if (name === 'jump') {
-    R(b['upperleg.L'], -0.9, 0, 0.1); R(b['upperleg.R'], -0.25, 0, -0.1); R(b['lowerleg.L'], 1.1, 0, 0); R(b['lowerleg.R'], 0.6, 0, 0);
-    setArms(-2.2, -2.2); R(b['forearm.L'], -0.3, 0, 0); R(b['forearm.R'], -0.3, 0, 0); R(b.spine, 0.05, 0, 0);
+  } else if (name === 'jump') {   // GTA-style leap: t = vertical speed / 7 (+1 rising ... -1 falling). Lead knee driven up, trailing leg kicked back, fists pumping, body leaning into the jump.
+    const k = Math.max(0, Math.min(1, (t + 1) / 2)), m = (fall, rise) => fall + (rise - fall) * k;
+    b.hips.position.y = rest.hips.y - m(0.02, 0.1);
+    R(b.spine, m(0.12, 0.3), 0, 0); R(b.chest, 0.05, m(0.05, -0.15), 0); R(b.head, -m(0.1, 0.22), 0, 0);
+    R(b['upperleg.L'], m(-0.55, -1.45), 0, 0.08); R(b['lowerleg.L'], m(0.5, 1.6), 0, 0); R(b['foot.L'], m(0.2, 0.3), 0, 0);
+    R(b['upperleg.R'], m(0.05, 0.5), 0, -0.1); R(b['lowerleg.R'], m(0.3, 1.2), 0, 0);
+    R(b['upperarm.R'], m(-0.9, -1.25), 0, m(0.9, 0.15)); R(b['forearm.R'], m(-0.5, -1.45), 0, 0); R(b['upperarm.L'], m(-0.6, 0.55), 0, m(-0.9, -0.15)); R(b['forearm.L'], m(-0.5, -0.9), 0, 0);
+    curl('R', 1.2); curl('L', 1.2);
   } else if (name === 'sit') {
     R(b['upperleg.L'], -1.5, 0, 0.05); R(b['upperleg.R'], -1.5, 0, -0.05); R(b['lowerleg.L'], 1.5, 0, 0); R(b['lowerleg.R'], 1.5, 0, 0); b.hips.position.y = rest.hips.y - 0.56; R(b.spine, -0.12, 0, 0);
     R(b['upperarm.L'], -0.9, 0, -0.1); R(b['upperarm.R'], -0.9, 0, 0.1); R(b['forearm.L'], -0.6, 0, 0); R(b['forearm.R'], -0.6, 0, 0);
@@ -367,6 +372,12 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.spine, 0.28 + tr, 0, 0); R(b.chest, 0.1, tr, 0); R(b.head, 0.2, tr * 2, 0);
     R(b['upperarm.R'], -1.9, 0, 0.25); R(b['forearm.R'], -1.8, 0, 0.7); R(b['upperarm.L'], -1.9, 0, -0.25); R(b['forearm.L'], -1.8, 0, -0.7);
     curl('R', 0.8); curl('L', 0.8);
+  }
+  else if (name === 'fall') {     // knocked flying: limbs flung out
+    const f = Math.sin(t * 14) * 0.08;
+    R(b.spine, -0.15, 0, 0); R(b.head, -0.3, 0, 0);
+    R(b['upperarm.L'], -0.4, 0, -1.3 + f); R(b['upperarm.R'], -0.4, 0, 1.3 - f); R(b['forearm.L'], -0.5, 0, 0); R(b['forearm.R'], -0.5, 0, 0);
+    R(b['upperleg.L'], -0.5, 0, 0.35); R(b['upperleg.R'], 0.15, 0, -0.35); R(b['lowerleg.L'], 0.7, 0, 0); R(b['lowerleg.R'], 0.5, 0, 0);
   }
   void k;
 }

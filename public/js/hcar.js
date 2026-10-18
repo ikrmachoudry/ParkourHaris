@@ -458,6 +458,20 @@ export function buildHeroCar(opts = {}) {
     steer(a) { for (const w of wheels) if (w.front) w.steer.rotation.y = a; },
     spin(a) { for (const w of wheels) w.spin.rotation.z = w.flip ? a : -a; },
     setColor(c) { mats.paint.color.set(c); },
+    // crash damage: push the body panels in around the impact point (car space: x forward, z right) and scuff the paint; the hood pops up when badly hurt
+    dent(lx, lz, depth) {
+      const pa = bodyGeo.attributes.position, ca = bodyGeo.attributes.color, n = pa.count, r = 1.15;
+      if (!bodyGeo.userData.orig) bodyGeo.userData.orig = { p: pa.array.slice(), c: ca ? ca.array.slice() : null };
+      for (let i = 0; i < n; i++) {
+        const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i), d = Math.hypot(x - lx, z - lz); if (d > r) continue;
+        const w = (1 - d / r) * (1 - d / r), l = Math.hypot(x * 0.35, z) || 1;
+        pa.setX(i, x - x * 0.35 / l * depth * w * 0.5); pa.setZ(i, z - z / l * depth * w); pa.setY(i, y - depth * w * 0.25 * (y > 0.9 ? 1 : 0.3));
+        if (ca) { const k = 1 - 0.55 * w; ca.setXYZ(i, ca.getX(i) * k, ca.getY(i) * k, ca.getZ(i) * k); }
+      }
+      pa.needsUpdate = true; if (ca) ca.needsUpdate = true; bodyGeo.computeVertexNormals();
+    },
+    hurtLook(hp) { if (hood && hood.pivot) this.setLid(hood, hp < 15 ? 0.3 : hp < 40 ? 0.16 : 0); },
+    repair() { const o = bodyGeo.userData.orig; if (o) { bodyGeo.attributes.position.array.set(o.p); if (o.c) bodyGeo.attributes.color.array.set(o.c); bodyGeo.attributes.position.needsUpdate = true; if (bodyGeo.attributes.color) bodyGeo.attributes.color.needsUpdate = true; bodyGeo.computeVertexNormals(); } if (hood && hood.pivot) this.setLid(hood, 0); },
     lamp: car_lamp, style: sp,
   };
   return car;

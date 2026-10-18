@@ -32,6 +32,8 @@ export class HeroActor {
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.7; t = this.tWalk; }
     if (st.sitg && !st.seated) name = 'sitg';
     else if (st.crouch && name !== 'jump' && !st.seated) name = 'crouch';
+    if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
+    if (st.stun > 0 && !st.seated) name = 'fall';
     if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.punch > 0 && !st.seated) { name = 'punch'; t = st.punch; }
     poseChar(this.ch, name, t, 1);
@@ -43,6 +45,8 @@ export class HeroActor {
       _q.copy(b.quaternion); p.q.slerp(_q, k); b.quaternion.copy(p.q);
       p.p.lerp(b.position, k); b.position.copy(p.p);
     }
+    { const tg = st.stun > 0.3 ? 1 : 0; this.lie = (this.lie || 0) + (tg - (this.lie || 0)) * Math.min(1, dt * (tg ? 12 : 7));   // knocked flat, then gets back up
+      if (this.lie > 0.004 || tg) { this.ch.group.rotation.x = -1.4 * this.lie; this.hadLie = true; } else if (this.hadLie) { this.ch.group.rotation.x = 0; this.hadLie = false; } }
     this.pose = name; this.seated = name === 'sit';
   }
   dispose() {

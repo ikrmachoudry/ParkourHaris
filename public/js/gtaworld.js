@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -128,6 +128,15 @@ function terrainGeo() {
   return g;
 }
 
+// local house coordinates (+z = towards the front door / avenue, +x = to the right of someone standing at the door looking out) -> world
+const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });
+function signTexture(text, bg, fg) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, 512, 128); g.strokeStyle = fg; g.lineWidth = 8; g.strokeRect(8, 8, 496, 112);
+  g.fillStyle = fg; g.font = 'bold 72px Arial Black, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 68);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+
 export function buildGta(world, th, info, seed) {
   world.waterY = GT.SEA; world.killY = -2.6;
   world.terrain = gtaH;
@@ -140,6 +149,10 @@ export function buildGta(world, th, info, seed) {
   for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2, { name: 'building' });
   for (const [px, pz] of PARKS) world.addSolid(px - 2.6, 0.2, pz - 2.6, px + 2.6, 1.2, pz + 2.6, { name: 'fountain' });
   roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.6, x1: px + 2.6, z0: pz - 2.6, z1: pz + 2.6, h: 1.2 }))];
+  { // landmark colliders: the repair workshop and the four houses
+    const S = REPAIR.shop; world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
+    for (const h of HOMES) { const c = homeW(h, 0, -3); world.addSolid(c.x - 6, 0, c.z - 4.3, c.x + 6, 5.5, c.z + 4.3, { name: 'building' }); roads.boxes.push({ x0: c.x - 6, x1: c.x + 6, z0: c.z - 4.3, z1: c.z + 4.3, h: 5.5 }); }
+  }
   info.gta = { buildings: B, roads };
   if (world.headless) return;
 
@@ -180,6 +193,60 @@ export function buildGta(world, th, info, seed) {
     wm.add(new THREE.BoxGeometry(b.w + 0.9, 0.4, b.d + 0.9), b.x, 3.7, b.z, ['#e63946', '#2a9d8f', '#f4a261', '#457b9d'][Math.floor(R() * 4)]);   // shop awning band
     if (b.h > 14) { wm.add(new THREE.BoxGeometry(3, 1.6, 3), b.x + (R() - 0.5) * b.w * 0.4, b.h + 1.3, b.z + (R() - 0.5) * b.d * 0.4, '#9aa3ad'); }
     if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
+  }
+  // ---- AUTO REPAIR: workshop with roller doors, a canopy over the repair bay, tyres and drums
+  { const S = REPAIR.shop, bx = REPAIR.x, bz = REPAIR.z, Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    wm.add(Bx(46, 0.06, 40), S.x, 0.23, 28, '#8a9098');                                   // concrete forecourt
+    wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2, S.z, '#d9d3c3');
+    wm.add(Bx(S.w + 1, 0.5, S.d + 1), S.x, S.h + 0.25, S.z, '#3b3f4a');
+    wm.add(Bx(S.w + 0.2, 1.3, S.d + 0.2), S.x, S.h - 1.0, S.z, '#e8b020');
+    const fz = S.z - S.d / 2 - 0.12;
+    for (let i = -1; i <= 1; i++) { wm.add(Bx(8.2, 5, 0.3), S.x + i * 11, 2.6, fz, '#e07a1a'); for (let k = 0; k < 6; k++) wm.add(Bx(8.2, 0.08, 0.34), S.x + i * 11, 0.7 + k * 0.8, fz - 0.02, '#a8530c'); wm.add(Bx(8.8, 0.35, 0.4), S.x + i * 11, 5.3, fz, '#2b2f38'); }
+    wm.add(Bx(4.5, 2.2, 0.2), S.x - 15, 3.4, fz, '#9fd0f0'); wm.add(Bx(4.5, 2.2, 0.2), S.x + 15, 3.4, fz, '#9fd0f0');
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: signTexture('AUTO REPAIR', '#173a8a', '#ffd23f'), toneMapped: false }));
+    sg.position.set(S.x, S.h + 3.2, S.z - S.d / 2 - 0.4); sg.rotation.y = Math.PI; world.group.add(sg);
+    { const sb = sg.clone(); sb.material = sg.material; sb.rotation.y = Math.PI; sb.position.set(S.x, S.h + 3.2, S.z - S.d / 2 - 0.45); }
+    wm.add(Bx(0.4, 3.4, 0.4), S.x - 5.5, S.h + 1.7, S.z - S.d / 2 - 0.2, '#3b3f4a'); wm.add(Bx(0.4, 3.4, 0.4), S.x + 5.5, S.h + 1.7, S.z - S.d / 2 - 0.2, '#3b3f4a');
+    // canopy over the bay
+    for (const [dx, dz] of [[-6.5, -5.2], [6.5, -5.2], [-6.5, 5.2], [6.5, 5.2]]) { wm.add(new THREE.CylinderGeometry(0.25, 0.25, 5.6, 8), bx + dx, 2.9, bz + dz, '#e8e8ee'); solidProp(bx + dx, bz + dz, 0.28, 5.6); }
+    wm.add(Bx(15.5, 0.5, 12.6), bx, 5.85, bz, '#2b6cb0'); wm.add(Bx(15.7, 0.18, 12.8), bx, 5.55, bz, '#ffffff');
+    world.glow.add(Bx(13, 0.06, 0.5), bx, 5.5, bz - 3, '#fff6d8'); world.glow.add(Bx(13, 0.06, 0.5), bx, 5.5, bz + 3, '#fff6d8');
+    // the bay: dark pad, yellow ring and a wrench
+    const ringG = new THREE.RingGeometry(3.7, 4.4, 40); ringG.rotateX(-Math.PI / 2); wm.add(new THREE.CylinderGeometry(4.5, 4.5, 0.04, 40), bx, 0.27, bz, '#2a2f3a'); wm.add(ringG, bx, 0.3, bz, '#ffd23f');
+    wm.add(Bx(0.5, 0.03, 4.4), bx, 0.31, bz, '#ffd23f', 0, 0.6, 0); wm.add(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 10), bx + 1.55, 0.31, bz + 1.15, '#ffd23f'); wm.add(new THREE.CylinderGeometry(0.55, 0.55, 0.035, 10), bx - 1.55, 0.315, bz - 1.15, '#2a2f3a');
+    // props: tyre stacks, oil drums, a tool cabinet, cones
+    for (let i = 0; i < 3; i++) { for (let k = 0; k < 4; k++) wm.add(new THREE.TorusGeometry(0.42, 0.18, 8, 14), S.x + 18.5 + i * 0.1, 0.22 + k * 0.38, S.z - S.d / 2 - 1.3 - i * 1.0, '#17171a', Math.PI / 2, 0, 0); solidProp(S.x + 18.5, S.z - S.d / 2 - 1.3 - i * 1.0, 0.6, 1.6); }
+    for (let i = 0; i < 3; i++) { wm.add(new THREE.CylinderGeometry(0.42, 0.42, 1.0, 12), S.x - 18 + i * 0.9, 0.75, S.z - S.d / 2 - 1.2, ['#c0392b', '#2b6cb0', '#f1c40f'][i]); solidProp(S.x - 18 + i * 0.9, S.z - S.d / 2 - 1.2, 0.45, 1.2); }
+    wm.add(Bx(1.8, 1.6, 0.9), S.x - 20, 1.0, S.z - S.d / 2 - 0.6, '#c0392b'); solidProp(S.x - 20, S.z - S.d / 2 - 0.6, 0.9, 1.6);
+    for (const [dx, dz] of [[-8, -3], [8, -3], [-8, 3], [8, 3]]) wm.add(new THREE.ConeGeometry(0.28, 0.7, 10), bx + dx, 0.62, bz + dz, '#ff6a1a');
+    plant(S.x - 21, 0.2, 14, 0.9); plant(S.x + 21, 0.2, 14, 0.9);
+  }
+  // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Random) with garage, driveway, fence, porch and garden
+  { const roofC = ['#8a3b2e', '#4a5a6a', '#6b4f3a', '#3d4d3d'], wallC = ['#efe3cf', '#e5ddd0', '#f0e8d8', '#dcd6c8'], Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    HOMES.forEach((h, i) => {
+      const P = (lx, lz) => homeW(h, lx, lz), put = (g, lx, y, lz, c, ry = 0) => { const p = P(lx, lz); wm.add(g, p.x, y, p.z, c, 0, h.yaw + ry, 0); };
+      put(Bx(23, 0.08, 23), 0, 0.24, 0, '#6fbf4f');                               // lawn
+      put(Bx(12, 5.2, 8.5), 0, 2.8, -3, wallC[i]);                                 // house body
+      put(Bx(12.4, 0.5, 8.9), 0, 0.45, -3, '#8a8f97');                             // plinth
+      const rg = new THREE.ConeGeometry(1, 1, 4); rg.rotateY(Math.PI / 4); rg.scale(13.4 / Math.SQRT2, 2.9, 10.2 / Math.SQRT2); put(rg, 0, 5.4 + 1.45, -3, roofC[i]);   // hip roof
+      put(Bx(1.0, 2.6, 1.0), -3, 7.2, -5.6, '#8a5a4a');                           // chimney
+      put(Bx(1.4, 2.5, 0.18), 3.4, 1.55, 1.3, h.color); put(Bx(1.6, 2.7, 0.12), 3.4, 1.6, 1.27, '#f4f1ea');   // front door + frame
+      world.glow.add(Bx(0.3, 0.3, 0.12), P(2.1, 1.45).x, 2.7, P(2.1, 1.45).z, '#fff0b8');                    // porch light
+      put(Bx(4.6, 0.22, 2.4), 3.4, 0.36, 2.4, '#b9bdc4'); put(Bx(5.0, 0.2, 2.6), 3.4, 3.35, 2.5, roofC[i]);  // porch step + porch roof
+      put(new THREE.CylinderGeometry(0.1, 0.1, 3.0, 8), 5.7, 1.85, 3.6, '#f4f1ea'); put(new THREE.CylinderGeometry(0.1, 0.1, 3.0, 8), 1.1, 1.85, 3.6, '#f4f1ea');
+      put(Bx(4.2, 2.8, 0.14), -3.3, 1.7, 1.3, '#f1f1f4'); for (let k = 0; k < 5; k++) put(Bx(4.2, 0.05, 0.18), -3.3, 0.65 + k * 0.5, 1.28, '#c5c9d0');   // garage door + panel lines
+      for (const [wx, wy, lz, fr] of [[0.2, 2.9, 1.3, 1], [6.6, 3.0, 1.3, 1], [-5.4, 3.4, 1.3, 1]]) { put(Bx(1.9, 1.5, 0.12), wx, wy, lz, '#9fd0f0'); put(Bx(2.1, 0.1, 0.16), wx, wy - 0.8, lz, '#f4f1ea'); void fr; }
+      for (const lx of [-3, 3]) { put(Bx(1.9, 1.5, 0.12), lx, 3.1, -7.3, '#9fd0f0'); }                          // back windows
+      for (const sx of [-6.05, 6.05]) put(Bx(0.12, 1.5, 1.9), sx, 3.0, -3, '#9fd0f0');                            // side windows
+      world.glow.add(Bx(1.4, 1.0, 0.06), P(0.2, 1.37).x, 2.9, P(0.2, 1.37).z, '#ffe2a0', 0, h.yaw, 0);          // a warm lit window
+      put(Bx(4.8, 0.06, 10), -3.3, 0.27, 6.2, '#9da1a8'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.27, 5.6, '#c7c9ce');   // driveway + footpath
+      for (const [a, b] of [[-10.8, -5.8], [-0.9, 2.5], [4.3, 10.8]]) put(Bx(b - a, 0.9, 0.1), (a + b) / 2, 0.7, 10.8, '#f2f2f2');   // front fence with gaps
+      put(Bx(0.1, 0.9, 21.6), -10.9, 0.7, 0, '#f2f2f2'); put(Bx(0.1, 0.9, 21.6), 10.9, 0.7, 0, '#f2f2f2'); put(Bx(21.8, 0.9, 0.1), 0, 0.7, -10.9, '#f2f2f2');
+      put(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 6), 6.2, 0.8, 11.0, '#4a4f58'); put(Bx(0.55, 0.38, 0.3), 6.2, 1.45, 11.0, h.color);       // mailbox in the player's colour
+      put(Bx(2.6, 0.18, 1.4), 6.6, 0.4, -9.2, '#8a5a34'); put(Bx(2.6, 0.5, 0.1), 6.6, 0.75, -9.55, '#8a5a34');                                // garden bench
+      { const t1 = P(-8.3, -7.8), t2 = P(8.3, 7.6), t3 = P(8.4, -4); plant(t1.x, 0.2, t1.z, 1.0); plant(t2.x, 0.2, t2.z, 0.85); plant(t3.x, 0.2, t3.z, 0.8); }
+      [-1.5, 0.3, 2.1].forEach((lx, q) => { const f = P(lx, 1.9); wm.add(new THREE.SphereGeometry(0.34, 7, 6), f.x, 0.5, f.z, ['#e63946', '#f4a261', '#ff9ec7'][q]); });   // shrubs/flowers along the wall
+    });
   }
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {

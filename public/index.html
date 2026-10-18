@@ -106,6 +106,7 @@
       <button id="b-exit" class="carbtn exit" aria-label="Get out of car"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M4 31 L7 21 Q9 14 17 14 L37 14 Q46 14 51 22 L62 25 Q67 27 67 32 L67 34 L4 34 Z" fill="#fff"/><path d="M19 17 L35 17 L40 22 L15 22 Z" fill="#8fd3ff"/><polygon points="36,15 56,5 63,27 42,36" fill="#ffd45e" stroke="#7a4a00" stroke-width="1.5"/><polygon points="40,17 53,10 57,22 44,28" fill="#8fd3ff"/><circle cx="19" cy="35" r="6.5" fill="#23252e"/><circle cx="19" cy="35" r="2.6" fill="#e8eaf2"/><circle cx="53" cy="35" r="6.5" fill="#23252e"/><circle cx="53" cy="35" r="2.6" fill="#e8eaf2"/></svg></span><em>GET OUT</em><kbd>C</kbd></button>
       <button id="b-racer" class="carbtn racer" aria-label="Swap into a racer"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M3 32 L10 24 Q14 20 24 20 L38 19 Q46 19 52 24 L68 27 L69 33 L3 33 Z" fill="#ff2a3d"/><path d="M26 21 L38 21 L43 25 L22 25 Z" fill="#8fd3ff"/><rect x="1" y="14" width="10" height="3" fill="#15161c"/><rect x="4" y="17" width="2" height="8" fill="#15161c"/><rect x="26" y="26" width="22" height="2" fill="#fff"/><circle cx="18" cy="34" r="7" fill="#23252e"/><circle cx="18" cy="34" r="3" fill="#e8eaf2"/><circle cx="54" cy="34" r="7" fill="#23252e"/><circle cx="54" cy="34" r="3" fill="#e8eaf2"/></svg></span><em>RACER</em><kbd>R</kbd></button>
       <div id="car-speed"><b>0</b><small>km/h</small></div>
+      <div id="car-hp" aria-label="Car health"><i id="car-hp-i"></i></div>
       <div id="car-keys"><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd><kbd>D</kbd> steer &nbsp;<kbd>H</kbd> horn</div>
       <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button></div>
     </div>
@@ -116,6 +117,7 @@
       <button id="a-sit" title="Sit (X)" aria-label="Sit"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="6.5" r="2.6" fill="#fff"/><path d="M11 10.5v7h8.5l1 7M11 17.5v7M11 13l5 3"/></svg><i>SIT</i></button>
     </div>
     <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
+    <canvas id="minimap" aria-label="Map"></canvas>
     <div id="hud-top">
       <div class="pill" id="hud-level">Level</div>
       <div class="timer" id="hud-timer">0:00</div>
