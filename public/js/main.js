@@ -13,6 +13,7 @@ import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 import { AnimalSys } from './animalsys.js';
+import { TH, newThugs, stealThug, hitThug, stepThugs } from './thugs.js';
 import { KINDS, active as animalTable } from './jlayout.js';
 import { newQuest, stepQuest, questLayout, PH, Q as QC } from './quest.js';
 import { QuestVis } from './questworld.js';
@@ -241,6 +242,7 @@ class Race {
       for (const cd of info.cars) { const mesh = buildCarMesh(cd.id); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
       this.skyG = 0; try { this.racerOk = localStorage.getItem('ph_racer') === '1'; } catch { this.racerOk = false; }
       this.applyFree();
+      this.thugs = null; this.thv = []; if (this.meta.city) this.initThugs(info.cars);
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
 
@@ -412,7 +414,7 @@ class Race {
     } else if (this.phase === 'countdown') {
       this.phase = 'race'; this.count('GO!'); A.sfx.go(); this.lastCount = 0;
       if (this.multi) setTimeout(() => { if (race === this && !this.over) this.toast(IS_TOUCH ? 'Tap BAT to bonk rivals!' : 'Press B or click to swing the BAT!'); }, 1400);
-      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast(this.meta.city ? '\uD83D\uDE97 Welcome to HARIS CITY! Cars are parked on the main street - stand next to one and press C' : '\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
+      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast(this.meta.city ? '\uD83D\uDE97 Welcome to HARIS CITY! Vehicles are parked on the main street with THUGS inside - stand next to one and press C to STEAL it!' : '\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
     }
 
     // ---- input -> physics
@@ -518,10 +520,10 @@ class Race {
     const st = car.st, seat = car.mesh.userData.seat;
     g.position.set(st.x + Math.sin(st.yaw) * seat.z, st.y + seat.y, st.z + Math.cos(st.yaw) * seat.z); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8);
   }
-  nearestFreeCar(b) {
+  nearestFreeCar(b, steal) { // steal=true: look for a vehicle that still has a thug sitting in it
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
-    for (const c of this.cars) { if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { const occ = !!(this.thugs && this.thugs[this.cars.indexOf(c)].st === TH.SEAT); if (occ !== !!steal) continue; if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
     return best;
   }
   toggleCar() {
@@ -540,7 +542,8 @@ class Race {
       if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false;
     } else {
-      const c = this.nearestFreeCar(b); if (!c) return;
+      const c = this.nearestFreeCar(b);
+      if (!c) { const sc = this.thugs && this.nearestFreeCar(b, true); if (sc) this.stealCar(sc); return; }
       this.drive = c; c.st.driver = this.localId; c.st.parked = false;
       b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
       A.engineStart(); A.sfx.door(); A.sfx.vroom(); this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
@@ -548,6 +551,67 @@ class Race {
     }
   }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
+  // ================= HARIS CITY THUGS (cartoon drivers: steal the ride, they fight, bat them down) =================
+  initThugs(cars) {
+    this.thugs = newThugs(cars); this.thSt = this.thugs.map(() => ({ st: 0, hp: TH.HP }));
+    this.thv = this.thugs.map((t) => {
+      const m = new Character(t.ch), tag = makeNameTag('THUG', '#ff4040'); tag.position.set(0, m.height + 0.6, 0); m.group.add(tag); this.scene.add(m.group);
+      return { m, tag, x: t.x, y: t.y, z: t.z, yaw: t.yaw, sw: 0, hit: 0 };
+    });
+  }
+  stealCar(c) {
+    const v = this.cars.indexOf(c), t = this.thugs[v], b = this.me.body;
+    if (this.multi) { if (this.thugs[v].st === TH.SEAT) app.net.send({ t: 'steal', v }); }
+    else stealThug(this.thugs, v, this.localId, b.x, b.z, t.x, t.z);
+    A.sfx.door(); this.toast('\uD83D\uDE20 THE DRIVER JUMPS OUT! Hit him with the bat (' + (IS_TOUCH ? 'bat button' : 'F / click') + ') then take the ride!');
+  }
+  batThugs(b, fx, fz) {
+    if (!this.thugs) return;
+    let best = -1, bd = 1e9;
+    this.thugs.forEach((t, i) => { if (t.st !== TH.FIGHT) return; const d = Math.hypot(t.x - b.x, t.z - b.z); if (d < (this.swingMega ? 4.8 : 3.4) && d < bd && Math.abs(t.y - b.y) < 2.2 && ((t.x - b.x) * fx + (t.z - b.z) * fz) / (d || 1) > 0) { bd = d; best = i; } });
+    if (best < 0) return;
+    if (this.multi) app.net.send({ t: 'thit', v: best, fx: +fx.toFixed(3), fz: +fz.toFixed(3), m: this.swingMega ? 1 : 0 });
+    else hitThug(this.thugs, best, b.x, b.z, fx, fz, this.swingMega);
+    A.sfx.bonk();
+  }
+  onThugNet(a) { if (!this.thugs || !Array.isArray(a)) return; a.forEach((q, i) => { const t = this.thugs[i]; if (!t || !Array.isArray(q)) return; t.st = q[0]; t.hp = q[1]; t.x = q[2]; t.y = q[3]; t.z = q[4]; t.yaw = q[5]; t.mv = q[6] & 1; t.stun = q[6] & 2 ? 1 : 0; }); }
+  onThugEv(m) { // a thug swung at somebody
+    const v = this.thv && this.thv[m.v | 0]; if (v) v.sw = 0.4;
+    if (m.pid === this.localId) this.onThugHit(m);
+  }
+  onThugHit(m) {
+    const b = this.me.body; if (this.over || this.drive || this.levelTime < 0) return;
+    if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
+    if (b.immune > 0 || b.stun > 0.2) return;
+    b.hitCd = 0;
+    if (knock(b, m.nx, m.nz, 13)) { b.vy = 7; b.stun = 0.6; this.bonked('POW!', '', b); this.shake = Math.max(this.shake || 0, 0.7); }
+  }
+  updateThugs(dt) {
+    const b = this.me.body;
+    if (!this.multi) {
+      for (const e of stepThugs(this.thugs, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.world.terrain)) if (e.k === 'hit') this.onThugEv(e);
+    }
+    this.thugs.forEach((t, i) => {
+      const v = this.thv[i], prev = this.thSt[i], g = v.m.group;
+      if (prev.st !== t.st || prev.hp !== t.hp) { // something happened to him: effects
+        if (t.st === TH.DEAD && prev.st !== TH.DEAD) { this.particles.emit(t.x, t.y + 1, t.z, 40, { color: '#ffffff', speed: 7, up: 5, life: 0.8, size: 0.5 }); this.particles.emit(t.x, t.y + 1, t.z, 20, { color: '#ffd23f', speed: 5, up: 6, life: 0.7, size: 0.35 }); A.sfx.win && A.sfx.win(); this.toast('THUG DOWN!  The ride is yours'); }
+        else if (t.hp < prev.hp) { this.particles.emit(t.x, t.y + 1.2, t.z, 18, { color: '#ffd23f', speed: 6, up: 3, life: 0.45, size: 0.3 }); A.sfx.bonk(); }
+        else if (t.st === TH.FIGHT && prev.st === TH.SEAT) { v.x = t.x; v.y = t.y; v.z = t.z; v.yaw = t.yaw; }
+        prev.st = t.st; prev.hp = t.hp;
+      }
+      if (t.st === TH.DEAD) { g.visible = false; return; }
+      g.visible = true; v.sw = Math.max(0, v.sw - dt);
+      if (t.st === TH.SEAT) { const c = this.cars[i]; this.seatModel(g, c); v.m.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0 }); }
+      else {
+        const k = this.multi ? Math.min(1, dt * 12) : 1;
+        v.x += (t.x - v.x) * k; v.y += (t.y - v.y) * k; v.z += (t.z - v.z) * k; { let dy = t.yaw - v.yaw; dy = ((dy + Math.PI * 3) % (Math.PI * 2)) - Math.PI; v.yaw += dy * Math.min(1, dt * 10); }
+        g.position.set(v.x, v.y, v.z); g.rotation.y = v.yaw; this.g_g(g);
+        v.m.update(dt, { speed: t.mv ? 7 : 0, grounded: true, vy: 0, stun: t.stun > 0 ? 1 : 0, dive: 0, swing: v.sw > 0 ? 1 - v.sw / 0.4 : 0 });
+      }
+      this.tagScale(v.tag, g.position, 0.85);
+    });
+  }
+
   // ---- SKY SPEEDWAY: gates in order -> RACERS unlocked; swap into a red racer on the garage plaza
   skyGates(st) {
     const sk = this.info.sky; if (!sk || st.y < sk.y - 4 || this.skyG >= sk.gates.length) return;
@@ -666,8 +730,9 @@ class Race {
     { let under = false; for (const pm of this.poolMeshes) { const p = pm.pl, cp = this.camera.position; if (cp.x > p.x0 && cp.x < p.x1 && cp.z > p.z0 && cp.z < p.z1 && cp.y < p.surf) under = true; } const uw = $('uw'); if (uw && uw.classList.contains('on') !== under) uw.classList.toggle('on', under); }
     // cars: pose + wheels
     for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
+    if (this.thugs) this.updateThugs(dt);
     // "get in" prompt
-    const near = !this.an && !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
+    const near = !this.an && !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || (this.thugs && this.nearestFreeCar(b, true)));
     if (!this.an && !!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     { const sw = !!this.drive && this.racerOk && !CAR_SPECS[this.drive.st.id].racer && this.garageSpot(this.drive.st) && Math.abs(this.drive.st.speed) < 5; if (sw !== document.body.classList.contains('sky-swap')) document.body.classList.toggle('sky-swap', sw); }
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
@@ -784,6 +849,7 @@ class Race {
   batHit(b) {
     if (this.an) this.an.batHit(b);
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
+    if (this.thugs) this.batThugs(b, fx, fz);
     for (const r of this.remotes.values()) {
       if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
@@ -1163,6 +1229,8 @@ async function ensureNet() {
   net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
+  net.on('th', (m) => { if (race && race.multi) race.onThugNet(m.a); });
+  net.on('thev', (m) => { if (race && race.multi) race.onThugEv(m); });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });

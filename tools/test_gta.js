@@ -1,6 +1,7 @@
 import { buildLevel } from '../public/js/levels.js';
 import { newBody, stepBody } from '../public/js/physics.js';
-import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings } from '../public/js/gta.js';
+import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings, gtaCars } from '../public/js/gta.js';
+import { TH, newThugs, stealThug, hitThug, stepThugs } from '../public/js/thugs.js';
 import { newCar, stepCar, corridor } from '../public/js/car.js';
 let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
 const { world, info } = buildLevel(7, true, null, 1);
@@ -39,4 +40,15 @@ ok(tr.terrain === gtaH && tr.boxes.length > 50, 'cars use the terrain (free driv
 { const car = newCar(0, 300, 200, Math.PI / 2); drive(car, 390, 200, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
 // a person can walk up a ramp
 { const pb = newBody(); pb.x = -60; pb.z = -104; pb.y = 0; for (let i = 0; i < 120; i++) stepBody(world, pb, 1 / 60, { mx: 0, mz: 1 }); ok(pb.y > 2.5, 'a person walks up a stunt ramp (y ' + pb.y.toFixed(1) + ')'); }
+// THUGS: seated -> steal -> chase + punch -> bat x4 -> dead
+{ const cars = gtaCars(), ths = newThugs(cars); ok(ths.length === 8 && ths.every((t) => t.st === TH.SEAT), 'a thug sits in each of the 8 vehicles');
+  ok(!hitThug(ths, 0, cars[0].x, cars[0].z + 1, 0, 1, false), 'cannot bat a thug who is still sitting in the car');
+  const c = cars[0]; ok(stealThug(ths, 0, 'me', c.x, c.z + 3, c.x, c.z), 'stealing wakes the thug'); ok(!stealThug(ths, 0, 'me', c.x, c.z + 3, c.x, c.z), 'cannot steal twice');
+  const me = { id: 'me', x: c.x + 20, y: 0, z: c.z + 20 }; let hits = 0;
+  for (let i = 0; i < 400; i++) for (const e of stepThugs(ths, 1 / 20, [me], gtaH)) if (e.k === 'hit') hits++;
+  ok(Math.hypot(ths[0].x - me.x, ths[0].z - me.z) < 2.2, 'the thug chases and reaches the player'); ok(hits >= 3 && hits < 20, 'he punches with a cooldown (' + hits + ' hits in 20 s)');
+  ok(ths[1].st === TH.SEAT, 'other thugs stay seated');
+  let ev = null, swings = 0; for (let i = 0; i < 6 && !(ev && ev.k === 'die'); i++) { ths[0].x = me.x + 1.5; ths[0].z = me.z; ev = hitThug(ths, 0, me.x, me.z, 1, 0, false); if (ev) swings++; }
+  ok(ev && ev.k === 'die' && swings === TH.HP && ths[0].st === TH.DEAD, 'he takes ' + TH.HP + ' bat hits then dies'); ok(!hitThug(ths, 0, me.x, me.z, 1, 0, false), 'a dead thug cannot be hit');
+  const far = { id: 'me', x: 0, y: 0, z: 0 }; ths[2].st = TH.FIGHT; ths[2].x = 5; ths[2].z = 5; ok(!hitThug(ths, 2, far.x - 6, far.z, 1, 0, false), 'a bat swing from far away misses'); }
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);
