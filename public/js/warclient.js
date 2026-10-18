@@ -32,7 +32,8 @@ function unitModel(kind, team) {
     if (kind === 'arch') { body.add(cone(0.34, 0.5, '#2f8f4e', 0, 1.5, 0)); arm.position.set(0.4, 0.95, 0.25); const bow = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 6, 12, Math.PI), M('#8a5a34')); bow.rotation.set(0, Math.PI / 2, 0); arm.add(bow); }
     if (kind === 'vil') { arm.position.set(0.4, 0.9, 0.2); arm.add(cyl(0.04, 0.04, 0.9, '#8a5a34', 0, 0.2, 0.3)); arm.add(box(0.5, 0.12, 0.12, '#9aa3ad', 0, 0.65, 0.3)); }
   }
-  body.add(arm); g.userData = { body, arm };
+  body.add(arm); const disc = new THREE.Mesh(new THREE.CircleGeometry(kind === 'knight' ? 0.95 : 0.7, 16), new THREE.MeshBasicMaterial({ color: tc, transparent: true, opacity: 0.85 })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.04; g.add(disc);
+  g.userData = { body, arm };
   return g;
 }
 function buildingModel(kind, team) {
@@ -78,8 +79,8 @@ export class WarGame {
     const scene = this.scene = new THREE.Scene();
     scene.background = new THREE.Color('#9bd8ff'); scene.fog = new THREE.Fog('#9bd8ff', 140, 320);
     scene.environment = o.envTex; scene.environmentIntensity = 0.5;
-    this.camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 1, 600);
-    this.cam = { x: 0, z: 46, h: 38, tx: 0, tz: 46, th: 38 };
+    this.camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 600);
+    this.cam = { x: 0, z: 50, h: 28, tx: 0, tz: 50, th: 28 };
     scene.add(new THREE.HemisphereLight('#dff1ff', '#6fae52', 1.35));
     const sun = this.sun = new THREE.DirectionalLight('#fff0c8', 2.0); sun.position.set(-50, 90, 40); sun.castShadow = o.shadows !== false;
     sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = -95; sc.right = 95; sc.top = 95; sc.bottom = -95; sc.near = 20; sc.far = 260; sun.shadow.bias = -0.0004;
@@ -202,8 +203,8 @@ export class WarGame {
     const t = (this.tt = (this.tt || 0) + dt), k = 1 - Math.exp(-dt * 12);
     // camera keys + smoothing
     const c = this.cam, K = this.keys, sp = c.th * 0.9 * dt;
-    if (K) { if (K.has('KeyW') || K.has('ArrowUp')) c.tz -= sp; if (K.has('KeyS') || K.has('ArrowDown')) c.tz += sp; if (K.has('KeyA') || K.has('ArrowLeft')) c.tx -= sp; if (K.has('KeyD') || K.has('ArrowRight')) c.tx += sp; if (K.has('KeyZ')) c.th = Math.max(20, c.th - 40 * dt); if (K.has('KeyX')) c.th = Math.min(120, c.th + 40 * dt); }
-    c.tx = clamp(c.tx, -W.HX, W.HX); c.tz = clamp(c.tz, -W.HZ + 10, W.HZ + 14); c.th = clamp(c.th, 20, 120);
+    if (K) { if (K.has('KeyW') || K.has('ArrowUp')) c.tz -= sp; if (K.has('KeyS') || K.has('ArrowDown')) c.tz += sp; if (K.has('KeyA') || K.has('ArrowLeft')) c.tx -= sp; if (K.has('KeyD') || K.has('ArrowRight')) c.tx += sp; if (K.has('KeyZ')) c.th = Math.max(12, c.th - 40 * dt); if (K.has('KeyX')) c.th = Math.min(120, c.th + 40 * dt); }
+    c.tx = clamp(c.tx, -W.HX, W.HX); c.tz = clamp(c.tz, -W.HZ + 10, W.HZ + 14); c.th = clamp(c.th, 12, 120);
     const kc = 1 - Math.exp(-dt * 10); c.x += (c.tx - c.x) * kc; c.z += (c.tz - c.z) * kc; c.h += (c.th - c.h) * kc;
     this.placeCamera();
     // entities
@@ -216,15 +217,17 @@ export class WarGame {
       const showBar = frac < 0.999 || this.sel.has(id) || (!e.isU && e.built < 1);
       bar.visible = back.visible = showBar;
       if (showBar) {
-        const bw = e.isU ? 1.2 : 2.6; bar.scale.x = Math.max(0.01, frac * bw); back.scale.x = bw; bar.position.set(-(1 - frac) * bw / 2, hy, 0); back.position.set(0, hy, 0);
+        const bw = e.isU ? 1.0 : 2.6; bar.scale.x = Math.max(0.01, frac * bw); back.scale.x = bw; bar.position.set(-(1 - frac) * bw / 2, hy, 0.08); back.position.set(0, hy, 0);
         bar.rotation.order = back.rotation.order = 'YXZ'; bar.rotation.x = back.rotation.x = -this.camTilt; bar.material.color.set(e.team ? '#ff6b6b' : frac > 0.5 ? '#46d36a' : '#ffc233'); bar.rotation.y = back.rotation.y = e.isU ? -m.rotation.y : 0;
         if (m.userData.bar.parent === m && !e.isU) { /* building: counter-rotate not needed */ }
       }
+      if (e.isU && e.php !== undefined && e.hp < e.php - 0.5) { this.particles.emit(e.x, 1.6, e.z, 6, { color: '#ff4040', speed: 3, up: 4, life: 0.45, size: 0.55 }); e.flash = 0.18; }
+      e.php = e.hp;
       if (e.isU) {
         const ud = m.userData, moving = e.st === 1; m.rotation.y = e.yaw + (e.kind === 'knight' || true ? 0 : 0);
-        ud.body.position.y = moving ? Math.abs(Math.sin(t * 11 + id)) * 0.18 : 0;
-        ud.arm.rotation.x = e.st === 2 ? Math.sin(t * 16 + id) * 0.8 : e.st === 3 ? Math.sin(t * 9 + id) * 0.9 : e.st === 4 ? Math.sin(t * 12 + id) * 0.7 : 0;
-        m.scale.setScalar(1.6);
+        ud.body.position.y = moving ? Math.abs(Math.sin(t * 11 + id)) * 0.18 : e.st === 2 ? Math.abs(Math.sin(t * 8 + id)) * 0.12 : 0; ud.body.position.z = e.st === 2 ? Math.sin(t * 16 + id) * 0.18 : 0;
+        ud.arm.rotation.x = e.st === 2 ? Math.sin(t * 16 + id) * 1.2 : e.st === 3 ? Math.sin(t * 9 + id) * 0.9 : e.st === 4 ? Math.sin(t * 12 + id) * 0.7 : 0;
+        m.scale.setScalar((e.kind === 'knight' ? 1.45 : 1.75) * (e.flash > 0 ? 1.18 : 1)); if (e.flash > 0) e.flash -= dt;
       } else {
         const b = e.built === undefined ? 1 : e.built; m.scale.set(1, 0.25 + 0.75 * b, 1); m.userData.bar.scale.y = 1 / m.scale.y; m.userData.back.scale.y = 1 / m.scale.y;
         m.position.y = 0;
@@ -235,17 +238,19 @@ export class WarGame {
     for (const [id, m] of this.nodeMeshes) { const a = this.nodeAmt.get(id), n = m.userData.n; if (a <= 0) { if (m.visible) { m.visible = false; this.particles.emit(n.x, 1, n.z, 8, { color: '#cdbb98', speed: 3, up: 3, life: 0.5, size: 0.5 }); } } else { m.visible = true; const f = clamp(0.55 + 0.45 * a / n.amt0, 0.55, 1); m.scale.setScalar(f); } }
     // selection rings
     for (const [id, r] of this.rings) if (!this.sel.has(id) || !this.ents.has(id)) { this.scene.remove(r); r.geometry.dispose(); r.material.dispose(); this.rings.delete(id); }
-    for (const id of this.sel) { const e = this.ents.get(id); if (!e) continue; let r = this.rings.get(id); if (!r) { const rad = e.isU ? UK[e.kind].r * 1.5 + 0.45 : BK[e.kind].r + 0.5; r = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 0.18, 24), new THREE.MeshBasicMaterial({ color: '#7dffa0', side: THREE.DoubleSide, depthTest: false, transparent: true })); r.rotation.x = -Math.PI / 2; r.renderOrder = 7; this.scene.add(r); this.rings.set(id, r); } r.position.set(e.x, 0.1, e.z); }
+    for (const id of this.sel) { const e = this.ents.get(id); if (!e) continue; let r = this.rings.get(id); if (!r) { const rad = e.isU ? UK[e.kind].r * 1.1 + 0.45 : BK[e.kind].r + 0.5; r = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 0.18, 24), new THREE.MeshBasicMaterial({ color: '#7dffa0', side: THREE.DoubleSide, depthTest: false, transparent: true })); r.rotation.x = -Math.PI / 2; r.renderOrder = 7; this.scene.add(r); this.rings.set(id, r); } r.position.set(e.x, 0.1, e.z); }
     // tracers + ping + ghost
     for (let i = this.tracers.length - 1; i >= 0; i--) { const tr = this.tracers[i]; tr.t -= dt; if (tr.t <= 0) { if (tr.m) { this.scene.remove(tr.m); tr.m.geometry.dispose(); } this.tracers.splice(i, 1); continue; } if (!tr.m) { tr.m = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), new THREE.MeshBasicMaterial({ color: '#fff2a8' })); this.scene.add(tr.m); } const f = 1 - tr.t / 0.22; tr.m.position.lerpVectors(tr.a, tr.b, f); }
     if (this.pingT > 0) { this.pingT -= dt; this.ping.material.opacity = Math.max(0, this.pingT / 0.5); this.ping.scale.setScalar(1 + (0.5 - this.pingT) * 3); }
     if (this.ghost) { this.ghost.position.set(this.gx, 0, this.gz); }
     this.particles.update(dt);
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) this.$('#war-msg').classList.remove('show'); }
+    this.alertT = (this.alertT || 0) - dt;
+    if (this.alertT <= 0) { const att = [...this.ents.values()].find((e) => e.isU && e.team === 0 && e.hp < e.php - 0.4); this.alertT = 0; if (att && Math.hypot(att.x - this.cam.x, att.z - this.cam.z) > this.cam.h * 1.1) { this.toast('Your units are under attack! Press F', 2.5); this.alertT = 8; } }
     this.updateHud();
   }
   placeCamera() {
-    const c = this.cam, back = c.h * 0.62; this.camTilt = Math.atan2(c.h, back);
+    const c = this.cam, back = c.h * 0.8; this.camTilt = Math.atan2(c.h, back);
     this.camera.position.set(c.x, c.h, c.z + back); this.camera.lookAt(c.x, 0, c.z);
     this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix();
     this.sun.target.position.set(0, 0, 0);
@@ -280,6 +285,7 @@ export class WarGame {
     add('ARMY', this.o.touch ? 'select all' : 'Q', () => this.selectAll('mil'), '');
     add('VILLAGERS', this.o.touch ? 'select all' : 'E', () => this.selectAll('vil'), '');
     if (mil.length) add(this.amove ? 'ATTACK-MOVE ON' : 'ATTACK-MOVE', this.o.touch ? 'tap to turn on' : 'A', () => { this.amove = !this.amove; this.panelSig = ''; }, this.amove ? 'on' : '');
+    add('BATTLE', this.o.touch ? 'see fight' : 'F', () => this.goBattle(), this.fighting() ? 'on' : '');
     add('HOME', this.o.touch ? '' : 'Space', () => this.goHome());
   }
 
@@ -309,6 +315,8 @@ export class WarGame {
     if (!list.length) this.toast(which === 'vil' ? 'No villagers' : 'No soldiers yet - build a Barracks!', 1.8);
     else if (this.hintI === 2 && which === 'mil') this.hint(3);
   }
+  fighting() { return [...this.ents.values()].some((e) => e.isU && e.st === 2); }
+  goBattle() { const f = [...this.ents.values()].filter((e) => e.isU && e.st === 2); if (!f.length) { this.toast('No fight right now', 1.4); return; } const mine = f.filter((e) => e.team === 0), p = mine.length ? mine : f; this.cam.tx = p.reduce((a, e) => a + e.x, 0) / p.length; this.cam.tz = p.reduce((a, e) => a + e.z, 0) / p.length + 2; this.cam.th = Math.min(this.cam.th, 26); }
   goHome() { const tc = [...this.ents.values()].find((e) => e.team === 0 && e.kind === 'tc'); if (tc) { this.cam.tx = tc.x; this.cam.tz = tc.z - 4; } }
   pingAt(x, z, c) { this.ping.position.set(x, 0.15, z); this.ping.material.color.set(c); this.pingT = 0.5; }
 
@@ -320,7 +328,7 @@ export class WarGame {
   }
   pick(g, pad) {
     let best = null, bd = 1e9;
-    for (const e of this.ents.values()) { const r = e.isU ? UK[e.kind].r * 1.5 + pad : BK[e.kind].r + pad * 0.4, d = Math.hypot(e.x - g.x, e.z - g.z); if (d < r && d - r < bd) { bd = d - r; best = e; } }
+    for (const e of this.ents.values()) { const r = e.isU ? UK[e.kind].r * 1.1 + pad : BK[e.kind].r + pad * 0.4, d = Math.hypot(e.x - g.x, e.z - g.z); if (d < r && d - r < bd) { bd = d - r; best = e; } }
     if (best) return { e: best };
     for (const n of this.layout.nodes) { if (this.nodeAmt.get(n.id) <= 0) continue; const d = Math.hypot(n.x - g.x, n.z - g.z); if (d < NODE_R[n.kind] + pad && d < bd) { bd = d; best = n; } }
     return best ? { n: best } : null;
@@ -356,7 +364,7 @@ export class WarGame {
     L('keydown', (e) => {
       if (this.over || this.menuOpen) return; if (e.target && e.target.tagName === 'INPUT') return;
       this.keys.add(e.code);
-      if (e.code === 'KeyQ') this.selectAll('mil'); else if (e.code === 'KeyE') this.selectAll('vil'); else if (e.code === 'Space') { this.goHome(); e.preventDefault(); } else if (e.code === 'KeyA') { this.amove = !this.amove; this.panelSig = ''; }
+      if (e.code === 'KeyQ') this.selectAll('mil'); else if (e.code === 'KeyE') this.selectAll('vil'); else if (e.code === 'Space') { this.goHome(); e.preventDefault(); } else if (e.code === 'KeyF') this.goBattle(); else if (e.code === 'KeyA') { this.amove = !this.amove; this.panelSig = ''; }
       else if (e.code === 'KeyH') this.startBuild('house'); else if (e.code === 'KeyB') this.startBuild('barracks'); else if (e.code === 'KeyT') this.startBuild('tower');
       else if (e.code === 'KeyV') { const tc = [...this.ents.values()].find((x) => x.team === 0 && x.kind === 'tc'); if (tc) this.train(tc.id, 'vil'); }
       else if (e.code === 'Digit1') { const bk = [...this.ents.values()].find((x) => x.team === 0 && x.kind === 'barracks' && x.built >= 1); if (bk) this.train(bk.id, 'spear'); }
@@ -366,11 +374,11 @@ export class WarGame {
     });
     L('keyup', (e) => this.keys.delete(e.code));
     L('blur', () => this.keys.clear());
-    L('wheel', (e) => { if (this.menuOpen) return; this.cam.th = clamp(this.cam.th * (1 + Math.sign(e.deltaY) * 0.1), 20, 120); e.preventDefault(); }, cv, { passive: false });
+    L('wheel', (e) => { if (this.menuOpen) return; this.cam.th = clamp(this.cam.th * (1 + Math.sign(e.deltaY) * 0.1), 12, 120); e.preventDefault(); }, cv, { passive: false });
     L('pointermove', (e) => {
       if (this.buildKind) { const g = this.ground(e.clientX, e.clientY); if (g) { this.gx = g.x; this.gz = g.z; if (this.ghost) this.ghost.position.set(g.x, 0, g.z); } }
       const p = ptrs.get(e.pointerId); if (!p) return; p.x = e.clientX; p.y = e.clientY;
-      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) { this.cam.th = clamp(this.cam.th * (pinch / d), 20, 120); } pinch = d; if (drag) drag.kind = 'none'; return; }
+      if (ptrs.size === 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) { this.cam.th = clamp(this.cam.th * (pinch / d), 12, 120); } pinch = d; if (drag) drag.kind = 'none'; return; }
       if (!drag) return; const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
       if (drag.kind === 'maybe' && Math.hypot(dx, dy) > 9) drag.kind = drag.touch ? 'pan' : 'box';
       if (drag.kind === 'box') { box.style.display = 'block'; box.style.left = Math.min(drag.x0, e.clientX) + 'px'; box.style.top = Math.min(drag.y0, e.clientY) + 'px'; box.style.width = Math.abs(dx) + 'px'; box.style.height = Math.abs(dy) + 'px'; }

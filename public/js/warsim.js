@@ -3,10 +3,10 @@
 // The AI's strength follows the number of humans in the room (w.n): even ONE player gets an easy, fair game.
 export const W = { HX: 70, HZ: 70, LIMIT: 600 };
 export const UK = {
-  vil:    { name: 'Villager', hp: 40,  speed: 4.4, r: 0.5,  cost: { food: 50 },             time: 6,  dmg: 3,  range: 0.8,  mil: 0, sight: 10 },
-  spear:  { name: 'Spearman', hp: 70,  speed: 4.8, r: 0.55, cost: { food: 40, wood: 20 },   time: 7,  dmg: 9,  range: 1.0,  mil: 1, sight: 12 },
-  arch:   { name: 'Archer',   hp: 45,  speed: 4.8, r: 0.5,  cost: { wood: 40, gold: 25 },   time: 8,  dmg: 7,  range: 10.5, mil: 1, sight: 13 },
-  knight: { name: 'Knight',   hp: 120, speed: 7.6, r: 0.7,  cost: { food: 60, gold: 50 },   time: 11, dmg: 13, range: 1.1,  mil: 1, sight: 12 },
+  vil:    { name: 'Villager', hp: 40,  speed: 4.4, r: 0.7,  cost: { food: 50 },             time: 6,  dmg: 3,  range: 0.8,  mil: 0, sight: 10 },
+  spear:  { name: 'Spearman', hp: 70,  speed: 4.8, r: 0.8, cost: { food: 40, wood: 20 },   time: 7,  dmg: 9,  range: 1.0,  mil: 1, sight: 12 },
+  arch:   { name: 'Archer',   hp: 45,  speed: 4.8, r: 0.75,  cost: { wood: 40, gold: 25 },   time: 8,  dmg: 7,  range: 10.5, mil: 1, sight: 13 },
+  knight: { name: 'Knight',   hp: 120, speed: 7.6, r: 1.0,  cost: { food: 60, gold: 50 },   time: 11, dmg: 13, range: 1.1,  mil: 1, sight: 12 },
 };
 export const UKIDS = ['vil', 'spear', 'arch', 'knight'];
 export const BK = {
