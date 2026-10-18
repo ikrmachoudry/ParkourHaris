@@ -14,7 +14,7 @@ for (let i = 0; i < 3; i++) {
   makeNameTag('Haris');
   console.log('character', i, 'ok, meshes:', (() => { let n = 0; c.group.traverse((o) => o.isMesh && n++); return n; })());
 }
-for (let i = 0; i < 7; i++) {
+for (let i = 0; i < 8; i++) {
   const arrow = S.arrowTexture();
   const { world, info } = buildLevel(i, false, arrow);
   const scene = new THREE.Scene();

@@ -8,6 +8,7 @@ export const VIS = {
   annoy: { top: '#4a3aa8', horizon: '#ffb3d1', bottom: '#ffe9f3', fog: '#f5b8dc', fogNear: 90, fogFar: 520, sun: '#ffe0c8', sunPos: [-40, 70, -60], sunI: 2.4, hemiSky: '#e8d6ff', hemiGround: '#ffb7dc', hemiI: 1.05, exp: 1.05, waterA: '#7fe8ff', waterB: '#2b9be8', water: 'water', env: 0.6 },
   maze: { top: '#5cc8ff', horizon: '#ffe0f0', bottom: '#fff4fb', fog: '#ffd6ea', fogNear: 90, fogFar: 520, sun: '#fff0d8', sunPos: [-40, 90, -60], sunI: 2.7, hemiSky: '#ffe6f6', hemiGround: '#ffb7dc', hemiI: 1.1, exp: 1.05, waterA: '#7fe8ff', waterB: '#2b9be8', water: 'water', env: 0.6 },
   arena: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
+  gta: { top: '#3d8fe0', horizon: '#bfe6ff', bottom: '#eaf7ff', fog: '#cfe8fa', fogNear: 260, fogFar: 1100, sun: '#fff4d6', sunPos: [-60, 90, 50], sunI: 2.6, hemiSky: '#d6ecff', hemiGround: '#7fae6a', hemiI: 1.1, exp: 1.02, waterA: '#37c4e8', waterB: '#1388c9', water: 'water', env: 0.55 },
   hunt: { top: '#2f8fd8', horizon: '#d6f0b8', bottom: '#eefad0', fog: '#bfe3a8', fogNear: 60, fogFar: 340, sun: '#fff0c0', sunPos: [-50, 80, -40], sunI: 2.5, hemiSky: '#cfe9ff', hemiGround: '#5fae52', hemiI: 1.05, exp: 1.02, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
   quest: { top: '#3a9be8', horizon: '#dff6c9', bottom: '#f3ffd9', fog: '#cfeec0', fogNear: 70, fogFar: 380, sun: '#fff3c8', sunPos: [-50, 85, -40], sunI: 2.6, hemiSky: '#cfe9ff', hemiGround: '#6fbf5a', hemiI: 1.05, exp: 1.05, waterA: '#37d7e8', waterB: '#1388c9', water: 'water', env: 0.55 },
 };
@@ -191,7 +192,7 @@ export class Ambient {
     const pos = new Float32Array(n * 3); this.seed = new Float32Array(n * 3);
     for (let i = 0; i < n * 3; i++) this.seed[i] = Math.random();
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const colors = { fun: '#fff6a8', jungle: '#fffbb0', quest: '#fff6c0', hunt: '#fff6c0', maze: '#ffe6f6', annoy: '#ffe6f6' };
+    const colors = { fun: '#fff6a8', jungle: '#fffbb0', quest: '#fff6c0', hunt: '#fff6c0', gta: '#fffbe0', maze: '#ffe6f6', annoy: '#ffe6f6' };
     this.mat = new THREE.PointsMaterial({ color: colors[kind] || '#fff', size: kind === 'frost' ? 0.28 : 0.22, transparent: true, opacity: 0.85, depthWrite: false, map: softTexture(), blending: kind === 'neon' || kind === 'canyon' ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     this.pos = pos;
@@ -287,6 +288,13 @@ export function buildScenery(scene, key, info, world) {
       c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
       dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 300) c.position.x = -300; });
     }
+  } else if (key === 'gta') {
+    for (let i = 0; i < 46; i++) { // clouds over the whole island
+      const c = new THREE.Group(), x = (R() - 0.5) * 900, z = (R() - 0.5) * 900, y = 130 + R() * 70, k = 3 + Math.floor(R() * 3);
+      for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(8 + R() * 8, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.92, fog: false })); m.position.set(q * 11 - k * 5, R() * 4, R() * 6); m.scale.y = 0.6; c.add(m); }
+      c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
+      dyn.push((t) => { c.position.x += 0.02 * (1 + (c.userData.ph % 1)); if (c.position.x > 480) c.position.x = -480; });
+    }
   } else if (key === 'quest' || key === 'hunt' || key === 'maze' || key === 'annoy') {
     // clouds drifting along the whole road
     for (let i = 0; i < 40; i++) {
@@ -312,7 +320,7 @@ export function buildScenery(scene, key, info, world) {
   const m2 = glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
   if (m2) group.add(m2);
 
-  if (key !== 'jungle' && key !== 'quest' && key !== 'arena' && key !== 'hunt') {
+  if (key !== 'jungle' && key !== 'quest' && key !== 'arena' && key !== 'hunt' && key !== 'gta') {
   // ---- HARIS branding (never touches gameplay) ----------------------------------------
   const brand = new THREE.Group(); brand.name = 'brand'; group.add(brand);
   const tex = harisTexture('HARIS', 'MADE THIS GAME');

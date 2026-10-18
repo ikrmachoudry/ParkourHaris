@@ -8,6 +8,7 @@ export const P = {
   R: 0.42, H: 1.55, STEP: 0.34, EDGE: 0.28, G: 34, RUN: 9.4, JUMP: 12.2,
   ACC: 70, AIR: 22, DEC: 95, AIR_DEC: 9, ICE_ACC: 11, ICE_DEC: 5.5, TERM: -50, SNAP: 0.5,
 };
+const TERRAIN_SURF = { active: true, ice: false, conv: null, bounce: 0, boost: 0, dx: 0, dy: 0, dz: 0, moving: false, name: 'terrain' };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
@@ -50,7 +51,7 @@ export class World {
     this.solids = []; this.ramps = []; this.discs = []; this.hazards = []; this.updaters = [];
     this.checkpoints = []; this.zones = []; this.pools = []; this.winds = []; this.swings = [];
     this.main = new Batch(); this.glow = new Batch();
-    this.waterY = -5; this.killY = -9;
+    this.waterY = -5; this.killY = -9; this.terrain = null; // optional smooth ground: terrain(x,z) -> height
     this.geoCache = new Map(); this.matCache = new Map();
     this.colorIdx = 0;
     this.arrowTexture = null; // injected by the client (needs DOM)
@@ -854,6 +855,10 @@ export class World {
       const dx = b.x - d.cx, dz = b.z - d.cz, rr = d.r + M * 0.8;
       if (dx * dx + dz * dz > rr * rr) continue;
       if (b.y <= top + 1e-4 || b.y <= top + snap) { best = d; bestTop = top; }
+    }
+    if (this.terrain) { // smooth hills (Haris City): the ground height is a function; solids / ramps on top of it win ties
+      const top = this.terrain(b.x, b.z);
+      if (top <= lim && top > bestTop && (b.y <= top + 1e-4 || b.y <= top + snap)) { best = TERRAIN_SURF; bestTop = top; }
     }
     return best ? { s: best, top: bestTop } : null;
   }

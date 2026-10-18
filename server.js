@@ -93,7 +93,7 @@ function startRound(room) {
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
-  room.an = meta.hunt ? newAnimals(HUNT_DEFS()) : meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena ? newAnimals() : null; room.anT = Date.now();
+  room.an = meta.hunt ? newAnimals(HUNT_DEFS()) : meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena && !meta.city ? newAnimals() : null; room.anT = Date.now();
   room.h = meta.hunt ? newHunt() : null; room.q = meta.quest ? newQuest() : null; room.seed = 1 + Math.floor(Math.random() * 1e9); room.qT = 0;
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {

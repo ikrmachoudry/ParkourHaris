@@ -24,4 +24,6 @@ export const LEVEL_META = [
     colors: ['#b58cff', '#ff6b9d'], blurb: '5 coloured tunnels (only one goes through!), 2 ferris wheels, a fan over the water, trampolines, flag platforms with giant slamming blades, 5 cutters - and a tiny safe lane on the right.' },
   { id: 6, key: 'hunt', name: 'Jungle Hunt', sub: 'Gun Co-op', stars: 4, limit: 0, finishZ: -99999, finishY: 99999, free: true, hunt: true,
     colors: ['#2e9b3f', '#ff8a1c'], blurb: 'Grab the GUN (unlimited bullets, auto-aim) and work as a TEAM through 6 chapters: shoot the beast packs, then solve machines together - weight plates & gear door, counterweight lift, crushers (swap who holds the plate), a cannon over a canyon, a pump bridge and a final colour-pad riddle. Nobody can die!' },
+  { id: 7, key: 'gta', name: 'Haris City', sub: 'Open World', stars: 3, limit: 0, finishZ: -99999, finishY: 99999, free: true, city: true,
+    colors: ['#3a86ff', '#ff9f1c'], blurb: 'A big open city! Skyscrapers, avenues with traffic, parks, a coast highway and a real MOUNTAIN with a road spiralling to the snowy summit. Jump in any parked car with C and drive anywhere. Up to 4 friends together.' },
 ];

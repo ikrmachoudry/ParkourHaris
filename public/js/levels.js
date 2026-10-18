@@ -8,6 +8,7 @@ import { buildQuest } from './questworld.js';
 import { questLayout } from './quest.js';
 import { buildHunt } from './huntworld.js';
 import { huntLayout } from './hunt.js';
+import { buildGta } from './gtaworld.js';
 
 export const THEMES = {
   fun: {
@@ -34,12 +35,16 @@ export const THEMES = {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
+  gta: {
+    plat: ['#cfd8e3', '#e8c9a0', '#a8c5e8', '#f1e0a6', '#b9d9b0'], pad: '#ffffff', icePad: '#ffffff', edgeGlow: null,
+    hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a6270', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
+  },
   quest: {
     plat: ['#3f9d4a', '#6bbf59', '#8b5e3c', '#2f7d3a', '#a3d36b'], pad: '#c7f08a', icePad: '#ffffff', edgeGlow: null,
     hazard: '#ff4d6d', hazard2: '#fff7d6', hub: '#5a3a1e', accent: '#ffd23f', convBase: '#4a3a5e', belt: '#ffe9a8',
   },
 };
-const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze', 'annoy', 'hunt'];
+const KEYS = ['fun', 'jungle', 'quest', 'arena', 'maze', 'annoy', 'hunt', 'gta'];
 
 const CANNON_VY = 37, CANNON_VZ = 28;
 const FAN_GAP = 15, FAN_VY = 26, FAN_VZ = 11, TR_VY = 28, TR_VZ = 15, TR_GAP = 12;
@@ -401,6 +406,9 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
     info.pads = [[22, -28], [46, -28], [22, -88], [46, -88]];
     for (const [x, z] of info.pads) world.bungee(x, z, 0, 5.5, 30, 15);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: Z1 };
+  } else if (idx === 7) { // ------------------------------------------ HARIS CITY (GTA-style open world)
+    buildGta(world, th, info, seed);
+    info.finishPlat = { far: -230 };
   } else if (idx === 6) { // ------------------------------------------ JUNGLE HUNT (co-op gun map: beasts + machines)
     buildHunt(world, th, info, seed);
     info.finishZ = -99999; info.finishY = 99999; info.finishPlat = { far: huntLayout().endZ };
