@@ -1038,11 +1038,13 @@ function markChars(container, sel, takenSet) {
 }
 function levelCards(container, opts) {
   container.innerHTML = '';
+  let num = 0;
   LEVEL_META.forEach((m) => {
+    if (m.hidden) return; num++;
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = m.id;
     d.style.background = `linear-gradient(160deg, ${m.colors[0]}cc, ${m.colors[1]}cc)`;
     const b = best(m.id);
-    d.innerHTML = `<div><h4>${m.id + 1}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; ${m.war ? '10 minute match' : 'no time limit'}${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
+    d.innerHTML = `<div><h4>${num}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; ${m.war ? '10 minute match' : 'no time limit'}${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
     d.onclick = () => opts.onPick(m.id);
     container.appendChild(d);
   });

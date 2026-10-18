@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 8, 'level select with 8 cards (+ Jungle Hunt, Age of War)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 7, 'level select with 7 cards (Small Room hidden)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
@@ -393,7 +393,7 @@ function plateXs1() { return 0; }
 }
 // ---- Age of War
 {
-  mk('b-single').onclick(); step(2); mk('b-profile-next').onclick(); step(2); mk('level-cards').children[7].onclick(); step(30);
+  mk('b-single').onclick(); step(2); mk('b-profile-next').onclick(); step(2); mk('level-cards').children[6].onclick(); step(30);
   const R = ph.race; ok(!!R && R.war === true, 'Age of War starts (WarGame created)');
   if (R && R.war) {
     ok(R.ents.size >= 10, 'both bases drawn (' + R.ents.size + ' entities)');

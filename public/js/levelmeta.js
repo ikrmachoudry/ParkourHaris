@@ -16,7 +16,7 @@ export const LEVEL_META = [
     colors: ['#6bbf59', '#ffd23f'], blurb: 'Wild lion, leopard, elephant & horse roam the trees. Beat them with the BAT to tame them as pets and RIDE them - then climb the hill and free the DINOSAUR! No race, just fun.' },
   { id: 2, key: 'quest', name: 'Jungle Quest', sub: 'Team Co-op', stars: 2, limit: 0, finishZ: -99999, finishY: 99999, free: true, quest: true,
     colors: ['#7b3fe4', '#ffd23f'], blurb: 'Walk the long road with your team! Solve 5 mazes, stand on the glowing circles together to drop the boulder, beat each beast with the BAT to open the gate - then FREE THE DRAGON! Nobody can die.' },
-  { id: 3, key: 'arena', name: 'Small Room', sub: 'Bat Fight', stars: 1, limit: 0, finishZ: -99999, finishY: 99999, free: true, arena: true,
+  { id: 3, key: 'arena', name: 'Small Room', sub: 'Bat Fight', stars: 1, limit: 0, finishZ: -99999, finishY: 99999, free: true, arena: true, hidden: true,
     colors: ['#cfe3ff', '#ffd9a8'], blurb: 'One small plain room, everybody in sight. Beat each other with the BAT! A high SLIDE to ride and 4 BUNGEE pads - nothing else.' },
   { id: 4, key: 'maze', name: 'Maze', sub: 'Obstacle Race', stars: 3, limit: 900, finishZ: -715.5, finishY: 0,
     colors: ['#ff6b9d', '#4cc9f0'], blurb: 'A long candy-park race: doors to dash through, water to hop over, giant fans, GRAB-SWINGS, a boat ride, huge hammers and seesaws. Be first to the finish!' },
