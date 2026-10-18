@@ -420,7 +420,7 @@ class Race {
     } else if (this.phase === 'countdown') {
       this.phase = 'race'; this.count('GO!'); A.sfx.go(); this.lastCount = 0;
       if (this.multi) setTimeout(() => { if (race === this && !this.over) this.toast(IS_TOUCH ? 'Tap BAT to bonk rivals!' : 'Press B or click to swing the BAT!'); }, 1400);
-      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast(this.meta.city ? '\uD83D\uDE97 Welcome to HARIS CITY! Vehicles are parked on the main street with THUGS inside - stand next to one and press C to STEAL it!' : '\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
+      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast(this.meta.city ? '\uD83D\uDE97 Welcome to PUNJABI GTA! Vehicles are parked on the main street with THUGS inside - stand next to one and press C to STEAL it!' : '\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
     }
 
     // ---- input -> physics
@@ -1059,7 +1059,7 @@ class Race {
     const tm = $('hud-timer'); tm.textContent = `${Math.floor(el / 60)}:${String(el % 60).padStart(2, '0')}`; tm.classList.remove('low');
     { const one = !this.multi && !this.meta.free; $('hud-hint').classList.toggle('single', one); document.body.classList.toggle('single', one); }
     if (this.hunt) { const o = $('hud-obj'), t = this.huntObjective(); o.classList.remove('hidden'); if ($('hud-obj-t').textContent !== t) $('hud-obj-t').textContent = t; } else $('hud-obj').classList.add('hidden');
-    $('hud-rank').textContent = this.meta.city ? 'Haris City' : this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.hunt ? this.huntHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
+    $('hud-rank').textContent = this.meta.city ? 'Punjabi GTA' : this.meta.arena ? `${this.players.length} in the room` : this.quest ? this.questHud() : this.hunt ? this.huntHud() : this.an ? `\u2665 ${this.an.petCount()} pet${this.an.petCount() === 1 ? '' : 's'}` : this.multi ? ord(this.rank()) + ' / ' + this.players.length : `${Math.max(0, Math.round(clamp(-this.me.body.z / -this.info.finishZ, 0, 1) * 100))}%`;
     const total = -this.info.finishZ;
     const set = (id, z) => { const d = this.dots.get(id); if (d) d.style.left = (clamp(-z / total, 0, 1) * 100) + '%'; };
     set(this.localId, this.me.body.z);
