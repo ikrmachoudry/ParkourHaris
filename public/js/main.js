@@ -334,7 +334,7 @@ class Race {
     const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive && !this.meta.city };
     if (this.meta.city) {   // jog by default (faster than before), Shift sprints; on a phone: light push = walk, normal push = jog, push the stick to the edge = sprint
       const touchOn = !!(touch.x || touch.y);
-      b.speedMul = touchOn ? (ml > 0.82 ? 2.05 : ml > 0.38 ? 1.3 : 0.5) : ((keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 2.05 : 1.3);
+      b.speedMul = touchOn ? (ml > 0.82 ? 1.65 : ml > 0.38 ? 1.3 : 0.5) : ((keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1.65 : 1.3);
     }
     if (this.meta.city) {
       if (this.crouch && press.jump) this.crouch = false;

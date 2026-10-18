@@ -231,8 +231,8 @@ export function buildGta(world, th, info, seed) {
     wm.add(Bx(15.5, 0.5, 12.6), bx, 5.85, bz, '#2b6cb0'); wm.add(Bx(15.7, 0.18, 12.8), bx, 5.55, bz, '#ffffff');
     world.glow.add(Bx(13, 0.06, 0.5), bx, 5.5, bz - 3, '#fff6d8'); world.glow.add(Bx(13, 0.06, 0.5), bx, 5.5, bz + 3, '#fff6d8');
     // the bay: dark pad, yellow ring and a wrench
-    const ringG = new THREE.RingGeometry(3.7, 4.4, 40); ringG.rotateX(-Math.PI / 2); wm.add(new THREE.CylinderGeometry(4.5, 4.5, 0.04, 40), bx, 0.27, bz, '#2a2f3a'); wm.add(ringG, bx, 0.3, bz, '#ffd23f');
-    wm.add(Bx(0.5, 0.03, 4.4), bx, 0.31, bz, '#ffd23f', 0, 0.6, 0); wm.add(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 10), bx + 1.55, 0.31, bz + 1.15, '#ffd23f'); wm.add(new THREE.CylinderGeometry(0.55, 0.55, 0.035, 10), bx - 1.55, 0.315, bz - 1.15, '#2a2f3a');
+    const ringG = new THREE.RingGeometry(3.7, 4.4, 40); ringG.rotateX(-Math.PI / 2); wm.add(new THREE.CylinderGeometry(4.5, 4.5, 0.04, 40), bx, 0.27, bz, '#2a2f3a'); wm.add(ringG, bx, 0.34, bz, '#ffd23f');
+    wm.add(Bx(0.5, 0.06, 4.4), bx, 0.37, bz, '#ffd23f', 0, 0.6, 0); wm.add(new THREE.CylinderGeometry(0.75, 0.75, 0.06, 12), bx + 1.55, 0.37, bz + 1.15, '#ffd23f'); wm.add(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 12), bx - 1.55, 0.45, bz - 1.15, '#2a2f3a');
     // props: tyre stacks, oil drums, a tool cabinet, cones
     for (let i = 0; i < 3; i++) { for (let k = 0; k < 4; k++) wm.add(new THREE.TorusGeometry(0.42, 0.18, 8, 14), S.x + 18.5 + i * 0.1, 0.22 + k * 0.38, S.z - S.d / 2 - 1.3 - i * 1.0, '#17171a', Math.PI / 2, 0, 0); solidProp(S.x + 18.5, S.z - S.d / 2 - 1.3 - i * 1.0, 0.6, 1.6); }
     for (let i = 0; i < 3; i++) { wm.add(new THREE.CylinderGeometry(0.42, 0.42, 1.0, 12), S.x - 18 + i * 0.9, 0.75, S.z - S.d / 2 - 1.2, ['#c0392b', '#2b6cb0', '#f1c40f'][i]); solidProp(S.x - 18 + i * 0.9, S.z - S.d / 2 - 1.2, 0.45, 1.2); }
