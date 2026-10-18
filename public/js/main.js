@@ -143,7 +143,7 @@ class Stage {
       o.hop = 0;
       o.c.group.position.set(p[0], p[1] + o.hop, p[2]);
       o.c.group.rotation.y = lerpAngle(o.c.group.rotation.y, this.mode === 'lobby' ? Math.sin(this.t * 0.7 + i) * 0.3 : Math.sin(this.t * 0.6 + i * 2) * 0.35, Math.min(1, dt * 4));
-      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: selected ? 'wave' : GESTURES[i] });
+      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: selected ? 'thumbs' : GESTURES[i] });
       if (o.tag) { o.tag.scale.set(2.4, 0.6, 1); }
     });
     this.ambient.update(this.t, cam.position);

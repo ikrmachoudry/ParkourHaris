@@ -189,8 +189,9 @@ function terrain(c, dt, track, spec, geo) {
     if (c.y <= gy) { const hit = -c.vy; c.y = gy; c.air = false; c.vy = 0; c.vyg = 0; if (hit > 5) { ev = hit > 10 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); const k = Math.max(0.6, 1 - hit * 0.012); c.vx *= k; c.vz *= k; } }
     c.pitch += (Math.atan2(c.vy, Math.max(8, sp)) * 0.8 - c.pitch) * Math.min(1, dt * 4);
   } else {
-    const rise = (gy - py) / Math.max(dt, 1e-3); c.vyg += (rise - c.vyg) * Math.min(1, dt * 18);
-    if (gy < py - 0.12 - sp * 0.0025) { c.air = true; c.vy = Math.max(c.vyg, 0); c.y = py; }
+    const vygPrev = c.vyg, rise = (gy - py) / Math.max(dt, 1e-3); c.vyg += (rise - c.vyg) * Math.min(1, dt * 18);
+    // leaving a ramp lip: take off with the climb speed we HAD on the ramp (the drop-off in this very frame must not eat it) - so a fast car really flies, a slow one hops
+    if (gy < py - 0.12 - sp * 0.0025) { c.air = true; c.vy = Math.max(vygPrev, c.vyg, 0); c.y = py; }
     else { c.y = gy; const fs = c.gx * fx + c.gz * fz; c.pitch += (Math.atan(fs) - c.pitch) * Math.min(1, dt * 12); }
   }
   c.air = c.air && c.y > gy + 1e-4;

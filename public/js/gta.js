@@ -46,7 +46,7 @@ const HP = Math.PI / 2;
 // MISSIONS: the Mission Lobby building (walk onto the pad inside) and the STUNT JUMP course on the coast highway: 4 white super cars wait on the start
 // line, two ramps follow, and the finish line is near the lookout.  Ramps are part of the ground height, so cars fly off them.
 export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
-export const STUNT = { name: 'STUNT JUMP', startX: 126, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[180, 0, HP0(), 20, 3.6, 12], [235, 0, HP0(), 20, 3.6, 12]], finishX: 296, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
+export const STUNT = { name: 'STUNT JUMP', startX: 112, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[150, 0, HP0(), 20, 2.6, 12], [232, 0, HP0(), 20, 2.6, 12]], finishX: 292, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
 function HP0() { return Math.PI / 2; }
 export const RAMPS = STUNT.ramps;
 export function rampH(x, z) {
