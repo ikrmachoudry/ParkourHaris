@@ -30,7 +30,10 @@ export class HeroActor {
     else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.7; t = this.tWalk; }
+    if (st.sitg && !st.seated) name = 'sitg';
+    else if (st.crouch && name !== 'jump' && !st.seated) name = 'crouch';
     if (name === 'idle' && st.gesture) name = st.gesture;
+    if (st.punch > 0 && !st.seated) { name = 'punch'; t = st.punch; }
     poseChar(this.ch, name, t, 1);
     // blend from the previous frame's pose (fast, so it still looks crisp)
     const k = Math.min(1, dt * 16);

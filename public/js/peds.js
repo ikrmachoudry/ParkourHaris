@@ -59,5 +59,18 @@ export class Peds {
       a.update(dt, { speed, grounded: p.st === 'walk' || p.st === 'lie', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false });
     }
   }
+  // a punch from the player: knocks down the nearest walking person in front (returns true if somebody was hit)
+  punch(x, z, fx, fz, onHit) {
+    let best = null, bd = 9;
+    for (const p of this.list) {
+      if (p.st !== 'walk') continue;
+      const dx = p.x - x, dz = p.z - z, d2 = dx * dx + dz * dz;
+      if (d2 > 3.4 || d2 < 1e-4 || (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3) continue;
+      if (d2 < bd) { bd = d2; best = p; }
+    }
+    if (!best) return false;
+    best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0;
+    if (onHit) onHit(best); return true;
+  }
   dispose() { for (const p of this.list) if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.length = 0; }
 }

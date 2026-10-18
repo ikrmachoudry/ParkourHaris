@@ -32,7 +32,7 @@ export function newCityState(c, spec) { // add the dynamic fields to a plain car
 // the corridor / on-road test is supplied by the caller (car.js) so this file stays free of imports
 // inp: { gas -1..1, steer -1..1, hb }   returns '', 'bump' or 'crash'
 export function stepCityCar(c, dt, inp, track, others, spec, onRoad) {
-  const geo = STYLE_GEO[spec.style], m = spec.mass, L = geo.wb, a = L * 0.46, b = L - a, h = 0.55, Iz = m * Math.pow(0.48 * L, 2);
+  const geo = STYLE_GEO[spec.style], m = spec.mass, L = geo.wb, a = L * 0.46, b = L - a, h = 0.55, Iz = m * Math.pow(0.42 * L, 2);
   let ev = '';
   const sub = Math.max(1, Math.ceil(dt / (1 / 120))), sdt = dt / sub;
   for (let s = 0; s < sub; s++) { ev = stepOnce(c, sdt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoad) || ev; }

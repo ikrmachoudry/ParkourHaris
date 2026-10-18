@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Parkour Haris</title>
+<title>Punjabi GTA</title>
 <meta name="theme-color" content="#2b1c6b">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -18,7 +18,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<button id="b-full" aria-label="Fullscreen"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<button id="b-full" aria-label="Fullscreen"><svg class="fs-in" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="fs-out" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
 <div id="ios-hint" class="hidden"><div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> &rarr; <b>Add to Home Screen</b><br><small>then open it from there for full screen</small></div></div>
 
 <div id="uw"></div>
@@ -28,9 +28,8 @@
   <!-- ============ TITLE ============ -->
   <section id="s-title" class="screen">
     <div class="logo">
-      <div class="logo-main">PARKOUR</div>
-      <div class="logo-by">MADE BY <b>HARIS</b></div>
-      <div class="logo-sub">3D Obstacle Race &bull; 1&ndash;3 Players</div>
+      <div class="logo-main">PUNJABI GTA</div>
+      <div class="logo-ur" lang="ur" dir="rtl">( لٹ پا دیو )</div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -40,7 +39,7 @@
         <button class="btn purple" id="b-sound">SOUND: ON</button>
       </div>
     </div>
-    <div class="made">&copy; HARIS &bull; Parkour</div>
+    <div class="made">&copy; HARIS &bull; Punjabi GTA</div>
   </section>
 
   <!-- ============ PROFILE / CHARACTER ============ -->
@@ -107,8 +106,14 @@
       <button id="b-exit" class="carbtn exit" aria-label="Get out of car"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M4 31 L7 21 Q9 14 17 14 L37 14 Q46 14 51 22 L62 25 Q67 27 67 32 L67 34 L4 34 Z" fill="#fff"/><path d="M19 17 L35 17 L40 22 L15 22 Z" fill="#8fd3ff"/><polygon points="36,15 56,5 63,27 42,36" fill="#ffd45e" stroke="#7a4a00" stroke-width="1.5"/><polygon points="40,17 53,10 57,22 44,28" fill="#8fd3ff"/><circle cx="19" cy="35" r="6.5" fill="#23252e"/><circle cx="19" cy="35" r="2.6" fill="#e8eaf2"/><circle cx="53" cy="35" r="6.5" fill="#23252e"/><circle cx="53" cy="35" r="2.6" fill="#e8eaf2"/></svg></span><em>GET OUT</em><kbd>C</kbd></button>
       <button id="b-racer" class="carbtn racer" aria-label="Swap into a racer"><span class="ic"><svg viewBox="0 0 72 44" aria-hidden="true"><path d="M3 32 L10 24 Q14 20 24 20 L38 19 Q46 19 52 24 L68 27 L69 33 L3 33 Z" fill="#ff2a3d"/><path d="M26 21 L38 21 L43 25 L22 25 Z" fill="#8fd3ff"/><rect x="1" y="14" width="10" height="3" fill="#15161c"/><rect x="4" y="17" width="2" height="8" fill="#15161c"/><rect x="26" y="26" width="22" height="2" fill="#fff"/><circle cx="18" cy="34" r="7" fill="#23252e"/><circle cx="18" cy="34" r="3" fill="#e8eaf2"/><circle cx="54" cy="34" r="7" fill="#23252e"/><circle cx="54" cy="34" r="3" fill="#e8eaf2"/></svg></span><em>RACER</em><kbd>R</kbd></button>
       <div id="car-speed"><b>0</b><small>km/h</small></div>
-      <div id="car-keys"><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd><kbd>D</kbd> steer &nbsp;<kbd>SPACE</kbd> drift &nbsp;<kbd>H</kbd> horn</div>
-      <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button><button id="c-hb" aria-label="Handbrake"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 7v6M12 16v.5"/></svg></button></div>
+      <div id="car-keys"><kbd>W</kbd> gas &nbsp;<kbd>S</kbd> brake &nbsp;<kbd>A</kbd><kbd>D</kbd> steer &nbsp;<kbd>H</kbd> horn</div>
+      <div id="car-pad"><button id="c-horn" aria-label="Horn">&#128226;</button></div>
+    </div>
+    <div id="act-pad">
+      <button id="a-punch" aria-label="Punch"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a2 2 0 0 1 4 0v3M11 10V5.5a2 2 0 0 1 4 0V10M15 10V7.5a2 2 0 0 1 4 0V14a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-2.7L4 15.5a1.8 1.8 0 0 1 3-2L8 15"/></svg><kbd>F</kbd></button>
+      <button id="a-jump" aria-label="Jump"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg><kbd>SPACE</kbd></button>
+      <button id="a-crouch" aria-label="Crouch"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 8v5l-4 3M12 13l4 3M9 10l3 1 3-1"/></svg><kbd>Z</kbd></button>
+      <button id="a-sit" aria-label="Sit"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="2"/><path d="M8 8v6h9M8 14v5M17 14v5M8 11l4 1"/></svg><kbd>X</kbd></button>
     </div>
     <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
     <div id="hud-top">

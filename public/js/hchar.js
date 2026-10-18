@@ -313,11 +313,11 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperleg.L'], -1.5, 0, 0.05); R(b['upperleg.R'], -1.5, 0, -0.05); R(b['lowerleg.L'], 1.5, 0, 0); R(b['lowerleg.R'], 1.5, 0, 0); b.hips.position.y = rest.hips.y - 0.56; R(b.spine, -0.12, 0, 0);
     R(b['upperarm.L'], -0.9, 0, -0.1); R(b['upperarm.R'], -0.9, 0, 0.1); R(b['forearm.L'], -0.6, 0, 0); R(b['forearm.R'], -0.6, 0, 0);
   }
-  else if (name === 'cross') {   // arms folded, weight on one leg: calm and confident
-    const br = Math.sin(t * 1.4) * 0.01;
-    R(b.chest, br, 0.04, 0); R(b.head, -br, -0.08, 0); R(b['upperleg.L'], -0.03, 0, 0.05); R(b['upperleg.R'], 0.06, 0, -0.1); R(b['lowerleg.R'], 0.06, 0, 0);
-    R(b['upperarm.R'], -0.7, 0, 0.15); R(b['forearm.R'], -1.4, 0, 1.2); R(b['upperarm.L'], -0.7, 0, -0.15); R(b['forearm.L'], -1.4, 0, -1.2);
-    curl('R', 0.9); curl('L', 0.9);
+  else if (name === 'relaxed') {   // natural stand: arms loose at the sides, weight on one leg, slow breathing and a glance around
+    const br = Math.sin(t * 1.4) * 0.012, gl = Math.sin(t * 0.5) * 0.18;
+    R(b.chest, br, 0.03, 0); R(b.head, -br, gl, 0); R(b['upperleg.L'], -0.03, 0, 0.05); R(b['upperleg.R'], 0.06, 0, -0.1); R(b['lowerleg.R'], 0.06, 0, 0);
+    R(b['upperarm.R'], 0.05, 0, 0.1); R(b['forearm.R'], -0.25, 0, 0); R(b['upperarm.L'], 0.05, 0, -0.1); R(b['forearm.L'], -0.25, 0, 0);
+    curl('R', 0.45); curl('L', 0.45);
   } else if (name === 'pocket') { // hands in the pockets, easy stance, small sway
     const sw = Math.sin(t * 0.9) * 0.015;
     R(b.chest, sw, 0.03, 0); R(b.head, -0.02, -0.12 + sw, 0); R(b['upperleg.L'], 0.05, 0, 0.08); R(b['upperleg.R'], -0.04, 0, -0.04);
@@ -338,6 +338,27 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.chest, 0.06 + br, 0, 0); R(b.head, 0.38, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
     R(b['upperarm.R'], -0.65, 0.2, 0.2); R(b['forearm.R'], -1.7, 0, 0.5); R(b['hand.R'], -0.2, 0, 0); curl('R', 0.8);
     R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
+  }
+  else if (name === 'crouch') {   // low, knees bent, ready to sneak
+    const br = Math.sin(t * 2) * 0.01;
+    b.hips.position.y = rest.hips.y - 0.4; b.hips.position.z = rest.hips.z + 0.04;
+    R(b['upperleg.L'], -1.05, 0, 0.12); R(b['upperleg.R'], -1.05, 0, -0.12); R(b['lowerleg.L'], 1.95, 0, 0); R(b['lowerleg.R'], 1.95, 0, 0);
+    R(b.spine, 0.3 + br, 0, 0); R(b.chest, 0.1, 0, 0); R(b.head, -0.3, 0, 0);
+    R(b['upperarm.L'], -0.5, 0, -0.1); R(b['upperarm.R'], -0.5, 0, 0.1); R(b['forearm.L'], -0.7, 0, 0); R(b['forearm.R'], -0.7, 0, 0);
+  } else if (name === 'sitg') {   // sitting on the ground, legs out, leaning back on the hands
+    const br = Math.sin(t * 1.4) * 0.01;
+    b.hips.position.y = rest.hips.y - 0.7;
+    R(b['upperleg.L'], -1.5, 0, 0.18); R(b['upperleg.R'], -1.5, 0, -0.18); R(b['lowerleg.L'], 0.12, 0, 0); R(b['lowerleg.R'], 0.12, 0, 0);
+    R(b.spine, -0.12 + br, 0, 0); R(b.head, 0.08, Math.sin(t * 0.5) * 0.25, 0);
+    R(b['upperarm.L'], 0.45, 0, -0.25); R(b['upperarm.R'], 0.45, 0, 0.25); R(b['forearm.L'], -0.15, 0, 0); R(b['forearm.R'], -0.15, 0, 0);
+    curl('L', 0.3); curl('R', 0.3);
+  } else if (name === 'punch') {  // t = progress 0..1: wind-up, straight right, return
+    const e = t < 0.25 ? -t / 0.25 * 0.35 : t < 0.5 ? -0.35 + (t - 0.25) / 0.25 * 1.35 : Math.max(0, 1 - (t - 0.5) / 0.4);   // -0.35 (back) .. 1 (full extension)
+    const ex = Math.max(0, e), bk = Math.min(0, e);
+    R(b.hips, 0, 0.35 * ex - 0.2 * -bk, 0); R(b.chest, 0.05, -0.55 * ex - 0.25 * -bk, 0); R(b.spine, 0.1 * ex, 0, 0); R(b.head, 0, 0.45 * ex, 0);
+    R(b['upperleg.L'], -0.35, 0, 0.1); R(b['upperleg.R'], 0.3, 0, -0.1); R(b['lowerleg.L'], 0.25, 0, 0); R(b['lowerleg.R'], 0.15, 0, 0);
+    R(b['upperarm.R'], -0.9 - 0.7 * ex - bk * 0.3, 0, 0.12 - 0.12 * ex); R(b['forearm.R'], -1.9 + 1.8 * ex, 0, 0); curl('R', 1.3);
+    R(b['upperarm.L'], -0.95, 0, -0.15); R(b['forearm.L'], -1.9, 0, 0); curl('L', 1.3);
   }
   void k;
 }

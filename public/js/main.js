@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
-const GESTURES = ['cross', 'pocket', 'thumbs', 'phone'];
+const GESTURES = ['relaxed', 'pocket', 'thumbs', 'phone'];
 import { buildLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
@@ -20,7 +20,7 @@ import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
-const touch = { x: 0, y: 0, jump: false, grab: false, hb: false };
+const touch = { x: 0, y: 0, jump: false, grab: false };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -104,11 +104,11 @@ class Stage {
     });
     this.slotPos = [[-4.5, 0.8, -0.5], [-1.5, 1.25, -0.5], [1.5, 1.25, -0.5], [4.5, 0.8, -0.5]];
     // HARIS floor decal + sky banner
-    const tex = harisTexture('HARIS'), texS = harisTexture('HARIS', 'MADE THIS GAME');
+    const tex = harisTexture('HARIS'), texS = harisTexture('MADE BY HARIS');
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     dm.rotation.x = -Math.PI / 2; dm.position.set(0, 0.1, 4.4); this.scene.add(dm);
-    const bn = new THREE.Mesh(new THREE.PlaneGeometry(26, 13), new THREE.MeshBasicMaterial({ map: texS, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
-    bn.position.set(0, 9.5, -24); this.scene.add(bn); this.banner = bn;
+    const bn = new THREE.Mesh(new THREE.PlaneGeometry(20, 7.8), new THREE.MeshBasicMaterial({ map: texS, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+    bn.position.set(0, 3.7, -24); this.scene.add(bn); this.banner = bn;
     this.chars = [0, 1, 2, 3].map((id) => { const c = new HeroActor(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(360); this.scene.add(this.particles.points);
@@ -196,7 +196,7 @@ class Remote {
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
-    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & 256), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed });
+    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & 256), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), sitg: !!(this.flags & 4194304), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / 0.45)) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -217,7 +217,7 @@ class Race {
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
     this.camYaw = 0; this.camPitch = NO_TEXT ? 0.17 : 0.34; this.camDist = NO_TEXT ? 3.5 : 8.2; this.shoulder = 0; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
-    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
+    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.sitG = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
@@ -331,6 +331,13 @@ class Race {
     const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
     const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive && !this.meta.city };
     if (this.meta.city) b.speedMul = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && ml > 0.6 ? 1.75 : (ml > 0 && ml < 0.55 ? 0.42 : 1);   // Shift sprints; a light stick push walks
+    if (this.meta.city) {
+      if (this.sitG && (ml > 0.25 || press.jump)) this.sitG = false;             // walking or jumping stands you up
+      if (this.crouch && press.jump) this.crouch = false;
+      if (this.drive) { this.sitG = false; this.crouch = false; }
+      if (this.sitG) { inp.mx = 0; inp.mz = 0; inp.jumpPressed = false; inp.jumpHeld = false; }
+      else { if (this.crouch) b.speedMul = 0.4; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5); }
+    }
     press.jump = false; press.dive = false;
 
     // a bonk can never keep you down: stun is always <1 s, even while driving (stepBody is not run then) or after a long frame
@@ -355,6 +362,7 @@ class Race {
       if (h && knock(b, h.nx, h.nz, h.pow)) { A.sfx.hit(); this.particles.emit(b.x, b.y + 0.9, b.z, 26, { color: '#ffffff', speed: 5, up: 3, life: 0.5, size: 0.3 }); this.particles.emit(b.x, b.y + 0.9, b.z, 14, { color: '#ffd23f', speed: 7, up: 4, life: 0.4, size: 0.25 }); }
     }
     if (!this.drive && !this.meta.city) this.updateBat(dt, b);
+    if (this.meta.city) this.updatePunch(dt, b);
     if (!this.meta.city) this.updatePowerups(dt, b);
     if (!this.drive) { this.softCollide(b); this.softCars(b, canMove); }
     this.checkpoints(b);
@@ -371,7 +379,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
     else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); }
-    m.update(dt, { seated: !!this.drive, speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    m.update(dt, { seated: !!this.drive, speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, sitg: this.sitG && !this.drive, punch: this.drive ? 0 : this.punchT });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -468,18 +476,17 @@ class Race {
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
   updateDrive(dt, canMove) {
     const c = this.drive, st = c.st, b = this.me.body;
-    let gas = 0, steer = 0, hb = false;
+    let gas = 0, steer = 0;
     if (canMove) {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
-      hb = keys.has('Space') || touch.hb;
       if (touch.x || touch.y) { // phone: left-screen joystick like a steering wheel + pedal: up = gas, down = brake / reverse, left / right = steer (works while accelerating)
         const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, tx = Math.abs(touch.x) < 0.1 ? 0 : touch.x;
         gas += ty; steer += Math.sign(tx) * Math.min(1, Math.abs(tx) * 1.35);
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), hb };
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) };
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
       if (ev) {
@@ -641,7 +648,7 @@ class Race {
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
-    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0);
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? 256 | (this.drive.st.id << 9) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.sitG && !this.drive ? 4194304 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0);
     app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
@@ -677,6 +684,40 @@ class Race {
       this.particles.emit(r.x, r.y + 1, r.z, 14, { color: '#ffffff', speed: 5, up: 3, life: 0.4, size: 0.25 });
     }
   }
+  toggleCrouch() { if (this.over || this.drive) return; this.sitG = false; this.crouch = !this.crouch; this.syncAct(); }
+  toggleSit() {
+    if (this.over || this.drive) return;
+    const b = this.me.body; if (this.sitG) { this.sitG = false; this.syncAct(); return; }
+    if (!b.grounded || Math.hypot(b.vx, b.vz) > 2.5) return;
+    this.crouch = false; this.sitG = true; this.syncAct();
+  }
+  syncAct() { const c = $('a-crouch'), t = $('a-sit'); if (c) c.classList.toggle('on', !!this.crouch); if (t) t.classList.toggle('on', !!this.sitG); }
+  // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
+  punch() {
+    if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
+    this.sitG = false; this.punchCd = 0.55; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(); return true;
+  }
+  updatePunch(dt, b) {
+    if (this.punchCd > 0) this.punchCd -= dt;
+    if (this.punchT > 0) {
+      this.punchT += dt / 0.45;
+      if (b.stun > 0) { this.punchT = 0; this.punchPending = false; }
+      else if (this.punchPending && this.punchT >= 0.42) { this.punchPending = false; this.punchHit(b); }
+      if (this.punchT >= 1) this.punchT = 0;
+    }
+  }
+  punchHit(b) {
+    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
+    if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p) => { A.sfx.bonk(); this.particles.emit(p.x, 1.2, p.z, 10, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); })) return;
+    for (const r of this.remotes.values()) {
+      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
+      const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
+      if (d > 1.9 || Math.abs(dy) > 1.5 || d < 1e-3) continue;
+      if ((dx * fx + dz * fz) / d < 0.3) continue;
+      app.net.send({ t: 'bat', to: r.id, nx: +fx.toFixed(3), nz: +fz.toFixed(3), p: 0.5, ax: +b.x.toFixed(1), az: +b.z.toFixed(1) });
+      A.sfx.bonk(); this.particles.emit(r.x, r.y + 1.2, r.z, 10, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 }); break;
+    }
+  }
   sendNet(o) { if (this.multi) app.net.send(o); }
   onShove(m) { // somebody is running into ME: move out of their way (a shield makes you immovable)
     const b = this.me.body; if (this.over || this.finished || this.levelTime < 0 || b.shield > 0) return;
@@ -690,6 +731,7 @@ class Race {
     if (Number.isFinite(m.ax) && Number.isFinite(m.az) && Math.hypot(m.ax - b.x, m.az - b.z) > 7) return; // I had already run away from where they swung: no phantom hits
     b.hitCd = 0;
     if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
+    if (m.p === 0.5) { if (knock(b, m.nx, m.nz, 9)) { b.vy = 3; b.stun = 0.45; this.sitG = false; this.crouch = false; A.sfx.bonk(); } return; }
     const big = m.p === 2;
     if (knock(b, m.nx, m.nz, big ? 22 : 15)) { b.vy = big ? 11 : 9; b.stun = big ? 1.0 : 0.75; this.bonked(big ? 'MEGA BONK!' : 'BONKED!', who, b); }
   }
@@ -1135,6 +1177,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
   if (e.code === 'KeyM') toggleSound();
   if (e.code === 'KeyG') press.grab = true;
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyX') race.toggleSit(); else if (e.code === 'KeyF') race.punch(); }
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
@@ -1296,10 +1339,15 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
     const u = (e) => { e.preventDefault(); e.stopPropagation(); if (up) up(); };
     el.addEventListener('touchend', u, { passive: false }); el.addEventListener('touchcancel', u, { passive: false });
   };
+  // on-screen action buttons (laptop: mouse, phone: touch)
+  const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
+  act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
+  act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
+  act('a-sit', () => { if (race && !race.over && !race.menuOpen) race.toggleSit(); });
+  act('a-punch', () => { if (race && !race.over && !race.menuOpen) race.punch(); });
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
-  btn('c-hb', () => { touch.hb = true; }, () => { touch.hb = false; });
   btn('c-horn', () => { if (race) race.honkOn(); }, () => A.hornStop());
   btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
   { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }
