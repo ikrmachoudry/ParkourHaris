@@ -15,12 +15,16 @@ export const CITY_VEH = [
   { id: 16, name: 'Coupe', style: 'coupe', paint: '#c9a227', mass: 1500, kW: 175, top: 39.8, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.85, hornHz: 450 },
   { id: 17, name: 'Sports', style: 'sports', paint: '#e8e8ea', mass: 1380, kW: 330, top: 47.2, mu: 1.2, drive: 'rwd', cda: 0.58, cyl: 8, pitch: 0.95, hornHz: 480 },
   { id: 18, name: 'Old Sedan', style: 'sedan', paint: '#4e6a52', mass: 1450, kW: 66, top: 31.5, mu: 0.95, drive: 'fwd', cda: 0.7, cyl: 4, pitch: 0.9, hornHz: 400 },
+  { id: 19, name: 'Sport Bike', style: 'bikeS', kind: 'sport', paint: '#e11d2e', mass: 260, kW: 95, top: 44.5, mu: 1.2, drive: 'rwd', cda: 0.36, cyl: 4, pitch: 1.5, hornHz: 560 },
+  { id: 20, name: 'Cruiser', style: 'bikeC', kind: 'cruiser', paint: '#1f3a8a', mass: 360, kW: 58, top: 33.5, mu: 1.1, drive: 'rwd', cda: 0.5, cyl: 2, pitch: 0.75, hornHz: 480 },
+  { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540 },
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
 // geometry the physics needs (metres) from the body style
 const STYLE_GEO = {
   sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
+  bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
 };
 
 export function newCityState(c, spec) { // add the dynamic fields to a plain car state (see car.js newCar)

@@ -54,7 +54,7 @@ mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(300);
 const R = ph.race;
 ok(!!R && R.level === 0 && R.meta.city && R.meta.name === 'Punjabi GTA', 'the only map is Punjabi GTA and it starts directly');
-ok(R.cars.length === 16, '16 parked vehicles');
+ok(R.cars.length === 24, '24 parked vehicles');
 ok(R.peds && R.peds.list.length >= 10, 'pedestrians exist (' + (R.peds && R.peds.list.length) + ')');
 const b = R.me.body, c0 = R.cars[7];
 

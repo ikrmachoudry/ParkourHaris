@@ -26,7 +26,7 @@ export class HeroActor {
     this.t += dt;
     let name = 'idle', t = this.t;
     const sp = st.speed || 0;
-    if (st.seated) name = 'sit';
+    if (st.seated) name = st.bike ? 'ride' : 'sit';
     else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }
@@ -46,7 +46,7 @@ export class HeroActor {
     }
     { const tg = st.stun > 0.3 ? 1 : 0; this.lie = (this.lie || 0) + (tg - (this.lie || 0)) * Math.min(1, dt * (tg ? 12 : 7));   // knocked flat, then gets back up
       if (this.lie > 0.004 || tg) { this.ch.group.rotation.x = -1.4 * this.lie; this.hadLie = true; } else if (this.hadLie) { this.ch.group.rotation.x = 0; this.hadLie = false; } }
-    this.pose = name; this.seated = name === 'sit';
+    this.pose = name; this.seated = name === 'sit' || name === 'ride';
   }
   dispose() {
     this.group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose()); } });

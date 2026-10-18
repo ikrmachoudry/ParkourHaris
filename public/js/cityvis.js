@@ -2,6 +2,7 @@
 // (position + yaw on the outer group, userData.seat for the driver) and adds suspension roll / pitch, wheel spin, door animation.
 import * as THREE from 'three';
 import { buildHeroCar, CAR_STYLES } from './hcar.js';
+import { buildHeroBike, BIKE_KINDS } from './hbike.js';
 import { cityVeh } from './cityveh.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -33,7 +34,25 @@ function bakeCar(root) {
   return out;
 }
 
+// a motorbike: same shape of userData as a car, plus bike:true (the rider straddles it and it leans into turns)
+function buildBikeMesh(spec, lo, bakedOnly) {
+  const K = BIKE_KINDS[spec.kind], opts = { kind: spec.kind, paint: spec.paint };
+  const full = bakedOnly ? null : buildHeroBike({ ...opts, detail: lo ? 'lo' : 'hi' });
+  const baked = bakeCar(buildHeroBike({ ...opts, detail: 'lo' }).group);
+  const g = new THREE.Group(), rot = new THREE.Group();
+  rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
+  g.userData = {
+    hero: full || { dent() {}, hurtLook() {}, repair() {}, setColor() {}, mats: {} }, spec, baked, bakedOnly, full: full ? full.group : baked, wheels: [], pivots: [], bike: true, kind: spec.kind,
+    seat: { z: -0.3, y: K.seatY }, seatF: -0.3, seatR: 0, seatY: K.seatY - 0.23, seatS: 1, lamp: null, grips: full ? full.grips : [],
+    ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
+  };
+  return g;
+}
+
 export function buildCityMesh(id, lo = false, bakedOnly = false) {
+  if (cityVeh(id).kind) return buildBikeMesh(cityVeh(id), lo, bakedOnly);
   const spec = cityVeh(id), sp = CAR_STYLES[spec.style];
   const opts = { style: spec.style, paint: spec.paint, extra: spec.extra };
   const loCar = (lo || bakedOnly) ? buildHeroCar({ ...opts, detail: 'lo' }) : null;       // cheap copy for distance
@@ -72,6 +91,12 @@ export function animateCityMesh(mesh, st, dt) {
   const ax = st.ownd ? st.ax : ((spd - (u.sp || spd)) / Math.max(dt, 1e-3));
   u.sp = spd;
   u.ph += (spd / 0.34) * dt; car.spin(u.ph);
+  if (u.bike) {   // bikes lean INTO the turn (about the line where the tyres touch the road)
+    car.steer(-(st.steer || 0) * Math.min(0.5, 14 / Math.max(1, spd * spd) + 0.04));
+    u.roll += (clamp(-ay * 0.085 + (st.steer || 0) * Math.min(1, Math.abs(spd) / 8) * 0.12, -0.62, 0.62) - u.roll) * Math.min(1, dt * 7);
+    u.pit += (clamp(-ax * 0.006, -0.12, 0.1) - u.pit) * Math.min(1, dt * 7);
+    mesh.rotation.z = u.roll; mesh.rotation.x = -(st.pitch || 0) + u.pit; return;
+  }
   const dMax = Math.min(0.58, 26 / Math.max(1, spd * spd));
   car.steer(-(st.steer || 0) * dMax);
   u.roll += (clamp(ay * 0.0065, -0.075, 0.075) - u.roll) * Math.min(1, dt * 9);
