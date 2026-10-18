@@ -571,6 +571,7 @@ class Race {
     const [en, hi] = L[Math.floor(Math.random() * L.length)];
     if (v.bub) { v.m.group.remove(v.bub); v.bub.material.map.dispose(); v.bub.material.dispose(); }
     v.bub = makeBubble(en, hi); v.bub.position.set(0, v.m.height + 1.9, 0); v.m.group.add(v.bub); v.say = kind === 'die' ? 2.4 : 2.0;
+    { const d = v.m.group.position.distanceTo(this.camera.position); A.speakHindi(hi, this.thugs[i].ch, 1 - d / 60); }
   }
   stealCar(c) {
     const v = this.cars.indexOf(c), t = this.thugs[v], b = this.me.body;

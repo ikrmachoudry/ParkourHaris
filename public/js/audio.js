@@ -169,3 +169,17 @@ export function engineStop() {
   if (!eng) return; const e = eng; eng = null;
   try { e.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch { /* noop */ } }, 300); } catch { /* noop */ }
 }
+
+// Spoken Hindi (browser text-to-speech). Each speaker gets their own pitch/speed so thugs sound different. Silent if the device has no speech engine.
+let hiVoice = null;
+export function speakHindi(text, who = 0, vol = 1) {
+  try {
+    const ss = window.speechSynthesis; if (!ss || muted || vol <= 0.02) return;
+    if (!hiVoice) hiVoice = (ss.getVoices() || []).find((v) => /^hi/i.test(v.lang)) || null;
+    ss.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'hi-IN'; if (hiVoice) u.voice = hiVoice;
+    u.pitch = [0.6, 1.5, 0.85, 1.2][who % 4]; u.rate = [0.95, 1.1, 0.9, 1.05][who % 4]; u.volume = Math.min(1, vol);
+    ss.speak(u);
+  } catch { /* no speech support */ }
+}
+try { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => { hiVoice = null; }; } catch { /* ignore */ }
