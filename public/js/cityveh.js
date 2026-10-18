@@ -15,9 +15,9 @@ export const CITY_VEH = [
   { id: 16, name: 'Coupe', style: 'coupe', paint: '#c9a227', mass: 1500, kW: 175, top: 39.8, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.85, hornHz: 450 },
   { id: 17, name: 'Sports', style: 'sports', paint: '#e8e8ea', mass: 1380, kW: 330, top: 47.2, mu: 1.2, drive: 'rwd', cda: 0.58, cyl: 8, pitch: 0.95, hornHz: 480 },
   { id: 18, name: 'Old Sedan', style: 'sedan', paint: '#4e6a52', mass: 1450, kW: 66, top: 31.5, mu: 0.95, drive: 'fwd', cda: 0.7, cyl: 4, pitch: 0.9, hornHz: 400 },
-  { id: 19, name: 'Sport Bike', style: 'bikeS', kind: 'sport', paint: '#e11d2e', mass: 260, kW: 95, top: 44.5, mu: 1.2, drive: 'rwd', cda: 0.36, cyl: 4, pitch: 1.5, hornHz: 560 },
-  { id: 20, name: 'Cruiser', style: 'bikeC', kind: 'cruiser', paint: '#1f3a8a', mass: 360, kW: 58, top: 33.5, mu: 1.1, drive: 'rwd', cda: 0.5, cyl: 2, pitch: 0.75, hornHz: 480 },
-  { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540 },
+  { id: 19, name: 'Sport Bike', style: 'bikeS', kind: 'sport', paint: '#e11d2e', mass: 260, kW: 95, top: 44.5, mu: 1.2, drive: 'rwd', cda: 0.36, cyl: 4, pitch: 1.5, hornHz: 560, latG: 0.95, dLock: 0.42, dK: 40 },
+  { id: 20, name: 'Cruiser', style: 'bikeC', kind: 'cruiser', paint: '#1f3a8a', mass: 360, kW: 58, top: 33.5, mu: 1.1, drive: 'rwd', cda: 0.5, cyl: 2, pitch: 0.75, hornHz: 480, latG: 0.95, dLock: 0.42, dK: 40 },
+  { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540, latG: 0.95, dLock: 0.42, dK: 40 },
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
@@ -57,7 +57,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const gasIn = inp.gas;
   c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 12 : 16));
   const au = Math.abs(u);
-  const dMax = Math.min(0.6, 70 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
+  const dMax = Math.min(spec.dLock || 0.6, (spec.dK || 70) / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
   const delta = -c.steer * dMax;                                          // left-positive road-wheel angle
   let throttle = 0, brake = 0;
   const dead = c.hp !== undefined && c.hp <= 0;
@@ -105,7 +105,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   if (!air && !inp.hb && u > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
   c.yr += yawAcc * dt; c.yr *= Math.exp(-0.5 * dt);
   // steering assist: the car turns at the rate the wheels ask for (limited by what the tyres can hold), so it answers the wheel at once on any surface
-  if (!air && Math.abs(u) > 1.2) { const lim = mu * G * 1.35 / Math.abs(u), yrT = clamp(u * Math.tan(delta) / L, -lim, lim); c.yr += (yrT - c.yr) * Math.min(1, dt * (onRd ? 7 : 5.5)); }                         // a hint of yaw damping from the suspension
+  if (!air && Math.abs(u) > 1.2) { const lim = mu * G * (spec.latG || 1.35) / Math.abs(u), yrT = clamp(u * Math.tan(delta) / L, -lim, lim); c.yr += (yrT - c.yr) * Math.min(1, dt * (onRd ? 7 : 5.5)); }                         // a hint of yaw damping from the suspension
   let du = axTotal + vl * c.yr, dvl = ay - u * c.yr;
   if (air) { du = -Fdrag / m; dvl = 0; }
   u += du * dt; const vl2 = vl + dvl * dt;

@@ -2,6 +2,7 @@
 import express from 'express';
 import compression from 'compression';
 import http from 'http';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
@@ -15,6 +16,15 @@ const app = express();
 app.disable('x-powered-by');
 app.use(compression());
 app.get('/health', (_q, r) => r.send('ok'));
+// the page itself is never cached, and its script / style links carry the build time: a phone (or a home-screen shortcut) can never keep running an old copy
+const pubDir = path.join(__dirname, 'public');
+app.get(['/', '/index.html'], (_q, r) => {
+  try {
+    const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;
+    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"');
+    r.set('Cache-Control', 'no-store').type('html').send(html);
+  } catch (e) { r.set('Cache-Control', 'no-store').sendFile(path.join(pubDir, 'index.html')); }
+});
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three'), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: true })); // always re-check with ETag: players get new versions right after a deploy, 304 keeps it cheap
 
@@ -162,6 +172,7 @@ wss.on('connection', (ws, req) => {
 
     switch (m.t) {
       case 'ping': send(ws, { t: 'pong', c: m.c, s: Date.now() }); break;
+      case 'rooms': send(ws, { t: 'rooms', n: [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS).length }); break;   // lets the JOIN button know whether a room exists
 
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });

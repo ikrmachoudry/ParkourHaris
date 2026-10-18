@@ -554,8 +554,10 @@ class Race {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
       if (touch.x || touch.y) { // phone: left-screen joystick like a steering wheel + pedal: up = gas, down = brake / reverse, left / right = steer (works while accelerating)
-        const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, tx = Math.abs(touch.x) < 0.06 ? 0 : touch.x;
-        gas += ty; steer += Math.sign(tx) * Math.min(1, Math.abs(tx) * 2.0);
+        // a steady thumb pushing UP to accelerate always wanders a little sideways: a dead zone that grows with the push, then a soft curve (small movements = gentle steering, the edge = full lock)
+        const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, dz = 0.2 + 0.16 * Math.min(1, Math.abs(touch.y) * 1.3), ax = Math.abs(touch.x);
+        const sv = ax <= dz ? 0 : Math.pow(Math.min(1, (ax - dz) / (0.95 - dz)), 1.5);
+        gas += ty; steer += Math.sign(touch.x) * sv;
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
@@ -1192,6 +1194,7 @@ async function ensureNet() {
     $('mp-status').textContent = m.msg;
     stopJoin(); gtoast(m.msg);   // no auto-retry: you can only join a room that already exists
   });
+  net.on('rooms', (m) => setJoinAvail(m.n | 0));
   net.on('go', onGo);
   net.on('s', (m) => { if (race && race.multi) { const r = race.remotes.get(m.id); if (r) r.push(m); } });
   net.on('fin', (m) => { if (race && race.multi) race.onFin(m); });
@@ -1208,7 +1211,19 @@ async function ensureNet() {
   app.net = net;
   return net;
 }
-function openMp() { $('mp-status').textContent = ''; stage.setTitle(app.char); show('mp'); }
+// JOIN ROOM is only available while a room exists: ask the server every 2 s while the multiplayer screen is open
+let roomPoll = null;
+function setJoinAvail(n) { const b = $('b-join'); if (!b) return; b.disabled = !(n > 0); b.classList.toggle('off', !(n > 0)); const sm = b.querySelector('small'); if (sm) sm.textContent = n > 0 ? 'A room is open - tap to join' : 'Not available yet - the host must tap CREATE ROOM first'; }
+async function startRoomPoll() {
+  if (roomPoll) { clearInterval(roomPoll); roomPoll = null; }
+  setJoinAvail(0);
+  try {
+    const net = await ensureNet();
+    const q = () => { if (app.screen !== 'mp' || app.room || !net.connected) { if (app.screen !== 'mp') { clearInterval(roomPoll); roomPoll = null; } return; } net.send({ t: 'rooms' }); };
+    q(); roomPoll = setInterval(q, 2000);
+  } catch (e) { $('mp-status').textContent = 'Could not connect to the game server.'; }
+}
+function openMp() { $('mp-status').textContent = ''; stage.setTitle(app.char); show('mp'); startRoomPoll(); }
 let joinTimer = null;
 function stopJoin() { if (joinTimer) { clearTimeout(joinTimer); joinTimer = null; } }
 async function mpAction(kind) {
