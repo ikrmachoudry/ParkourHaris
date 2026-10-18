@@ -43,13 +43,7 @@ export function gtaBase(x, z) {
 // STUNT RAMPS: wedges that start at (x,z) and rise in direction yaw (forward = sin yaw, cos yaw). They are part of the ground height,
 // so people walk up them and cars fly off them. [x, z, yaw, length, height, width]
 const HP = Math.PI / 2;
-export const RAMPS = [
-  [200, 0, HP, 30, 9, 12], [262, 0, HP, 36, 12, 12],                       // coast highway mega jumps (toward the lookout)
-  [-60, -100, 0, 16, 3.8, 9], [60, 100, Math.PI, 16, 3.8, 9], [100, 60, -HP, 16, 3.8, 9], [-100, -60, HP, 16, 3.8, 9],   // city kickers
-  [0, -40, 0, 22, 5.5, 10], [0, 40, Math.PI, 22, 5.5, 10],                  // two ramps facing each other on the main avenue (jump the gap!)
-  [-217, -215, -HP, 14, 3.4, 10],                                      // off the summit
-  [330, 150, HP, 24, 7, 12], [-250, 120, -HP, 22, 6, 11],                   // beach / west coast jumps
-];
+export const RAMPS = [];   // (the city is realistic now: no stunt ramps)
 export function rampH(x, z) {
   let h = 0;
   for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
@@ -96,17 +90,22 @@ export function gtaBuildings() {
 
 // parked cars (8: ids repeat so there are 4 looks) and the traffic loops (visual only)
 // 8 vehicles (the multiplayer car sync has 3 bits): 4 cars, 2 bikes, a SUPER BIKE (190 km/h) and a SUPER CAR (300 km/h), lined up near the spawn
-export function gtaCars() { return [[0, -26, 3.3], [2, -18, -3.3], [1, -10, 3.3], [3, 14, -3.3], [8, 22, 3.3], [8, 30, -3.3], [9, -34, -3.3], [10, 38, 3.3]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? Math.PI / 2 : -Math.PI / 2 })); }
+export function gtaCars() {
+  // 8 real cars (ids 11..18, see cityveh.js) parked nose-to-tail along the kerb near the spawn. Pakistan drives on the LEFT:
+  // east-bound cars use the north (-z) lane, west-bound the south (+z) lane.
+  return [[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 }));
+}
+// traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
+// the cars go anti-clockwise seen from above, hugging the inside lane of each ring.
 export const TRAFFIC = [
-  { x0: -60, x1: 60, z0: -60, z1: 60, n: 4, sp: 11 },
-  { x0: -120, x1: 120, z0: -120, z1: 120, n: 5, sp: 14 },
-  { x0: 0, x1: 120, z0: -60, z1: 0, n: 2, sp: 9 },
-  { x0: -120, x1: 0, z0: 0, z1: 60, n: 2, sp: 10 },
+  { x0: -60, x1: 60, z0: -60, z1: 60, n: 4, sp: 9 },
+  { x0: -120, x1: 120, z0: -120, z1: 120, n: 5, sp: 12 },
 ];
-// position of traffic car k on loop L at time t (clockwise, driving on the right-hand lane)
+// position + velocity of traffic car k on loop L at time t
 export function trafficPos(L, k, t) {
-  const lane = 2.6, x0 = L.x0 + lane, x1 = L.x1 - lane, z0 = L.z0 + lane, z1 = L.z1 - lane, w = x1 - x0, h = z1 - z0, per = 2 * (w + h);
+  const lane = 3.25, x0 = L.x0 + lane, x1 = L.x1 - lane, z0 = L.z0 + lane, z1 = L.z1 - lane, w = x1 - x0, h = z1 - z0, per = 2 * (w + h);
   let s = (((t * L.sp + k * per / L.n) % per) + per) % per, x, z, yaw;
-  if (s < w) { x = x0 + s; z = z0; yaw = Math.PI / 2; } else if ((s -= w) < h) { x = x1; z = z0 + s; yaw = 0; } else if ((s -= h) < w) { x = x1 - s; z = z1; yaw = -Math.PI / 2; } else { s -= w; x = x0; z = z1 - s; yaw = Math.PI; }
-  return { x, z, yaw };
+  // anti-clockwise: west along the north edge, south along the west edge, east along the south edge, north along the east edge
+  if (s < w) { x = x1 - s; z = z0; yaw = -Math.PI / 2; } else if ((s -= w) < h) { x = x0; z = z0 + s; yaw = Math.PI; } else if ((s -= h) < w) { x = x0 + s; z = z1; yaw = Math.PI / 2; } else { s -= w; x = x1; z = z1 - s; yaw = 0; }
+  return { x, z, yaw, vx: Math.sin(yaw) * L.sp, vz: Math.cos(yaw) * L.sp };
 }

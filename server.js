@@ -7,8 +7,6 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
 import { HUNT_DEFS, huntAnimalLayout, huntLayout, newHunt, stepHunt, packHunt, shootAnimal } from './public/js/hunt.js';
-import { TH, newThugs, stealThug, hitThug, stepThugs, packThugs } from './public/js/thugs.js';
-import { gtaH, gtaCars } from './public/js/gta.js';
 import { newQuest, stepQuest, questLayout, questAnimalLayout, QUEST_DEFS } from './public/js/quest.js';
 import { KINDS, newAnimals, stepAnimals, hitAnimal, releaseOwner, packAnimals, jungleLayout } from './public/js/jlayout.js';
 
@@ -95,7 +93,6 @@ function startRound(room) {
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
-  room.th = meta.city ? newThugs(gtaCars()) : null; room.thT = Date.now(); room.thN = 0;
   room.an = meta.hunt ? newAnimals(HUNT_DEFS()) : meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena && !meta.city ? newAnimals() : null; room.anT = Date.now();
   room.h = meta.hunt ? newHunt() : null; room.q = meta.quest ? newQuest() : null; room.seed = 1 + Math.floor(Math.random() * 1e9); room.qT = 0;
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
@@ -254,19 +251,6 @@ wss.on('connection', (ws, req) => {
         bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, y: cy, z: m.z, r: m.r }, p.id);
         break;
       }
-      case 'steal': { // press C next to a vehicle with a thug in it: he jumps out and fights
-        if (!room || room.phase !== 'race' || !room.th || !Number.isInteger(m.v)) return;
-        const t = room.th[m.v]; if (!t || t.st !== TH.SEAT) return;
-        if (Math.hypot((p.x || 0) - t.x, (p.z || 0) - t.z) > 9) return;
-        stealThug(room.th, m.v, p.id, p.x || 0, p.z || 0, t.x, t.z);
-        break;
-      }
-      case 'thit': { // bat swing at a thug (range-checked against the swinger's last known position)
-        if (!room || room.phase !== 'race' || !room.th || !Number.isInteger(m.v) || !num(m.fx, -1.01, 1.01) || !num(m.fz, -1.01, 1.01)) return;
-        const now = Date.now(); if (now - (p.lastThit || 0) < 450) return; p.lastThit = now;
-        hitThug(room.th, m.v, p.x || 0, p.z || 0, m.fx, m.fz, m.m === 1);
-        break;
-      }
       case 'bat': { // baseball bat hit: relay a push to the victim (never kills)
         if (!room || room.phase !== 'race') return;
         const q = room.players.get(m.to);
@@ -362,18 +346,6 @@ setInterval(() => {
       const q = room.players.get(e.pid); if (q) send(q.ws, { t: 'abite', id: e.id, nx: +e.nx.toFixed(3), nz: +e.nz.toFixed(3), big: e.big });
     }
     bcast(room, { t: 'an', a: packAnimals(room.an) });
-  }
-}, 50);
-
-// ---- Haris City thugs: one brain per room, 20 steps/second, state broadcast 10 times/second
-setInterval(() => {
-  const now = Date.now();
-  for (const room of rooms.values()) {
-    if (!room.th || room.phase !== 'race') continue;
-    const dt = Math.min(0.1, (now - (room.thT || now)) / 1000); room.thT = now;
-    const pl = [...room.players.values()].map((q) => ({ id: q.id, x: q.x || 0, y: q.y || 0, z: q.z || 0 }));
-    for (const e of stepThugs(room.th, dt, pl, gtaH)) if (e.k === 'hit') bcast(room, { t: 'thev', k: 'hit', v: e.v, pid: e.pid, nx: +e.nx.toFixed(3), nz: +e.nz.toFixed(3) });
-    if ((room.thN = (room.thN || 0) + 1) % 2 === 0) bcast(room, { t: 'th', a: packThugs(room.th) });
   }
 }, 50);
 

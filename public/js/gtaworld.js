@@ -1,6 +1,7 @@
 // HARIS CITY: builds the 3D city (terrain, roads, buildings, trees, lamps, traffic) and its collision into the World.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildTrafficMesh } from './cityvis.js';
 import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos } from './gta.js';
 
 const col = new THREE.Color();
@@ -69,12 +70,31 @@ function roadGeo(roads, h) {
       const y0 = s.y0 + ((s.y1 === undefined ? s.y0 : s.y1) - s.y0) * t0, y1 = s.y0 + ((s.y1 === undefined ? s.y0 : s.y1) - s.y0) * Math.min(1, t1 + 0.04);
       ribbon(x0, z0, y0, x1, z1, y1, s.hw, '#3d414e', 0.09);
       ribbon(x0, z0, y0, x1, z1, y1, s.hw - 0.25, '#464b5a', 0.095);
+      { // continuous white edge lines (not through junctions)
+        const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; let junction = false;
+        if (s.g[0] === 'x') junction = GT.GRID.some((g) => Math.abs(mz - g) < GT.HW + 0.5); else if (s.g[0] === 'z') junction = GT.GRID.some((g) => Math.abs(mx - g) < GT.HW + 0.5);
+        if (!junction && (s.g[0] === 'x' || s.g[0] === 'z')) { const dx = x1 - x0, dz = z1 - z0, Ls = Math.hypot(dx, dz) || 1, ox = -dz / Ls * (s.hw - 0.55), oz = dx / Ls * (s.hw - 0.55); for (const sg of [-1, 1]) ribbon(x0 + ox * sg, z0 + oz * sg, y0, x1 + ox * sg, z1 + oz * sg, y1, 0.07, '#e9e9e4', 0.105); }
+      }
       if (s.g === 'link' || i % 2 === 0) {
         // skip dashes at crossings of the grid
         const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; let skip = false;
         if (s.g[0] === 'x') skip = GT.GRID.some((g) => Math.abs(mz - g) < GT.HW + 1); else if (s.g[0] === 'z') skip = GT.GRID.some((g) => Math.abs(mx - g) < GT.HW + 1);
-        if (!skip) ribbon(x0, z0, y0, x1, z1, y1, 0.16, '#ffd84a', 0.11);
+        if (!skip) ribbon(x0, z0, y0, x1, z1, y1 - (y1 - y0) * 0.2, 0.08, '#f2f2ee', 0.11);
       }
+    }
+  }
+  { // zebra crossings on every arm of every junction of the city grid
+    const G = GT.GRID, hw = GT.HW;
+    for (const gx of G) for (const gz of G) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ex = gx + dx * 60, ez = gz + dz * 60; if (Math.abs(ex) > 121 || Math.abs(ez) > 121) continue;   // that arm of the junction does not exist
+      const cx = gx + dx * (hw + 2.2), cz = gz + dz * (hw + 2.2);
+      for (let k = -5; k <= 5; k++) { // stripes run along the road, the row of stripes goes across it
+        const lx = dx !== 0 ? cx : cx + k * 1.1, lz = dx !== 0 ? cz + k * 1.1 : cz, hx = dx !== 0 ? 1.4 : 0.28, hz = dx !== 0 ? 0.28 : 1.4;
+        quad([lx - hx, 0.108, lz - hz], [lx - hx, 0.108, lz + hz], [lx + hx, 0.108, lz + hz], [lx + hx, 0.108, lz - hz], '#eeeeea');
+      }
+      // stop line before the crossing
+      const sx = gx + dx * (hw + 4.6), sz = gz + dz * (hw + 4.6), a = dx !== 0 ? 0.2 : hw - 0.8, b2 = dx !== 0 ? hw - 0.8 : 0.2;
+      quad([sx - a, 0.108, sz - b2], [sx - a, 0.108, sz + b2], [sx + a, 0.108, sz + b2], [sx + a, 0.108, sz - b2], '#eeeeea');
     }
   }
   for (const p of roads.plazas) { // round plazas
@@ -133,6 +153,17 @@ export function buildGta(world, th, info, seed) {
   const bm = new THREE.Mesh(mergeGeometries(plain.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wt, bumpMap: wallTex, bumpScale: 0.6, roughness: 0.78, metalness: 0.02 })); bm.castShadow = true; bm.receiveShadow = true; world.group.add(bm);
   const gm = new THREE.Mesh(mergeGeometries(towers.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wg, roughness: 0.22, metalness: 0.55, envMapIntensity: 1.5 })); gm.castShadow = true; gm.receiveShadow = true; world.group.add(gm);
   const wm = world.main, R = rng(seed || 7), kerb = '#d9dde2';
+  const props = roads.props = [];   // thin solid things (tree trunks, lamp posts, benches): cars bump into them, people cannot walk through
+  const solidProp = (x, z, r, h, y = 0) => { world.addSolid(x - r, y, z - r, x + r, y + h, z + r, { name: 'prop' }); props.push({ x0: x - r, x1: x + r, z0: z - r, z1: z + r, h: y + h }); };
+  const plant = (x, y, z, sc, pine) => { tree(wm, x, y, z, sc, R, pine); solidProp(x, z, 0.3 * sc, 3, y); };
+  const lampPost = (x, z, side, horiz) => { // slim steel pole with a swept arm over the road and a lamp head
+    wm.add(new THREE.CylinderGeometry(0.08, 0.13, 7.2, 8), x, 3.6, z, '#4d545e');
+    const ax = horiz ? 0 : -side * 0.9, az = horiz ? -side * 0.9 : 0;
+    wm.add(new THREE.BoxGeometry(horiz ? 0.1 : 1.9, 0.1, horiz ? 1.9 : 0.1), x + ax, 7.15, z + az, '#4d545e');
+    wm.add(new THREE.BoxGeometry(horiz ? 0.34 : 0.7, 0.14, horiz ? 0.7 : 0.34), x + ax * 1.9, 7.1, z + az * 1.9, '#9aa1aa');
+    world.glow.add(new THREE.BoxGeometry(horiz ? 0.28 : 0.55, 0.05, horiz ? 0.55 : 0.28), x + ax * 1.9, 7.02, z + az * 1.9, '#fff1c4');
+    solidProp(x, z, 0.16, 7);
+  };
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
     const park = PARKS.some((p) => p[0] === bx && p[1] === bz);
     wm.add(world.rbox(47, 0.2, 47, 0.05), bx, 0.1, bz, park ? '#7ccf5b' : kerb);
@@ -153,14 +184,14 @@ export function buildGta(world, th, info, seed) {
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {
     wm.add(new THREE.CylinderGeometry(2.6, 2.8, 1.0, 14), px, 0.7, pz, '#b8c2cc'); wm.add(new THREE.CylinderGeometry(2.0, 2.0, 0.2, 14), px, 1.22, pz, '#5ec8f0'); wm.add(new THREE.CylinderGeometry(0.3, 0.4, 2.4, 8), px, 2.2, pz, '#b8c2cc'); world.glow.add(new THREE.SphereGeometry(0.7, 8, 6), px, 3.6, pz, '#bff0ff');
-    for (let i = 0; i < 16; i++) { const x = px + (R() - 0.5) * 42, z = pz + (R() - 0.5) * 42; if (Math.hypot(x - px, z - pz) < 6) continue; tree(wm, x, 0.2, z, 0.9 + R() * 0.7, R); }
-    for (const a of [0, 1, 2, 3]) { const x = px + Math.cos(a * 1.57) * 8, z = pz + Math.sin(a * 1.57) * 8; wm.add(world.rbox(2.4, 0.3, 0.8, 0.05), x, 0.55, z, '#8a5a34'); wm.add(world.rbox(2.4, 0.6, 0.15, 0.03), x, 0.9, z + 0.35, '#8a5a34'); }
+    for (let i = 0; i < 16; i++) { const x = px + (R() - 0.5) * 42, z = pz + (R() - 0.5) * 42; if (Math.hypot(x - px, z - pz) < 6) continue; plant(x, 0.2, z, 0.9 + R() * 0.7); }
+    for (const a of [0, 1, 2, 3]) { const x = px + Math.cos(a * 1.57) * 8, z = pz + Math.sin(a * 1.57) * 8; wm.add(world.rbox(2.4, 0.3, 0.8, 0.05), x, 0.55, z, '#8a5a34'); wm.add(world.rbox(2.4, 0.6, 0.15, 0.03), x, 0.9, z + 0.35, '#8a5a34'); solidProp(x, z, 1.2, 0.9, 0.2); }
   }
   // ---- street trees + lamps along every avenue
   for (const g of GT.GRID) for (const side of [-1, 1]) for (let t = -112; t <= 112; t += 14) {
     if (GT.GRID.some((q) => Math.abs(t - q) < 10)) continue;
     const o = side * (GT.HW + 2.2), lamp = ((t + 112) / 14) % 2 === 0;
-    for (const [x, z] of [[g + o, t], [t, g + o]]) { if (lamp) { wm.add(new THREE.CylinderGeometry(0.12, 0.16, 6, 6), x, 3.2, z, '#59606b'); world.glow.add(new THREE.SphereGeometry(0.42, 8, 6), x, 6.4, z, '#fff3b0'); } else tree(wm, x, 0.2, z, 0.8 + R() * 0.3, R); }
+    for (const [x, z, horiz] of [[g + o, t, false], [t, g + o, true]]) { if (lamp) lampPost(x, z, side, horiz); else plant(x, 0.2, z, 0.8 + R() * 0.3); }
   }
   // ---- forest on the hills and the mountain
   for (let i = 0, n = 0; i < 2600 && n < 380; i++) {
@@ -168,7 +199,7 @@ export function buildGta(world, th, info, seed) {
     const gx = (gtaH(x + 2, z) - gtaH(x - 2, z)) / 4, gz = (gtaH(x, z + 2) - gtaH(x, z - 2)) / 4; if (Math.hypot(gx, gz) > 0.55) continue;
     if (Math.abs(z) < 24 && x > 100) continue; // keep the highway clear
     let onRoad = false; for (let u = 0; u <= 1; u += 0.02) { const p = mtRoad(u); if (Math.hypot(p.x - x, p.z - z) < 13) { onRoad = true; break; } } if (onRoad) continue;
-    tree(wm, x, h, z, 1.2 + R() * 1.2, R); n++;
+    plant(x, h, z, 1.2 + R() * 1.2, true); n++;
   }
   // ---- lookout + summit props
   { const M = GT.MT, y = mtC(M.Rt); wm.add(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), M.cx, y + 4.5, M.cz, '#ddd'); world.glow.add(new THREE.BoxGeometry(3.4, 1.8, 0.1), M.cx + 1.7, y + 8, M.cz, '#ff6b9d'); }
@@ -180,24 +211,26 @@ export function buildGta(world, th, info, seed) {
     const n = 5; for (let i = 0; i < n; i++) { const u0 = (i + 0.5) / n * len, hh = hg * u0 / len; const st = new THREE.BoxGeometry(len / n * 0.45, 0.06, w * 0.96); st.rotateZ(Math.atan2(hg, len)); wm.add(st, rx + Math.sin(yaw) * u0, hh + 0.08, rz + Math.cos(yaw) * u0, '#ffffff', 0, yaw - Math.PI / 2, 0); }
     world.glow.add(new THREE.BoxGeometry(0.25, 0.25, w), rx + Math.sin(yaw) * len, hg + 0.12, rz + Math.cos(yaw) * len, '#ffee00', 0, yaw - Math.PI / 2, 0);
   }
-  // ---- traffic: cars drive round the avenues all day (they are scenery; they never hit you)
-  const traffic = [];
-  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const m = trafficCar(TCOL[(li * 3 + k) % TCOL.length]); world.group.add(m); traffic.push({ L, k, m }); } });
-  world.updaters.push((t) => { for (const c of traffic) { const p = trafficPos(c.L, c.k, t); c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; } });
+  // ---- traffic: real cars (merged, cheap) circling the avenues; they are solid for you and for people on foot
+  const traffic = [], tl = info.trafficList = [], tcol = ['#c9c9cf', '#1f3a5f', '#9a2b2b', '#e8e2d0', '#2d5a3d', '#6a6f78', '#d9b34a', '#4a2b5e', '#2b2b30'], tids = [11, 12, 13, 14, 16, 18];
+  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: id === 12 ? 1.98 : 2.3, hw: 0.95 }; tl.push(st); traffic.push({ L, k, m, st }); } });
+  world.updaters.push((t) => { for (const c of traffic) { const p = trafficPos(c.L, c.k, t), st = c.st; st.x = p.x; st.z = p.z; st.yaw = p.yaw; st.vx = p.vx; st.vz = p.vz; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; } });
 }
 
-const TCOL = ['#e63946', '#2a9d8f', '#f4a261', '#457b9d', '#ffd23f', '#9b5de5', '#f1f1f1', '#2b2d42'];
-let TG = null;
-function trafficCar(color) { // cheap cartoon car (about 80 triangles) - the traffic is only scenery
-  if (!TG) TG = { body: new THREE.BoxGeometry(1.9, 0.7, 4.2), cab: new THREE.BoxGeometry(1.6, 0.6, 2.0), wh: new THREE.CylinderGeometry(0.42, 0.42, 0.3, 8).rotateZ(Math.PI / 2), wm: new THREE.MeshLambertMaterial({ color: '#222' }), gm: new THREE.MeshLambertMaterial({ color: '#bfe3ff' }) };
-  const g = new THREE.Group(), body = new THREE.Mesh(TG.body, new THREE.MeshLambertMaterial({ color })), cab = new THREE.Mesh(TG.cab, TG.gm);
-  body.position.y = 0.75; cab.position.set(0, 1.3, -0.2); body.castShadow = true; g.add(body, cab);
-  for (const [x, z] of [[0.95, 1.3], [-0.95, 1.3], [0.95, -1.3], [-0.95, -1.3]]) { const w = new THREE.Mesh(TG.wh, TG.wm); w.position.set(x, 0.42, z); g.add(w); }
-  return g;
-}
-function tree(batch, x, y, z, s, R) {
-  const c = ['#2f9e44', '#3bb54f', '#2b8a3e'][Math.floor(R() * 3)];
-  batch.add(new THREE.CylinderGeometry(0.2 * s, 0.3 * s, 1.8 * s, 5), x, y + 0.9 * s, z, '#7a5230');
-  batch.add(new THREE.ConeGeometry(1.5 * s, 3.2 * s, 6), x, y + 3.0 * s, z, c);
-  batch.add(new THREE.ConeGeometry(1.1 * s, 2.5 * s, 6), x, y + 4.5 * s, z, c);
+const FOL = ['#3e6b34', '#4a7c3a', '#56893f', '#3a5f2f', '#668f45', '#4f7a36'];
+function tree(batch, x, y, z, s, R, pine = false) {
+  const c = FOL[Math.floor(R() * FOL.length)], c2 = FOL[Math.floor(R() * FOL.length)];
+  if (pine) { // distant forest: dark pines
+    batch.add(new THREE.CylinderGeometry(0.2 * s, 0.3 * s, 1.8 * s, 5), x, y + 0.9 * s, z, '#5a4331');
+    batch.add(new THREE.ConeGeometry(1.5 * s, 3.2 * s, 7), x, y + 3.0 * s, z, '#2f5d34'); batch.add(new THREE.ConeGeometry(1.1 * s, 2.5 * s, 7), x, y + 4.5 * s, z, '#2f5d34');
+    return;
+  }
+  // broad-leaf street tree: a tapering trunk and a lumpy crown made of a few overlapping blobs
+  batch.add(new THREE.CylinderGeometry(0.2 * s, 0.32 * s, 2.4 * s, 7), x, y + 1.2 * s, z, '#5d4a3a');
+  batch.add(new THREE.CylinderGeometry(0.1 * s, 0.17 * s, 1.5 * s, 6), x + 0.35 * s, y + 2.7 * s, z, '#5d4a3a', 0, 0, -0.55);
+  batch.add(new THREE.CylinderGeometry(0.1 * s, 0.17 * s, 1.5 * s, 6), x - 0.3 * s, y + 2.8 * s, z + 0.1 * s, '#5d4a3a', 0, 0, 0.5);
+  const blob = new THREE.IcosahedronGeometry(1, 1);
+  batch.add(blob, x, y + 3.6 * s, z, c, 0, R() * 6, 0, 2.2 * s, 1.55 * s, 2.2 * s);
+  batch.add(blob, x + (R() - 0.5) * 1.6 * s, y + 4.3 * s, z + (R() - 0.5) * 1.6 * s, c2, 0, R() * 6, 0, 1.5 * s, 1.2 * s, 1.5 * s);
+  batch.add(blob, x + (R() - 0.5) * 2.2 * s, y + 3.1 * s, z + (R() - 0.5) * 2.2 * s, c, 0, R() * 6, 0, 1.3 * s, 1.0 * s, 1.3 * s);
 }

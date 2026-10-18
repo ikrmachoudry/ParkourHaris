@@ -6,14 +6,16 @@ import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
 import { buildLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
-import { Character, makeNameTag, makeBubble } from './characters.js';
+import { Character, makeNameTag } from './characters.js';
+import { HeroActor } from './actor.js';
+import { cityVeh } from './cityveh.js';
+import { setCityCamera } from './cityvis.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
 import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 import { AnimalSys } from './animalsys.js';
-import { TH, newThugs, stealThug, hitThug, stepThugs } from './thugs.js';
 import { KINDS, active as animalTable } from './jlayout.js';
 import { newQuest, stepQuest, questLayout, PH, Q as QC } from './quest.js';
 import { QuestVis } from './questworld.js';
@@ -21,6 +23,7 @@ import { HuntVis } from './huntworld.js';
 import { PH as HPH, HU, stepHunt, applyHunt, shootAnimal } from './hunt.js';
 import { GUN, makeGun, pickTarget } from './huntgun.js';
 
+const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
 const touch = { x: 0, y: 0, jump: false, grab: false };
@@ -156,8 +159,8 @@ class Stage {
 class Remote {
   constructor(info, scene) {
     this.info = info; this.id = info.id; this.name = info.name;
-    this.model = new Character(info.char); scene.add(this.model.group);
-    this.tag = makeNameTag(info.name, CHARACTERS[info.char].color); this.tag.position.set(0, this.model.height + 0.7, 0); this.model.group.add(this.tag);
+    this.model = makeActor(info.char); scene.add(this.model.group);
+    this.tag = null; if (!NO_TEXT) { this.tag = makeNameTag(info.name, CHARACTERS[info.char].color); this.tag.position.set(0, this.model.height + 0.7, 0); this.model.group.add(this.tag); }
     this.snaps = []; this.x = 0; this.y = -50; this.z = 0; this.yaw = Math.PI; this.speed = 0; this.flags = 0; this.vy = 0; this.vx = 0; this.vz = 0; this.sw = 0; this.ds = []; this.dMin = 0; this.jit = 0; this.rs = 0; this.has = false; this.finished = false; this.lastLanded = false; this.rxAt = Date.now(); this.stunT = 0;
   }
   push(m) {
@@ -200,24 +203,23 @@ class Remote {
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
-    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed });
+    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & 256), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed });
   }
-  dispose(scene) { scene.remove(this.model.group); this.tag.material.map.dispose(); this.tag.material.dispose(); this.model.dispose(); }
+  dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
 
 // ------------------------------------------------------------------ the race
+const makeActor = (id) => (NO_TEXT ? new HeroActor(id) : new Character(id));
+let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the world
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
 
-const THUG_LINES = {
-  steal: [['Hey! That is MY car!', 'अरे! ये मेरी गाड़ी है!'], ['Get your hands off my ride!', 'मेरी गाड़ी से हाथ हटा!'], ['You picked the wrong guy!', 'तूने गलत बंदा चुना!']],
-  punch: [['Take this!', 'ले ये!'], ['Come here, thief!', 'इधर आ, चोर!'], ['I will smash you!', 'मैं तुझे कूट दूँगा!']],
-  hurt: [['Ouch! That hurt!', 'आउच! दर्द हुआ!'], ['Not the face!', 'चेहरे पे नहीं!'], ['Aaaah! Stop it!', 'आहह! रुक जा!']],
-  die: [['I will be back...', 'मैं वापस आऊँगा...'], ['Take the car... argh!', 'गाड़ी ले जा... आह!'], ['You win... this time!', 'तू जीता... इस बार!']],
-};
 class Race {
   constructor(levelIdx, players, localId, o) {
-    this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; this.multi = o.multi; this.localId = localId; this.players = players;
+    this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
+    Object.assign(P, P0);
+    if (NO_TEXT) Object.assign(P, { R: 0.3, H: 1.78, G: 9.81, RUN: 4.4, JUMP: 3.7, ACC: 20, DEC: 34, AIR: 2.5, AIR_DEC: 0.4, TERM: -55 });  // real-world walking / jumping
+    this.multi = o.multi; this.localId = localId; this.players = players;
     this.t0 = o.t0; // multi: server ms ; single: performance.now() ms
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
     this.camYaw = 0; this.camPitch = 0.34; this.camDist = 8.2; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
@@ -245,10 +247,9 @@ class Race {
     }
     this.cars = []; this.drive = null; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
-      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
+      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || 0, cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || 0; this.cars.push({ st: st0, mesh }); }
       this.skyG = 0; try { this.racerOk = localStorage.getItem('ph_racer') === '1'; } catch { this.racerOk = false; }
       this.applyFree();
-      this.thugs = null; this.thv = []; if (this.meta.city) this.initThugs(info.cars);
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
 
@@ -267,9 +268,9 @@ class Race {
     const idx = players.findIndex((p) => p.id === localId);
     this.slot = Math.max(0, idx);
     const me = players[this.slot] || { name: 'Player', char: 0 };
-    this.me = { body: newBody(), model: new Character(me.char), name: me.name, char: me.char };
+    this.me = { body: newBody(), model: makeActor(me.char), name: me.name, char: me.char };
     scene.add(this.me.model.group); this.me.model.group.rotation.order = 'YXZ';
-    this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag);
+    this.me.tag = null; if (!NO_TEXT) { this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag); }
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
     this.spawn(this.slot);
     this.an = this.meta.free && !this.meta.arena && !this.meta.city ? new AnimalSys(this) : null; document.body.classList.toggle('free-map', !!this.meta.free);
@@ -283,7 +284,7 @@ class Race {
     $('hud').classList.remove('hidden');
     $('hud-hint').classList.remove('fade'); this.hintT = 8;
     this.setShadows(Q.shadows);
-    A.startMusic(levelIdx);
+    if (this.meta.city) { A.stopMusic(); A.cityAmbience(true); } else A.startMusic(levelIdx);
     A.duckMusic(false);
     this.pos = this.me.body;
   }
@@ -420,7 +421,7 @@ class Race {
     } else if (this.phase === 'countdown') {
       this.phase = 'race'; this.count('GO!'); A.sfx.go(); this.lastCount = 0;
       if (this.multi) setTimeout(() => { if (race === this && !this.over) this.toast(IS_TOUCH ? 'Tap BAT to bonk rivals!' : 'Press B or click to swing the BAT!'); }, 1400);
-      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast(this.meta.city ? '\uD83D\uDE97 Welcome to PUNJABI GTA! Vehicles are parked on the main street with THUGS inside - stand next to one and press C to STEAL it!' : '\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
+      if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast('\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
     }
 
     // ---- input -> physics
@@ -433,7 +434,8 @@ class Race {
     const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw);
     let mx = -sy * fw + cy * rt, mz = -cy * fw - sy * rt;
     const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
-    const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive };
+    const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive && !this.meta.city };
+    if (this.meta.city) b.speedMul = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && ml > 0.6 ? 1.75 : (ml > 0 && ml < 0.55 ? 0.42 : 1);   // Shift sprints; a light stick push walks
     press.jump = false; press.dive = false;
 
     // a bonk can never keep you down: stun is always <1 s, even while driving (stepBody is not run then) or after a long frame
@@ -457,8 +459,8 @@ class Race {
       const h = w.checkHazards(b, lt);
       if (h && knock(b, h.nx, h.nz, h.pow)) { A.sfx.hit(); this.particles.emit(b.x, b.y + 0.9, b.z, 26, { color: '#ffffff', speed: 5, up: 3, life: 0.5, size: 0.3 }); this.particles.emit(b.x, b.y + 0.9, b.z, 14, { color: '#ffd23f', speed: 7, up: 4, life: 0.4, size: 0.25 }); }
     }
-    if (!this.drive) this.updateBat(dt, b);
-    this.updatePowerups(dt, b);
+    if (!this.drive && !this.meta.city) this.updateBat(dt, b);
+    if (!this.meta.city) this.updatePowerups(dt, b);
     if (!this.drive) { this.softCollide(b); this.softCars(b, canMove); }
     this.checkpoints(b);
     if (!this.finished && lt >= 0 && b.z < this.info.finishZ && b.y > this.info.finishY - 3 && Math.abs(b.x) < 16) this.onLocalFinish();
@@ -474,7 +476,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive);
     else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); if (this.an) this.an.seatLocal(g); }
-    m.update(dt, { speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
+    m.update(dt, { seated: !!this.drive, speed: this.drive || (this.an && this.an.mount) ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -523,14 +525,23 @@ class Race {
 
   // ================= swimming pool fx + cars =================
   seatModel(g, car) {
-    const st = car.st, seat = car.mesh.userData.seat;
+    const st = car.st, ud = car.mesh.userData, seat = ud.seat;
+    if (ud.hero) { // a real driver: right-hand-drive seat of the hero car
+      const f = ud.seatF, r = ud.seatR, sy = Math.sin(st.yaw), cy = Math.cos(st.yaw);
+      g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar(1); return;
+    }
     g.position.set(st.x + Math.sin(st.yaw) * seat.z, st.y + seat.y, st.z + Math.cos(st.yaw) * seat.z); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8);
   }
-  nearestFreeCar(b, steal) { // steal=true: look for a vehicle that still has a thug sitting in it
+  nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
-    for (const c of this.cars) { const occ = !!(this.thugs && this.thugs[this.cars.indexOf(c)].st === TH.SEAT); if (occ !== !!steal) continue; if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
     return best;
+  }
+  spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
+    for (const q of this.info.track && this.info.track.boxes || []) if (x > q.x0 - 0.5 && x < q.x1 + 0.5 && z > q.z0 - 0.5 && z < q.z1 + 0.5) return false;
+    for (const c of this.cars) { if (c === except) continue; const dx = x - c.st.x, dz = z - c.st.z, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), a = dx * fx + dz * fz, r = -dx * fz + dz * fx; if (Math.abs(a) < (c.st.hl || 2.2) + 0.45 && Math.abs(r) < (c.st.hw || 1) + 0.45) return false; }
+    return true;
   }
   toggleCar() {
     if (this.an) { this.an.toggleMount(); return; }
@@ -540,96 +551,26 @@ class Race {
       const c = this.drive, st = c.st;
       if (Math.abs(st.speed) > 5) { this.toast('Slow down to get out!'); return; }
       if (st.y > 1.2 && !this.world.terrain) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
-      const lx = Math.cos(st.yaw), lz = -Math.sin(st.yaw);
-      respawn(b, st.x + lx * 2.4, this.world.terrain ? this.world.terrain(st.x + lx * 2.4, st.z + lz * 2.4) + 0.05 : 0.05, st.z + lz * 2.4, st.yaw); b.hitCd = 0.3;
+      const hero = !!c.mesh.userData.hero, lx = Math.cos(st.yaw) * (hero ? -1 : 1), lz = -Math.sin(st.yaw) * (hero ? -1 : 1);
+      let ox = st.x + lx * 2.4, oz = st.z + lz * 2.4;
+      if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
+      respawn(b, ox, this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05, oz, st.yaw); b.hitCd = 0.3;
       st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; this.drive = null;
-      document.body.classList.remove('driving'); A.engineStop(); A.sfx.door();
+      document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
       this.g_g(this.me.model.group);
       if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false;
     } else {
       const c = this.nearestFreeCar(b);
-      if (!c) { const sc = this.thugs && this.nearestFreeCar(b, true); if (sc) this.stealCar(sc); return; }
+      if (!c) return;
       this.drive = c; c.st.driver = this.localId; c.st.parked = false;
       b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-      A.engineStart(); A.sfx.door(); A.sfx.vroom(); this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
+      if (c.mesh.userData.hero) { const cv = cityVeh(c.st.id); A.carDoor(true); setTimeout(() => A.carDoor(false), 700); setTimeout(() => { if (this.drive === c) { A.engineCrank(); A.carEngineStart(cv); } }, 900); } else { A.engineStart(); A.sfx.door(); A.sfx.vroom(); }
+      this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
       this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'use the joystick to drive, tap the door to get out' : 'W/S drive • A/D steer • C get out'));
     }
   }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
-  // ================= HARIS CITY THUGS (cartoon drivers: steal the ride, they fight, bat them down) =================
-  initThugs(cars) {
-    this.thugs = newThugs(cars); this.thSt = this.thugs.map(() => ({ st: 0, hp: TH.HP }));
-    this.thv = this.thugs.map((t) => {
-      const m = new Character(t.ch), tag = makeNameTag('THUG', '#ff4040'); tag.position.set(0, m.height + 0.6, 0); m.group.add(tag); this.scene.add(m.group);
-      return { m, tag, x: t.x, y: t.y, z: t.z, yaw: t.yaw, sw: 0, hit: 0 };
-    });
-  }
-
-  thugSay(i, kind) { // speech bubble: English + Hindi translation
-    const L = THUG_LINES[kind], v = this.thv[i]; if (!L || !v || v.say > 0 && kind !== 'die') return;
-    const [en, hi] = L[Math.floor(Math.random() * L.length)];
-    if (v.bub) { v.m.group.remove(v.bub); v.bub.material.map.dispose(); v.bub.material.dispose(); }
-    v.bub = makeBubble(en, hi); v.bub.position.set(0, v.m.height + 1.9, 0); v.m.group.add(v.bub); v.say = kind === 'die' ? 2.4 : 2.0;
-    { const d = v.m.group.position.distanceTo(this.camera.position); A.speakHindi(hi, this.thugs[i].ch, 1 - d / 60); }
-  }
-  stealCar(c) {
-    const v = this.cars.indexOf(c), t = this.thugs[v], b = this.me.body;
-    if (this.multi) { if (this.thugs[v].st === TH.SEAT) app.net.send({ t: 'steal', v }); }
-    else stealThug(this.thugs, v, this.localId, b.x, b.z, t.x, t.z);
-    A.sfx.door(); this.toast('\uD83D\uDE20 THE DRIVER JUMPS OUT! Hit him with the bat (' + (IS_TOUCH ? 'bat button' : 'F / click') + ') then take the ride!');
-  }
-  batThugs(b, fx, fz) {
-    if (!this.thugs) return;
-    let best = -1, bd = 1e9;
-    this.thugs.forEach((t, i) => { if (t.st !== TH.FIGHT) return; const d = Math.hypot(t.x - b.x, t.z - b.z); if (d < (this.swingMega ? 4.8 : 3.4) && d < bd && Math.abs(t.y - b.y) < 2.2 && ((t.x - b.x) * fx + (t.z - b.z) * fz) / (d || 1) > 0) { bd = d; best = i; } });
-    if (best < 0) return;
-    if (this.multi) app.net.send({ t: 'thit', v: best, fx: +fx.toFixed(3), fz: +fz.toFixed(3), m: this.swingMega ? 1 : 0 });
-    else hitThug(this.thugs, best, b.x, b.z, fx, fz, this.swingMega);
-    A.sfx.bonk();
-  }
-  onThugNet(a) { if (!this.thugs || !Array.isArray(a)) return; a.forEach((q, i) => { const t = this.thugs[i]; if (!t || !Array.isArray(q)) return; t.st = q[0]; t.hp = q[1]; t.x = q[2]; t.y = q[3]; t.z = q[4]; t.yaw = q[5]; t.mv = q[6] & 1; t.stun = q[6] & 2 ? 1 : 0; }); }
-  onThugEv(m) { // a thug swung at somebody
-    const v = this.thv && this.thv[m.v | 0]; if (v) v.sw = 0.4; if (v) this.thugSay(m.v | 0, 'punch');
-    if (m.pid === this.localId) this.onThugHit(m);
-  }
-  onThugHit(m) {
-    const b = this.me.body; if (this.over || this.drive || this.levelTime < 0) return;
-    if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
-    if (b.immune > 0 || b.stun > 0.2) return;
-    b.hitCd = 0;
-    if (knock(b, m.nx, m.nz, 13)) { b.vy = 7; b.stun = 0.6; this.bonked('POW!', '', b); this.shake = Math.max(this.shake || 0, 0.7); }
-  }
-  updateThugs(dt) {
-    const b = this.me.body;
-    if (!this.multi) {
-      for (const e of stepThugs(this.thugs, dt, [{ id: this.localId, x: b.x, y: b.y, z: b.z }], this.world.terrain)) if (e.k === 'hit') this.onThugEv(e);
-    }
-    this.thugs.forEach((t, i) => {
-      const v = this.thv[i], prev = this.thSt[i], g = v.m.group;
-      if (prev.st !== t.st || prev.hp !== t.hp) { // something happened to him: effects
-        if (t.st === TH.DEAD && prev.st !== TH.DEAD) { v.dieT = 1.5; this.thugSay(i, 'die'); this.toast('THUG DOWN!  The ride is yours'); }
-        else if (t.hp < prev.hp) { this.particles.emit(t.x, t.y + 1.2, t.z, 18, { color: '#ffd23f', speed: 6, up: 3, life: 0.45, size: 0.3 }); A.sfx.bonk(); this.thugSay(i, 'hurt'); }
-        else if (t.st === TH.FIGHT && prev.st === TH.SEAT) { v.x = t.x; v.y = t.y; v.z = t.z; v.yaw = t.yaw; this.thugSay(i, 'steal'); }
-        prev.st = t.st; prev.hp = t.hp;
-      }
-      if (v.say > 0) { v.say -= dt; if (v.say <= 0 && v.bub) { g.remove(v.bub); v.bub.material.map.dispose(); v.bub.material.dispose(); v.bub = null; } }
-      if (t.st === TH.DEAD) { // let him say his last words, then poof
-        if (v.dieT > 0) { v.dieT -= dt; if (v.dieT <= 0) { this.particles.emit(v.x, v.y + 1, v.z, 40, { color: '#ffffff', speed: 7, up: 5, life: 0.8, size: 0.5 }); this.particles.emit(v.x, v.y + 1, v.z, 20, { color: '#ffd23f', speed: 5, up: 6, life: 0.7, size: 0.35 }); A.sfx.win && A.sfx.win(); } }
-        if (!(v.dieT > 0)) { g.visible = false; return; }
-      }
-      g.visible = true; v.sw = Math.max(0, v.sw - dt);
-      if (t.st === TH.SEAT) { const c = this.cars[i]; this.seatModel(g, c); v.m.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0 }); }
-      else {
-        const k = this.multi ? Math.min(1, dt * 12) : 1;
-        v.x += (t.x - v.x) * k; v.y += (t.y - v.y) * k; v.z += (t.z - v.z) * k; { let dy = t.yaw - v.yaw; dy = ((dy + Math.PI * 3) % (Math.PI * 2)) - Math.PI; v.yaw += dy * Math.min(1, dt * 10); }
-        g.position.set(v.x, v.y, v.z); g.rotation.y = v.yaw; this.g_g(g);
-        v.m.update(dt, { speed: t.mv ? 7 : 0, grounded: true, vy: 0, stun: t.stun > 0 ? 1 : 0, dive: 0, swing: v.sw > 0 ? 1 - v.sw / 0.4 : 0 });
-      }
-      this.tagScale(v.tag, g.position, 0.85);
-    });
-  }
-
   // ---- SKY SPEEDWAY: gates in order -> RACERS unlocked; swap into a red racer on the garage plaza
   skyGates(st) {
     const sk = this.info.sky; if (!sk || st.y < sk.y - 4 || this.skyG >= sk.gates.length) return;
@@ -680,21 +621,29 @@ class Race {
         }
       }
     }
-    const others = this.cars.filter((q) => q !== c).map((q) => q.st);
+    const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
     let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), hb };
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
+    if (c.mesh.userData.hero) {
+      if (ev) { A.crashSfx(st.crash || 6); this.particles.emit(st.x, st.y + 0.8, st.z, ev === 'crash' ? 26 : 12, { color: '#ffd9a0', speed: ev === 'crash' ? 7 : 4, up: 3, life: 0.5, size: 0.28 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04)); st.crash = 0; }
+    } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
     if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
+    }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
-    A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
+    if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
     this.skyGates(st);
     this.hornCd -= dt; this.skidT -= dt;
-    if (st.drift > 0.55 && Math.abs(st.speed) > 8) {
+    if (c.mesh.userData.hero) {
+      if (st.skid > 0.3 && Math.abs(st.speed) > 6) for (const sgn of [-1, 1]) this.particles.emit(st.x - Math.sin(st.yaw) * 1.3 + Math.cos(st.yaw) * sgn * 0.8, st.y + 0.2, st.z - Math.cos(st.yaw) * 1.3 - Math.sin(st.yaw) * sgn * 0.8, 1, { color: '#dcdcdc', speed: 1.0, up: 1.1, life: 0.55, size: 0.5, gravity: -0.4 });
+    } else if (st.drift > 0.55 && Math.abs(st.speed) > 8) {
       if (this.skidT <= 0) { this.skidT = 0.25; A.sfx.skid(); }
       for (const sgn of [-1, 1]) this.particles.emit(st.x - Math.sin(st.yaw) * 1.5 + Math.cos(st.yaw) * sgn * 0.9, 0.25, st.z - Math.cos(st.yaw) * 1.5 - Math.sin(st.yaw) * sgn * 0.9, 1, { color: '#e8e8e8', speed: 1.2, up: 1.2, life: 0.5, size: 0.5, gravity: -0.5 });
     }
     if (st.boost > 0 && Math.random() < 0.8) this.particles.emit(st.x - Math.sin(st.yaw) * 2.2, 0.5, st.z - Math.cos(st.yaw) * 2.2, 1, { color: '#ffb347', speed: 2, up: 1, life: 0.35, size: 0.4 });
   }
+  honkOn() { if (this.drive && this.drive.mesh.userData.hero) A.hornStart(cityVeh(this.drive.st.id).hornHz); else this.honk(); }
+  honkOff() { A.hornStop(); }
   honk() { if (this.drive && this.hornCd <= 0) { const big = CAR_SPECS[this.drive.st.id].racer; this.hornCd = big ? 0.9 : 0.4; big ? A.sfx.honkBig() : A.sfx.honk(); if (big) this.shake = Math.max(this.shake || 0, 0.12); } }
   onCars(cars) { // parked-car positions from the server (for players who join late)
     for (const k of Object.keys(cars || {})) { const c = this.cars[+k], d = cars[k]; if (!c || !d || c === this.drive) continue; c.st.x = +d.x; c.st.z = +d.z; c.st.y = +d.y || 0; c.st.yaw = +d.r; c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; }
@@ -702,15 +651,16 @@ class Race {
   // pedestrians vs cars: parked cars are solid, fast cars bonk you away
   softCars(b, canMove) {
     if (!canMove || this.finished) return;
-    for (const c of this.cars) {
-      if (c === this.drive) continue;
-      const st = c.st, spec = CAR_SPECS[st.id], dx = b.x - st.x, dz = b.z - st.z;
+    const list = this.cars.filter((c) => c !== this.drive).map((c) => c.st); if (this.info.trafficList) for (const q of this.info.trafficList) list.push(q);
+    for (const st of list) {
+      const spec = CAR_SPECS[st.id], dx = b.x - st.x, dz = b.z - st.z;
       if (dx * dx + dz * dz > 40 || Math.abs(b.y - st.y) > 2.5) continue;
-      const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), lz = dx * fx + dz * fz, lx = -dx * fz + dz * fx, hl = spec.hl + 0.45, hw = spec.hw + 0.45;
+      const hl0 = st.hl || spec.hl, hw0 = st.hw || spec.hw;
+      const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), lz = dx * fx + dz * fz, lx = -dx * fz + dz * fx, hl = hl0 + P.R + 0.05, hw = hw0 + P.R + 0.05;
       if (Math.abs(lz) >= hl || Math.abs(lx) >= hw) continue;
-      if (Math.abs(st.speed) > 6 && b.hitCd <= 0) {
-        const sg = Math.sign(st.speed) || 1; let nx = fx * sg + (dx * 0.0), nz = fz * sg; nx += -fz * Math.sign(lx || 1) * 0.5; nz += fx * Math.sign(lx || 1) * 0.5; const l = Math.hypot(nx, nz) || 1;
-        if (knock(b, nx / l, nz / l, 15)) { this.bonked('HIT BY A CAR!', '', b); continue; }
+      if (Math.abs(st.speed) > 4 && b.hitCd <= 0) { // a moving car hits you: thrown aside
+        const sg = Math.sign(st.speed) || 1; let nx = fx * sg, nz = fz * sg; nx += -fz * Math.sign(lx || 1) * 0.5; nz += fx * Math.sign(lx || 1) * 0.5; const l = Math.hypot(nx, nz) || 1;
+        if (knock(b, nx / l, nz / l, Math.min(14, 3 + Math.abs(st.speed) * 0.7))) { A.crashSfx(6); continue; }
       }
       const pz = hl - Math.abs(lz), px = hw - Math.abs(lx);
       if (pz < px) { const k = Math.sign(lz || 1) * pz; b.x += fx * k; b.z += fz * k; } else { const k = Math.sign(lx || 1) * px; b.x += -fz * k; b.z += fx * k; }
@@ -746,11 +696,11 @@ class Race {
     }
     // underwater tint when the camera dips below the surface
     { let under = false; for (const pm of this.poolMeshes) { const p = pm.pl, cp = this.camera.position; if (cp.x > p.x0 && cp.x < p.x1 && cp.z > p.z0 && cp.z < p.z1 && cp.y < p.surf) under = true; } const uw = $('uw'); if (uw && uw.classList.contains('on') !== under) uw.classList.toggle('on', under); }
+    setCityCamera(this.camera.position);
     // cars: pose + wheels
     for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
-    if (this.thugs) this.updateThugs(dt);
     // "get in" prompt
-    const near = !this.an && !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || (this.thugs && this.nearestFreeCar(b, true)));
+    const near = !this.an && !this.drive && canMove && !this.menuOpen && this.nearestFreeCar(b);
     if (!this.an && !!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     { const sw = !!this.drive && this.racerOk && !CAR_SPECS[this.drive.st.id].racer && this.garageSpot(this.drive.st) && Math.abs(this.drive.st.speed) < 5; if (sw !== document.body.classList.contains('sky-swap')) document.body.classList.toggle('sky-swap', sw); }
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
@@ -848,7 +798,7 @@ class Race {
 
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
-    if (this.hunt) return false;
+    if (this.hunt || this.meta.city) return false;
     if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || (this.an && this.an.mount)) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
@@ -867,7 +817,6 @@ class Race {
   batHit(b) {
     if (this.an) this.an.batHit(b);
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
-    if (this.thugs) this.batThugs(b, fx, fz);
     for (const r of this.remotes.values()) {
       if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
@@ -907,7 +856,7 @@ class Race {
 
   // ---- power-up boxes (personal pick-ups, respawn after 9 s)
   buildBoxes() {
-    this.boxes = [];
+    this.boxes = []; if (this.meta.city) return;
     const spots = [], row = (x0, z, y) => [-4, 0, 4].forEach((dx) => spots.push({ x: x0 + dx, y: y + 1.35, z }));
     row(0, -10, 0);
     let lastZ = 1e9;
@@ -1008,6 +957,7 @@ class Race {
 
   // ---- visuals
   tagScale(tag, pos, k) {
+    if (!tag) return;
     const d = pos.distanceTo(this.camera.position);
     const s = clamp(d * 0.07, 1.0, 5.2) * k;
     tag.scale.set(2.8 * s, 0.7 * s, 1);
@@ -1030,6 +980,25 @@ class Race {
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
     this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-7 * dt));
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
+    if (this.meta.city) { // the camera can never go inside a building or under the ground: pull it in along the line to the player
+      const cam = this.camera.position, T = this.world.terrain, ox = this.camTarget.x, oy = this.camTarget.y, oz = this.camTarget.z;
+      const dx = cam.x - ox, dy = cam.y - oy, dz = cam.z - oz; let tmax = 1;
+      for (const q of this.info.track.boxes || []) {
+        if (oy > q.h + 1 && cam.y > q.h + 1) continue;
+        let t0 = 0, t1 = tmax, hit = true;
+        for (const [o, d, lo, hi] of [[ox, dx, q.x0 - 0.45, q.x1 + 0.45], [oz, dz, q.z0 - 0.45, q.z1 + 0.45], [oy, dy, -5, q.h + 0.45]]) {
+          if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
+          let a = (lo - o) / d, b = (hi - o) / d; if (a > b) { const t = a; a = b; b = t; }
+          t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { hit = false; break; }
+        }
+        if (hit && t0 < tmax && t0 > 0) tmax = t0;
+      }
+      for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
+      this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
+      this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out
+      if (this.camK < 1) { cam.set(ox + dx * this.camK, oy + dy * this.camK, oz + dz * this.camK); }
+      if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
+    }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
@@ -1040,7 +1009,7 @@ class Race {
 
   // ---- HUD
   count(txt) { const el = $('hud-count'); el.textContent = txt; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-  toast(txt) { const el = $('hud-toast'); el.textContent = txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
+  toast(txt) { if (this.meta.city) return; const el = $('hud-toast'); el.textContent = txt; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
   rank() {
     const b = this.me.body; let r = 1;
     const myFin = this.finishedMap.get(this.localId) ?? (this.finished && !this.multi ? 1 : null);
@@ -1081,7 +1050,7 @@ class Race {
   render() { renderer.render(this.scene, this.camera); }
 
   destroy() {
-    A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
+    A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     if (this.hunt) this.hunt.vis.dispose(); document.body.classList.remove('hunt-map'); if (this.an) this.an.dispose(); document.body.classList.remove('free-map'); document.body.classList.remove('riding');
     document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
@@ -1247,8 +1216,6 @@ async function ensureNet() {
   net.on('abite', (m) => { if (race && race.an) race.onAnimalBite(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
-  net.on('th', (m) => { if (race && race.multi) race.onThugNet(m.a); });
-  net.on('thev', (m) => { if (race && race.multi) race.onThugEv(m); });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
@@ -1344,11 +1311,11 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyG') press.grab = true;
   if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.hunt) race.fire(); else race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
-  if (e.code === 'KeyH' && race && !race.menuOpen) race.honk();
+  if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
   if (e.code === 'KeyR' && race && !race.over && !e.repeat) race.swapRacer();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
 });
-window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyH') A.hornStop(); });
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
 
@@ -1492,7 +1459,7 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
   btn('t-fire', () => { touch.fire = true; if (race && !race.over && !race.menuOpen) race.fire(); }, () => { touch.fire = false; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
-  btn('c-horn', () => { if (race) race.honk(); });
+  btn('c-horn', () => { if (race) race.honkOn(); }, () => A.hornStop());
   btn('b-racer', () => { if (race) race.swapRacer(); });
   btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
   { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }

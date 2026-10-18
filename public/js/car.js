@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { flagTexture } from './flags.js';
+import { CITY_VEH, newCityState, stepCityCar } from './cityveh.js';
+import { buildCityMesh, animateCityMesh } from './cityvis.js';
 
 export const CAR_SPECS = [
   { id: 0, name: 'Sprinter', color: '#0b6b3a', max: 27, acc: 17, grip: 6.5, turn: 2.2, hw: 0.95, hl: 2.1 },
@@ -15,10 +17,14 @@ export const CAR_SPECS = [
   { id: 9, name: 'Super Bike', color: '#00c2ff', max: 52.8, acc: 34, grip: 9, turn: 2.7, hw: 0.5, hl: 1.15, bike: true },
   { id: 10, name: 'Super Car', color: '#ffd400', max: 83.3, acc: 46, grip: 10.5, turn: 2.0, hw: 1.05, hl: 2.35 },
 ];
+// city vehicles (ids 11..18): real bodies / specs from cityveh.js
+for (const v of CITY_VEH) CAR_SPECS[v.id] = { id: v.id, name: v.name, color: v.paint, max: v.top, acc: 0, grip: 0, turn: 0, hw: 1.0, hl: 2.3, city: true };
 const CAR_R = 1.8; // collision radius between cars
 
 export function newCar(id, x, z, yaw) {
-  return { id, x, z, y: 0, pitch: 0, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true, spin: 0, crash: 0, acc: 0, vy: 0, vyg: 0, air: false };
+  const c = { id, x, z, y: 0, pitch: 0, yaw, vx: 0, vz: 0, speed: 0, steer: 0, drift: 0, driver: -1, bump: 0, boost: 0, parked: true, spin: 0, crash: 0, acc: 0, vy: 0, vyg: 0, air: false };
+  if (id >= 11) newCityState(c, CITY_VEH[id - 11]);
+  return c;
 }
 
 
@@ -50,6 +56,7 @@ export function corridor(track, x, z, margin = 1.5, y) {
 // track: { segs, plazas, boosts:[{x,z,r}] }.  others: [{x,z}] cars to bump into.  returns an event string or ''
 export function stepCar(c, dt, inp, track, others, tm = 0) {
   const spec = CAR_SPECS[c.id];
+  if (spec.city) { c.ownd = true; return stepCityCar(c, dt, inp, track, others, CITY_VEH[c.id - 11], track.terrain ? (q) => corridor(track, q.x, q.z, -1.2).d <= 0 : null); }
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;
   let vf = c.vx * fx + c.vz * fz, vs = c.vx * rx + c.vz * rz;
   const max = spec.max * (c.boost > 0 ? 1.3 : 1);
@@ -192,7 +199,8 @@ const rb = (w, h, d, r = 0.12) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r,
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: o.r ?? 0.35, metalness: o.m ?? 0.25, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1 });
 const glass = () => new THREE.MeshStandardMaterial({ color: '#9fd8ff', roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.55 });
 
-export function buildCarMesh(id) {
+export function buildCarMesh(id, lo = false) {
+  if (id >= 11) return buildCityMesh(id, lo);
   const spec = CAR_SPECS[id], g = new THREE.Group(), tyre = std('#1b1b22', { r: 0.8, m: 0 }), rim = std('#e8eaf2', { r: 0.25, m: 0.8 }), dark = std('#23252e', { r: 0.6 });
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   const body = id === 0 ? new THREE.MeshStandardMaterial({ map: flagTexture('pk'), roughness: 0.3, metalness: 0.15 }) : std(spec.color, { r: 0.28, m: 0.35 }), trim = std('#ffffff', { r: 0.3, m: 0.1 });
@@ -315,6 +323,7 @@ export function buildCarMesh(id) {
 // per-frame wheel spin / steering / body roll
 export function animateCar(mesh, car, dt) {
   const u = mesh.userData;
+  if (u.hero) { animateCityMesh(mesh, car, dt); return; }
   for (const w of u.wheels) w.rotation.x += (car.speed / 0.5) * dt;
   for (const p of u.pivots) p.rotation.y = -car.steer * 0.5;
   mesh.rotation.z = u.spec.bike ? THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 14) * 0.5, -0.55, 0.55) : THREE.MathUtils.clamp(-car.steer * Math.min(1, Math.abs(car.speed) / 20) * 0.07, -0.08, 0.08);

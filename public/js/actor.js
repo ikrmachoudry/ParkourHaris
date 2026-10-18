@@ -1,0 +1,47 @@
+// HeroActor: drop-in replacement for the cartoon Character in the city (same group / height / update / dispose API),
+// but it is the realistic procedural human from hchar.js.  Poses are blended so there are no pops.
+import * as THREE from 'three';
+import { buildHeroChar, poseChar } from './hchar.js';
+
+// four player looks (character ids 0..3), plus a cop and a few pedestrians for later
+export const HERO_LOOKS = [
+  { role: 'civilian', top: '#b53a2e', pants: '#2b3140', skinTone: '#c68e63', hair: '#16110d' },
+  { role: 'civilian', top: '#2f7a5a', pants: '#3a3a44', skinTone: '#8d5a3b', hair: '#0d0a08' },
+  { role: 'civilian', top: '#d9a52b', pants: '#27384f', skinTone: '#e0ac85', hair: '#4a3020' },
+  { role: 'civilian', top: '#5b4aa8', pants: '#22252b', skinTone: '#a8714e', hair: '#120d0a' },
+];
+export const heroLook = (id) => HERO_LOOKS[((id | 0) % 4 + 4) % 4];
+
+const _q = new THREE.Quaternion();
+export class HeroActor {
+  constructor(id, look) {
+    this.ch = buildHeroChar(look || heroLook(id));
+    this.group = new THREE.Group(); this.group.add(this.ch.group);
+    this.height = 1.78; this.tris = this.ch.tris;
+    this.tWalk = 0; this.tRun = 0; this.t = 0; this.pose = 'idle'; this.seated = false;
+    this.prev = {}; for (const n in this.ch.bones) this.prev[n] = { q: new THREE.Quaternion(), p: new THREE.Vector3(), init: false };
+  }
+  // st: { speed, grounded, vy, stun, seated }
+  update(dt, st) {
+    this.t += dt;
+    let name = 'idle', t = this.t;
+    const sp = st.speed || 0;
+    if (st.seated) name = 'sit';
+    else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
+    else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
+    else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.7; t = this.tWalk; }
+    poseChar(this.ch, name, t, 1);
+    // blend from the previous frame's pose (fast, so it still looks crisp)
+    const k = Math.min(1, dt * 16);
+    for (const n in this.ch.bones) {
+      const b = this.ch.bones[n], p = this.prev[n];
+      if (!p.init || this.pose === name && false) { p.q.copy(b.quaternion); p.p.copy(b.position); p.init = true; continue; }
+      _q.copy(b.quaternion); p.q.slerp(_q, k); b.quaternion.copy(p.q);
+      p.p.lerp(b.position, k); b.position.copy(p.p);
+    }
+    this.pose = name; this.seated = name === 'sit';
+  }
+  dispose() {
+    this.group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose()); } });
+  }
+}

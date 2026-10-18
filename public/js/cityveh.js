@@ -1,0 +1,206 @@
+// Haris City vehicles: real-world specs + a dynamic "bicycle model" with tyre slip, weight transfer, drag and a friction circle.
+// No three.js / DOM here, so tests (and later the server) can run it.  SI units everywhere (m, kg, s, W).
+// Car frame: forward = (sin yaw, cos yaw).  Increasing yaw turns LEFT.  steer input: +1 = right.
+const G = 9.81;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+// ids 11..18 (the old arcade cars keep ids 0..10 for the other maps)
+// kW = engine power, top = top speed target (m/s, only used for gearing), mu = tyre grip, drive = 'fwd' | 'rwd', cda = drag area (m2)
+export const CITY_VEH = [
+  { id: 11, name: 'Sedan', style: 'sedan', paint: '#b3262b', mass: 1380, kW: 80, top: 50, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 1.0, hornHz: 420 },
+  { id: 12, name: 'Hatchback', style: 'hatch', paint: '#2f6fb5', mass: 1080, kW: 62, top: 44, mu: 1.0, drive: 'fwd', cda: 0.62, cyl: 3, pitch: 1.2, hornHz: 480 },
+  { id: 13, name: 'SUV', style: 'suv', paint: '#2d3b4a', mass: 2050, kW: 125, top: 49, mu: 0.95, drive: 'rwd', cda: 0.95, cyl: 6, pitch: 0.8, hornHz: 360 },
+  { id: 14, name: 'Taxi', style: 'sedan', extra: 'taxi', paint: '#f0c400', mass: 1420, kW: 72, top: 46, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 0.95, hornHz: 440 },
+  { id: 15, name: 'Police', style: 'sedan', extra: 'police', paint: '#f2f2f2', mass: 1650, kW: 150, top: 58, mu: 1.05, drive: 'rwd', cda: 0.68, cyl: 8, pitch: 0.75, hornHz: 400 },
+  { id: 16, name: 'Coupe', style: 'coupe', paint: '#c9a227', mass: 1500, kW: 175, top: 63, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.85, hornHz: 450 },
+  { id: 17, name: 'Sports', style: 'sports', paint: '#e8e8ea', mass: 1380, kW: 330, top: 84, mu: 1.2, drive: 'rwd', cda: 0.58, cyl: 8, pitch: 0.95, hornHz: 480 },
+  { id: 18, name: 'Old Sedan', style: 'sedan', paint: '#4e6a52', mass: 1450, kW: 66, top: 42, mu: 0.95, drive: 'fwd', cda: 0.7, cyl: 4, pitch: 0.9, hornHz: 400 },
+];
+export const cityVeh = (id) => CITY_VEH[id - 11];
+
+// geometry the physics needs (metres) from the body style
+const STYLE_GEO = {
+  sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
+};
+
+export function newCityState(c, spec) { // add the dynamic fields to a plain car state (see car.js newCar)
+  const g = STYLE_GEO[spec.style];
+  Object.assign(c, { yr: 0, vl: 0, ax: 0, ay: 0, rpm: 0.12, gear: 1, load: 0, skid: 0, wheelPh: 0, rollA: 0, pitchA: 0, surf: 0, shiftT: 0, brake: 0, hl: g.L / 2, hw: g.w / 2 });
+  return c;
+}
+
+// the corridor / on-road test is supplied by the caller (car.js) so this file stays free of imports
+// inp: { gas -1..1, steer -1..1, hb }   returns '', 'bump' or 'crash'
+export function stepCityCar(c, dt, inp, track, others, spec, onRoad) {
+  const geo = STYLE_GEO[spec.style], m = spec.mass, L = geo.wb, a = L * 0.46, b = L - a, h = 0.55, Iz = m * Math.pow(0.48 * L, 2);
+  let ev = '';
+  const sub = Math.max(1, Math.ceil(dt / (1 / 120))), sdt = dt / sub;
+  for (let s = 0; s < sub; s++) { ev = stepOnce(c, sdt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoad) || ev; }
+  return ev;
+}
+
+function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoad) {
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;      // forward and right unit vectors
+  let u = c.vx * fx + c.vz * fz, vr = c.vx * rx + c.vz * rz;                 // forward / rightward speed
+  const vl = -vr;                                                          // leftward (the model below is left-positive)
+  const air = !!c.air;
+  const onRd = onRoad ? onRoad(c) : true;
+  const mu = spec.mu * (onRd ? 1 : 0.62) * (c.slick > 0 ? 0.3 : 1);
+  // ---- driver inputs
+  const gasIn = inp.gas;
+  c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 7 : 5));
+  const au = Math.abs(u);
+  const dMax = Math.min(0.58, 26 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
+  const delta = -c.steer * dMax;                                          // left-positive road-wheel angle
+  let throttle = 0, brake = 0;
+  if (gasIn > 0.01) { if (u < -0.8) brake = gasIn; else throttle = gasIn; }
+  else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
+  // ---- longitudinal force
+  const P = spec.kW * 1000;
+  let Fx = 0;
+  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= (u > spec.top * 1.02 ? 0 : 1); }
+  else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
+  // brakes: ~0.95 g peak, the handbrake locks the rear
+  const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
+  const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
+  const slope = ((c.gx || 0) * fx + (c.gz || 0) * fz); const Fslope = m * G * slope / Math.sqrt(1 + slope * slope);
+  const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
+  // ---- normal loads with weight transfer (filtered longitudinal acceleration)
+  const axF = c.ax;
+  const Nf = clamp(m * G * b / L - m * axF * h / L, m * G * 0.15, m * G * 0.85), Nr = m * G - Nf;
+  // ---- tyres (lateral): slip angles, saturating force, friction circle
+  const uS = u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5);
+  const slipF = Math.atan((vl + a * c.yr) / uS) - delta, slipR = Math.atan((vl - b * c.yr) / uS);
+  const frontShare = spec.drive === 'fwd' ? clamp(Math.abs(Fx) / Math.max(1, mu * Nf), 0, 0.95) : 0;
+  const rearShare = spec.drive === 'rwd' ? clamp(Math.abs(Fx) / Math.max(1, mu * Nr), 0, 0.95) : 0;
+  const brakeShareF = clamp(brake * 0.6, 0, 0.9), brakeShareR = clamp(brake * 0.4 + (inp.hb ? 0.7 : 0), 0, 0.97);
+  const fcF = Math.sqrt(Math.max(0.08, 1 - Math.max(frontShare, brakeShareF) ** 2)), fcR = Math.sqrt(Math.max(0.05, 1 - Math.max(rearShare, brakeShareR) ** 2));
+  const muNf = mu * Nf * fcF, muNr = mu * Nr * fcR * (inp.hb ? 0.5 : 1);
+  const Ca = 12.5;                                                          // stiffness: reaches the grip limit at ~5 deg
+  let Ff = -muNf * Math.tanh(Ca * slipF), Fr = -muNr * Math.tanh(Ca * slipR);
+  if (air) { Ff = Fr = 0; }
+  // low speed: tyres relax so the car does not wobble when crawling
+  const relax = clamp(Math.abs(u) / 2.5, 0.12, 1);
+  Ff *= relax; Fr *= relax;
+  // ---- integrate (body frame, left-positive lateral)
+  const cd = Math.cos(delta), sd = Math.sin(delta);
+  const ay = (Ff * cd + Fr) / m;                                             // lateral accel in the body frame (leftward)
+  const axTotal = (Fnet - Ff * sd) / m;
+  let yawAcc = (a * Ff * cd - b * Fr) / Iz;
+  if (air) yawAcc = 0;
+  c.yr += yawAcc * dt; c.yr *= Math.exp(-0.08 * dt);                         // a hint of yaw damping from the suspension
+  let du = axTotal + vl * c.yr, dvl = ay - u * c.yr;
+  if (air) { du = -Fdrag / m; dvl = 0; }
+  u += du * dt; const vl2 = vl + dvl * dt;
+  if (Math.abs(u) < 0.15 && throttle === 0 && (brake > 0.01 || Math.abs(Fslope) < m * G * 0.06)) u = 0; // a stopped car stays stopped
+  // low-speed kinematic blend: below ~2 m/s the dynamic model is replaced by a plain rolling constraint (no sliding sideways at a standstill)
+  const kin = clamp(1 - Math.abs(u) / 2.5, 0, 1);
+  let vlN = vl2 * (1 - kin) + 0 * kin;
+  if (kin > 0 && !air) c.yr += (u * Math.tan(delta) / L - c.yr) * Math.min(1, dt * 12) * kin;
+  if (!air) { vlN *= Math.exp(-(onRd ? 0.0 : 0.6) * dt); }
+  // back to world
+  const nvr = -vlN;
+  c.yaw += c.yr * dt;
+  const nfx = Math.sin(c.yaw), nfz = Math.cos(c.yaw), nrx = -nfz, nrz = nfx;
+  c.vx = nfx * u + nrx * nvr; c.vz = nfz * u + nrz * nvr;
+  c.x += c.vx * dt; c.z += c.vz * dt;
+  // bookkeeping for sound / visuals
+  c.ax += (axTotal - c.ax) * Math.min(1, dt * 6); c.ay += (ay - c.ay) * Math.min(1, dt * 6);
+  c.speed = u;
+  const slipMag = Math.max(Math.abs(slipR), Math.abs(slipF) * 0.8);
+  c.vl = vlN;
+  c.skid += (clamp((slipMag - 0.08) / 0.15, 0, 1) * clamp(Math.abs(u) / 5, 0, 1) - c.skid) * Math.min(1, dt * 12);
+  if (brake > 0.6 && Math.abs(u) > 12 && !inp.hb) c.skid = Math.max(c.skid, clamp(brake * (Math.abs(u) - 8) / 30, 0, 0.5)); // hard braking chirps
+  c.drift = clamp(Math.abs(vlN) / 4, 0, 1);
+  c.brake = brake; c.load = Math.max(0, throttle);
+  c.wheelPh += (u / 0.34) * dt;
+  // engine revs: 5 gears sized from the top speed, automatic with a short shift pause
+  { const gs = [0.2, 0.36, 0.54, 0.76, 1.02].map((k) => k * spec.top), g0 = c.gear;
+    const au2 = Math.abs(u); let g = c.gear;
+    if (g < 5 && au2 > gs[g - 1] * 0.96) g++; else if (g > 1 && au2 < gs[g - 2] * 0.62) g--;
+    if (g !== g0) { c.gear = g; c.shiftT = g > g0 ? 0.22 : 0.1; }
+    const lo = g > 1 ? gs[g - 2] * 0.62 : 0, rp = (au2 - lo) / Math.max(1, gs[g - 1] * 0.96 - lo);
+    let tgt = 0.16 + 0.84 * clamp(rp, 0, 1);
+    if (c.shiftT > 0) { c.shiftT -= dt; tgt = Math.max(0.2, tgt - 0.25); }
+    if (throttle === 0 && au2 < 0.5) tgt = 0.12;
+    c.rpm += (tgt - c.rpm) * Math.min(1, dt * (throttle > 0 ? 9 : 5)); }
+  // ---- world: buildings, other cars, island edge, sea, ground contact
+  let ev = '';
+  if (track.terrain) ev = terrain(c, dt, track, spec, geo);
+  for (const o of others || []) ev = carVsCar(c, o, spec, geo, m, Iz) || ev;
+  return ev;
+}
+
+// ---- circles that cover the car's footprint (4 along its length)
+function circles(c, geo) {
+  const rc = geo.w * 0.5 - 0.06, e = geo.L * 0.5 - rc - 0.1, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), out = [];
+  for (const k of [-1, -1 / 3, 1 / 3, 1]) out.push({ x: c.x + fx * e * k, z: c.z + fz * e * k, off: e * k, r: rc });
+  return out;
+}
+
+// rigid impulse at contact point p (relative r = p - centre) with normal n (pointing away from the obstacle) against a static obstacle
+function impulse(c, nx, nz, rx, rz, m, Iz, e) {
+  // omega (about +y, left turn = +yr) x r = (omega*rz, -omega*rx) in (x, z)
+  const px = c.vx + c.yr * rz, pz = c.vz - c.yr * rx, vn = px * nx + pz * nz;
+  if (vn >= 0) return 0;
+  const rxn = rx * nz - rz * nx;                                     // (r x n) about the vertical axis
+  const j = -(1 + e) * vn / (1 / m + (rxn * rxn) / Iz);
+  c.vx += nx * j / m; c.vz += nz * j / m;
+  c.yr -= rxn * j / Iz;
+  return -vn;
+}
+
+const ALL = (t) => { if (!t.props) return t.boxes || []; return t._all || (t._all = [...(t.boxes || []), ...t.props]); };
+const TD_SEA = -0.35, TD_EDGE = 352;
+function terrain(c, dt, track, spec, geo) {
+  const T = track.terrain; let ev = '';
+  const m = spec.mass, Iz = m * Math.pow(0.48 * (geo.wb || 2.7), 2);
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
+  // buildings: every circle against every nearby box (only while the car is lower than the roof)
+  for (let pass = 0; pass < 2; pass++) for (const ci of circles(c, geo)) {
+    for (const b of ALL(track)) {
+      if (c.y > b.h - 0.4 || ci.x < b.x0 - 2 || ci.x > b.x1 + 2 || ci.z < b.z0 - 2 || ci.z > b.z1 + 2) continue;
+      const cx = Math.max(b.x0, Math.min(b.x1, ci.x)), cz = Math.max(b.z0, Math.min(b.z1, ci.z)); let dx = ci.x - cx, dz = ci.z - cz, d = Math.hypot(dx, dz), nx, nz, pen;
+      if (d > 1e-4) { nx = dx / d; nz = dz / d; pen = ci.r - d; if (pen <= 0) continue; }
+      else { const l = ci.x - b.x0, r = b.x1 - ci.x, f = ci.z - b.z0, k = b.z1 - ci.z, mm = Math.min(l, r, f, k); pen = ci.r + mm; if (mm === l) { nx = -1; nz = 0; } else if (mm === r) { nx = 1; nz = 0; } else if (mm === f) { nx = 0; nz = -1; } else { nx = 0; nz = 1; } }
+      c.x += nx * pen; c.z += nz * pen; ci.x += nx * pen; ci.z += nz * pen;
+      const hit = impulse(c, nx, nz, ci.x - c.x, ci.z - c.z, m, Iz, 0.18);
+      if (hit > 0) { c.vx *= 0.985; c.vz *= 0.985; if (hit > 4) { ev = hit > 11 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); } }
+    }
+  }
+  // the island edge and the sea
+  const E = track.edge || TD_EDGE; if (Math.abs(c.x) > E) { c.x = Math.sign(c.x) * E; c.vx *= -0.3; } if (Math.abs(c.z) > E) { c.z = Math.sign(c.z) * E; c.vz *= -0.3; }
+  if (T(c.x + fx * 2.5, c.z + fz * 2.5) < TD_SEA && T(c.x, c.z) < TD_SEA + 0.6) { c.vx *= -0.35; c.vz *= -0.35; c.x += c.vx * dt * 3; c.z += c.vz * dt * 3; ev = ev || 'bump'; c.bump = 8; }
+  // height: stick to the ground, leave it over a crest / ramp lip (and fly)
+  const gy = T(c.x, c.z), sp = Math.hypot(c.vx, c.vz), py = c.y;
+  c.gx = (T(c.x + 1.5, c.z) - T(c.x - 1.5, c.z)) / 3; c.gz = (T(c.x, c.z + 1.5) - T(c.x, c.z - 1.5)) / 3;
+  if (c.air) {
+    c.vy -= 9.81 * dt; c.y += c.vy * dt;
+    if (c.y <= gy) { const hit = -c.vy; c.y = gy; c.air = false; c.vy = 0; c.vyg = 0; if (hit > 5) { ev = hit > 10 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); const k = Math.max(0.6, 1 - hit * 0.012); c.vx *= k; c.vz *= k; } }
+    c.pitch += (Math.atan2(c.vy, Math.max(8, sp)) * 0.8 - c.pitch) * Math.min(1, dt * 4);
+  } else {
+    const rise = (gy - py) / Math.max(dt, 1e-3); c.vyg += (rise - c.vyg) * Math.min(1, dt * 18);
+    if (gy < py - 0.12 - sp * 0.0025) { c.air = true; c.vy = Math.max(c.vyg, 0); c.y = py; }
+    else { c.y = gy; const fs = c.gx * fx + c.gz * fz; c.pitch += (Math.atan(fs) - c.pitch) * Math.min(1, dt * 12); }
+  }
+  c.air = c.air && c.y > gy + 1e-4;
+  return ev;
+}
+
+// car against car (the other car is treated as heavy when parked, lighter when somebody drives it)
+function carVsCar(c, o, spec, geo, m, Iz) {
+  if ((c.x - o.x) ** 2 + (c.z - o.z) ** 2 > 40 || Math.abs((o.y || 0) - c.y) > 2.5) return '';
+  const og = o.hl ? { w: o.hw * 2, L: o.hl * 2, wb: 2.7 } : geo;
+  const A = circles(c, geo), B = circles(o, og); let best = null;
+  for (const p of A) for (const q of B) { const dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz), pen = p.r + q.r - d; if (pen > 0 && (!best || pen > best.pen)) best = { pen, nx: d > 1e-4 ? dx / d : Math.sin(c.yaw), nz: d > 1e-4 ? dz / d : Math.cos(c.yaw), px: p.x, pz: p.z }; }
+  if (!best) return '';
+  const heavy = o.driver === -1 || o.parked || o.heavy, share = heavy ? 1 : 0.55;
+  c.x += best.nx * best.pen * share; c.z += best.nz * best.pen * share;
+  const rx = best.px - c.x, rz = best.pz - c.z;
+  const ovx = o.vx || 0, ovz = o.vz || 0;
+  const sx = c.vx, sz = c.vz; c.vx -= ovx; c.vz -= ovz;
+  const hit = impulse(c, best.nx, best.nz, rx, rz, heavy ? m : m * 1.0, Iz, 0.25) * (heavy ? 1 : 0.6);
+  c.vx += ovx; c.vz += ovz; void sx; void sz;
+  if (hit > 0) { c.vx *= 0.99; c.vz *= 0.99; }
+  return hit > 9 ? 'crash' : hit > 3.5 ? 'bump' : '';
+}

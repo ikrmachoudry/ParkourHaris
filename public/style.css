@@ -307,3 +307,10 @@ body.touch .carbtn.grab { bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104p
 #hud-obj { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); max-width: min(92vw, 760px); display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-radius: 14px; background: rgba(20,40,20,.78); border: 2px solid #ffd23f; color: #fff; font-size: clamp(13px, 2.6vmin, 19px); text-shadow: 0 2px 2px #000; pointer-events: none; z-index: 5; }
 #hud-obj b { background: #ffd23f; color: #3a1c00; border-radius: 8px; padding: 2px 8px; font-size: .8em; text-shadow: none; }
 #hud-obj.hidden, body:not(.hunt-map) #hud-obj { display: none; }
+
+/* Punjabi GTA: no text in the world or on the screen except the speedometer while driving */
+body.city-mode #hud-top, body.city-mode #hud-hint, body.city-mode #hud-count, body.city-mode #hud-toast, body.city-mode #hud-obj, body.city-mode #p-prog, body.city-mode #hud-progress, body.city-mode #click-hint, body.city-mode #hud-fx { display: none !important; }
+body.city-mode #car-keys, body.city-mode .carbtn em, body.city-mode .carbtn kbd { display: none !important; }
+body.city-mode .carbtn { padding: 10px 18px; }
+body.city-mode .carbtn .ic svg { display: block !important; }
+body.city-mode .carbtn .ic::before { content: none !important; }

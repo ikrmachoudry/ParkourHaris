@@ -1,0 +1,94 @@
+// Visual side of the city vehicles: wraps a procedural hero car (hcar.js) so it behaves like the old arcade car meshes
+// (position + yaw on the outer group, userData.seat for the driver) and adds suspension roll / pitch, wheel spin, door animation.
+import * as THREE from 'three';
+import { buildHeroCar, CAR_STYLES } from './hcar.js';
+import { cityVeh } from './cityveh.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const camPos = new THREE.Vector3(1e6, 0, 0);
+export const setCityCamera = (p) => camPos.copy(p);
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+let blobTex = null;
+function blob() {
+  if (!blobTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); blobTex = new THREE.CanvasTexture(cv); }
+  return blobTex;
+}
+
+// freeze a finished hero car (doors shut, wheels at rest) into a handful of merged meshes: far-away cars cost ~11 draw calls instead of ~70
+function bakeCar(root) {
+  root.updateMatrixWorld(true);
+  const groups = new Map();
+  root.traverse((o) => {
+    if (!o.isMesh) return; const m = o.material;
+    const key = [m.type, m.color ? m.color.getHex() : 0, m.opacity, m.side, m.emissiveIntensity, m.transparent].join('|');
+    let g = groups.get(key); if (!g) { g = { m, geos: [] }; groups.set(key, g); }
+    let geo = o.geometry.clone(); if (geo.index) geo = geo.toNonIndexed(); geo.applyMatrix4(o.matrixWorld); g.geos.push(geo);
+  });
+  const out = new THREE.Group();
+  for (const g of groups.values()) {
+    const geo = mergeGeometries(g.geos, false); if (!geo) continue;
+    const mesh = new THREE.Mesh(geo, g.m); mesh.castShadow = true; mesh.receiveShadow = !g.m.transparent; if (g.m.transparent) mesh.renderOrder = 5; out.add(mesh);
+  }
+  return out;
+}
+
+export function buildCityMesh(id, lo = false, bakedOnly = false) {
+  const spec = cityVeh(id), sp = CAR_STYLES[spec.style];
+  const opts = { style: spec.style, paint: spec.paint, extra: spec.extra };
+  const loCar = (lo || bakedOnly) ? buildHeroCar({ ...opts, detail: 'lo' }) : null;       // cheap copy for distance
+  const car = loCar && (lo || bakedOnly) ? loCar : buildHeroCar({ ...opts, detail: 'hi' });
+  const g = new THREE.Group(), tilt = new THREE.Group(), rot = new THREE.Group();
+  const baked = bakeCar((loCar || buildHeroCar({ ...opts, detail: 'lo' })).group);   // before it is parented: positions stay in car space
+  rot.rotation.y = -Math.PI / 2; if (bakedOnly) rot.add(baked); else rot.add(car.group, baked); g.add(rot); baked.visible = bakedOnly;   // car space +x (nose) -> world forward (+z of the outer group)
+  void tilt;
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(sp.L * 1.25, sp.w * 3.1), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
+  const fy = sp.yb - 0.27 - (sp.twoDoor ? 0.07 : 0);
+  g.userData = {
+    hero: car, spec, baked, bakedOnly, full: car.group, wheels: [], pivots: [], seat: { z: sp.seatX[0], y: 0.13 + fy },
+    seatF: sp.seatX[0], seatR: 0.38, seatY: 0.14 + fy, lamp: car.lamp,
+    ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
+  };
+  return g;
+}
+
+// per-frame: wheels, steering, body roll / pitch, driver door
+export function animateCityMesh(mesh, st, dt) {
+  const u = mesh.userData, car = u.hero, spec = u.spec;
+  { // level of detail: the full animated car near the camera or when somebody is inside, the merged baked copy far away
+    const dx = mesh.position.x - camPos.x, dz = mesh.position.z - camPos.z, d2 = dx * dx + dz * dz;
+    const near = !u.bakedOnly && (st.driver !== -1 || d2 < (u.near ? 26 * 26 : 19 * 19));
+    if (near !== !!u.near || u.near === undefined) { u.near = near; u.full.visible = near; u.baked.visible = !near; }
+    if (!near) { mesh.rotation.z = 0; mesh.rotation.x = -(st.pitch || 0); return; }
+  }
+  const spd = st.speed || 0;
+  // yaw rate (remote cars have none): from the change of heading
+  let yaw = st.yaw; if (u.yawP === null) u.yawP = yaw;
+  let dy = ((yaw - u.yawP + Math.PI * 3) % (Math.PI * 2)) - Math.PI; u.yawP = yaw;
+  const yr = st.ownd ? st.yr : dy / Math.max(dt, 1e-3);
+  u.yr += (clamp(yr, -3, 3) - u.yr) * Math.min(1, dt * 8);
+  const ay = st.ownd ? st.ay : spd * u.yr;                // lateral accel, left-positive
+  const ax = st.ownd ? st.ax : ((spd - (u.sp || spd)) / Math.max(dt, 1e-3));
+  u.sp = spd;
+  u.ph += (spd / 0.34) * dt; car.spin(u.ph);
+  const dMax = Math.min(0.58, 26 / Math.max(1, spd * spd));
+  car.steer(-(st.steer || 0) * dMax);
+  u.roll += (clamp(ay * 0.0065, -0.075, 0.075) - u.roll) * Math.min(1, dt * 9);
+  u.pit += (clamp(-ax * 0.0042, -0.05, 0.05) - u.pit) * Math.min(1, dt * 9);
+  mesh.rotation.z = u.roll; mesh.rotation.x = -(st.pitch || 0) + u.pit;
+  // doors: driver door swings open when somebody gets in / out, then shuts
+  if (st.driver !== u.lastDrv) { u.lastDrv = st.driver; u.doorT = 0; }
+  u.doorT += dt;
+  const t = u.doorT, k = t < 0.35 ? t / 0.35 : t < 1.5 ? 1 : t < 2.0 ? 1 - (t - 1.5) / 0.5 : 0;
+  const e = k * k * (3 - 2 * k);
+  if (e !== u.door) { u.door = e; car.setDoor(0, e); }
+  if (car.lamp && car.lamp.material && spec.extra === 'police') { const f = Math.floor(performance.now() / 160) % 2; car.lamp.material.emissiveIntensity = st.driver !== -1 ? (f ? 1.4 : 0.2) : 0.35; }
+}
+
+// traffic: only the cheap baked copy (never animated) in its own colour
+export function buildTrafficMesh(id, paint) {
+  const m = buildCityMesh(id, true, true);
+  if (paint) m.userData.hero.setColor(paint);
+  return m;
+}

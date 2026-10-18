@@ -183,3 +183,106 @@ export function speakHindi(text, who = 0, vol = 1) {
   } catch { /* no speech support */ }
 }
 try { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => { hiVoice = null; }; } catch { /* ignore */ }
+
+// ================= CITY VEHICLE SOUNDS =================
+// Engine: a harmonic-rich pulse train at the firing frequency (cylinders x revs / 2), a sub-octave rumble for big engines, a touch of
+// intake noise, a gentle idle "lope", and a soft clip that grows with load -> it growls when you push it. Pitch follows real gear rpm.
+let ceng = null, horn = null, skidV = null, cityAmb = null;
+let _wave = null;
+function engWave() {
+  if (_wave) return _wave;
+  const n = 22, re = new Float32Array(n + 1), im = new Float32Array(n + 1);
+  for (let k = 1; k <= n; k++) im[k] = (1 / Math.pow(k, 0.85)) * (k % 2 === 0 ? 0.75 : 1) * (k === 3 ? 1.25 : 1);
+  _wave = ctx.createPeriodicWave(re, im); return _wave;
+}
+export function carEngineStart(p = {}) {
+  if (!ctx || ceng) return;
+  const cyl = p.cyl || 4, pitch = p.pitch || 1, big = cyl >= 6;
+  const out = ctx.createGain(); out.gain.value = 0.0001;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600; lp.Q.value = 0.8;
+  const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 180; body.gain.value = 6; body.Q.value = 0.9;
+  const sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.4); } sh.curve = cv; sh.oversample = '2x';
+  const mix = ctx.createGain(); mix.gain.value = 1;
+  const o1 = ctx.createOscillator(); o1.setPeriodicWave(engWave());
+  const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; const g2 = ctx.createGain(); g2.gain.value = big ? 0.5 : 0.22;
+  const o3 = ctx.createOscillator(); o3.type = 'square'; const g3 = ctx.createGain(); g3.gain.value = 0.08;
+  o1.connect(mix); o2.connect(g2); g2.connect(mix); o3.connect(g3); g3.connect(mix);
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true; const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 500; nf.Q.value = 0.7; const ng = ctx.createGain(); ng.gain.value = 0.0001;
+  ns.connect(nf); nf.connect(ng);
+  mix.connect(sh); sh.connect(lp); lp.connect(body); body.connect(out); ng.connect(out); out.connect(sfxG);
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 9; lg.gain.value = 0.0; lfo.connect(lg); lg.connect(out.gain);
+  o1.start(); o2.start(); o3.start(); ns.start(); lfo.start();
+  ceng = { out, lp, o1, o2, o3, ns, ng, nf, lfo, lg, cyl, pitch, body };
+}
+export function carEngineSet(rpm01, load) {
+  if (!ctx || !ceng) return; const t = ctx.currentTime, e = ceng, r = Math.max(0, Math.min(1, rpm01)), ld = Math.max(0, Math.min(1, load));
+  const rev = (11 + r * 94) * e.pitch, f = rev * e.cyl / 2;
+  e.o1.frequency.setTargetAtTime(f, t, 0.03); e.o2.frequency.setTargetAtTime(f * 0.5, t, 0.03); e.o3.frequency.setTargetAtTime(f * 2, t, 0.03);
+  e.lp.frequency.setTargetAtTime(380 + r * 1500 + ld * 1700, t, 0.06);
+  e.body.frequency.setTargetAtTime(110 + r * 260, t, 0.1);
+  const idle = Math.max(0, 1 - r * 3.2);                         // the lumpy idle fades as revs rise
+  e.lfo.frequency.setTargetAtTime(Math.max(3, f / (e.cyl >= 6 ? 3 : 2)), t, 0.1); e.lg.gain.setTargetAtTime(0.012 * idle, t, 0.1);
+  e.out.gain.setTargetAtTime(0.05 + 0.04 * r + 0.07 * ld, t, 0.06);
+  e.nf.frequency.setTargetAtTime(350 + r * 1800, t, 0.1); e.ng.gain.setTargetAtTime(0.004 + 0.03 * ld * (0.4 + r), t, 0.08);
+}
+export function carEngineStop() {
+  if (!ceng) return; const e = ceng; ceng = null;
+  try { e.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.12); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.o3.stop(); e.ns.stop(); e.lfo.stop(); } catch { /* noop */ } }, 700); } catch { /* noop */ }
+}
+export function engineCrank() { // starter motor then catch: a quick rise
+  if (!ctx) return; tone('sawtooth', 38, 55, 0.5, 0.1); tone('square', 70, 110, 0.45, 0.04); noise(0.5, 0.05, 'bandpass', 300, 600, 0, 1);
+}
+
+// Horn: two reed tones a major third apart (real car horns), buzzy, held for as long as the button is held (never shorter than 0.2 s)
+export function hornStart(hz = 420) {
+  if (!ctx || horn) return;
+  const t = ctx.currentTime, g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.26, t + 0.025);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.7;
+  const bp = ctx.createBiquadFilter(); bp.type = 'peaking'; bp.frequency.value = 1400; bp.gain.value = 5; bp.Q.value = 0.8;
+  const sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 1.8); } sh.curve = cv;
+  const mix = ctx.createGain(); mix.gain.value = 0.5; mix.connect(sh); sh.connect(lp); lp.connect(bp); bp.connect(g); g.connect(sfxG);
+  const oscs = [];
+  for (const [f, type] of [[hz, 'sawtooth'], [hz * 1.004, 'square'], [hz * 1.26, 'sawtooth'], [hz * 1.267, 'square'], [hz * 2.02, 'triangle']]) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = type === 'triangle' ? 0.25 : 0.6; o.connect(og); og.connect(mix); o.start(); oscs.push(o); }
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 96; lg.gain.value = 0.05; lfo.connect(lg); lg.connect(g.gain); lfo.start(); oscs.push(lfo);
+  horn = { g, oscs, t0: t };
+}
+export function hornStop() {
+  if (!ctx || !horn) return; const h = horn; horn = null;
+  const wait = Math.max(0, 0.22 - (ctx.currentTime - h.t0));
+  setTimeout(() => { try { const t = ctx.currentTime; h.g.gain.cancelScheduledValues(t); h.g.gain.setTargetAtTime(0.0001, t, 0.035); setTimeout(() => { for (const o of h.oscs) { try { o.stop(); } catch { /* noop */ } } }, 260); } catch { /* noop */ } }, wait * 1000);
+}
+export const hornOn = () => !!horn;
+
+// tyre squeal: a continuous band of noise whose loudness follows how hard the tyres are sliding
+export function skidSet(level) {
+  if (!ctx) return;
+  if (!skidV) {
+    const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
+    const b1 = ctx.createBiquadFilter(); b1.type = 'bandpass'; b1.frequency.value = 1900; b1.Q.value = 5;
+    const b2 = ctx.createBiquadFilter(); b2.type = 'bandpass'; b2.frequency.value = 1150; b2.Q.value = 3;
+    const g = ctx.createGain(); g.gain.value = 0.0001; ns.connect(b1); ns.connect(b2); b1.connect(g); b2.connect(g); g.connect(sfxG); ns.start();
+    skidV = { ns, g, b1 };
+  }
+  const t = ctx.currentTime; skidV.g.gain.setTargetAtTime(Math.max(0.0001, level * 0.16), t, 0.04); skidV.b1.frequency.setTargetAtTime(1700 + level * 900, t, 0.1);
+}
+export function skidStop() { if (!skidV) return; const v = skidV; skidV = null; try { v.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(() => { try { v.ns.stop(); } catch { /* noop */ } }, 300); } catch { /* noop */ } }
+
+// metal crash: a heavy thump, a crunch of noise and (for big hits) glass
+export function crashSfx(power = 10) {
+  if (!ctx) return; const p = Math.max(0.15, Math.min(1, power / 22));
+  tone('sine', 95, 38, 0.32, 0.55 * p); tone('sawtooth', 160, 50, 0.22, 0.22 * p);
+  noise(0.35, 0.5 * p, 'lowpass', 2600, 250); noise(0.18, 0.3 * p, 'bandpass', 900, 2200, 0.01, 1.4);
+  if (power > 11) { noise(0.5, 0.18 * p, 'highpass', 5200, 3200, 0.05, 0.9); tone('triangle', 3400, 2500, 0.18, 0.05, 0.04); }
+}
+export function carDoor(open = false) { // a solid "thunk": low body knock + latch click
+  tone('sine', open ? 130 : 105, open ? 90 : 55, 0.14, 0.3); noise(0.06, open ? 0.12 : 0.22, 'lowpass', 2400, 500); noise(0.02, 0.1, 'highpass', 3500, 2500, open ? 0 : 0.07);
+}
+// a faint, constant city bed: distant traffic rumble (low-passed noise with a slow swell)
+export function cityAmbience(on) {
+  if (!ctx) return;
+  if (!on) { if (cityAmb) { const a = cityAmb; cityAmb = null; try { a.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); setTimeout(() => { try { a.ns.stop(); a.lfo.stop(); } catch { /* noop */ } }, 1500); } catch { /* noop */ } } return; }
+  if (cityAmb) return;
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260; const g = ctx.createGain(); g.gain.value = 0.0001;
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 0.008; lfo.connect(lg); lg.connect(g.gain);
+  ns.connect(lp); lp.connect(g); g.connect(sfxG); ns.start(); lfo.start(); g.gain.setTargetAtTime(0.035, ctx.currentTime, 1.2); cityAmb = { ns, g, lfo };
+}
