@@ -277,3 +277,17 @@ export function makeNameTag(text, color = '#ffffff') {
   sp.renderOrder = 999; sp.scale.set(2.8, 0.7, 1); sp.userData.base = 0.7;
   return sp;
 }
+
+// Speech bubble: English line on top, Hindi (Devanagari) translation below
+export function makeBubble(en, hi) {
+  const cv = document.createElement('canvas'); cv.width = 768; cv.height = 256;
+  const g = cv.getContext('2d'); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#1a1a2e'; g.lineWidth = 8;
+  g.beginPath(); g.moveTo(40, 8); g.arcTo(728, 8, 728, 200, 40); g.arcTo(728, 200, 40, 200, 40); g.lineTo(400, 200); g.lineTo(384, 248); g.lineTo(350, 200); g.arcTo(40, 200, 40, 8, 40); g.arcTo(40, 8, 728, 8, 40); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#1a1a2e'; g.font = '700 54px "Lilita One","Trebuchet MS",Arial,sans-serif'; g.fillText(en, 384, 62, 680);
+  g.fillStyle = '#c2185b'; g.font = '700 56px "Noto Sans Devanagari","Nirmala UI","Mangal","Kohinoor Devanagari",sans-serif'; g.fillText(hi, 384, 140, 680);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, fog: false }));
+  sp.renderOrder = 1000; sp.scale.set(4.2, 1.4, 1); sp.userData.base = 1.4;
+  return sp;
+}

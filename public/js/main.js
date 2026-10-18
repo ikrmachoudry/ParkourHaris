@@ -6,7 +6,7 @@ import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
 import { buildLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
-import { Character, makeNameTag } from './characters.js';
+import { Character, makeNameTag, makeBubble } from './characters.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
 import { Net } from './net.js';
@@ -209,6 +209,12 @@ class Remote {
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
 
+const THUG_LINES = {
+  steal: [['Hey! That is MY car!', 'अरे! ये मेरी गाड़ी है!'], ['Get your hands off my ride!', 'मेरी गाड़ी से हाथ हटा!'], ['You picked the wrong guy!', 'तूने गलत बंदा चुना!']],
+  punch: [['Take this!', 'ले ये!'], ['Come here, thief!', 'इधर आ, चोर!'], ['I will smash you!', 'मैं तुझे कूट दूँगा!']],
+  hurt: [['Ouch! That hurt!', 'आउच! दर्द हुआ!'], ['Not the face!', 'चेहरे पे नहीं!'], ['Aaaah! Stop it!', 'आहह! रुक जा!']],
+  die: [['I will be back...', 'मैं वापस आऊँगा...'], ['Take the car... argh!', 'गाड़ी ले जा... आह!'], ['You win... this time!', 'तू जीता... इस बार!']],
+};
 class Race {
   constructor(levelIdx, players, localId, o) {
     this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; this.multi = o.multi; this.localId = localId; this.players = players;
@@ -559,6 +565,13 @@ class Race {
       return { m, tag, x: t.x, y: t.y, z: t.z, yaw: t.yaw, sw: 0, hit: 0 };
     });
   }
+
+  thugSay(i, kind) { // speech bubble: English + Hindi translation
+    const L = THUG_LINES[kind], v = this.thv[i]; if (!L || !v || v.say > 0 && kind !== 'die') return;
+    const [en, hi] = L[Math.floor(Math.random() * L.length)];
+    if (v.bub) { v.m.group.remove(v.bub); v.bub.material.map.dispose(); v.bub.material.dispose(); }
+    v.bub = makeBubble(en, hi); v.bub.position.set(0, v.m.height + 1.9, 0); v.m.group.add(v.bub); v.say = kind === 'die' ? 2.4 : 2.0;
+  }
   stealCar(c) {
     const v = this.cars.indexOf(c), t = this.thugs[v], b = this.me.body;
     if (this.multi) { if (this.thugs[v].st === TH.SEAT) app.net.send({ t: 'steal', v }); }
@@ -576,7 +589,7 @@ class Race {
   }
   onThugNet(a) { if (!this.thugs || !Array.isArray(a)) return; a.forEach((q, i) => { const t = this.thugs[i]; if (!t || !Array.isArray(q)) return; t.st = q[0]; t.hp = q[1]; t.x = q[2]; t.y = q[3]; t.z = q[4]; t.yaw = q[5]; t.mv = q[6] & 1; t.stun = q[6] & 2 ? 1 : 0; }); }
   onThugEv(m) { // a thug swung at somebody
-    const v = this.thv && this.thv[m.v | 0]; if (v) v.sw = 0.4;
+    const v = this.thv && this.thv[m.v | 0]; if (v) v.sw = 0.4; if (v) this.thugSay(m.v | 0, 'punch');
     if (m.pid === this.localId) this.onThugHit(m);
   }
   onThugHit(m) {
@@ -594,12 +607,16 @@ class Race {
     this.thugs.forEach((t, i) => {
       const v = this.thv[i], prev = this.thSt[i], g = v.m.group;
       if (prev.st !== t.st || prev.hp !== t.hp) { // something happened to him: effects
-        if (t.st === TH.DEAD && prev.st !== TH.DEAD) { this.particles.emit(t.x, t.y + 1, t.z, 40, { color: '#ffffff', speed: 7, up: 5, life: 0.8, size: 0.5 }); this.particles.emit(t.x, t.y + 1, t.z, 20, { color: '#ffd23f', speed: 5, up: 6, life: 0.7, size: 0.35 }); A.sfx.win && A.sfx.win(); this.toast('THUG DOWN!  The ride is yours'); }
-        else if (t.hp < prev.hp) { this.particles.emit(t.x, t.y + 1.2, t.z, 18, { color: '#ffd23f', speed: 6, up: 3, life: 0.45, size: 0.3 }); A.sfx.bonk(); }
-        else if (t.st === TH.FIGHT && prev.st === TH.SEAT) { v.x = t.x; v.y = t.y; v.z = t.z; v.yaw = t.yaw; }
+        if (t.st === TH.DEAD && prev.st !== TH.DEAD) { v.dieT = 1.5; this.thugSay(i, 'die'); this.toast('THUG DOWN!  The ride is yours'); }
+        else if (t.hp < prev.hp) { this.particles.emit(t.x, t.y + 1.2, t.z, 18, { color: '#ffd23f', speed: 6, up: 3, life: 0.45, size: 0.3 }); A.sfx.bonk(); this.thugSay(i, 'hurt'); }
+        else if (t.st === TH.FIGHT && prev.st === TH.SEAT) { v.x = t.x; v.y = t.y; v.z = t.z; v.yaw = t.yaw; this.thugSay(i, 'steal'); }
         prev.st = t.st; prev.hp = t.hp;
       }
-      if (t.st === TH.DEAD) { g.visible = false; return; }
+      if (v.say > 0) { v.say -= dt; if (v.say <= 0 && v.bub) { g.remove(v.bub); v.bub.material.map.dispose(); v.bub.material.dispose(); v.bub = null; } }
+      if (t.st === TH.DEAD) { // let him say his last words, then poof
+        if (v.dieT > 0) { v.dieT -= dt; if (v.dieT <= 0) { this.particles.emit(v.x, v.y + 1, v.z, 40, { color: '#ffffff', speed: 7, up: 5, life: 0.8, size: 0.5 }); this.particles.emit(v.x, v.y + 1, v.z, 20, { color: '#ffd23f', speed: 5, up: 6, life: 0.7, size: 0.35 }); A.sfx.win && A.sfx.win(); } }
+        if (!(v.dieT > 0)) { g.visible = false; return; }
+      }
       g.visible = true; v.sw = Math.max(0, v.sw - dt);
       if (t.st === TH.SEAT) { const c = this.cars[i]; this.seatModel(g, c); v.m.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0 }); }
       else {
