@@ -1151,8 +1151,7 @@ async function ensureNet() {
   net.on('lobby', onLobby);
   net.on('err', (m) => {
     $('mp-status').textContent = m.msg;
-    if (m.retry && app.screen === 'mp') { stopJoin(); joinTimer = setTimeout(() => { if (app.screen === 'mp' && !app.room) mpAction('join'); }, 2000); } // keep looking until a room appears
-    else gtoast(m.msg);
+    stopJoin(); gtoast(m.msg);   // no auto-retry: you can only join a room that already exists
   });
   net.on('go', onGo);
   net.on('s', (m) => { if (race && race.multi) { const r = race.remotes.get(m.id); if (r) r.push(m); } });
@@ -1216,7 +1215,7 @@ function renderLobby() {
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
   $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)';
-  $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START RACE' : 'WAITING FOR HOST';
+  $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
   $('lobby-hint').textContent = host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
   stage.setLobby(m.players);
 }

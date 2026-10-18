@@ -181,8 +181,8 @@ wss.on('connection', (ws, req) => {
           const all = [...rooms.values()];
           r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < MAX_PLAYERS) || all.find((x) => x.players.size < MAX_PLAYERS);
           if (!r) {
-            if (!all.length) return send(ws, { t: 'err', retry: true, msg: 'No room yet. Ask your friend to tap CREATE ROOM - you will join automatically.' });
-            return send(ws, { t: 'err', retry: true, msg: `The room is full (${MAX_PLAYERS} players max). Waiting for a free spot...` });
+            if (!all.length) return send(ws, { t: 'err', msg: 'No room has been created yet. Ask the host to tap CREATE ROOM first, then tap JOIN ROOM.' });
+            return send(ws, { t: 'err', msg: `The room is full (${MAX_PLAYERS} players max).` });
           }
         }
         if (r.players.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: `Room is full (${MAX_PLAYERS} players max).` });
