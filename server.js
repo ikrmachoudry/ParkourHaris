@@ -80,7 +80,7 @@ function clearTimers(room) {
   room.timers = [];
 }
 // the missions of a room (the Mission Lobby): one hub per room, created when the first player uses it
-function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => bcast(room, msg)); return room.hub; }
+function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => bcast(room, msg), { getP: (id) => { const q = room.players.get(id); return q ? { x: q.x || 0, y: q.y || 0, z: q.z || 0, a: q.a | 0 } : null; } }); return room.hub; }
 // who counts for a mission: everybody whose connection is alive and has spoken in the last 6 s (a frozen tab or a ghost
 // connection must never block a solo player from starting)
 const pids = (room, selfId) => [...room.players.values()].filter((q) => q.id === selfId || (q.ws.readyState === 1 && Date.now() - (q.seen || 0) < 6000)).map((q) => q.id);
@@ -240,6 +240,7 @@ wss.on('connection', (ws, req) => {
 
       // ---- missions (Mission Lobby): the server only keeps the shared state, the players judge their own run
       case 'm_in': { if (!room || room.phase !== 'race') return; hubOf(room).lobby(p.id, !!m.on, pids(room, p.id)); break; }
+      case 'm_pick': { if (!room || room.phase !== 'race') return; hubOf(room).pick(p.id, String(m.mission || ''), pids(room, p.id)); break; }
       case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room, p.id)); break; }
       case 'm_res': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.result(p.id, !!m.ok, m.why, m.round | 0); break; }
 
@@ -293,7 +294,7 @@ wss.on('connection', (ws, req) => {
         if (t - p.lastS < 12) return;
         p.lastS = t;
         if (!num(m.x, -400, 400) || !num(m.y, -200, 300) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
-        p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r;
+        p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r; p.a = m.a | 0;
         bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];
         if (room.phase === 'race' && !p.finished && m.z < meta.finishZ && m.y > meta.finishY - 3 && Math.abs(m.x) < 16) {

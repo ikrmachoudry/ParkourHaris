@@ -51,6 +51,21 @@ const HP = Math.PI / 2;
 // line, two ramps follow, and the finish line is near the lookout.  Ramps are part of the ground height, so cars fly off them.
 export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
 export const STUNT = { name: 'STUNT JUMP', startX: 112, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[150, 0, HP0(), 20, 2.6, 12], [232, 0, HP0(), 20, 2.6, 12]], finishX: 292, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
+// MISSION 2 - THIEF CHASE: the CITY BANK (south side of the z = 60 avenue, door faces north) and the POLICE STATION (north side of the z = -60 avenue, door faces south).
+// Both are just buildings (nobody can go in). Two 4-door police cars wait in front of the station; for the mission they are moved to the bank.
+export const BANK = { x: 30, z: 95, w: 34, d: 20, h: 15 };
+export const POLICE = { x: 30, z: -100, w: 34, d: 16, h: 12, zone: { x: 30, z: -76, r: 9 } };
+export const CHASE = {
+  name: 'THIEF CHASE',
+  cops: [{ x: 20, z: 74, yaw: 0 }, { x: 40, z: 74, yaw: 0 }],                      // the police cars at the bank (nose to the door)
+  copsHome: [{ x: 21, z: -80, yaw: Math.PI }, { x: 39, z: -80, yaw: Math.PI }],      // ... and at the station
+  copIdx: [24, 25],
+  thiefCar: { x: 30, z: 63.25, yaw: -Math.PI / 2 },                                // parked at the kerb, nose west (left-hand traffic: south lane)
+  walk: [[30, 85.6], [30, 71], [34.6, 67], [34.6, 63.2], [30.2, 61.1]],            // the thief runs out of the bank, round the back of his car to the driver's door
+  corners: [[30, 63.25], [-100, 63.25], [-123.25, 40], [-123.25, -100], [-126, -122], [-140.8, -140.8]],   // the road to the mountain (west along z = 60, north along x = -120, the link road)
+  stopA: 330,                                                                      // arc length (m) of the first stop (set by buildRoute: the trunk stop on the west avenue)
+  flee: { x: -215, z: -215, r: 13 },                                               // the summit plaza
+};
 function HP0() { return Math.PI / 2; }
 // THE STUNT PARK: a flat arena south-east of the Mission Lobby with a fast oval circuit (two straights joined by two wide turns).
 //   top straight (east-bound, z = zT): speed booster, then a ramp.  bottom straight (west-bound, z = zB): speed booster, a lit TUNNEL, then a low kicker.
@@ -127,7 +142,7 @@ export function homeZone(x, z, pad = 0) {
   return null;
 }
 export const homeSpawn = (char) => { const h = HOMES[((char | 0) % HOMES.length + HOMES.length) % HOMES.length], p = homeW(h, 3.4, 3.6); return { x: p.x, z: p.z, yaw: h.yaw }; };
-const LOT_BLOCKS = [[-30, 30], [-90, -90], [90, -30]];
+const LOT_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90]];   // + the bank and the police station blocks
 export function gtaBuildings() {
   const R = rng(4242), out = [], pal = ['#e8c9a0', '#cfd8e3', '#e89c8a', '#a8c5e8', '#f1e0a6', '#b9d9b0', '#d9b8e0', '#f0b27a', '#9fb4c8'];
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
@@ -150,7 +165,8 @@ export function gtaCars() {
   const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 5.8); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
   return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home, ...[0, 1, 2, 3].map((k) => ({ id: 17, x: PARK.spawn.x, z: PARK.spawn.z + k * PARK.spawn.step, yaw: PARK.spawn.yaw })),
     // 16..23 = motorbikes: five on the kerb near the spawn, three in the Stunt Park infield (the net flags carry a 5-bit vehicle index)
-    ...[[19, -4], [20, -1.5], [21, 1], [19, 3.5], [20, 6]].map(([id, x]) => ({ id, x, z: -5.0, yaw: Math.PI / 2 })), ...[[19, 86.6], [21, 89.8], [20, 93]].map(([id, z]) => ({ id, x: PARK.spawn.x - 7, z, yaw: PARK.spawn.yaw }))];   // 12..15 = the four white mission cars (they wait in the Stunt Park)
+    ...[[19, -4], [20, -1.5], [21, 1], [19, 3.5], [20, 6]].map(([id, x]) => ({ id, x, z: -5.0, yaw: Math.PI / 2 })), ...[[19, 86.6], [21, 89.8], [20, 93]].map(([id, z]) => ({ id, x: PARK.spawn.x - 7, z, yaw: PARK.spawn.yaw })),
+    ...CHASE.copsHome.map((q) => ({ id: 15, ...q }))];   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -168,6 +168,7 @@ export function buildGta(world, th, info, seed) {
       world.addSolid(x0, 0, z0, x1, hh, z1, { name: 'building' }); if (hh > 1.5) roads.boxes.push({ x0, x1, z0, z1, h: hh });
     }
   }
+  for (const S of [BANK, POLICE]) { world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h }); }   // the bank and the police station (nobody can go in)
   { const L = LOBBY, hw = L.w / 2, hd = L.d / 2, T3 = 0.3;   // the Mission Lobby: hollow, walk in through the front door
     for (const [a, b, c, d] of LOBBY_WALLS) { const x0 = L.x + a, x1 = L.x + b, z0 = L.z + c, z1 = L.z + d; world.addSolid(x0, 0, z0, x1, 4, z1, { name: 'building' }); roads.boxes.push({ x0, x1, z0, z1, h: 4 }); }
     world.addSolid(L.x - hw + T3, 0.2, L.z - hd + T3, L.x + hw - T3, 0.26, L.z + hd - T3, { name: 'prop' });
@@ -292,6 +293,41 @@ export function buildGta(world, th, info, seed) {
       [-1.5, 0.3, 2.1].forEach((lx, q) => { const f = P(lx, 1.9); wm.add(new THREE.SphereGeometry(0.34, 7, 6), f.x, 0.5, f.z, ['#e63946', '#f4a261', '#ff9ec7'][q]); });   // shrubs/flowers along the wall
     });
   }
+  // ---- CITY BANK (door faces north, onto the z = 60 avenue) and POLICE STATION (door faces south): just buildings with a name, nobody can enter
+  { const Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d), sign = (txt, bg, fg, w, h) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTexture(txt, bg, fg), toneMapped: false }));
+    { const S = BANK, fz = S.z - S.d / 2;
+      wm.add(Bx(44, 0.06, 20), S.x, 0.23, fz - 9, '#b9b4a8');                                        // paved forecourt (the police cars park here)
+      wm.add(Bx(S.w + 1.2, 1.2, S.d + 1.2), S.x, 0.6, S.z, '#8d8578');
+      wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2 + 0.02, S.z, '#e6dcc6');
+      wm.add(Bx(S.w + 1.4, 0.8, S.d + 1.4), S.x, S.h + 0.4, S.z, '#4a4f5e');
+      wm.add(Bx(S.w + 0.8, 0.8, S.d + 0.8), S.x, S.h - 0.5, S.z, '#f1ead8');
+      for (let i = -2; i <= 2; i += 1) wm.add(Bx(1.8, 6.5, 0.3), S.x + i * 6.2, 7.2, fz - 0.14, '#2f4a66');     // tall dark windows between the columns
+      wm.add(Bx(6.4, 5.2, 0.3), S.x, 3.8, fz - 0.16, '#6b5320'); wm.add(Bx(5.2, 4.4, 0.34), S.x, 3.6, fz - 0.2, '#c9a227');   // the vault door
+      world.glow.add(Bx(4.4, 0.18, 0.1), S.x, 6.2, fz - 0.42, '#ffe08a');
+      for (let i = -3; i <= 3; i++) { const cx = S.x + i * 4.6; wm.add(new THREE.CylinderGeometry(0.62, 0.7, 10.6, 14), cx, 6.5, fz - 2.6, '#f4efe2'); wm.add(Bx(1.7, 0.45, 1.7), cx, 11.95, fz - 2.6, '#d9d2c0'); wm.add(Bx(1.6, 0.4, 1.6), cx, 1.4, fz - 2.6, '#d9d2c0'); solidProp(cx, fz - 2.6, 0.7, 11); }
+      wm.add(Bx(33.6, 1.1, 6.2), S.x, 12.7, fz - 2.8, '#f1ead8'); wm.add(Bx(34.2, 0.5, 6.6), S.x, 13.5, fz - 2.8, '#4a4f5e');
+      wm.add(Bx(31, 0.3, 4.6), S.x, 0.35, fz - 3.6, '#a8a294'); wm.add(Bx(27, 0.3, 3.4), S.x, 0.55, fz - 3.0, '#bdb7a8');   // steps
+      wm.add(Bx(20.4, 4.4, 0.3), S.x, 16.3, fz - 0.4, '#14304f');                                             // name board on the roof
+      const sg = sign('CITY BANK', '#14304f', '#ffd23f', 19.6, 3.9); sg.position.set(S.x, 16.3, fz - 0.58); sg.rotation.y = Math.PI; world.group.add(sg);
+      wm.add(new THREE.CylinderGeometry(0.1, 0.12, 6, 8), S.x + 14.5, 18.4, fz + 3, '#c9d1d9'); wm.add(Bx(2.6, 1.6, 0.06), S.x + 15.9, 20.6, fz + 3, '#1c7c3c');
+    }
+    { const S = POLICE, fz = S.z + S.d / 2;
+      wm.add(Bx(44, 0.06, 24), S.x, 0.23, fz + 10.5, '#8e939c');                                       // forecourt with the delivery ring
+      wm.add(Bx(S.w + 1.2, 1.0, S.d + 1.2), S.x, 0.5, S.z, '#6a7280');
+      wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2 + 0.02, S.z, '#cdd6e6');
+      wm.add(Bx(S.w + 0.3, 1.5, S.d + 0.3), S.x, 9.4, S.z, '#1f3f8a');
+      wm.add(Bx(S.w + 1.4, 0.8, S.d + 1.4), S.x, S.h + 0.4, S.z, '#3b4254');
+      for (const i of [-3, -2, 2, 3]) wm.add(Bx(3.4, 2.6, 0.24), S.x + i * 4.6, 5.4, fz + 0.1, '#9fd0f0');
+      wm.add(Bx(6.4, 4.0, 0.3), S.x, 2.3, fz + 0.12, '#9fd0f0'); wm.add(Bx(0.3, 4.0, 0.36), S.x, 2.3, fz + 0.14, '#1f3f8a');   // glass double door
+      wm.add(Bx(10, 0.5, 3.4), S.x, 4.8, fz + 1.7, '#1f3f8a'); solidProp(S.x - 4.6, fz + 3.1, 0.2, 4.8); solidProp(S.x + 4.6, fz + 3.1, 0.2, 4.8);
+      wm.add(Bx(14.6, 3.6, 0.3), S.x, 14.2, fz - 0.4, '#1f3f8a');
+      const sg = sign('POLICE', '#1f3f8a', '#ffffff', 14, 3.2); sg.position.set(S.x, 14.2, fz - 0.22); world.group.add(sg);
+      world.glow.add(Bx(1.6, 0.4, 0.8), S.x - 12, S.h + 1.0, fz - 2, '#ff2a2a'); world.glow.add(Bx(1.6, 0.4, 0.8), S.x + 12, S.h + 1.0, fz - 2, '#2a6bff');
+      wm.add(new THREE.CylinderGeometry(0.08, 0.1, 7, 8), S.x - 15, S.h + 4, S.z, '#c9d1d9');
+      const Z = POLICE.zone, ringG = new THREE.RingGeometry(Z.r - 0.9, Z.r, 56); ringG.rotateX(-Math.PI / 2);   // the drop-off ring (the thief is delivered here)
+      world.glow.add(ringG, Z.x, 0.31, Z.z, '#4ade80'); wm.add(new THREE.CylinderGeometry(Z.r - 0.9, Z.r - 0.9, 0.03, 56), Z.x, 0.28, Z.z, '#1d3a2a');
+    }
+  }
   // ---- MISSION LOBBY (walk in, step on the glowing pad) + the stunt-course start line and finish gate
   { const L = LOBBY, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), mk = (tex, ww, hh) => new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
     wm.add(Bx(L.w + 5, 0.06, L.d + 7), L.x, 0.22, L.z + 1.5, '#4b4f58');                                  // forecourt
@@ -351,7 +387,8 @@ export function buildGta(world, th, info, seed) {
   for (const g of GT.GRID) for (const side of [-1, 1]) for (let t = -112; t <= 112; t += 14) {
     if (GT.GRID.some((q) => Math.abs(t - q) < 10)) continue;
     const o = side * (GT.HW + 2.2), lamp = ((t + 112) / 14) % 2 === 0;
-    for (const [x, z, horiz] of [[g + o, t, false], [t, g + o, true]]) { if (lamp) lampPost(x, z, side, horiz); else plant(x, 0.2, z, 0.8 + R() * 0.3); }
+    for (const [x, z, horiz] of [[g + o, t, false], [t, g + o, true]]) { if (x > 12 && x < 48 && Math.abs(z) > 66 && Math.abs(z) < 72) continue;   // keep the forecourts of the bank and the police station clear
+      if (lamp) lampPost(x, z, side, horiz); else plant(x, 0.2, z, 0.8 + R() * 0.3); }
   }
   // ---- forest on the hills and the mountain
   for (let i = 0, n = 0; i < 2600 && n < 380; i++) {

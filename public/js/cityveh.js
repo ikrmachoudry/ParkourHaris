@@ -18,6 +18,7 @@ export const CITY_VEH = [
   { id: 19, name: 'Sport Bike', style: 'bikeS', kind: 'sport', paint: '#e11d2e', mass: 260, kW: 95, top: 44.5, mu: 1.2, drive: 'rwd', cda: 0.36, cyl: 4, pitch: 1.5, hornHz: 560, latG: 0.95, dLock: 0.42, dK: 40 },
   { id: 20, name: 'Cruiser', style: 'bikeC', kind: 'cruiser', paint: '#1f3a8a', mass: 360, kW: 58, top: 33.5, mu: 1.1, drive: 'rwd', cda: 0.5, cyl: 2, pitch: 0.75, hornHz: 480, latG: 0.95, dLock: 0.42, dK: 40 },
   { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540, latG: 0.95, dLock: 0.42, dK: 40 },
+  { id: 22, name: 'Getaway', style: 'sedan', paint: '#14151a', mass: 1450, kW: 120, top: 36, mu: 1.0, drive: 'rwd', cda: 0.66, cyl: 6, pitch: 0.85, hornHz: 400 },   // the thief's black car (scripted, nobody drives it)
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
@@ -47,7 +48,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;      // forward and right unit vectors
   // speed boosters (glowing pads): a strong push along the way the car points, up to ~15% above the car's top speed
   if (c.boost > 0) c.boost -= dt;
-  if (!c.air && track.boosts) for (const bp of track.boosts) if (Math.abs(c.x - bp.x) < bp.rx && Math.abs(c.z - bp.z) < bp.rz) { const sf = c.vx * fx + c.vz * fz; if (sf > -2 && sf < spec.top * 1.15) { c.vx += fx * 46 * dt; c.vz += fz * 46 * dt; } c.boost = 0.5; break; }
+  if (!c.air && track.boosts) for (const bp of track.boosts) if (Math.abs(c.x - bp.x) < bp.rx && Math.abs(c.z - bp.z) < bp.rz) { const sf = c.vx * fx + c.vz * fz; if (sf > -2 && sf < (c.topCap || spec.top) * 1.15) { c.vx += fx * 46 * dt; c.vz += fz * 46 * dt; } c.boost = 0.5; break; }
   let u = c.vx * fx + c.vz * fz, vr = c.vx * rx + c.vz * rz;                 // forward / rightward speed
   const vl = -vr;                                                          // leftward (the model below is left-positive)
   const air = !!c.air;
@@ -71,7 +72,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
   let Fx = 0;
-  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp((spec.top - u) / 2.2, 0, 1); }   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
+  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp(((c.topCap || spec.top) - u) / 2.2, 0, 1); }   // c.topCap: a lower limit set by the game (the mission cars: 130 km/h, 120 during the stunt run)   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);

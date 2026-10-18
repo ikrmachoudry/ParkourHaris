@@ -238,7 +238,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 10 : 16); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 10 : 16); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -248,7 +248,7 @@ class Race {
     }
     this.cars = []; this.rolling = []; this.repairT = 0; this.drive = null; this.paxMode = false; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
-      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
+      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); if (this.cars.length >= 12 && this.cars.length < 16 || this.cars.length >= 24) st0.topCap = 36.1; /* mission cars: 130 km/h */ st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
       this.racerOk = false;
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
@@ -407,8 +407,8 @@ class Race {
 
 
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
-      if (this.bigMapOpen) this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })));
-      this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt); }
+      if (this.bigMapOpen) this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks());
+      this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt, this.mission && this.mission.marks()); }
     if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p) });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
@@ -491,7 +491,7 @@ class Race {
       const c = this.nearestFreeCar(b);
       if (!c) return;
       { const ci = this.cars.indexOf(c);   // somebody else is driving this car and the passenger seat is free: ride along instead of stealing it
-        if (this.multi && c.st.driver !== -1 && c.st.driver !== this.localId && ci < 12 && !c.mesh.userData.bike && !c.st.wreck && (c.st.pax === undefined || c.st.pax === -1)) {
+        if (this.multi && c.st.driver !== -1 && c.st.driver !== this.localId && (ci < 12 || ci >= 24) && !c.mesh.userData.bike && !c.st.wreck && (c.st.pax === undefined || c.st.pax === -1)) {
           this.drive = c; this.paxMode = true; c.st.pax = this.localId; b.vx = b.vz = b.vy = 0; b.grounded = true;
           document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
           if (c.mesh.userData.hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 700); } else A.sfx.door();
@@ -959,6 +959,8 @@ class Race {
     tag.visible = d < 260;
   }
   updateCamera(dt) {
+    { const shot = this.mission && this.mission.camShot(dt);   // a scripted cut-scene shot (the thief robbing the bank)
+      if (shot) { this.camera.fov = lerp(this.camera.fov, shot.fov || 60, Math.min(1, dt * 4)); this.camera.updateProjectionMatrix(); this.camera.position.set(shot.px, shot.py, shot.pz); this.camTarget.set(shot.lx, shot.ly, shot.lz); this.camera.lookAt(shot.lx, shot.ly, shot.lz); this.camInit = false; return; } }
     let b = this.me.body; const spec = this.mission && this.mission.specTarget();   // spectating a mission runner: the camera rides behind them
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
@@ -1204,7 +1206,7 @@ async function ensureNet() {
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
   net.on('jack', (m) => { if (race && race.multi) race.onJack(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
-  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
+  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
   net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();
