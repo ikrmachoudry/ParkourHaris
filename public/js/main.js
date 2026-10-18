@@ -222,7 +222,7 @@ class Race {
     this.multi = o.multi; this.localId = localId; this.players = players;
     this.t0 = o.t0; // multi: server ms ; single: performance.now() ms
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
-    this.camYaw = 0; this.camPitch = 0.34; this.camDist = 8.2; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
+    this.camYaw = 0; this.camPitch = NO_TEXT ? 0.17 : 0.34; this.camDist = NO_TEXT ? 3.5 : 8.2; this.shoulder = 0; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
     this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
@@ -561,7 +561,7 @@ class Race {
       document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
       this.g_g(this.me.model.group);
       if (this.multi && !force) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
-      this.camYaw = st.yaw + Math.PI; this.camInit = false;
+      this.camYaw = st.yaw + Math.PI; this.camInit = false; if (NO_TEXT) this.camPitch = 0.17;
     } else {
       const c = this.nearestFreeCar(b);
       if (!c) return;
@@ -970,14 +970,16 @@ class Race {
     const b = this.me.body;
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    this.camera.fov = lerp(this.camera.fov, 62 + clamp(speed - 10, 0, 12) * 0.9, Math.min(1, dt * 4)); this.camera.updateProjectionMatrix();
+    this.camera.fov = lerp(this.camera.fov, (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * 4)); this.camera.updateProjectionMatrix();
     let dist = this.camDist;
     if (this.drive) {
       const st = this.drive.st; this.lookT -= dt; dist = 9.2 + Math.min(4, Math.abs(st.speed) * 0.12);
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     if (this.an && this.an.mount) dist += this.an.camLift() * 1.1;
-    const tx = b.x, ty = b.y + (this.drive ? 1.1 : 1.35) + (this.an ? this.an.camLift() * 0.7 : 0), tz = b.z;
+    // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
+    this.shoulder += ((NO_TEXT && !this.drive ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
+    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive ? 1.1 : (NO_TEXT ? 1.5 : 1.35)) + (this.an ? this.an.camLift() * 0.7 : 0), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-14 * dt);
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
