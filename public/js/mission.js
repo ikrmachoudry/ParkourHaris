@@ -43,7 +43,7 @@ export class MissionHub {
   }
   // ---- THIEF CHASE: the story is played by a director that lives right here (server in multiplayer), everybody just draws what it broadcasts
   startThief() {
-    if (!this.dir) this.dir = new ThiefDirector({ getP: (id) => this.getP(id), onEv: (k) => this.emit({ t: 'm_ev', k }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
+    if (!this.dir) this.dir = new ThiefDirector({ getP: (id) => this.getP(id), onEv: (k) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0 }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
     this.dir.start(this.members); let last = Date.now();
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_th', ...this.dir.snap() }); } }, 100);
   }

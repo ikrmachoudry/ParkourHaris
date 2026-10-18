@@ -49,4 +49,12 @@ r = play('idle-summit'); ok(r.result && !r.result.ok && r.result.why === 'escape
   while (dir.stage !== 'drive2' && t < 200) { me.x = dir.car.x - 10; me.z = dir.car.z; dir.tick(0.1); t += 0.1; }
   for (let i = 0; i < 200; i++) { me.x = dir.car.x - 160; me.z = dir.car.z; dir.tick(0.1); } const vFar = dir.v;
   ok(vNear > 18 && vFar < 12, 'he slows when left behind (' + vNear.toFixed(1) + ' -> ' + vFar.toFixed(1) + ' m/s)'); }
+// catching him: a car that rams him (or a runner who touches him) during the chase ends it with an arrest
+for (const how of ['car', 'foot']) {
+  const me = { x: 0, y: 0, z: 0, a: 0 }, dir = new ThiefDirector({ getP: () => me }); dir.start([1]); let t = 0;
+  while (dir.stage !== 'flee' && t < 400) { if (dir.stage === 'drive1' || dir.stage === 'drive2' || dir.stage === 'waitA' || dir.stage === 'trunk' || dir.stage === 'summit') { me.x = dir.car.x - 10; me.z = dir.car.z; me.a = 256 | bits(24); } dir.tick(0.1); t += 0.1; }
+  let caught = false;
+  for (let i = 0; i < 400 && dir.stage === 'flee'; i++) { me.x = dir.th.x - 8; me.z = dir.th.z; me.a = how === 'car' ? 256 | bits(24) : 0; dir.tick(0.1); if (i > 40) { me.x = dir.th.x - (how === 'car' ? 4 : 2.5); me.z = dir.th.z; me.y = gtaH(me.x, me.z); dir.tick(0.1); } if (dir.stage === 'cuffed') caught = true; }
+  ok(caught, 'a ' + how + ' touching the runner arrests him');
+}
 console.log(fails ? 'THIEF: FAILURES' : 'THIEF OK'); process.exit(fails ? 1 : 0);

@@ -132,13 +132,14 @@ export class ThiefDirector {
         break;
       }
       case 'flee': {
-        this.fleeT += dt; const C = CHASE.flee, run = 5.7;
+        this.fleeT += dt; const C = CHASE.flee, run = Math.max(3.6, 5.7 - this.fleeT * 0.05);   // he gets tired
         this.phi += run / C.r * dt;
         const tx = C.x + C.r * Math.cos(this.phi), tz = C.z + C.r * Math.sin(this.phi), k = clamp(this.st / 1.2, 0, 1);
         const nx = lerp(this.fx.x, tx, k), nz = lerp(this.fx.z, tz, k);
         th.yaw = Math.atan2(nx - th.x, nz - th.z); th.x = nx; th.z = nz; th.sp = run; th.pose = 'run'; th.mode = 'foot';
         if (this.fleeT > 150) return this.end(false, 'escaped');
-        for (const id of this.members) { const P = this.getP(id); if (!P || (P.a & (256 | PAX))) continue; if (hyp(P.x - th.x, P.z - th.z) < 2.6 && Math.abs(P.y - gtaH(th.x, th.z)) < 3) { this.arrester = id; this.go('cuffed'); th.sp = 0; th.pose = 'scared'; break; }
+        for (const id of this.members) { const P = this.getP(id); if (!P || (P.a & PAX)) continue; const drv = !!(P.a & 256);   // caught by a runner (3.2 m) or run over / rammed by a car (5 m)
+          if (hyp(P.x - th.x, P.z - th.z) < (drv ? 5 : 3.2) && Math.abs(P.y - gtaH(th.x, th.z)) < 3) { this.arrester = id; this.go('cuffed'); th.sp = 0; th.pose = 'scared'; break; }
         }
         break;
       }

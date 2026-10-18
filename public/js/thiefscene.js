@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { HeroActor } from './actor.js';
 import { buildCarMesh } from './car.js';
 import { animateCityMesh } from './cityvis.js';
+import { buildRoute } from './thief.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const angLerp = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
@@ -19,7 +20,7 @@ export class ThiefScene {
   }
   ground(x, z) { const t = this.R.info.track; return t && t.terrain ? t.terrain(x, z) : 0; }
   apply(m) { this.snap = m; this.at = performance.now(); }
-  clear() { this.snap = null; this.first = true; if (this.built) { this.car.visible = false; this.actor.group.visible = false; } }
+  clear() { this.snap = null; this.first = true; this.ri = undefined; if (this.built) { this.car.visible = false; this.actor.group.visible = false; } }
   get stage() { return this.snap ? this.snap.st : ''; }
   // seat positions (same maths as Race.seatModel) for the thief
   seat(g, x, y, z, yaw, ud, f, r) {
@@ -55,6 +56,14 @@ export class ThiefScene {
       g.position.set(this.px, this.ground(this.px, this.pz), this.pz); g.rotation.set(0, this.pyaw, 0); g.scale.setScalar(1);
       this.actor.update(dt, { seated: false, speed: psp, grounded: true, gesture: pose === 'aim' ? 'aim' : pose === 'scared' ? 'scared' : undefined });
     }
+  }
+  // the red line on the maps: the rest of his road, from where he is to the summit (points about every 12 m)
+  routeAhead() {
+    const s = this.snap; if (!s || s.st === 'done' || s.st === 'fail') return null;
+    const R = this.R_ || (this.R_ = buildRoute()), x = this.cx, z = this.cz; if (x === undefined) return null;
+    let best = 1e9, bi = this.ri || 0; for (let i = Math.max(0, (this.ri || 0) - 30); i < Math.min(R.n, (this.ri || 0) + 400); i++) { const d = (R.pts[i].x - x) ** 2 + (R.pts[i].z - z) ** 2; if (d < best) { best = d; bi = i; } }
+    if (this.ri === undefined || best < 40 * 40) this.ri = bi;
+    const out = []; for (let i = this.ri; i < R.n; i += 8) out.push([R.pts[i].x, R.pts[i].z]); out.push([R.pts[R.n - 1].x, R.pts[R.n - 1].z]); return out;
   }
   // the cut-scene at the bank (the first seconds): a fixed camera on the avenue looking at the thief, his car and the two police cars
   shot(dt) {

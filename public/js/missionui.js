@@ -68,7 +68,7 @@ export class MissionClient {
     const R = this.race;
     if (m.t === 'm_lobby') { this.lobby = { in: m.in || [], total: m.total || 1 }; if (m.mission) this.mission = m.mission; this.renderPanel(); }
     else if (m.t === 'm_th') this.ts.apply(m);
-    else if (m.t === 'm_ev') this.onEv(m.k);
+    else if (m.t === 'm_ev') this.onEv(m.k, m.d);
     else if (m.t === 'm_go') this.onGo(m);
     else if (m.t === 'm_run') { if (this.phase === 'brief') { this.phase = 'run'; this.hold = false; this.runT0 = performance.now(); this.jumps = 0; this.air = false; this.finished = false; this.showFin(false); this.big('GO!', 900); A.sfx.pickup(); this.chips(); } }
     else if (m.t === 'm_st') { this.res = m.res || {}; this.chips(); }
@@ -101,7 +101,7 @@ export class MissionClient {
   onGoThief(m) {
     const R = this.race; this.mission = 'thief'; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false;
     const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 9000); this.lastN = 0;
-    this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ts.resetShot();
+    this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ts.resetShot(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
     CHASE.copIdx.forEach((k, j) => {   // both police cars: repaired, parked nose-to-the-bank
       const c = R.cars[k]; if (!c) return; const s = c.st, q = CHASE.cops[j];
@@ -117,10 +117,12 @@ export class MissionClient {
     }
     this.big('THIEF CHASE', 2600, '#ff6b6b'); this.sub(this.seat & 1 ? 'YOU RIDE ALONG - YOUR PARTNER DRIVES' : 'YOU DRIVE - WATCH THE BANK', 7000); this.chips();
   }
-  onEv(k) {
+  onEv(k, d) {
+    if (this.mission !== 'thief' || this.phase !== 'run') return;   // story text only while the mission really runs
+    if ((k === 'stopA' || k === 'trunk' || k === 'gun') && d > 70) return;   // you only get the scene text if you are close enough to see it
     const T = { chase: ['GET HIM!', 'STAY CLOSE - HE SLOWS DOWN IF YOU FALL BEHIND', '#ff6b6b'], stopA: ['', 'HE STOPPED - GET CLOSE', ''], trunk: ['WHAT IS HE DOING?', 'HE IS OPENING THE BOOT...', '#ffd23f'], gun: ['HE HAS A GUN!', '', '#ff4040'],
       drive2: ['AFTER HIM!', 'HE IS HEADING FOR MOUNT HARIS', '#ff6b6b'], flee: ['CATCH HIM ON FOOT!', 'RUN HIM DOWN - HE IS RUNNING ROUND THE SUMMIT', '#ffd23f'], arrest: ['GOT HIM!', 'BRING A POLICE CAR NEXT TO HIM', '#5ef0a0'], loaded: ['IN THE BACK!', 'TAKE HIM TO THE POLICE STATION', '#5ef0a0'] }[k];
-    if (!T) return; if (T[0]) this.big(T[0], 2200, T[2]); if (T[1]) this.sub(T[1], 6000); if (k === 'gun') A.sfx.bonk(); else A.sfx.pickup();
+    if (!T) return; this.big('', 1); this.sub('', 1); if (T[0]) this.big(T[0], 2000, T[2]); if (T[1]) this.sub(T[1], 3500); if (k === 'gun') A.sfx.bonk(); else A.sfx.pickup();
   }
   // the camera shot during the cut-scene (null = the normal camera)
   camShot(dt) { return this.mission === 'thief' && this.phase === 'brief' ? this.ts.shot(dt) : null; }
@@ -129,9 +131,11 @@ export class MissionClient {
     if (this.mission !== 'thief' || (this.phase !== 'run' && this.phase !== 'brief') || !this.ts.snap) return null;
     const s = this.ts.snap, out = [], foot = s.p[5] === 'foot';
     if (s.st === 'deliver') out.push({ x: POLICE.zone.x, z: POLICE.zone.z, color: '#2a5bd7', glyph: '\u{1F693}' });
-    else if (s.st !== 'rob') out.push({ x: foot ? this.ts.px : this.ts.cx, z: foot ? this.ts.pz : this.ts.cz, color: '#e11d2e', glyph: '\u{1F9B9}' });
+    else if (s.st !== 'rob') { out.push({ x: CHASE.flee.x, z: CHASE.flee.z, color: '#e11d2e', glyph: '\u{1F3C1}' }); out.push({ x: foot ? this.ts.px : this.ts.cx, z: foot ? this.ts.pz : this.ts.cz, color: '#e11d2e', glyph: '\u{1F9B9}' }); }
     return out;
   }
+  // the red line on the maps: the road he will take, from where he is now to the summit
+  route() { return this.mission === 'thief' && (this.phase === 'run' || this.phase === 'brief') ? this.ts.routeAhead() : null; }
   // ---- per-frame
   update(dt) {
     const R = this.race, b = R.me.body, P = LOBBY.pad;

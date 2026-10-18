@@ -39,7 +39,7 @@ export class Minimap {
   }
   resize() { const d = Math.min(2, window.devicePixelRatio || 1), s = this.cv.clientWidth || 150; this.cv.width = this.cv.height = Math.round(s * d); }
   // view: { x, z, head } where head = the world direction (yaw) that should point up;  me: { x, z, yaw };  others: [{ x, z, color }]
-  draw(view, me, others, dt, marks) {
+  draw(view, me, others, dt, marks, route) {
     this.t += dt || 0; if (this.t < 0.033) return; this.t = 0;
     if (!this.map) this.map = drawStatic();
     const g = this.g, S = this.cv.width; if (!S) { this.resize(); return; }
@@ -54,6 +54,7 @@ export class Minimap {
       g.fillStyle = bg; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 90); g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.stroke();
       g.font = Math.round(r * 1.25) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
     };
+    if (route && route.length > 1) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.strokeStyle = 'rgba(230,30,30,.95)'; g.lineWidth = Math.max(2.5, S / 45); g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); route.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); g.restore(); }   // where the thief is heading
     const r = Math.max(8, S / 14);
     icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85);
     for (const m of marks || []) icon(m.x, m.z, m.color, m.glyph, r * 0.95);   // mission targets (the thief, the police station)
@@ -77,7 +78,7 @@ export class Minimap {
     { const [nx, ny] = toScr(view.x, view.z - 1000); const dx = nx - S / 2, dy = ny - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 22; g.fillStyle = '#d62828'; g.beginPath(); g.arc(S / 2 + dx / d * nr, S / 2 + dy / d * nr, S / 28, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(S / 22) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', S / 2 + dx / d * nr, S / 2 + dy / d * nr + 1); }
   }
   // the whole island, north up: tap/click the small map (or press M / Tab) to open, again (or Esc) to close
-  drawBig(cv, me, others, marks) {
+  drawBig(cv, me, others, marks, route) {
     if (!this.map) this.map = drawStatic();
     const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.86); if (cv.width !== S) cv.width = cv.height = S;
     const g = cv.getContext('2d'), k = S / 1020, ox = S / 2, oy = S / 2;   // show the whole island (-510..510)
@@ -87,6 +88,7 @@ export class Minimap {
     const badge = (x, z, bg, glyph, r, name, col, side = 0) => { const [px, py] = P(x, z); g.fillStyle = bg; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.stroke();
       g.font = Math.round(r * 1.2) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
       if (name) { const fs = Math.round(Math.max(11, S / 38)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = side < 0 ? 'right' : side > 0 ? 'left' : 'center'; const tx = px + side * (r + 4), ty = side ? py : py + r + fs * 0.7; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(name, tx, ty); g.fillStyle = col || '#fff'; g.fillText(name, tx, ty); } };
+    if (route && route.length > 1) { g.strokeStyle = 'rgba(230,30,30,.95)'; g.lineWidth = Math.max(3, S / 150); g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); route.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
     const r = Math.max(9, S / 40);
     badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f'); badge(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r, 'MISSION LOBBY', '#d9b8ff'); badge(380, 92, '#22c55e', '\u{1F3CE}', r, 'STUNT PARK', '#8dffb0'); badge(STUNT.startX + 60, 0, '#ffd23f', '\u{1F3C1}', r * 0.7, 'STUNT JUMP', '#5ef0ff');
     badge(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.8, 'CITY BANK', '#ffe08a', 1); badge(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.8, 'POLICE', '#bcd2ff', 1);
