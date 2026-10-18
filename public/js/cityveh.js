@@ -41,6 +41,9 @@ export function stepCityCar(c, dt, inp, track, others, spec, onRoad) {
 
 function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoad) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;      // forward and right unit vectors
+  // speed boosters (glowing pads): a strong push along the way the car points, up to ~15% above the car's top speed
+  if (c.boost > 0) c.boost -= dt;
+  if (!c.air && track.boosts) for (const bp of track.boosts) if (Math.abs(c.x - bp.x) < bp.rx && Math.abs(c.z - bp.z) < bp.rz) { const sf = c.vx * fx + c.vz * fz; if (sf > -2 && sf < spec.top * 1.15) { c.vx += fx * 46 * dt; c.vz += fz * 46 * dt; } c.boost = 0.5; break; }
   let u = c.vx * fx + c.vz * fz, vr = c.vx * rx + c.vz * rz;                 // forward / rightward speed
   const vl = -vr;                                                          // leftward (the model below is left-positive)
   const air = !!c.air;

@@ -37,6 +37,10 @@ export function gtaBase(x, z) {
     if (x > H.ax - 10 && d < 26) h = mix(h, 0, 1 - sm(GT.HW + 2.5, GT.HW + 16, d));
     const dl = Math.hypot(x - H.bx, z - H.z); if (dl < 34) h = mix(h, 0, 1 - sm(15, 30, dl));
   }
+  { // the Stunt Park is one big flat pad (the hills and the noise are levelled out, blending back into the land over ~14 m)
+    const P = PARK, dx = Math.max(P.x0 - x, 0, x - P.x1), dz = Math.max(P.z0 - z, 0, z - P.z1), d = Math.hypot(dx, dz);
+    if (d < 22) h = mix(h, 0, 1 - sm(8, 22, d));
+  }
   return h;
 }
 
@@ -48,7 +52,29 @@ const HP = Math.PI / 2;
 export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
 export const STUNT = { name: 'STUNT JUMP', startX: 112, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[150, 0, HP0(), 20, 2.6, 12], [232, 0, HP0(), 20, 2.6, 12]], finishX: 292, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
 function HP0() { return Math.PI / 2; }
-export const RAMPS = STUNT.ramps;
+// THE STUNT PARK: a flat arena south-east of the Mission Lobby with a fast oval circuit (two straights joined by two wide turns).
+//   top straight (east-bound, z = zT): speed booster, then a ramp.  bottom straight (west-bound, z = zB): speed booster, a lit TUNNEL, then a low kicker.
+//   The 4 white super cars (the mission cars) wait in the infield whenever no mission is running.
+export const PARK = {
+  x0: 145, x1: 295, z0: 52, z1: 128,                         // the flat pad
+  cxW: 178, cxE: 262, cz: 92, R: 20, hw: 10.5, zT: 72, zB: 112,   // oval: end centres, turn radius (centre line), road half-width, the two straights
+  ramps: [[200, 72, HP0(), 20, 2.0, 14], [214, 112, -HP0(), 18, 1.3, 14]],
+  boosts: [{ x: 188, z: 72, rx: 7, rz: 7, dir: 1 }, { x: 258, z: 112, rx: 7, rz: 7, dir: -1 }],
+  tunnel: { x0: 222, x1: 248, z: 112, half: 9, h: 6.5 },
+  spawn: { x: 200, z: 86.6, step: 3.2, yaw: HP0() },
+  gate: { x: 174, z: 72 },
+  walls: [[143, 49, 299, 51], [143, 131, 299, 133], [297, 49, 299, 133], [141, 69, 143, 133]],   // crash barriers round the pad (x0, z0, x1, z1): a car can never end up in the sea; the west side is open where the road comes in
+  wallH: 1.5,
+};
+// the oval's centre line as a list of points (clockwise from the west end of the top straight)
+export function parkPath() {
+  const P = PARK, pts = [[P.cxW, P.zT]]; pts.push([P.cxE, P.zT]);
+  for (let i = 1; i <= 72; i++) { const a = -Math.PI / 2 + i / 72 * Math.PI; pts.push([P.cxE + P.R * Math.cos(a), P.cz + P.R * Math.sin(a)]); }
+  pts.push([P.cxW, P.zB]);
+  for (let i = 1; i <= 72; i++) { const a = Math.PI / 2 + i / 72 * Math.PI; pts.push([P.cxW + P.R * Math.cos(a), P.cz + P.R * Math.sin(a)]); }
+  return pts;
+}
+export const RAMPS = [...STUNT.ramps, ...PARK.ramps];
 export function rampH(x, z) {
   let h = 0;
   for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
@@ -56,7 +82,7 @@ export function rampH(x, z) {
     if (dx * dx + dz * dz > (len + w) * (len + w)) continue;
     const u = dx * Math.sin(yaw) + dz * Math.cos(yaw), v = dx * Math.cos(yaw) - dz * Math.sin(yaw);
     if (u < 0 || u > len || Math.abs(v) > w / 2) continue;
-    h = Math.max(h, hg * u / len);
+    h = Math.max(h, hg * u / len * Math.min(1, (w / 2 - Math.abs(v)) / 0.8));   // the side edges slope away over the last 0.8 m (no sudden 2 m step)
   }
   return h;
 }
@@ -73,7 +99,11 @@ export function gtaRoads() {
   plazas.push({ x: M.cx, z: M.cz, r: 20, y: mtC(M.Rt), g: 'summit' });
   segs.push({ ax: GT.HWY.ax, az: 0, bx: GT.HWY.bx, bz: 0, hw, y0: 0, g: 'hwy' });
   plazas.push({ x: GT.HWY.bx, z: 0, r: 14, y: 0, g: 'lookout' });
-  return { segs, plazas, boosts: [] };
+  { // the Stunt Park: the oval circuit and the road that joins it to the city (the east end of the z = 60 avenue)
+    const pts = parkPath(); for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; segs.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], hw: PARK.hw, y0: 0, g: 'stunt' }); }
+    segs.push({ ax: 120, az: 60, bx: 158, bz: 60, hw, y0: 0, g: 'stunt-link' }); segs.push({ ax: 158, az: 60, bx: PARK.cxW, bz: PARK.zT - 1, hw, y0: 0, g: 'stunt-link' });
+  }
+  return { segs, plazas, boosts: PARK.boosts.map((b) => ({ ...b })) };
 }
 
 // buildings (deterministic): {x,z,w,d,h,col,kind}.  16 blocks between the avenues, two of them are parks.
@@ -118,7 +148,7 @@ export function gtaCars() {
   // 8 real cars (ids 11..18, see cityveh.js) parked nose-to-tail along the kerb near the spawn. Pakistan drives on the LEFT:
   // east-bound cars use the north (-z) lane, west-bound the south (+z) lane.
   const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 5.8); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
-  return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home, ...STUNT.lanes.map((z) => ({ id: 17, x: STUNT.startX, z, yaw: STUNT.yaw }))];   // 12..15 = the four white mission cars
+  return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home, ...[0, 1, 2, 3].map((k) => ({ id: 17, x: PARK.spawn.x, z: PARK.spawn.z + k * PARK.spawn.step, yaw: PARK.spawn.yaw }))];   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

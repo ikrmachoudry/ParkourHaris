@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -312,6 +312,34 @@ export function buildGta(world, th, info, seed) {
     for (const pz of [-7.5, 7.5]) wm.add(Bx(0.6, 6, 0.6), S.finishX, 3, pz, '#d62828');
     { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d'); for (let i = 0; i < 16; i++) for (let j = 0; j < 3; j++) { g.fillStyle = (i + j) % 2 ? '#111' : '#fff'; g.fillRect(i * 32, j * 32, 32, 32); }
       const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const bn = mk(t, 15, 2.8); bn.rotation.y = Math.PI / 2; bn.position.set(S.finishX, 6.2, 0); world.group.add(bn); const bn2 = bn.clone(); bn2.rotation.y = -Math.PI / 2; bn2.position.x += 0.05; world.group.add(bn2); }
+  }
+  // ---- the STUNT PARK: boost pads, a lit tunnel, a start gate and the parking grid for the four white cars
+  { const P = PARK, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), solid = (x0, z0, x1, z1, h) => { world.addSolid(x0, 0, z0, x1, h, z1, { name: 'prop' }); roads.boxes.push({ x0, x1, z0, z1, h }); };
+    // speed boosters: dark pad + glowing chevrons pointing the way to drive
+    for (const b of P.boosts) {
+      wm.add(Bx(b.rx * 2, 0.05, b.rz * 1.7), b.x, 0.135, b.z, '#16222f');
+      for (let k = -1; k <= 1; k++) { const tx = b.x + b.dir * (k * 4.2 + 1.8);
+        for (const sg of [-1, 1]) world.glow.add(Bx(4.2, 0.06, 0.65), tx - b.dir * 1.5, 0.19, b.z + sg * 1.5, '#7dff5a', 0, b.dir * sg * Math.PI / 4, 0); }
+      for (const sg of [-1, 1]) world.glow.add(Bx(b.rx * 2, 0.06, 0.22), b.x, 0.19, b.z + sg * b.rz * 0.85, '#ffee00');
+    }
+    // the tunnel: two solid walls, a roof you can see (cars never reach it), light strips and striped portals
+    { const T = P.tunnel, L = T.x1 - T.x0, cx = (T.x0 + T.x1) / 2, zs = [T.z - T.half - 1, T.z + T.half + 1];
+      for (const zc of zs) { wm.add(Bx(L, T.h, 1), cx, T.h / 2, zc, '#aab3c2'); solid(T.x0, zc - 0.5, T.x1, zc + 0.5, T.h); }
+      wm.add(Bx(L + 0.6, 0.7, T.half * 2 + 3.2), cx, T.h + 0.35, T.z, '#7b8494');
+      for (let x = T.x0 + 2; x < T.x1; x += 4.5) { world.glow.add(Bx(0.5, 0.08, T.half * 1.5), x, T.h - 0.05, T.z, '#fff1b5'); for (const zc of zs) world.glow.add(Bx(2.2, 0.1, 0.06), x, 1.2, zc + (zc < T.z ? 0.55 : -0.55), '#ffb347'); }
+      for (const xp of [T.x0, T.x1]) for (let i = 0; i < 8; i++) { const sl = (T.half * 2 + 2) / 8; wm.add(Bx(0.7, 1.2, sl), xp, T.h - 0.7, T.z - T.half - 1 + (i + 0.5) * sl, i % 2 ? '#111' : '#ffd23f'); }   // hazard-striped portals
+    }
+    // start gate over the top straight + a checkered start line
+    { const G = P.gate; for (const sg of [-1, 1]) { wm.add(Bx(0.7, 7, 0.7), G.x, 3.5, G.z + sg * 13.2, '#d62828'); solid(G.x - 0.35, G.z + sg * 13.2 - 0.35, G.x + 0.35, G.z + sg * 13.2 + 0.35, 7); }
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 64; const g = cv.getContext('2d'); for (let i = 0; i < 32; i++) for (let j = 0; j < 4; j++) { g.fillStyle = (i + j) % 2 ? '#111' : '#fff'; g.fillRect(i * 16, j * 16, 16, 16); }
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const m1 = new THREE.Mesh(new THREE.PlaneGeometry(26.4, 2), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, side: THREE.DoubleSide })); m1.rotation.y = Math.PI / 2; m1.position.set(G.x, 7.2, G.z); world.group.add(m1);
+      const m2 = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 21), new THREE.MeshBasicMaterial({ map: t, toneMapped: false })); m2.rotation.x = -Math.PI / 2; m2.rotation.z = Math.PI / 2; m2.position.set(G.x + 3, 0.13, G.z); world.group.add(m2); }
+    // crash barriers round the whole pad (concrete blocks, red / white)
+    for (const [x0, z0, x1, z1] of P.walls) { solid(x0, z0, x1, z1, P.wallH); const horiz = x1 - x0 > z1 - z0, L = horiz ? x1 - x0 : z1 - z0, n = Math.round(L / 6);
+      for (let i = 0; i < n; i++) { const a = i / n * L, b = (i + 1) / n * L, c0 = i % 2 ? '#d62828' : '#f1f1f1'; if (horiz) wm.add(Bx(b - a, P.wallH, z1 - z0), x0 + (a + b) / 2, P.wallH / 2, (z0 + z1) / 2, c0); else wm.add(Bx(x1 - x0, P.wallH, b - a), (x0 + x1) / 2, P.wallH / 2, z0 + (a + b) / 2, c0); } }
+    // the parking grid in the infield
+    { const Sp = P.spawn; wm.add(Bx(9, 0.05, 4 * Sp.step + 1), Sp.x, 0.07, Sp.z + 1.5 * Sp.step, '#3b3f4a');
+      for (let k = 0; k <= 4; k++) wm.add(Bx(6.4, 0.02, 0.12), Sp.x, 0.11, Sp.z + (k - 0.5) * Sp.step, '#ffd23f'); }
   }
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {

@@ -1,7 +1,7 @@
 // MISSIONS on the client: the Mission Lobby panel, the countdown, the STUNT JUMP judge and the pass / fail banners.
 // In multiplayer the shared state lives on the server (MissionHub); in single player the same hub runs right here.
 import * as A from './audio.js';
-import { STUNT, LOBBY } from './gta.js';
+import { STUNT, LOBBY, PARK } from './gta.js';
 import { MissionHub } from './mission.js';
 import { CHARACTERS } from './levelmeta.js';
 
@@ -60,14 +60,13 @@ export class MissionClient {
       this.hold = false; this.showFin(false);
       if (m.pass) { this.phase = 'done'; this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub('GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '') + ' - RESTARTING FOR EVERYBODY', 3800); A.sfx.bonk(); }
-    } else if (m.t === 'm_idle') { this.carsHidden = false; this.showFin(false); this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
+    } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
   onGo(m) {
     const R = this.race, st = STUNT; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false; this.air = false; this.jumps = 0;
     const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 6500); this.lastN = 0;
     this.showPanel(false); this.panelClosed = true; this.showFin(false);
     // every mission car goes back to the start line, repaired (and becomes visible)
-    this.carsHidden = false; for (let k = 12; k < 16; k++) { const c0 = R.cars[k]; if (c0) c0.mesh.visible = true; }
     for (let k = 0; k < st.lanes.length; k++) {
       const c = R.cars[12 + k]; if (!c) continue; const s = c.st;
       s.x = st.startX; s.z = st.lanes[k]; s.yaw = st.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.hp = 100; s.wreck = false; s.burnT = 0; s.wreckT = 0; s.steer = 0; s.skid = 0;
@@ -84,7 +83,7 @@ export class MissionClient {
   update(dt) {
     const R = this.race, b = R.me.body, P = LOBBY.pad;
     if (this.phase === 'idle') {
-      if (!this.carsHidden && R.cars.length > 15) this.hideCars();
+      this.parkT = (this.parkT === undefined ? 1 : this.parkT) - dt; if (this.parkT <= 0) { this.parkT = 2; this.parkCars(this.parkAll); this.parkAll = false; }
       const d = Math.hypot(b.x - P.x, b.z - P.z), on = !R.drive && d < 1.9 && Math.abs(b.y - 0.25) < 1.2, off = R.drive || d > 3.4;
       if (on && !this.inPad) { this.inPad = true; this.send({ t: 'm_in', on: true }); if (!this.panelClosed) this.showPanel(true); }
       else if (off && this.inPad) { this.inPad = false; this.panelClosed = false; this.send({ t: 'm_in', on: false }); this.showPanel(false); }
@@ -117,11 +116,11 @@ export class MissionClient {
     if (this.jumps < r.length) { const q = r[this.jumps]; if (!this.air && s.x > q[0] + q[3] + 8) return fail('missed'); }
     if (this.jumps >= r.length && s.x >= STUNT.finishX && Math.abs(s.z) < 8) { this.finished = true; this.send({ t: 'm_res', ok: true, round: this.round }); this.big('YOU MADE IT!', 2500, '#5ef0a0'); this.sub('WAITING FOR THE OTHERS...', 30000); if (this.runners().length) this.showFin(true); }
   }
-  // the four white cars only exist while a mission runs: otherwise they are parked far away and invisible
-  hideCars() {
-    const R = this.race; this.carsHidden = true;
-    if (R.drive && R.cars.indexOf(R.drive) >= 12) R.toggleCar(true);
-    for (let k = 12; k < 16; k++) { const c = R.cars[k]; if (!c) continue; const s = c.st; s.x = 0; s.z = 1500; s.y = 0; s.speed = s.vx = s.vz = 0; s.parked = true; s.driver = -1; c.mesh.visible = false; c.mesh.position.set(0, -50, 1500); }
+  // when no mission runs the four white cars wait in the Stunt Park (free to drive); a car somebody is sitting in stays where it is
+  parkCars(all) {
+    const R = this.race, P = PARK.spawn;
+    for (let k = 12; k < 16; k++) { const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1) continue; const s = c.st; if (!all && !(Math.abs(s.z) < 24 && s.x > 100)) continue;   // after a mission: any left on the highway go home
+       s.x = P.x; s.z = P.z + (k - 12) * P.step; s.yaw = P.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.parked = true; s.steer = 0; s.pitch = 0; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true; }
   }
   // ---- DOM
   showPanel(on) {
