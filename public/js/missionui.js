@@ -46,7 +46,7 @@ export class MissionClient {
     return r;
   }
   showFin(on) {
-    const e = $('m-fin'); if (!e) return; e.classList.toggle('on', !!on);
+    const e = $('m-fin'); if (!e) return; e.classList.toggle('on', !!on); document.body.classList.toggle('m-fin-open', !!on);   // (the touch layer is hidden meanwhile so the two buttons can be tapped)
     if (on) { const b = $('m-spec'); if (b) b.textContent = 'SPECTATE'; try { if (document.pointerLockElement) document.exitPointerLock(); } catch { /* noop */ } } else this.spectating = false;
   }
   // ---- messages from the server

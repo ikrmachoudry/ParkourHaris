@@ -1316,11 +1316,15 @@ $('p-full').onclick = () => {
       if (isFull()) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); return; }
       const req = el.requestFullscreen || el.webkitRequestFullscreen;
       if (req) { const r = req.call(el, { navigationUI: 'hide' }); const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch { /* ignore */ } }; if (r && r.then) r.then(lock).catch(() => {}); else lock(); }
-      else if (isIOS) { const h = $('ios-hint'); h.classList.remove('hidden'); h.onclick = () => h.classList.add('hidden'); setTimeout(() => h.classList.add('hidden'), 6000); }
+      else if (isIOS) { const h = $('ios-hint'); h.classList.remove('hidden'); h.onclick = () => h.classList.add('hidden'); setTimeout(() => h.classList.add('hidden'), 15000); }
     } catch { /* not supported */ }
   });
 }
-{ const mm = $('minimap'), bw = $('bigmap-wrap'); if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race && !race.over) race.toggleMap(true); }); if (bw) bw.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.toggleMap(false); }); }
+{ const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'); let closedAt = 0, openedAt = 0;
+  if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; if (race && !race.over) { race.toggleMap(true); openedAt = performance.now(); } });
+  const close = (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return;   // the tail of the opening tap must not close it again
+    if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };   // tap anywhere on the map or on the X (pointer + touch down events: every phone browser; never 'click', which is the tail of the tap that opened the map)
+  for (const el of [bw, bx]) if (el) for (const ev of ['pointerdown', 'touchstart']) el.addEventListener(ev, close, { passive: false }); }
 $('p-retry').onclick = () => { A.sfx.click(); const l = app.level; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; startSingle(l); };
 $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); leaveToTitle(); };
 
