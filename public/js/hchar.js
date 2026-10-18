@@ -363,7 +363,7 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.hips, 0, 0.35 * ex - 0.2 * -bk, 0); R(b.chest, 0.05, -0.55 * ex - 0.25 * -bk, 0); R(b.spine, 0.1 * ex, 0, 0); R(b.head, 0, 0.45 * ex, 0);
     R(b['upperleg.L'], -0.35, 0, 0.1); R(b['upperleg.R'], 0.3, 0, -0.1); R(b['lowerleg.L'], 0.25, 0, 0); R(b['lowerleg.R'], 0.15, 0, 0);
     R(b['upperarm.R'], -0.9 - 0.7 * ex - bk * 0.3, 0, 0.12 - 0.12 * ex); R(b['forearm.R'], -1.9 + 1.8 * ex, 0, 0); curl('R', 1.3);
-    R(b['upperarm.L'], -0.95, 0, -0.15); R(b['forearm.L'], -1.9, 0, 0); curl('L', 1.3);
+    R(b['upperarm.L'], 0.15 - 0.15 * ex, 0, -0.14); R(b['forearm.L'], -0.35, 0, 0); curl('L', 0.5);   // the other arm just hangs: a one-arm punch
   }
   else if (name === 'scared') {   // cowering: knees bent, arms up in front of the face, trembling
     const tr = Math.sin(t * 22) * 0.03;
@@ -378,6 +378,15 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.spine, -0.15, 0, 0); R(b.head, -0.3, 0, 0);
     R(b['upperarm.L'], -0.4, 0, -1.3 + f); R(b['upperarm.R'], -0.4, 0, 1.3 - f); R(b['forearm.L'], -0.5, 0, 0); R(b['forearm.R'], -0.5, 0, 0);
     R(b['upperleg.L'], -0.5, 0, 0.35); R(b['upperleg.R'], 0.15, 0, -0.35); R(b['lowerleg.L'], 0.7, 0, 0); R(b['lowerleg.R'], 0.5, 0, 0);
+  }
+  else if (name === 'crouchwalk') {   // sneaking: low stance, legs still stepping
+    const ph = t * 3.4, s = Math.sin(ph), c = Math.cos(ph);
+    b.hips.position.y = rest.hips.y - 0.4 + Math.abs(c) * 0.025; b.hips.position.z = rest.hips.z + 0.04;
+    R(b['upperleg.L'], -1.05 - 0.45 * s, 0, 0.12); R(b['upperleg.R'], -1.05 + 0.45 * s, 0, -0.12);
+    R(b['lowerleg.L'], 1.95 - 0.2 * s + 0.35 * Math.max(0, -c), 0, 0); R(b['lowerleg.R'], 1.95 + 0.2 * s + 0.35 * Math.max(0, c), 0, 0);
+    R(b['foot.L'], 0.15 * s, 0, 0); R(b['foot.R'], -0.15 * s, 0, 0);
+    R(b.spine, 0.3, -0.08 * s, 0); R(b.chest, 0.1, 0.08 * s, 0); R(b.head, -0.3, 0, 0);
+    R(b['upperarm.L'], -0.5 + 0.3 * s, 0, -0.1); R(b['upperarm.R'], -0.5 - 0.3 * s, 0, 0.1); R(b['forearm.L'], -0.7, 0, 0); R(b['forearm.R'], -0.7, 0, 0);
   }
   void k;
 }

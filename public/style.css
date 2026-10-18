@@ -361,3 +361,12 @@ body.in-race.city-mode #minimap { display: block; }
 #s-title .menu .row { flex: 1 1 0; flex-direction: column; flex-wrap: nowrap; gap: 12px; }
 #s-title .menu .row .btn { flex: 1; font-size: clamp(14px, 1.8vw, 22px); padding: 8px; }
 @media (max-width: 640px) { #s-title .menu { flex-wrap: wrap; } #s-title .menu .btn.big { flex: 1 1 45%; } #s-title .menu .row { flex: 1 1 100%; flex-direction: row; } }
+
+/* ---- PUBG-style colourful action buttons ---- */
+#act-pad button { border-width: 3px; box-shadow: 0 5px 0 rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.4); }
+#act-pad button svg { width: 60%; height: 60%; stroke-width: 2.6; filter: drop-shadow(0 2px 0 rgba(0,0,0,.4)); }
+#act-pad button i { font-weight: 900; font-size: clamp(9px, 2.1vmin, 12px); }
+#a-punch { background: radial-gradient(circle at 35% 30%, #ff9a7a, #e3262d 70%) !important; border-color: #fff !important; width: 50%; height: 50%; }
+#a-jump { background: radial-gradient(circle at 35% 30%, #8dffb0, #17a34a 72%) !important; border-color: #eaffef; right: 6%; bottom: 56%; width: 38%; height: 38%; }
+#a-crouch { background: radial-gradient(circle at 35% 30%, #9ad0ff, #2563eb 72%) !important; border-color: #e6f1ff; right: 58%; bottom: 14%; width: 38%; height: 38%; }
+#act-pad button:active, #act-pad button.on { background: radial-gradient(circle at 35% 30%, #fff0a0, #f59e0b 72%) !important; }

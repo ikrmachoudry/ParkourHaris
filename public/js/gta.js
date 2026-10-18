@@ -74,15 +74,24 @@ export function gtaRoads() {
 // buildings (deterministic): {x,z,w,d,h,col,kind}.  16 blocks between the avenues, two of them are parks.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 export const PARKS = [[90, 90], [-90, 30]];
-// LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Random).
+// LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Michael).
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
 export const HOMES = [
   { char: 0, name: 'Haris', x: -102, z: -103, yaw: Math.PI, color: '#ff5f5f' },
   { char: 1, name: 'Hannan', x: -78, z: -103, yaw: Math.PI, color: '#3ddc84' },
   { char: 2, name: 'Hanbal', x: -102, z: -77, yaw: 0, color: '#ffc233' },
-  { char: 3, name: 'Random', x: -78, z: -77, yaw: 0, color: '#8b6cff' },
+  { char: 3, name: 'Michael', x: -78, z: -77, yaw: 0, color: '#8b6cff' },
 ];
+// local house coordinates (+z = towards the front door / avenue, +x = right of someone at the door looking out) -> world
+export const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });
+export const homeL = (h, x, z) => { const dx = x - h.x, dz = z - h.z; return { x: dx * Math.cos(h.yaw) - dz * Math.sin(h.yaw), z: dx * Math.sin(h.yaw) + dz * Math.cos(h.yaw) }; };
+// house footprint (local): x -6..6, z -7.25..1.25.  Garage = left part x -5.7..-1.1.  Returns 'garage' | 'home' | null
+export function homeZone(x, z, pad = 0) {
+  for (const h of HOMES) { const l = homeL(h, x, z); if (l.x > -6 - pad && l.x < 6 + pad && l.z > -7.25 - pad && l.z < 1.25 + pad) return { h, zone: l.x < -0.9 ? 'garage' : 'home' }; }
+  return null;
+}
+export const homeSpawn = (char) => { const h = HOMES[((char | 0) % HOMES.length + HOMES.length) % HOMES.length], p = homeW(h, 3.4, 3.6); return { x: p.x, z: p.z, yaw: h.yaw }; };
 const LOT_BLOCKS = [[-30, 30], [-90, -90]];
 export function gtaBuildings() {
   const R = rng(4242), out = [], pal = ['#e8c9a0', '#cfd8e3', '#e89c8a', '#a8c5e8', '#f1e0a6', '#b9d9b0', '#d9b8e0', '#f0b27a', '#9fb4c8'];
@@ -103,7 +112,8 @@ export function gtaBuildings() {
 export function gtaCars() {
   // 8 real cars (ids 11..18, see cityveh.js) parked nose-to-tail along the kerb near the spawn. Pakistan drives on the LEFT:
   // east-bound cars use the north (-z) lane, west-bound the south (+z) lane.
-  return [[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 }));
+  const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 6); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
+  return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home];
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

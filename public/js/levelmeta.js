@@ -6,7 +6,7 @@ export const CHARACTERS = [
   { id: 0, name: 'Haris', tag: '', color: '#ff5fb4' },
   { id: 1, name: 'Hannan', tag: '', color: '#3b82f6' },
   { id: 2, name: 'Hanbal', tag: '', color: '#3ddc84' },
-  { id: 3, name: 'Random', tag: '', color: '#ffc233' },
+  { id: 3, name: 'Michael', tag: '', color: '#ffc233' },
 ];
 
 export const LEVEL_META = [

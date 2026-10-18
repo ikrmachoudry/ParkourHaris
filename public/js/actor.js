@@ -29,9 +29,8 @@ export class HeroActor {
     if (st.seated) name = 'sit';
     else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
-    else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.7; t = this.tWalk; }
-    if (st.sitg && !st.seated) name = 'sitg';
-    else if (st.crouch && name !== 'jump' && !st.seated) name = 'crouch';
+    else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }
+    if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
     if (st.stun > 0 && !st.seated) name = 'fall';
     if (name === 'idle' && st.gesture) name = st.gesture;

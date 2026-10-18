@@ -33,7 +33,7 @@ export class Peds {
     for (const p of this.list) {
       let speed = 0, gesture = null;
       if (p.st === 'walk') {
-        this.pose(p, t);
+        this.pose(p, t - (p.shift || 0));
         if (me && ctx.sit && p.fear > 0.55) { const mx = me.x - p.x, mz = me.z - p.z; if (mx * mx + mz * mz < 36) this.scare(p, me.x, me.z); }   // somebody sitting down and acting odd right next to him
       } else if (p.st === 'cower') {
         p.timer -= dt; gesture = 'scared'; if (p.timer <= 0) { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }
@@ -67,6 +67,7 @@ export class Peds {
       const a = p.actor; a.group.visible = true;
       if (p.st === 'walk') {      // people stop while you stand right next to them
         if (me) { const mx = me.x - p.x, mz = me.z - p.z; speed = mx * mx + mz * mz < 1.3 ? 0 : p.sp; } else speed = p.sp;
+        if (speed === 0) p.shift = (p.shift || 0) + dt;   // he really stands still (no gliding): his place on the path is frozen while he waits
       }
       if (p.st === 'walk' || p.st === 'flee' || p.st === 'cower' || p.st === 'fight') for (const c of vehicles) {  // a car that hits one throws him
         if (Math.abs(c.speed) < 2.5 || c.y > 1) continue;

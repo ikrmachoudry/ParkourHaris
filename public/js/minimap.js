@@ -50,7 +50,14 @@ export class Minimap {
     };
     const r = Math.max(8, S / 14);
     icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r);
-    for (const h of HOMES) icon(h.x, h.z, h.color, '\u{1F3E0}', r * 0.85);
+    let near = null, nd = 1e9;
+    for (const h of HOMES) { icon(h.x, h.z, h.color, '\u{1F3E0}', r * 0.85); const d = Math.hypot(h.x - view.x, h.z - view.z); if (d < nd) { nd = d; near = h; } }
+    const label = (txt, x, z, color) => {   // the name of the home you are closest to, always upright under its badge
+      const [px, py] = toScr(x, z), fs = Math.round(Math.max(9, S / 12)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      const ty = Math.min(S - fs - 2, py + r * 0.95); g.lineWidth = Math.max(3, S / 40); g.strokeStyle = '#0b1220'; g.lineJoin = 'round'; g.strokeText(txt, px, ty); g.fillStyle = color; g.fillText(txt, px, ty);
+    };
+    if (near && nd < 70) label(near.name.toUpperCase(), near.x, near.z, '#ffffff');
+    if (Math.hypot(REPAIR.x - view.x, REPAIR.z - view.z) < 60) label('REPAIR', REPAIR.x, REPAIR.z, '#ffd23f');
     for (const o of others || []) { const [px, py] = toScr(o.x, o.z); if (Math.hypot(px - S / 2, py - S / 2) > S / 2 - 4) continue; g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 100); g.beginPath(); g.arc(px, py, S / 40, 0, 7); g.fill(); g.stroke(); }
     // me: an arrow in the middle that points where I am heading
     g.save(); g.translate(S / 2, S / 2); g.rotate(-(me.yaw - view.head)); const a = S / 22;

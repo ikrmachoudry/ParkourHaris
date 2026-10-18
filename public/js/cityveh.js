@@ -201,7 +201,7 @@ function terrain(c, dt, track, spec, geo) {
 // Each hit also queues a visual dent (position in car coordinates: lx forward, lz to the right) for the mesh.
 function hurt(c, hit, rx, rz) {
   if (!(hit > 2.5)) return;
-  const d = Math.min(55, (hit - 2.5) * 0.95); c.hp = Math.max(0, (c.hp === undefined ? 100 : c.hp) - d);
+  const d = Math.min(55, (hit - 2.5) * 0.55); c.hp = Math.max(0, (c.hp === undefined ? 100 : c.hp) - d);
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw); (c.dmgQ || (c.dmgQ = [])).push({ lx: rx * fx + rz * fz, lz: -rx * fz + rz * fx, d });
   if (c.dmgQ.length > 8) c.dmgQ.shift();
 }

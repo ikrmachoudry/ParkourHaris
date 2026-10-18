@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -128,8 +128,6 @@ function terrainGeo() {
   return g;
 }
 
-// local house coordinates (+z = towards the front door / avenue, +x = to the right of someone standing at the door looking out) -> world
-const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });
 function signTexture(text, bg, fg) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d');
   g.fillStyle = bg; g.fillRect(0, 0, 512, 128); g.strokeStyle = fg; g.lineWidth = 8; g.strokeRect(8, 8, 496, 112);
@@ -137,6 +135,16 @@ function signTexture(text, bg, fg) {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 
+// house walls in local coords [x0, x1, z0, z1, height]: the front door gap is x 2.7..4.1, the garage opening x -5.5..-1.1, the garage/house door z -4.6..-3.0
+const T = 0.3, WH = 3.6;
+export const HOME_WALLS = [
+  [-6, 6, -7.25, -7.25 + T, WH], [-6, -6 + T, -7.25, 1.25, WH], [6 - T, 6, -7.25, 1.25, WH],
+  [-6, -5.5, 1.25 - T, 1.25, WH], [-1.1, 2.7, 1.25 - T, 1.25, WH], [4.1, 6, 1.25 - T, 1.25, WH],
+  [-1.1, -0.8, -7.25, -4.6, WH], [-1.1, -0.8, -3.0, 1.25, WH],
+  // furniture
+  [3.35, 5.65, -4.4, -3.3, 0.9], [3.9, 5.1, -5.65, -4.95, 0.5], [3.8, 5.2, -6.9, -6.4, 0.9], [0.5, 3.3, -6.9, -6.2, 0.95], [-0.4, 0.4, -6.9, -6.2, 1.8],
+  [4.05, 5.65, -1.95, 0.15, 0.6], [-4.7, -2.1, -6.9, -6.2, 0.95], [-5.65, -5.2, -6.9, -5.3, 1.9],
+];
 export function buildGta(world, th, info, seed) {
   world.waterY = GT.SEA; world.killY = -2.6;
   world.terrain = gtaH;
@@ -151,7 +159,10 @@ export function buildGta(world, th, info, seed) {
   roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.6, x1: px + 2.6, z0: pz - 2.6, z1: pz + 2.6, h: 1.2 }))];
   { // landmark colliders: the repair workshop and the four houses
     const S = REPAIR.shop; world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
-    for (const h of HOMES) { const c = homeW(h, 0, -3); world.addSolid(c.x - 6, 0, c.z - 4.3, c.x + 6, 5.5, c.z + 4.3, { name: 'building' }); roads.boxes.push({ x0: c.x - 6, x1: c.x + 6, z0: c.z - 4.3, z1: c.z + 4.3, h: 5.5 }); }
+    for (const h of HOMES) for (const [a, b, c, d, hh] of HOME_WALLS) {   // hollow houses: real walls with door gaps (you can walk in), no solid box
+      const p = homeW(h, a, c), q = homeW(h, b, d), x0 = Math.min(p.x, q.x), x1 = Math.max(p.x, q.x), z0 = Math.min(p.z, q.z), z1 = Math.max(p.z, q.z);
+      world.addSolid(x0, 0, z0, x1, hh, z1, { name: 'building' }); if (hh > 1.5) roads.boxes.push({ x0, x1, z0, z1, h: hh });
+    }
   }
   info.gta = { buildings: B, roads };
   if (world.headless) return;
@@ -221,24 +232,46 @@ export function buildGta(world, th, info, seed) {
     for (const [dx, dz] of [[-8, -3], [8, -3], [-8, 3], [8, 3]]) wm.add(new THREE.ConeGeometry(0.28, 0.7, 10), bx + dx, 0.62, bz + dz, '#ff6a1a');
     plant(S.x - 21, 0.2, 14, 0.9); plant(S.x + 21, 0.2, 14, 0.9);
   }
-  // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Random) with garage, driveway, fence, porch and garden
+  // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Michael) with garage, driveway, fence, porch and garden
   { const roofC = ['#8a3b2e', '#4a5a6a', '#6b4f3a', '#3d4d3d'], wallC = ['#efe3cf', '#e5ddd0', '#f0e8d8', '#dcd6c8'], Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
     HOMES.forEach((h, i) => {
       const P = (lx, lz) => homeW(h, lx, lz), put = (g, lx, y, lz, c, ry = 0) => { const p = P(lx, lz); wm.add(g, p.x, y, p.z, c, 0, h.yaw + ry, 0); };
-      put(Bx(23, 0.08, 23), 0, 0.24, 0, '#6fbf4f');                               // lawn
-      put(Bx(12, 5.2, 8.5), 0, 2.8, -3, wallC[i]);                                 // house body
-      put(Bx(12.4, 0.5, 8.9), 0, 0.45, -3, '#8a8f97');                             // plinth
-      const rg = new THREE.ConeGeometry(1, 1, 4); rg.rotateY(Math.PI / 4); rg.scale(13.4 / Math.SQRT2, 2.9, 10.2 / Math.SQRT2); put(rg, 0, 5.4 + 1.45, -3, roofC[i]);   // hip roof
-      put(Bx(1.0, 2.6, 1.0), -3, 7.2, -5.6, '#8a5a4a');                           // chimney
-      put(Bx(1.4, 2.5, 0.18), 3.4, 1.55, 1.3, h.color); put(Bx(1.6, 2.7, 0.12), 3.4, 1.6, 1.27, '#f4f1ea');   // front door + frame
+      const solid = (x0, x1, z0, z1, hh) => { const p = P(x0, z0), q = P(x1, z1); world.addSolid(Math.min(p.x, q.x), 0.2, Math.min(p.z, q.z), Math.max(p.x, q.x), hh, Math.max(p.z, q.z), { name: 'prop' }); };
+      put(Bx(23, 0.06, 23), 0, 0.19, 0, '#6fbf4f');                                // lawn
+      put(Bx(6.7, 0.06, 8.1), 2.45, 0.25, -3.0, '#b88a5a'); solid(-0.8, 5.7, -6.95, 0.95, 0.28);   // wooden floor (you stand on it)
+      put(Bx(4.6, 0.05, 8.1), -3.4, 0.225, -3.0, '#6d7076');                       // garage floor
+      for (const [a, b, c, d, hh] of HOME_WALLS) if (hh === WH) put(Bx(b - a, hh - 0.2, d - c), (a + b) / 2, 0.2 + (hh - 0.2) / 2, (c + d) / 2, wallC[i]);
+      for (const [x0, x1, lz] of [[-5.5, -1.1, 1.1], [2.7, 4.1, 1.1], [-1.1, -0.8, -3.8]]) { /* lintels over the openings */
+        if (lz === -3.8) put(Bx(0.3, 1.0, 1.6), -0.95, 3.1, lz, wallC[i]); else put(Bx(x1 - x0, 0.9, T), (x0 + x1) / 2, 3.15, lz + 0.05, wallC[i]); }
+      for (const dx of [2.64, 4.16]) put(Bx(0.12, 2.65, 0.4), dx, 1.62, 1.1, '#f4f1ea');                       // door frame
+      put(Bx(0.06, 2.4, 1.3), 2.8, 1.5, 0.35, h.color);                                                         // front door, swung open
+      put(Bx(12.3, 0.2, 8.8), 0, 3.7, -3, '#f6f1e6');                                                          // ceiling slab (also the floor of the roof)
+      const rg = new THREE.ConeGeometry(1, 1, 4); rg.rotateY(Math.PI / 4); rg.scale(13.4 / Math.SQRT2, 2.4, 10.2 / Math.SQRT2); put(rg, 0, 3.8 + 1.2, -3, roofC[i]);   // hip roof
+      put(Bx(1.0, 3.2, 1.0), -3, 5.4, -5.6, '#8a5a4a');                                                         // chimney
       world.glow.add(Bx(0.3, 0.3, 0.12), P(2.1, 1.45).x, 2.7, P(2.1, 1.45).z, '#fff0b8');                    // porch light
-      put(Bx(4.6, 0.22, 2.4), 3.4, 0.36, 2.4, '#b9bdc4'); put(Bx(5.0, 0.2, 2.6), 3.4, 3.35, 2.5, roofC[i]);  // porch step + porch roof
+      put(Bx(4.6, 0.22, 2.4), 3.4, 0.31, 2.4, '#b9bdc4'); put(Bx(5.0, 0.2, 2.6), 3.4, 3.35, 2.5, roofC[i]);  // porch step + porch roof
       put(new THREE.CylinderGeometry(0.1, 0.1, 3.0, 8), 5.7, 1.85, 3.6, '#f4f1ea'); put(new THREE.CylinderGeometry(0.1, 0.1, 3.0, 8), 1.1, 1.85, 3.6, '#f4f1ea');
-      put(Bx(4.2, 2.8, 0.14), -3.3, 1.7, 1.3, '#f1f1f4'); for (let k = 0; k < 5; k++) put(Bx(4.2, 0.05, 0.18), -3.3, 0.65 + k * 0.5, 1.28, '#c5c9d0');   // garage door + panel lines
-      for (const [wx, wy, lz, fr] of [[0.2, 2.9, 1.3, 1], [6.6, 3.0, 1.3, 1], [-5.4, 3.4, 1.3, 1]]) { put(Bx(1.9, 1.5, 0.12), wx, wy, lz, '#9fd0f0'); put(Bx(2.1, 0.1, 0.16), wx, wy - 0.8, lz, '#f4f1ea'); void fr; }
-      for (const lx of [-3, 3]) { put(Bx(1.9, 1.5, 0.12), lx, 3.1, -7.3, '#9fd0f0'); }                          // back windows
-      for (const sx of [-6.05, 6.05]) put(Bx(0.12, 1.5, 1.9), sx, 3.0, -3, '#9fd0f0');                            // side windows
-      world.glow.add(Bx(1.4, 1.0, 0.06), P(0.2, 1.37).x, 2.9, P(0.2, 1.37).z, '#ffe2a0', 0, h.yaw, 0);          // a warm lit window
+      for (const [wx, wy, lz] of [[0.2, 2.0, 1.3], [5.1, 2.0, 1.3]]) { put(Bx(1.4, 1.3, 0.12), wx, wy, lz, '#9fd0f0'); put(Bx(1.6, 0.1, 0.18), wx, wy - 0.7, lz, '#f4f1ea'); }
+      for (const lx of [-3, 3]) put(Bx(1.9, 1.3, 0.12), lx, 2.0, -7.3, '#9fd0f0');                              // back windows
+      for (const sx of [-6.05, 6.05]) put(Bx(0.12, 1.3, 1.9), sx, 2.0, -3, '#9fd0f0');                          // side windows
+      world.glow.add(Bx(1.0, 0.7, 0.06), P(0.2, 1.37).x, 2.0, P(0.2, 1.37).z, '#ffe2a0', 0, h.yaw, 0);          // a warm lit window
+      // --- interior: living room (sofa, TV, table), kitchen, bed; garage with a workbench, shelf and tyres
+      put(Bx(2.6, 0.02, 1.8), 4.5, 0.3, -4.6, h.color);                                                          // rug in the player's colour
+      put(Bx(2.3, 0.45, 0.95), 4.5, 0.52, -3.9, '#6b5a8a'); put(Bx(2.3, 0.6, 0.25), 4.5, 0.95, -3.45, '#5a4a78'); put(Bx(0.25, 0.4, 0.95), 3.45, 0.75, -3.9, '#5a4a78'); put(Bx(0.25, 0.4, 0.95), 5.55, 0.75, -3.9, '#5a4a78');
+      put(Bx(1.2, 0.4, 0.7), 4.5, 0.5, -5.3, '#7a5233');
+      put(Bx(1.8, 0.5, 0.5), 4.5, 0.55, -6.65, '#3a2c20'); put(Bx(1.6, 0.9, 0.08), 4.5, 1.4, -6.85, '#111214'); world.glow.add(Bx(1.45, 0.76, 0.02), P(4.5, -6.8).x, 1.4, P(4.5, -6.8).z, '#6fd3ff', 0, h.yaw, 0);
+      put(Bx(2.8, 0.9, 0.7), 1.9, 0.73, -6.55, '#e9e4d8'); put(Bx(2.9, 0.06, 0.76), 1.9, 1.2, -6.55, '#3b3f46'); put(Bx(0.8, 1.8, 0.7), 0.0, 1.18, -6.55, '#d6dae0'); put(Bx(0.05, 0.6, 0.02), 0.28, 1.5, -6.19, '#888');
+      put(new THREE.CylinderGeometry(0.55, 0.55, 0.06, 14), 1.6, 0.78, -3.9, '#8a6a46'); put(new THREE.CylinderGeometry(0.08, 0.08, 0.5, 8), 1.6, 0.5, -3.9, '#6a4f33'); for (const dz of [-0.9, 0.9]) put(Bx(0.5, 0.45, 0.5), 1.6, 0.52, -3.9 + dz, '#c0392b');
+      put(Bx(1.6, 0.3, 2.1), 4.85, 0.45, -0.9, '#6b4a2f'); put(Bx(1.5, 0.2, 2.0), 4.85, 0.7, -0.9, '#f1eee6'); put(Bx(1.52, 0.12, 1.2), 4.85, 0.82, -0.4, h.color); put(Bx(0.9, 0.12, 0.4), 4.85, 0.86, -1.7, '#ffffff'); put(Bx(0.1, 0.9, 1.7), 5.6, 0.95, -0.9, '#6b4a2f');
+      world.glow.add(Bx(0.55, 0.05, 0.55), P(2.5, -1.5).x, 3.58, P(2.5, -1.5).z, '#fff4cf'); world.glow.add(Bx(0.55, 0.05, 0.55), P(2.5, -5.0).x, 3.58, P(2.5, -5.0).z, '#fff4cf'); world.glow.add(Bx(0.55, 0.05, 0.55), P(-3.4, -3.0).x, 3.58, P(-3.4, -3.0).z, '#fff4cf');
+      put(Bx(2.6, 0.9, 0.7), -3.4, 0.7, -6.55, '#8a5a34'); put(Bx(0.5, 0.35, 0.35), -4.2, 1.3, -6.55, '#d93a3a'); put(Bx(0.4, 2.0, 1.6), -5.45, 1.2, -6.1, '#6a6f78'); for (let k = 0; k < 3; k++) put(Bx(0.3, 0.3, 0.5), -5.4, 0.8 + k * 0.6, -6.1, ['#e8a33d', '#3d8ee8', '#5fcf6a'][k]);
+      put(new THREE.CylinderGeometry(0.42, 0.42, 0.5, 12), -1.7, 0.5, -6.6, '#17171a'); put(new THREE.CylinderGeometry(0.42, 0.42, 0.5, 12), -1.7, 1.0, -6.6, '#202024');
+      for (const dx of [-2.0, 2.0]) put(Bx(0.08, 0.02, 6.4), -3.4 + dx, 0.265, -3.0, '#e8c53a');                // parking bay lines
+      // name plaque on the wall above the garage + a big sign at the garden gate
+      { const nm = h.name.toUpperCase() + ' HOME', tex = signTexture(nm, '#12202e', h.color), mk = (wd, ht) => new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+        const pl = mk(4.0, 0.9), pp = P(-3.3, 1.46); pl.position.set(pp.x, 3.15, pp.z); pl.rotation.y = h.yaw; world.group.add(pl);
+        const bg = mk(5.6, 1.4), gp = P(3.4, 11.2); bg.position.set(gp.x, 2.7, gp.z); bg.rotation.y = h.yaw; world.group.add(bg);
+        put(Bx(0.18, 3.0, 0.18), 0.7, 1.5, 11.15, '#4a4f58'); put(Bx(0.18, 3.0, 0.18), 6.1, 1.5, 11.15, '#4a4f58'); }
       put(Bx(4.8, 0.06, 10), -3.3, 0.27, 6.2, '#9da1a8'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.27, 5.6, '#c7c9ce');   // driveway + footpath
       for (const [a, b] of [[-10.8, -5.8], [-0.9, 2.5], [4.3, 10.8]]) put(Bx(b - a, 0.9, 0.1), (a + b) / 2, 0.7, 10.8, '#f2f2f2');   // front fence with gaps
       put(Bx(0.1, 0.9, 21.6), -10.9, 0.7, 0, '#f2f2f2'); put(Bx(0.1, 0.9, 21.6), 10.9, 0.7, 0, '#f2f2f2'); put(Bx(21.8, 0.9, 0.1), 0, 0.7, -10.9, '#f2f2f2');
