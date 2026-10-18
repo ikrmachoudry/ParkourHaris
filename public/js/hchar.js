@@ -1,6 +1,7 @@
 // HCHAR: a realistic-proportion human built entirely in code (no downloads).  One SkinnedMesh (~8-10k triangles) with a real
 // skeleton, so legs / arms bend smoothly.  Faces +z; character RIGHT hand is at -x.  Metres.
 import * as THREE from 'three';
+import { MOCAP, MOCAP_BONES } from './mocapdata.js';   // real recorded human movement (CMU mocap) baked onto this skeleton: tools/mocap_bake.mjs
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -104,6 +105,7 @@ export const OUTFITS = {
   civilian: { top: '#4a6fa5', pants: '#2b3140', shoes: '#2a2018', sleeve: 0.62, hat: null, hair: '#16110d' },
   cop: { top: '#1f3a6b', pants: '#14161c', shoes: '#0d0d0d', sleeve: 0.62, hat: 'cop', belt: true, badge: true, tie: '#0d0d12', hair: '#1a130e' },
   thug: { top: '#17171a', pants: '#38465f', shoes: '#e8e8e8', sleeve: 5, hat: 'beanie', chain: true, hair: '#0d0a08', hood: true },
+  robber: { top: '#1b1c20', pants: '#202228', shoes: '#111111', sleeve: 5, hat: 'beanie', hair: '#0d0a08', hood: true, mask: true, gloves: true, bag: true },
   boss: { top: '#111216', pants: '#111216', shoes: '#0b0b0b', sleeve: 5, hat: null, glasses: true, tie: '#7a0f1a', chain: true, shirt: '#f1efe9', lapel: true, hair: '#0e0b09' },
 };
 
@@ -231,6 +233,13 @@ export function buildHeroChar(opts = {}) {
   if (o.top !== undefined && !o.hood) { const t = new THREE.TorusGeometry(0.058, 0.009, 6, 16); B.geo(t, cm(0, 1.503, 0.0, 1, 1.0, 1, Math.PI / 2), 'chest', o.lapel || o.tie ? white : mulc(shirt, 1.15)); }
   if (o.hat === 'cop') { B.geo(new THREE.CylinderGeometry(0.085, 0.093, 0.075, 20), cm(0, 1.775, 0.0), 'head', mulc(shirt, 0.9)); B.geo(new THREE.CylinderGeometry(0.1, 0.098, 0.014, 20), cm(0, 1.74, 0.0, 1, 1, 1.05), 'head', mulc(shirt, 0.8)); B.geo(new THREE.BoxGeometry(0.15, 0.008, 0.07), cm(0, 1.736, 0.115, 1, 1, 1, 0.12), 'head', [0.03, 0.03, 0.03]); B.geo(ell(1, 6, 4), cm(0, 1.77, 0.0925, 0.014, 0.016, 0.004), 'head', col('#d4af37')); }
   if (o.hat === 'beanie') { B.geo(ell(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), cm(0, 1.722, -0.006, 0.092, 0.1, 0.108), 'head', [0.07, 0.07, 0.08]); B.geo(new THREE.TorusGeometry(0.087, 0.012, 6, 20), cm(0, 1.742, -0.004, 1, 1, 1.15, Math.PI / 2), 'head', [0.1, 0.1, 0.11]); }
+  if (o.mask) {   // ski mask (balaclava): black wool over the lower face and neck, only an eye band shows
+    const wool = [0.055, 0.055, 0.06];
+    B.geo(ell(1, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.95), cm(0, 1.606, 0.004, 0.0895, 0.056, 0.1135), 'head', wool);
+    B.geo(new THREE.CylinderGeometry(0.066, 0.074, 0.07, 14), cm(0, 1.545, 0.0), 'head', wool);
+  }
+  if (o.gloves) for (const s of [1, -1]) B.geo(new THREE.BoxGeometry(0.075, 0.13, 0.085), cm(0.322 * s, 0.86, 0.0), s > 0 ? 'hand.L' : 'hand.R', [0.04, 0.04, 0.045]);
+  if (o.bag) { B.geo(new THREE.BoxGeometry(0.34, 0.2, 0.15), cm(0, 1.3, -0.16, 1, 1, 1, 0.1), 'chest', [0.07, 0.08, 0.14]); B.geo(new THREE.BoxGeometry(0.3, 0.03, 0.16), cm(0, 1.4, -0.16, 1, 1, 1, 0.1), 'chest', [0.03, 0.03, 0.04]); for (const sx of [1, -1]) B.geo(new THREE.BoxGeometry(0.03, 0.3, 0.012), cm(0.09 * sx, 1.36, 0.1, 1, 1, 1, -0.04), 'chest', [0.03, 0.03, 0.04]); }   // duffel bag of cash on his back, strapped over the shoulders
   if (o.glasses) { B.geo(new THREE.BoxGeometry(0.058, 0.032, 0.008), cm(0.034, 1.684, 0.098), 'head', [0.02, 0.02, 0.025]); B.geo(new THREE.BoxGeometry(0.058, 0.032, 0.008), cm(-0.034, 1.684, 0.098), 'head', [0.02, 0.02, 0.025]); B.geo(new THREE.BoxGeometry(0.16, 0.006, 0.006), cm(0, 1.694, 0.096), 'head', [0.04, 0.04, 0.04]); }
   if (o.hat === 'cap') { B.geo(ell(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cm(0, 1.718, -0.004, 0.099, 0.094, 0.116), 'head', col(o.capCol || '#aa1c1c')); B.geo(new THREE.BoxGeometry(0.14, 0.007, 0.09), cm(0, 1.722, 0.118, 1, 1, 1, 0.1), 'head', col(o.capCol || '#aa1c1c')); }
 
@@ -264,6 +273,20 @@ export function buildHeroChar(opts = {}) {
 
 // ---------------------------------------------------------------- procedural animation
 const R = (b, x = 0, y = 0, z = 0) => b.rotation.set(x, y, z);
+// plays a baked mocap clip: walk/run loop (t = the same gait phase the procedural walk uses), jump (t = vertical speed / 7), punch/kick (t = progress 0..1)
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
+function mocapPose(ch, name, t) {
+  const c = MOCAP[name], n = c.n, b = ch.bones; let f;
+  if (c.loop) { const cyc = (((t * (name === 'run' ? 1.43 : 0.955)) % 1) + 1) % 1; f = cyc * n; }
+  else if (name === 'jump') f = Math.max(0, Math.min(1, (1 - t) / 2)) * (n - 1);
+  else f = Math.max(0, Math.min(1, t)) * (n - 1);
+  const i0 = Math.floor(f) % n, i1 = c.loop ? (i0 + 1) % n : Math.min(n - 1, i0 + 1), u = f - Math.floor(f);
+  for (let k = 0; k < MOCAP_BONES.length; k++) {
+    const o = k * 4; _qa.set(c.q[i0 * 68 + o], c.q[i0 * 68 + o + 1], c.q[i0 * 68 + o + 2], c.q[i0 * 68 + o + 3]); _qb.set(c.q[i1 * 68 + o], c.q[i1 * 68 + o + 1], c.q[i1 * 68 + o + 2], c.q[i1 * 68 + o + 3]);
+    b[MOCAP_BONES[k]].quaternion.copy(_qa).slerp(_qb, u);
+  }
+  b.hips.position.y = c.y[i0] + (c.y[i1] - c.y[i0]) * u;
+}
 export function poseChar(ch, name, t = 0, k = 1) {
   const b = ch.bones, rest = ch.rest;
   for (const n in b) { b[n].rotation.set(0, 0, 0); b[n].position.copy(rest[n]); }
@@ -273,6 +296,7 @@ export function poseChar(ch, name, t = 0, k = 1) {
   curl('L', 0.3); curl('R', 0.3);
   const armRest = 0.1; // arms hang slightly out
   const setArms = (lx, rx) => { R(b['upperarm.L'], lx, 0, -armRest); R(b['upperarm.R'], rx, 0, armRest); };
+  if (MOCAP[name] && ch.mocap !== false) { mocapPose(ch, name, t); return; }
   if (name === 'idle') {
     const br = Math.sin(t * 1.6) * 0.012;
     R(b.chest, br, 0, 0); R(b.head, -br * 0.5, 0, 0); setArms(0, 0); R(b['forearm.L'], -0.12, 0, 0); R(b['forearm.R'], -0.12, 0, 0);

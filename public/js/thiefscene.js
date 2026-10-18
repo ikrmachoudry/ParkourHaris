@@ -14,7 +14,7 @@ export class ThiefScene {
   build() {
     const R = this.R;
     this.car = buildCarMesh(22, !!R.isTouch); this.car.rotation.order = 'YXZ';
-    this.actor = new HeroActor(0, { role: 'thug', skinTone: '#b07a52', hair: '#0d0a08' });
+    this.actor = new HeroActor(0, { role: 'robber', skinTone: '#6b4429', hair: '#0d0a08' });
     this.car.visible = false; this.actor.group.visible = false;
     R.scene.add(this.car, this.actor.group); this.built = true;
   }

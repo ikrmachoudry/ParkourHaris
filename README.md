@@ -22,3 +22,6 @@ Health check: `/health`. Port: Railway sets `PORT` automatically. Limits built i
 - Every block is a slot (`BLK` in `public/js/gta.js`): it gets random buildings unless it is listed in `PARKS` or `CUSTOM_BLOCKS`.
   To put an airport / hospital / anything on a block: add the block to `CUSTOM_BLOCKS` (the random buildings go away) and build the landmark on it in `public/js/gtaworld.js`
   (see the bank and the police station there). The empty land between the ring road and the coast is free for bigger landmarks.
+
+## Credits
+Walking and running animation: motion-capture data from the CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu, free for all uses), converted by tools/mocap_bake.mjs onto the game's own character skeleton.
