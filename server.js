@@ -240,6 +240,15 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'shove', from: p.id, nx: m.nx, nz: m.nz, p: m.p });
         break;
       }
+      case 'jack': { // somebody took the car I was driving: tell the driver (relay only)
+        if (!room || room.phase !== 'race') return;
+        const q = room.players.get(m.to);
+        if (!q || q === p || !q.ws) return;
+        if (!Number.isInteger(m.c) || m.c < 0 || m.c > 7) return;
+        if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 10) return;
+        send(q.ws, { t: 'jack', from: p.id, c: m.c });
+        break;
+      }
       case 'carpark': { // a driver got out: remember where the car stays (late joiners get it)
         if (!room || room.phase !== 'race') return;
         const t = Date.now();

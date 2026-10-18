@@ -535,7 +535,7 @@ class Race {
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
-    for (const c of this.cars) { if (c.st.driver !== -1 && c !== this.drive) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (CAR_SPECS[c.st.id].racer && !this.racerOk) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 1.5 : 0); if (d < bd) { bd = d; best = c; } }
     return best;
   }
   spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
@@ -543,26 +543,29 @@ class Race {
     for (const c of this.cars) { if (c === except) continue; const dx = x - c.st.x, dz = z - c.st.z, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), a = dx * fx + dz * fz, r = -dx * fz + dz * fx; if (Math.abs(a) < (c.st.hl || 2.2) + 0.45 && Math.abs(r) < (c.st.hw || 1) + 0.45) return false; }
     return true;
   }
-  toggleCar() {
-    if (this.an) { this.an.toggleMount(); return; }
-    if (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length) return;
+  onJack(m) { const c = this.cars[m.c | 0]; if (c && c === this.drive) this.toggleCar(true); } // somebody stole my car: I am thrown out
+  toggleCar(force) {
+    if (this.an && !force) { this.an.toggleMount(); return; }
+    if (!force && (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length)) return;
+    if (force && !this.drive) return;
     const b = this.me.body;
     if (this.drive) { // get out
       const c = this.drive, st = c.st;
-      if (Math.abs(st.speed) > 5) { this.toast('Slow down to get out!'); return; }
-      if (st.y > 1.2 && !this.world.terrain) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
+      if (!force && Math.abs(st.speed) > 5) { this.toast('Slow down to get out!'); return; }
+      if (!force && st.y > 1.2 && !this.world.terrain) { this.toast(this.racerOk ? 'Not up here - stop on the RACER GARAGE plaza to swap cars' : 'Finish the SKY SPEEDWAY to win a RACER!'); return; }
       const hero = !!c.mesh.userData.hero, lx = Math.cos(st.yaw) * (hero ? -1 : 1), lz = -Math.sin(st.yaw) * (hero ? -1 : 1);
       let ox = st.x + lx * 2.4, oz = st.z + lz * 2.4;
       if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
       respawn(b, ox, this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05, oz, st.yaw); b.hitCd = 0.3;
-      st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; this.drive = null;
+      if (!force) { st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; } this.drive = null;
       document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
       this.g_g(this.me.model.group);
-      if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
+      if (this.multi && !force) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false;
     } else {
       const c = this.nearestFreeCar(b);
       if (!c) return;
+      if (this.multi && c.st.driver !== -1 && c.st.driver !== this.localId) app.net.send({ t: 'jack', to: c.st.driver, c: this.cars.indexOf(c) }); // carjack: the driver is thrown out
       this.drive = c; c.st.driver = this.localId; c.st.parked = false;
       b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
       if (c.mesh.userData.hero) { const cv = cityVeh(c.st.id); A.carDoor(true); setTimeout(() => A.carDoor(false), 700); setTimeout(() => { if (this.drive === c) { A.engineCrank(); A.carEngineStart(cv); } }, 900); } else { A.engineStart(); A.sfx.door(); A.sfx.vroom(); }
@@ -1217,6 +1220,7 @@ async function ensureNet() {
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
+  net.on('jack', (m) => { if (race && race.multi) race.onJack(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
   net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
