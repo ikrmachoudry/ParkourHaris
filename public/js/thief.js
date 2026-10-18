@@ -47,7 +47,7 @@ export function buildRoute() {
     const kappa = Math.abs(dy) / Math.max(1, pts[j].s - pts[k].s); vlim[i] = Math.max(7, Math.min(40, Math.sqrt(6 / Math.max(kappa, 1e-4))));
   }
   for (let i = n - 2; i >= 0; i--) vlim[i] = Math.min(vlim[i], Math.sqrt(vlim[i + 1] * vlim[i + 1] + 2 * 8 * STEP));   // always able to brake in time
-  let ia = 0, bd = 1e9; for (let i = 0; i < n; i++) { const d = hyp(pts[i].x + 123.25, pts[i].z + 40); if (d < bd) { bd = d; ia = i; } }
+  let ia = 0, bd = 1e9; for (let i = 0; i < n; i++) { const d = hyp(pts[i].x - CHASE.stopAt[0], pts[i].z - CHASE.stopAt[1]); if (d < bd) { bd = d; ia = i; } }
   _route = { pts, yaw, vlim, n, total: pts[n - 1].s, sA: pts[ia].s };
   return _route;
 }

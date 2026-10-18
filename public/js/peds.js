@@ -19,7 +19,7 @@ export class Peds {
     this.scene = scene; this.list = [];
     const R = rng(777), G = GT.GRID;
     for (let i = 0; i < count; i++) {
-      const axis = i % 2, g = G[Math.floor(R() * G.length)], side = R() < 0.5 ? -1 : 1, lo = -112, hi = 112, span = hi - lo;
+      const axis = i % 2, g = G[Math.floor(R() * G.length)], side = R() < 0.5 ? -1 : 1, lo = -232, hi = 232, span = hi - lo;
       this.list.push({ i, axis, g, off: side * 8.1, lo, span, sp: 1.25 + R() * 0.5, ph: R() * 2 * span, look: LOOKS[i % LOOKS.length], actor: null, x: 0, z: 0, yaw: 0, st: 'walk', hitT: 0, vx: 0, vz: 0, vy: 0, y: 0, lie: 0, wait: 0, pause: 0, prevS: 0, hp: 0, hpMax: 0, brave: false, fear: 0, timer: 0, dx: 0, dz: 0, punchT: 0, atk: 0, pend: false });
       const q = this.list[this.list.length - 1]; q.hpMax = q.hp = 2 + Math.floor(R() * 3); q.brave = R() < 0.4; q.fear = R();
     }

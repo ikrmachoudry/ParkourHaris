@@ -1,17 +1,19 @@
 // HARIS CITY (GTA-style open world): the pure layout - terrain height function, road network, buildings. No three.js here,
 // so tests (and later the server) can use it too.  World: x east, z south, y up.  Sea level is y = -1.2.
 export const GT = {
-  HALF: 380,                       // the terrain covers -380..380 in x and z
+  HALF: 540,                       // the terrain covers -540..540 in x and z
+  CITY: 240,                       // the avenues run from -240 to 240 (8 x 8 blocks)
+  RING: 280,                       // the ring highway round the city (a rounded square, half-size 280)
   SEA: -1.2,
-  GRID: [-120, -60, 0, 60, 120],   // avenues (the same numbers for x and z)
+  GRID: [-240, -180, -120, -60, 0, 60, 120, 180, 240],   // avenues (the same numbers for x and z)
   HW: 6.5,                         // road half width
-  MT: { cx: -215, cz: -215, R: 105, H: 56, Rt: 20, T: 2.6, th0: Math.PI / 4 },   // Mount Haris with a spiral road to the summit
-  HWY: { ax: 120, bx: 300, z: 0 },                                                   // the coast highway to the lookout
+  MT: { cx: -375, cz: -375, R: 105, H: 56, Rt: 20, T: 2.6, th0: Math.PI / 4 },   // Mount Haris with a spiral road to the summit
+  HWY: { ax: 240, bx: 460, z: 0 },                                                   // the coast highway to the lookout
 };
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
 const TAU = Math.PI * 2;
-const HILLS = [[210, -210, 70, 21], [235, 205, 62, 14], [-205, 215, 66, 16], [40, -300, 60, 11], [-40, 300, 55, 9]];
+export const HILLS = [[370, -370, 70, 21], [395, 365, 62, 14], [-365, 375, 66, 16], [40, -460, 60, 11], [-40, 460, 55, 9], [-430, 20, 55, 14], [430, -230, 55, 12], [-30, 400, 50, 8]];
 const noise = (x, z) => (Math.sin(x * 0.043 + 1.3) * Math.cos(z * 0.051 + 0.4) * 0.6 + Math.sin((x + z) * 0.09 + 2.0) * 0.3 + Math.sin(x * 0.17) * Math.sin(z * 0.15) * 0.1);
 
 export const mtC = (r) => { const M = GT.MT; return r >= M.R ? 0 : M.H * Math.pow(1 - Math.max(r, M.Rt) / M.R, 1.25); };
@@ -20,7 +22,7 @@ export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th =
 // terrain height everywhere (flat 0 in the city, hills outside, a mountain with a carved road, a beach and the sea)
 export function gtaBase(x, z) {
   const M = GT.MT, dx = x - M.cx, dz = z - M.cz, r = Math.hypot(dx, dz), box = Math.max(Math.abs(x), Math.abs(z));
-  const mt = sm(M.R + 25, M.R + 5, r), m = sm(150, 215, box), coast = 6.2 * sm(300, 395, box);
+  const mt = sm(M.R + 25, M.R + 5, r), m = sm(300, 365, box), coast = 6.2 * sm(460, 555, box);
   let hills = 0; for (const [hx, hz, hr, hh] of HILLS) { const d = Math.hypot(x - hx, z - hz) / hr; hills += hh * Math.exp(-d * d); }
   const h0 = (1 - mt) * (m * (hills + noise(x, z) * 1.1) - coast);
   let h = h0 + mtC(r);
@@ -50,7 +52,7 @@ const HP = Math.PI / 2;
 // MISSIONS: the Mission Lobby building (walk onto the pad inside) and the STUNT JUMP course on the coast highway: 4 white super cars wait on the start
 // line, two ramps follow, and the finish line is near the lookout.  Ramps are part of the ground height, so cars fly off them.
 export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
-export const STUNT = { name: 'STUNT JUMP', startX: 112, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[150, 0, HP0(), 20, 2.6, 12], [232, 0, HP0(), 20, 2.6, 12]], finishX: 292, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
+export const STUNT = { name: 'STUNT JUMP', startX: 272, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[310, 0, HP0(), 20, 2.6, 12], [392, 0, HP0(), 20, 2.6, 12]], finishX: 452, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
 // MISSION 2 - THIEF CHASE: the CITY BANK (south side of the z = 60 avenue, door faces north) and the POLICE STATION (north side of the z = -60 avenue, door faces south).
 // Both are just buildings (nobody can go in). Two 4-door police cars wait in front of the station; for the mission they are moved to the bank.
 export const BANK = { x: 30, z: 95, w: 34, d: 20, h: 15 };
@@ -62,23 +64,24 @@ export const CHASE = {
   copIdx: [24, 25],
   thiefCar: { x: 30, z: 63.25, yaw: -Math.PI / 2 },                                // parked at the kerb, nose west (left-hand traffic: south lane)
   walk: [[30, 85.6], [30, 71], [34.6, 67], [34.6, 63.2], [30.2, 61.1]],            // the thief runs out of the bank, round the back of his car to the driver's door
-  corners: [[30, 63.25], [-100, 63.25], [-123.25, 40], [-123.25, -100], [-126, -122], [-140.8, -140.8]],   // the road to the mountain (west along z = 60, north along x = -120, the link road)
+  corners: [[30, 63.25], [-220, 63.25], [-243.25, 40], [-243.25, -220], [-246, -242], [-300.8, -300.8]],   // the road to the mountain (west along z = 60, north along the west avenue x = -240, the link road)
+  stopAt: [-243.25, -40],                                                          // where he stops for the boot scene
   stopA: 330,                                                                      // arc length (m) of the first stop (set by buildRoute: the trunk stop on the west avenue)
-  flee: { x: -215, z: -215, r: 13 },                                               // the summit plaza
+  flee: { x: -375, z: -375, r: 13 },                                               // the summit plaza
 };
 function HP0() { return Math.PI / 2; }
 // THE STUNT PARK: a flat arena south-east of the Mission Lobby with a fast oval circuit (two straights joined by two wide turns).
 //   top straight (east-bound, z = zT): speed booster, then a ramp.  bottom straight (west-bound, z = zB): speed booster, a lit TUNNEL, then a low kicker.
 //   The 4 white super cars (the mission cars) wait in the infield whenever no mission is running.
 export const PARK = {
-  x0: 145, x1: 295, z0: 52, z1: 128,                         // the flat pad
-  cxW: 178, cxE: 262, cz: 92, R: 20, hw: 10.5, zT: 72, zB: 112,   // oval: end centres, turn radius (centre line), road half-width, the two straights
-  ramps: [[200, 72, HP0(), 20, 2.0, 14], [214, 112, -HP0(), 18, 1.3, 14]],
-  boosts: [{ x: 188, z: 72, rx: 7, rz: 7, dir: 1 }, { x: 258, z: 112, rx: 7, rz: 7, dir: -1 }],
-  tunnel: { x0: 222, x1: 248, z: 112, half: 9, h: 6.5 },
-  spawn: { x: 200, z: 86.6, step: 3.2, yaw: HP0() },
-  gate: { x: 174, z: 72 },
-  walls: [[143, 49, 299, 51], [143, 131, 299, 133], [297, 49, 299, 133], [141, 69, 143, 133]],   // crash barriers round the pad (x0, z0, x1, z1): a car can never end up in the sea; the west side is open where the road comes in
+  x0: 305, x1: 455, z0: 52, z1: 128,                         // the flat pad
+  cxW: 338, cxE: 422, cz: 92, R: 20, hw: 10.5, zT: 72, zB: 112,   // oval: end centres, turn radius (centre line), road half-width, the two straights
+  ramps: [[360, 72, HP0(), 20, 2.0, 14], [374, 112, -HP0(), 18, 1.3, 14]],
+  boosts: [{ x: 348, z: 72, rx: 7, rz: 7, dir: 1 }, { x: 418, z: 112, rx: 7, rz: 7, dir: -1 }],
+  tunnel: { x0: 382, x1: 408, z: 112, half: 9, h: 6.5 },
+  spawn: { x: 360, z: 86.6, step: 3.2, yaw: HP0() },
+  gate: { x: 334, z: 72 },
+  walls: [[303, 49, 459, 51], [303, 131, 459, 133], [457, 49, 459, 133], [301, 69, 303, 133]],   // crash barriers round the pad (x0, z0, x1, z1): a car can never end up in the sea; the west side is open where the road comes in
   wallH: 1.5,
 };
 // the oval's centre line as a list of points (clockwise from the west end of the top straight)
@@ -103,11 +106,21 @@ export function rampH(x, z) {
 }
 export const gtaH = (x, z) => gtaBase(x, z) + rampH(x, z);
 
+// THE RING HIGHWAY: a rounded square round the whole city (a wide 4-lane road, flat ground), joined to the city and to the coast highway
+export const RING_HW = 8;
+export function ringPath() {
+  const R = GT.RING, rc = 70, c = R - rc, pts = [];
+  // clockwise seen from above (x east, z south), starting on the east side going south: corner centres (+-c, +-c)
+  for (const [cx, cz, a0] of [[c, -c, -Math.PI / 2], [c, c, 0], [-c, c, Math.PI / 2], [-c, -c, Math.PI]]) for (let i = 0; i <= 14; i++) { const a = a0 + i / 14 * Math.PI / 2; pts.push([cx + rc * Math.cos(a), cz + rc * Math.sin(a)]); }
+  return pts;
+}
 // the drivable road network (segments follow the ground height; cars use y0 / y1 as the road surface)
 export function gtaRoads() {
   const segs = [], plazas = [], G = GT.GRID, hw = GT.HW;
-  for (const g of G) { segs.push({ ax: g, az: -120, bx: g, bz: 120, hw, y0: 0, g: 'x' + g }); segs.push({ ax: -120, az: g, bx: 120, bz: g, hw, y0: 0, g: 'z' + g }); }
-  segs.push({ ax: -120, az: -120, bx: -140.8, bz: -140.8, hw, y0: 0, g: 'link' });
+  const C = GT.CITY;
+  for (const g of G) { segs.push({ ax: g, az: -C, bx: g, bz: C, hw, y0: 0, g: 'x' + g }); segs.push({ ax: -C, az: g, bx: C, bz: g, hw, y0: 0, g: 'z' + g }); }
+  { const l = mtRoad(0); segs.push({ ax: -C, az: -C, bx: l.x, bz: l.z, hw, y0: 0, g: 'link' }); }   // from the north-west corner of the city to the foot of Mount Haris
+  { const R = ringPath(); for (let i = 0; i < R.length; i++) { const a = R[i], b = R[(i + 1) % R.length]; segs.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], hw: RING_HW, y0: 0, g: 'ring' }); } }   // the ring highway
   // the mountain road: short pieces so a car follows the slope
   const M = GT.MT, len = (M.R + M.Rt) / 2 * M.T * TAU, N = Math.ceil(len / 7);
   for (let i = 0; i < N; i++) { const a = mtRoad(i / N), b = mtRoad((i + 1) / N); segs.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z, hw, y0: a.y, y1: b.y, g: 'mt' }); }
@@ -116,14 +129,19 @@ export function gtaRoads() {
   plazas.push({ x: GT.HWY.bx, z: 0, r: 14, y: 0, g: 'lookout' });
   { // the Stunt Park: the oval circuit and the road that joins it to the city (the east end of the z = 60 avenue)
     const pts = parkPath(); for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; segs.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], hw: PARK.hw, y0: 0, g: 'stunt' }); }
-    segs.push({ ax: 120, az: 60, bx: 158, bz: 60, hw, y0: 0, g: 'stunt-link' }); segs.push({ ax: 158, az: 60, bx: PARK.cxW, bz: PARK.zT - 1, hw, y0: 0, g: 'stunt-link' });
+    segs.push({ ax: 240, az: 60, bx: 318, bz: 60, hw, y0: 0, g: 'stunt-link' }); segs.push({ ax: 318, az: 60, bx: PARK.cxW, bz: PARK.zT - 1, hw, y0: 0, g: 'stunt-link' });
   }
   return { segs, plazas, boosts: PARK.boosts.map((b) => ({ ...b })) };
 }
 
 // buildings (deterministic): {x,z,w,d,h,col,kind}.  16 blocks between the avenues, two of them are parks.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
-export const PARKS = [[90, 90], [-90, 30]];
+// THE BLOCKS: the city is 8 x 8 blocks, each 47 m square, centred on BLK x BLK.  Every block is a SLOT: it gets random buildings unless it is listed here.
+//   PARKS = green blocks with a fountain; CUSTOM_BLOCKS = blocks that are built by hand (landmarks).  To put an AIRPORT, a HOSPITAL ... on the map, pick a block, add it to
+//   CUSTOM_BLOCKS (the random buildings disappear) and build the landmark on it in gtaworld.js (see the repair shop / the bank for an example).
+export const BLK = [-210, -150, -90, -30, 30, 90, 150, 210];
+export const PARKS = [[90, 90], [-90, 30], [-150, -150], [150, 150], [-210, 30], [210, -90], [150, -210]];
+export const CUSTOM_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90]];   // repair shop, the four homes, mission lobby, bank, police station
 // LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Michael).
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
@@ -142,19 +160,22 @@ export function homeZone(x, z, pad = 0) {
   return null;
 }
 export const homeSpawn = (char) => { const h = HOMES[((char | 0) % HOMES.length + HOMES.length) % HOMES.length], p = homeW(h, 3.4, 3.6); return { x: p.x, z: p.z, yaw: h.yaw }; };
-const LOT_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90]];   // + the bank and the police station blocks
 export function gtaBuildings() {
   const R = rng(4242), out = [], pal = ['#e8c9a0', '#cfd8e3', '#e89c8a', '#a8c5e8', '#f1e0a6', '#b9d9b0', '#d9b8e0', '#f0b27a', '#9fb4c8'];
-  for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
+  const block = (bx, bz, zone) => { for (const [ox, oz] of [[-11.5, -11.5], [11.5, -11.5], [-11.5, 11.5], [11.5, 11.5]]) {
+    const w = 12 + R() * 7, d = 12 + R() * 7, h = zone === 0 ? 38 + R() * 42 : zone === 1 ? 16 + R() * 26 : 8 + R() * 14;
+    out.push({ x: bx + ox + (R() - 0.5) * 1.5, z: bz + oz + (R() - 0.5) * 1.5, w, d, h, col: pal[Math.floor(R() * pal.length)], zone });
+  } };
+  for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {   // the original centre (these numbers never change, so the old city stays exactly as it was)
     if (PARKS.some((p) => p[0] === bx && p[1] === bz)) continue;
-    const dist = Math.max(Math.abs(bx), Math.abs(bz)), zone = dist <= 30 ? 0 : dist <= 60 ? 1 : 2;
-    for (const [ox, oz] of [[-11.5, -11.5], [11.5, -11.5], [-11.5, 11.5], [11.5, 11.5]]) {
-      const w = 12 + R() * 7, d = 12 + R() * 7, h = zone === 0 ? 38 + R() * 42 : zone === 1 ? 16 + R() * 26 : 8 + R() * 14;
-      out.push({ x: bx + ox + (R() - 0.5) * 1.5, z: bz + oz + (R() - 0.5) * 1.5, w, d, h, col: pal[Math.floor(R() * pal.length)], zone });
-    }
+    const dist = Math.max(Math.abs(bx), Math.abs(bz)); block(bx, bz, dist <= 30 ? 0 : dist <= 60 ? 1 : 2);
   }
   const t = out.find((b) => b.x > 30 && b.x < 45 && b.z > 30 && b.z < 45); if (t) { t.h = 118; t.w = 17; t.d = 17; t.col = '#7fb6e6'; t.tower = true; }
-  return out.filter((b) => !LOT_BLOCKS.some(([cx, cz]) => Math.abs(b.x - cx) < 24 && Math.abs(b.z - cz) < 24));   // the repair-shop block and the housing block are built separately
+  for (const bx of BLK) for (const bz of BLK) {   // the new outer blocks: mid-rise in the first ring, low-rise suburbs outside
+    if (Math.max(Math.abs(bx), Math.abs(bz)) <= 90 || PARKS.some((p) => p[0] === bx && p[1] === bz)) continue;
+    block(bx, bz, Math.max(Math.abs(bx), Math.abs(bz)) <= 150 ? 1 : 2);
+  }
+  return out.filter((b) => !CUSTOM_BLOCKS.some(([cx, cz]) => Math.abs(b.x - cx) < 24 && Math.abs(b.z - cz) < 24));   // the hand-built blocks are built separately
 }
 
 // parked cars (8: ids repeat so there are 4 looks) and the traffic loops (visual only)
@@ -173,6 +194,8 @@ export function gtaCars() {
 export const TRAFFIC = [
   { x0: -60, x1: 60, z0: -60, z1: 60, n: 4, sp: 9 },
   { x0: -120, x1: 120, z0: -120, z1: 120, n: 5, sp: 12 },
+  { x0: -180, x1: 180, z0: -180, z1: 180, n: 7, sp: 14 },
+  { x0: -240, x1: 240, z0: -240, z1: 240, n: 9, sp: 16 },
 ];
 // position + velocity of traffic car k on loop L at time t
 export function trafficPos(L, k, t) {

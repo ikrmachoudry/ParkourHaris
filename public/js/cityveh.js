@@ -169,7 +169,7 @@ function impulse(c, nx, nz, rx, rz, m, Iz, e) {
 }
 
 const ALL = (t) => { if (!t.props) return t.boxes || []; return t._all || (t._all = [...(t.boxes || []), ...t.props]); };
-const TD_SEA = -0.35, TD_EDGE = 352;
+const TD_SEA = -0.35, TD_EDGE = 505;
 function terrain(c, dt, track, spec, geo) {
   const T = track.terrain; let ev = '';
   const m = spec.mass, Iz = m * Math.pow(0.48 * (geo.wb || 2.7), 2);

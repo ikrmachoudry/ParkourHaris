@@ -16,3 +16,9 @@ WebSockets work automatically (the game switches to `wss://` by itself).
 4. Send everybody that link. Every `git push` redeploys automatically.
 
 Health check: `/health`. Port: Railway sets `PORT` automatically. Limits built in: 4 players per room, 12 connections per IP, flood protection.
+
+## The map (v25)
+- The city is 8 x 8 blocks (avenues from -240 to 240), a ring highway (half-size 280) goes round it, Mount Haris is in the north-west, the stunt park and coast highway are in the east.
+- Every block is a slot (`BLK` in `public/js/gta.js`): it gets random buildings unless it is listed in `PARKS` or `CUSTOM_BLOCKS`.
+  To put an airport / hospital / anything on a block: add the block to `CUSTOM_BLOCKS` (the random buildings go away) and build the landmark on it in `public/js/gtaworld.js`
+  (see the bank and the police station there). The empty land between the ring road and the coast is free for bigger landmarks.

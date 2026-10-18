@@ -4,7 +4,7 @@ import { PARK, gtaH, gtaRoads, parkPath } from '../public/js/gta.js';
 let bad = 0; const ok = (c, m) => { if (!c) bad++; console.log((c ? 'PASS ' : 'FAIL ') + m); };
 const roads = gtaRoads(), T = PARK.tunnel;
 const boxes = [[T.z - T.half - 1], [T.z + T.half + 1]].map(([zc]) => ({ x0: T.x0, x1: T.x1, z0: zc - 0.5, z1: zc + 0.5, h: T.h }));
-const track = { terrain: gtaH, boxes: [...boxes, ...PARK.walls.map(([x0, z0, x1, z1]) => ({ x0, x1, z0, z1, h: PARK.wallH }))], segs: roads.segs, plazas: roads.plazas, boosts: roads.boosts, edge: 352 };
+const track = { terrain: gtaH, boxes: [...boxes, ...PARK.walls.map(([x0, z0, x1, z1]) => ({ x0, x1, z0, z1, h: PARK.wallH }))], segs: roads.segs, plazas: roads.plazas, boosts: roads.boosts, edge: 505 };
 const spec = (id) => CITY_VEH.find((s) => s.id === id);
 const mk = (id, x, z, yaw, v) => newCityState({ id, x, z, y: 0, pitch: 0, yaw, vx: Math.sin(yaw) * v, vz: Math.cos(yaw) * v, speed: v, steer: 0, driver: 1, parked: false, vy: 0, vyg: 0, air: false }, spec(id));
 const wrap = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
@@ -24,9 +24,9 @@ function lap(id, vTarget) {
   return { crashes, maxv, maxAir, laps, t, minY, maxY, hp: c.hp };
 }
 for (const id of [17, 11]) { const r = lap(id, 17); ok(r.laps === 1 && r.crashes <= 1 && r.hp > 85 && r.minY > -0.05 && r.maxY < 5, `${spec(id).name}: a full lap with no crash (lap ${r.t.toFixed(0)} s, top ${(r.maxv * 3.6).toFixed(0)} km/h, longest flight ${r.maxAir.toFixed(2)} s, hp ${r.hp})`); }
-{ const c = mk(17, 180, 72, Math.PI / 2, 12); let mv = 0; for (let i = 0; i < 60 * 1.2; i++) { stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], spec(17), null); mv = Math.max(mv, c.speed); } ok(c.x > 188 && mv > 27, 'the booster pad adds speed (12 -> ' + (mv * 3.6).toFixed(0) + ' km/h in 1.2 s)'); }
-{ const sp = spec(17), c = mk(17, 192, 72, Math.PI / 2, 38); let a0 = -1, a1 = -1, t = 0, x0 = 0, x1 = 0, ev = ''; for (let i = 0; i < 60 * 5; i++) { const e = stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], sp, null); if (e === 'crash') ev = e; t += 1 / 60; if (c.air && a0 < 0) { a0 = t; x0 = c.x; } if (!c.air && a0 > 0 && a1 < 0) { a1 = t; x1 = c.x; } }
+{ const c = mk(17, 340, 72, Math.PI / 2, 12); let mv = 0; for (let i = 0; i < 60 * 1.2; i++) { stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], spec(17), null); mv = Math.max(mv, c.speed); } ok(c.x > 348 && mv > 27, 'the booster pad adds speed (12 -> ' + (mv * 3.6).toFixed(0) + ' km/h in 1.2 s)'); }
+{ const sp = spec(17), c = mk(17, 352, 72, Math.PI / 2, 38); let a0 = -1, a1 = -1, t = 0, x0 = 0, x1 = 0, ev = ''; for (let i = 0; i < 60 * 5; i++) { const e = stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], sp, null); if (e === 'crash') ev = e; t += 1 / 60; if (c.air && a0 < 0) { a0 = t; x0 = c.x; } if (!c.air && a0 > 0 && a1 < 0) { a1 = t; x1 = c.x; } }
   ok(a0 > 0 && a1 - a0 > 0.8 && x1 < PARK.x1, `the top ramp launches a fast car: ${(a1 - a0).toFixed(2)} s in the air, lands at x=${x1.toFixed(0)} (${(x1 - x0).toFixed(0)} m)`); }
-{ const c = mk(17, 268, 112, -Math.PI / 2, 25); let ev = '', minx = 999, inT = 0; for (let i = 0; i < 60 * 3 && c.x > 216; i++) { const e = stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], spec(17), null); if (e) ev = e; if (c.x > T.x0 && c.x < T.x1) inT++; minx = Math.min(minx, c.x); }
+{ const c = mk(17, 428, 112, -Math.PI / 2, 25); let ev = '', minx = 999, inT = 0; for (let i = 0; i < 60 * 3 && c.x > 376; i++) { const e = stepCityCar(c, 1 / 60, { gas: 1, steer: 0 }, track, [], spec(17), null); if (e) ev = e; if (c.x > T.x0 && c.x < T.x1) inT++; minx = Math.min(minx, c.x); }
   ok(inT > 20 && ev !== 'crash' && c.hp > 99, 'driving straight through the tunnel touches nothing (hp ' + c.hp + ')'); }
 console.log(bad ? 'PARK FAILED' : 'PARK OK'); process.exit(bad ? 1 : 0);

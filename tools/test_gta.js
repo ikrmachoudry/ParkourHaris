@@ -17,7 +17,7 @@ let hy = 0, fell = false; const bb = newBody(); const p0 = mtRoad(0); bb.x = p0.
 for (let u = 0.01; u <= 0.5; u += 0.01) { const p = mtRoad(u); for (let k = 0; k < 90; k++) { const dx = p.x - bb.x, dz = p.z - bb.z, d = Math.hypot(dx, dz) || 1; stepBody(world, bb, 1 / 60, { mx: dx / d, mz: dz / d, jumpPressed: false, jumpHeld: false }); bb.events.length = 0; if (d < 1.5) break; } if (bb.y < -2) fell = true; hy = bb.y; }
 ok(!fell && hy > 15, 'a player walks up the spiral road to height ' + hy.toFixed(1));
 // walk straight into the sea: must respawn event (fell) eventually
-const sb = newBody(); sb.x = 250; sb.z = 100; sb.y = gtaH(250, 100); let ev = false; for (let i = 0; i < 1500 && !ev; i++) { stepBody(world, sb, 1 / 60, { mx: 1, mz: 0 }); if (sb.events.includes('fell')) ev = true; sb.events.length = 0; }
+const sb = newBody(); sb.x = 420; sb.z = 300; sb.y = gtaH(420, 300); let ev = false; for (let i = 0; i < 1500 && !ev; i++) { stepBody(world, sb, 1 / 60, { mx: 1, mz: 0 }); if (sb.events.includes('fell')) ev = true; sb.events.length = 0; }
 ok(ev, 'walking into the sea triggers a respawn (x ' + sb.x.toFixed(0) + ')');
 // building is solid
 const bd = gtaBuildings()[0]; const wb = newBody(); wb.x = bd.x - bd.w / 2 - 3; wb.z = bd.z; wb.y = 0.2; for (let i = 0; i < 120; i++) stepBody(world, wb, 1 / 60, { mx: 1, mz: 0 }); ok(wb.x < bd.x - bd.w / 2 + 0.1, 'buildings block you');
@@ -33,7 +33,7 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
 // buildings stop the car
 { const bd = gtaBuildings()[3]; const car = newCar(11, bd.x, bd.z - bd.d / 2 - 30, 0); drive(car, bd.x, bd.z, 4); ok(car.z < bd.z - bd.d / 2 + 0.5, 'a car cannot drive through a building'); }
 // the sea stops the car
-{ const car = newCar(11, 300, 200, Math.PI / 2); drive(car, 390, 200, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
+{ const car = newCar(11, 440, 300, Math.PI / 2); drive(car, 600, 300, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
 // the realistic cars on the highway: the sports car is fast, the sedan slower
 { const a = newCar(17, -118, 0, Math.PI / 2), b2 = newCar(11, -118, 0, Math.PI / 2); let va = 0, vb = 0; drive(a, 118, 0, 22, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 118, 0, 22, 1, (c) => { vb = Math.max(vb, c.speed); });
   ok(va * 3.6 > 110 && va > vb * 1.2, 'sports car ' + (va * 3.6).toFixed(0) + ' km/h vs sedan ' + (vb * 3.6).toFixed(0) + ' km/h'); }

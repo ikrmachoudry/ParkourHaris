@@ -155,7 +155,7 @@ export class MissionClient {
     if (R.drive !== c) { this.noCar = (this.noCar || 0) + dt; if (this.noCar > 1.2) fail('car'); return; } this.noCar = 0;
     if (s.hp !== undefined && s.hp <= 0) return fail('crash');
     if (t > STUNT.timeLimit) return fail('time');
-    if (Math.abs(s.z) > 17 || s.x < 105) return fail('off');
+    if (Math.abs(s.z) > 17 || s.x < 265) return fail('off');
     if (s.air && !this.air) { this.air = true; this.airT = 0; this.takeX = s.x; this.takeZ = s.z; this.takeV = Math.hypot(s.vx, s.vz); }
     if (this.air) this.airT += dt;
     if (!s.air && this.air) {   // landed: was it a proper jump off the next ramp?
@@ -178,7 +178,7 @@ export class MissionClient {
       const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1 || !c.st.mcar || (c.st.pax !== undefined && c.st.pax !== -1)) return; const s = c.st, h = CHASE.copsHome[j];
       s.x = h.x; s.z = h.z; s.yaw = h.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.parked = true; s.steer = 0; s.pitch = 0; s.mcar = false; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true;
     });
-    for (let k = 12; k < 16; k++) { const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1) continue; const s = c.st; if (!all && !(Math.abs(s.z) < 24 && s.x > 100)) continue;   // after a mission: any left on the highway go home
+    for (let k = 12; k < 16; k++) { const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1) continue; const s = c.st; if (!all && !(Math.abs(s.z) < 24 && s.x > 230)) continue;   // after a mission: any left on the highway go home
        s.x = P.x; s.z = P.z + (k - 12) * P.step; s.yaw = P.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.parked = true; s.steer = 0; s.pitch = 0; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true; }
   }
   // ---- DOM

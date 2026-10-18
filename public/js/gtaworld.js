@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -73,7 +73,7 @@ function roadGeo(roads, h) {
       { // continuous white edge lines (not through junctions)
         const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; let junction = false;
         if (s.g[0] === 'x') junction = GT.GRID.some((g) => Math.abs(mz - g) < GT.HW + 0.5); else if (s.g[0] === 'z') junction = GT.GRID.some((g) => Math.abs(mx - g) < GT.HW + 0.5);
-        if (!junction && (s.g[0] === 'x' || s.g[0] === 'z')) { const dx = x1 - x0, dz = z1 - z0, Ls = Math.hypot(dx, dz) || 1, ox = -dz / Ls * (s.hw - 0.55), oz = dx / Ls * (s.hw - 0.55); for (const sg of [-1, 1]) ribbon(x0 + ox * sg, z0 + oz * sg, y0, x1 + ox * sg, z1 + oz * sg, y1, 0.07, '#e9e9e4', 0.105); }
+        if (!junction && (s.g[0] === 'x' || s.g[0] === 'z' || s.g === 'ring')) { const dx = x1 - x0, dz = z1 - z0, Ls = Math.hypot(dx, dz) || 1, ox = -dz / Ls * (s.hw - 0.55), oz = dx / Ls * (s.hw - 0.55); for (const sg of [-1, 1]) ribbon(x0 + ox * sg, z0 + oz * sg, y0, x1 + ox * sg, z1 + oz * sg, y1, 0.07, '#e9e9e4', 0.105); }
       }
       if (s.g === 'link' || i % 2 === 0) {
         // skip dashes at crossings of the grid
@@ -86,7 +86,7 @@ function roadGeo(roads, h) {
   { // zebra crossings on every arm of every junction of the city grid
     const G = GT.GRID, hw = GT.HW;
     for (const gx of G) for (const gz of G) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const ex = gx + dx * 60, ez = gz + dz * 60; if (Math.abs(ex) > 121 || Math.abs(ez) > 121) continue;   // that arm of the junction does not exist
+      const ex = gx + dx * 60, ez = gz + dz * 60; if (Math.abs(ex) > 241 || Math.abs(ez) > 241) continue;   // that arm of the junction does not exist
       const cx = gx + dx * (hw + 2.2), cz = gz + dz * (hw + 2.2);
       for (let k = -5; k <= 5; k++) { // stripes run along the road, the row of stripes goes across it
         const lx = dx !== 0 ? cx : cx + k * 1.1, lz = dx !== 0 ? cz + k * 1.1 : cz, hx = dx !== 0 ? 1.4 : 0.28, hz = dx !== 0 ? 0.28 : 1.4;
@@ -106,16 +106,16 @@ function roadGeo(roads, h) {
 }
 
 function terrainGeo() {
-  const N = 160, S = GT.HALF * 2, step = S / N, pos = new Float32Array((N + 1) * (N + 1) * 3), cs = new Float32Array((N + 1) * (N + 1) * 3), idx = [];
+  const N = 220, S = GT.HALF * 2, step = S / N, pos = new Float32Array((N + 1) * (N + 1) * 3), cs = new Float32Array((N + 1) * (N + 1) * 3), idx = [];
   const R = rng(99), tmp = new THREE.Color();
   for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
     const x = -GT.HALF + i * step, z = -GT.HALF + j * step, h = gtaBase(x, z), k = (j * (N + 1) + i) * 3;
     pos[k] = x; pos[k + 1] = h; pos[k + 2] = z;
     const gx = (gtaBase(x + 2, z) - gtaBase(x - 2, z)) / 4, gz = (gtaBase(x, z + 2) - gtaBase(x, z - 2)) / 4, slope = Math.hypot(gx, gz), box = Math.max(Math.abs(x), Math.abs(z));
-    const city = 1 - smooth(150, 205, box);
+    const city = 1 - smooth(255, 310, box);
     { const f1 = Math.sin(x * 0.021 + 1.7) * Math.sin(z * 0.017 + 0.3), f2 = Math.sin(x * 0.063 + z * 0.041), f3 = Math.sin(x * 0.011 - z * 0.019 + 2.2);
       tmp.set('#7dab4a').lerp(col.set('#bcb35c'), smooth(-0.1, 0.8, f1 + f2 * 0.45)).lerp(col.set('#5d8c3b'), smooth(0.1, 1, -f1 - f3 * 0.4) * 0.7).multiplyScalar(0.93 + R() * 0.12); }
-    if (h < 0.9 && box > 250) tmp.lerp(col.set('#f0dd9f'), smooth(0.9, 0.2, h) * 0.9 + 0.1);   // beach
+    if (h < 0.9 && box > 400) tmp.lerp(col.set('#f0dd9f'), smooth(0.9, 0.2, h) * 0.9 + 0.1);   // beach
     if (h < -0.4) tmp.lerp(col.set('#d8c68a'), 0.8);
     tmp.lerp(col.set('#8d8274'), smooth(0.62, 1.0, slope));                                        // rock on steep ground
     if (h > 33) tmp.lerp(col.set('#ffffff'), smooth(33, 41, h));                                    // snow on the summit
@@ -152,12 +152,12 @@ export function buildGta(world, th, info, seed) {
   world.terrain = gtaH;
   const roads = gtaRoads(); info.track = roads; info.cars = gtaCars();
   // the city blocks (pavements, lots, driveways, garages) sit 0.2 m above the avenues: cars must ride on that too, or their tyres sink into the ground (a short ramp over the kerb)
-  const kerbH = (x, z) => { let k = 0; for (const bx of [-90, -30, 30, 90]) { const dx = Math.abs(x - bx); if (dx > 24.5) continue; for (const bz of [-90, -30, 30, 90]) { const e = 23.5 - Math.max(dx, Math.abs(z - bz)); if (e > -1) { k = Math.max(k, Math.min(1, (e + 1) / 1.1)); } } } return 0.2 * k; };
-  roads.terrain = (x, z) => gtaH(x, z) + (z > -125 && z < 125 && x > -125 && x < 125 ? kerbH(x, z) : 0);   // cars drive anywhere: they follow the ground, jump off ramps, bounce off buildings info.spawn = { x: 4, y: 0, z: 9 };
+  const kerbH = (x, z) => { let k = 0; for (const bx of BLK) { const dx = Math.abs(x - bx); if (dx > 24.5) continue; for (const bz of BLK) { const e = 23.5 - Math.max(dx, Math.abs(z - bz)); if (e > -1) { k = Math.max(k, Math.min(1, (e + 1) / 1.1)); } } } return 0.2 * k; };
+  roads.terrain = (x, z) => gtaH(x, z) + (z > -245 && z < 245 && x > -245 && x < 245 ? kerbH(x, z) : 0);   // cars drive anywhere: they follow the ground, jump off ramps, bounce off buildings info.spawn = { x: 4, y: 0, z: 9 };
   info.finishZ = -99999; info.finishY = 99999;
   const B = gtaBuildings();
   // ---- collision: blocks (a low kerb), buildings, the park fountains
-  for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) world.addSolid(bx - 23.5, 0, bz - 23.5, bx + 23.5, 0.2, bz + 23.5, { name: 'block' });
+  for (const bx of BLK) for (const bz of BLK) world.addSolid(bx - 23.5, 0, bz - 23.5, bx + 23.5, 0.2, bz + 23.5, { name: 'block' });
   for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2, { name: 'building' });
   for (const [px, pz] of PARKS) world.addSolid(px - 2.6, 0.2, pz - 2.6, px + 2.6, 1.2, pz + 2.6, { name: 'fountain' });
   roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.6, x1: px + 2.6, z0: pz - 2.6, z1: pz + 2.6, h: 1.2 }))];
@@ -197,7 +197,7 @@ export function buildGta(world, th, info, seed) {
     world.glow.add(new THREE.BoxGeometry(horiz ? 0.28 : 0.55, 0.05, horiz ? 0.55 : 0.28), x + ax * 1.9, 7.02, z + az * 1.9, '#fff1c4');
     solidProp(x, z, 0.16, 7);
   };
-  for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
+  for (const bx of BLK) for (const bz of BLK) {
     const park = PARKS.some((p) => p[0] === bx && p[1] === bz);
     wm.add(world.rbox(47, 0.2, 47, 0.05), bx, 0.1, bz, park ? '#7ccf5b' : kerb);
   }
@@ -384,17 +384,17 @@ export function buildGta(world, th, info, seed) {
     for (const a of [0, 1, 2, 3]) { const x = px + Math.cos(a * 1.57) * 8, z = pz + Math.sin(a * 1.57) * 8; wm.add(world.rbox(2.4, 0.3, 0.8, 0.05), x, 0.55, z, '#8a5a34'); wm.add(world.rbox(2.4, 0.6, 0.15, 0.03), x, 0.9, z + 0.35, '#8a5a34'); solidProp(x, z, 1.2, 0.9, 0.2); }
   }
   // ---- street trees + lamps along every avenue
-  for (const g of GT.GRID) for (const side of [-1, 1]) for (let t = -112; t <= 112; t += 14) {
+  for (const g of GT.GRID) for (const side of [-1, 1]) for (let t = -224; t <= 224; t += 14) {
     if (GT.GRID.some((q) => Math.abs(t - q) < 10)) continue;
-    const o = side * (GT.HW + 2.2), lamp = ((t + 112) / 14) % 2 === 0;
+    const o = side * (GT.HW + 2.2), lamp = ((t + 224) / 14) % 2 === 0;
     for (const [x, z, horiz] of [[g + o, t, false], [t, g + o, true]]) { if (x > 12 && x < 48 && Math.abs(z) > 66 && Math.abs(z) < 72) continue;   // keep the forecourts of the bank and the police station clear
       if (lamp) lampPost(x, z, side, horiz); else plant(x, 0.2, z, 0.8 + R() * 0.3); }
   }
   // ---- forest on the hills and the mountain
-  for (let i = 0, n = 0; i < 2600 && n < 380; i++) {
-    const x = (R() - 0.5) * 700, z = (R() - 0.5) * 700, h = gtaH(x, z); if (h < 1.2 || h > 30 || Math.max(Math.abs(x), Math.abs(z)) < 160) continue;
+  for (let i = 0, n = 0; i < 4000 && n < 520; i++) {
+    const x = (R() - 0.5) * 1000, z = (R() - 0.5) * 1000, h = gtaH(x, z); if (h < 1.2 || h > 30 || Math.max(Math.abs(x), Math.abs(z)) < 300) continue;
     const gx = (gtaH(x + 2, z) - gtaH(x - 2, z)) / 4, gz = (gtaH(x, z + 2) - gtaH(x, z - 2)) / 4; if (Math.hypot(gx, gz) > 0.55) continue;
-    if (Math.abs(z) < 24 && x > 100) continue; // keep the highway clear
+    if (Math.abs(z) < 24 && x > 230) continue; // keep the highway clear
     let onRoad = false; for (let u = 0; u <= 1; u += 0.02) { const p = mtRoad(u); if (Math.hypot(p.x - x, p.z - z) < 13) { onRoad = true; break; } } if (onRoad) continue;
     plant(x, h, z, 1.2 + R() * 1.2, true); n++;
   }
