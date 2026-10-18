@@ -51,7 +51,7 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 7, 'level select with 7 cards (Small Room hidden)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 6, 'level select with 6 cards (Small Room hidden)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
   const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
@@ -390,25 +390,6 @@ function plateXs1() { return 0; }
   ok(!R.hang && b.vy !== 0, 'jump lets go');
   ph.keys.delete('KeyG'); step(200);
   mk('b-res-menu').onclick && mk('b-res-menu').onclick(); step(2);
-}
-// ---- Age of War
-{
-  mk('b-single').onclick(); step(2); mk('b-profile-next').onclick(); step(2); mk('level-cards').children[6].onclick(); step(30);
-  const R = ph.race; ok(!!R && R.war === true, 'Age of War starts (WarGame created)');
-  if (R && R.war) {
-    ok(R.ents.size >= 10, 'both bases drawn (' + R.ents.size + ' entities)');
-    R.selectAll('vil'); ok(R.sel.size === 4, 'select all villagers');
-    const tc = [...R.ents.values()].find((e) => e.team === 0 && e.kind === 'tc');
-    const r0 = R.send({ c: 'train', b: tc.id, kind: 'vil' }); ok(r0 && r0.ok, 'train a villager');
-    const tree = R.layout.nodes.find((n) => n.kind === 'berry' && n.z > 0);
-    R.command({ x: tree.x, z: tree.z }, 1); step(10);
-    ok([...R.sim.units].some((u) => u.team === 0 && u.order === 'gather'), 'right-click on berries = gather');
-    step(1500); ok(R.view.res[0] > 150, 'food is coming in (' + R.view.res[0] + ')');
-    ok(R.sim.units.filter((u) => u.team === 0).length === 5, 'new villager trained');
-    R.sim.over = 2; R.update(0.05); step(60); await wait(1200); step(2);
-    ok(mk('s-results').classes.has('active') && /DEFEAT|VICTORY/.test(mk('res-title').textContent), 'war results screen: ' + mk('res-title').textContent);
-    mk('b-res-menu').onclick(); step(2);
-  }
 }
 mk('b-profile-back').onclick(); step(2);
 ph.race && ph.race.destroy && 0;

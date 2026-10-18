@@ -84,7 +84,6 @@ const THEMES = [
   { bpm: 138, root: 67, scale: 'major', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3800 },  // maze (candy race)
   { bpm: 126, root: 59, scale: 'minor', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3200 },  // annoying maze
   { bpm: 130, root: 55, scale: 'dorian', prog: [0, 5, 3, 4], lead: 'triangle', bright: 3300 },  // jungle hunt
-  { bpm: 112, root: 52, scale: 'dorian', prog: [0, 3, 5, 4], lead: 'triangle', bright: 2800 },  // age of war
   { bpm: 120, root: 60, scale: 'major', prog: [0, 3, 4, 0], lead: 'triangle', bright: 3000 },  // menu
 ];
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
