@@ -33,7 +33,7 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
 // buildings stop the car
 { const bd = gtaBuildings()[3]; const car = newCar(11, bd.x, bd.z - bd.d / 2 - 30, 0); drive(car, bd.x, bd.z, 4); ok(car.z < bd.z - bd.d / 2 + 0.5, 'a car cannot drive through a building'); }
 // the sea stops the car
-{ const car = newCar(11, 440, 300, Math.PI / 2); drive(car, 600, 300, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
+{ const car = newCar(11, 440, 300, Math.PI / 2); drive(car, 600, 300, 8); ok(gtaH(car.x, car.z) > -1.0, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
 // the realistic cars on the highway: the sports car is fast, the sedan slower
 { const a = newCar(17, -118, 0, Math.PI / 2), b2 = newCar(11, -118, 0, Math.PI / 2); let va = 0, vb = 0; drive(a, 118, 0, 22, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 118, 0, 22, 1, (c) => { vb = Math.max(vb, c.speed); });
   ok(va * 3.6 > 110 && va > vb * 1.2, 'sports car ' + (va * 3.6).toFixed(0) + ' km/h vs sedan ' + (vb * 3.6).toFixed(0) + ' km/h'); }

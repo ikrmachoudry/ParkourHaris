@@ -238,7 +238,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {

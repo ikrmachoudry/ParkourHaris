@@ -78,7 +78,8 @@ export class Peds {
           if (onHit) onHit(p, Math.abs(c.speed)); break;
         }
       }
-      a.group.position.set(p.x, p.y, p.z); a.group.rotation.y = p.yaw;
+      const fl = this.ground ? this.ground(p.x, p.z) : 0;   // the pavement is 0.2 m above the avenue: stand ON it, and a lying person rests on top of it, not inside it
+      a.group.position.set(p.x, fl + p.y + 0.26 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0), p.z); a.group.rotation.y = p.yaw;
       a.group.rotation.x = -1.45 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0);
       a.update(dt, { speed, grounded: p.st !== 'fly', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false, gesture, punch: p.punchT });
     }

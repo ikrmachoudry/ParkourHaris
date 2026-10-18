@@ -77,7 +77,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
   const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
-  const slope = ((c.gx || 0) * fx + (c.gz || 0) * fz); const Fslope = m * G * slope / Math.sqrt(1 + slope * slope);
+  const slope = Math.max(-0.3, Math.min(0.3, (c.gx || 0) * fx + (c.gz || 0) * fz));   /* capped: a steep bank slows you but never stops a car dead */ const Fslope = m * G * slope / Math.sqrt(1 + slope * slope);
   const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
   // ---- normal loads with weight transfer (filtered longitudinal acceleration)
   const axF = c.ax;
@@ -169,7 +169,7 @@ function impulse(c, nx, nz, rx, rz, m, Iz, e) {
 }
 
 const ALL = (t) => { if (!t.props) return t.boxes || []; return t._all || (t._all = [...(t.boxes || []), ...t.props]); };
-const TD_SEA = -0.35, TD_EDGE = 505;
+const TD_SEA = -0.8, TD_EDGE = 505;
 function terrain(c, dt, track, spec, geo) {
   const T = track.terrain; let ev = '';
   const m = spec.mass, Iz = m * Math.pow(0.48 * (geo.wb || 2.7), 2);
