@@ -45,12 +45,12 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const vl = -vr;                                                          // leftward (the model below is left-positive)
   const air = !!c.air;
   const onRd = onRoad ? onRoad(c) : true;
-  const mu = spec.mu * (onRd ? 1 : 0.62) * (c.slick > 0 ? 0.3 : 1);
+  const mu = spec.mu * (onRd ? 1 : 0.85) * (c.slick > 0 ? 0.3 : 1);
   // ---- driver inputs
   const gasIn = inp.gas;
-  c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 9 : 8));
+  c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 12 : 16));
   const au = Math.abs(u);
-  const dMax = Math.min(0.6, 42 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
+  const dMax = Math.min(0.6, 70 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
   const delta = -c.steer * dMax;                                          // left-positive road-wheel angle
   let throttle = 0, brake = 0;
   if (gasIn > 0.01) { if (u < -0.8) brake = gasIn; else throttle = gasIn; }
@@ -78,7 +78,8 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const rearShare = spec.drive === 'rwd' ? clamp(Math.abs(Fx) / Math.max(1, mu * Nr), 0, 0.95) : 0;
   const brakeShareF = clamp(brake * 0.6, 0, 0.9), brakeShareR = clamp(brake * 0.4 + (inp.hb ? 0.7 : 0), 0, 0.97);
   const fcF = Math.sqrt(Math.max(0.08, 1 - Math.max(frontShare, brakeShareF) ** 2)), fcR = Math.sqrt(Math.max(0.05, 1 - Math.max(rearShare, brakeShareR) ** 2));
-  const muNf = mu * Nf * fcF, muNr = mu * Nr * fcR * (inp.hb ? 0.5 : 1);
+  const LG = 1.45;   // arcade lateral grip: the car follows the wheel instead of skating
+  const muNf = mu * LG * Nf * fcF, muNr = mu * LG * Nr * fcR * (inp.hb ? 0.5 : 1);
   const Ca = 17;                                                          // stiffness: reaches the grip limit at ~5 deg
   let Ff = -muNf * Math.tanh(Ca * slipF), Fr = -muNr * Math.tanh(Ca * slipR);
   if (air) { Ff = Fr = 0; }
@@ -92,7 +93,9 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   let yawAcc = (a * Ff * cd - b * Fr) / Iz;
   if (air) yawAcc = 0;
   if (!air && !inp.hb && Math.abs(u) > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
-  c.yr += yawAcc * dt; c.yr *= Math.exp(-0.5 * dt);                         // a hint of yaw damping from the suspension
+  c.yr += yawAcc * dt; c.yr *= Math.exp(-0.5 * dt);
+  // steering assist: the car turns at the rate the wheels ask for (limited by what the tyres can hold), so it answers the wheel at once on any surface
+  if (!air && Math.abs(u) > 1.2) { const lim = mu * G * 1.35 / Math.abs(u), yrT = clamp(u * Math.tan(delta) / L, -lim, lim); c.yr += (yrT - c.yr) * Math.min(1, dt * (onRd ? 7 : 5.5)); }                         // a hint of yaw damping from the suspension
   let du = axTotal + vl * c.yr, dvl = ay - u * c.yr;
   if (air) { du = -Fdrag / m; dvl = 0; }
   u += du * dt; const vl2 = vl + dvl * dt;
@@ -101,7 +104,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const kin = clamp(1 - Math.abs(u) / 2.5, 0, 1);
   let vlN = vl2 * (1 - kin) + 0 * kin;
   if (kin > 0 && !air) c.yr += (u * Math.tan(delta) / L - c.yr) * Math.min(1, dt * 12) * kin;
-  if (!air) { vlN *= Math.exp(-((onRd ? 1.6 : 0.8) * (inp.hb ? 0.15 : 1)) * dt); } // sideways velocity bleeds off: the car grips instead of skating
+  if (!air) { vlN *= Math.exp(-((onRd ? 1.8 : 1.5) * (inp.hb ? 0.15 : 1)) * dt); } // sideways velocity bleeds off: the car grips instead of skating
   // back to world
   const nvr = -vlN;
   c.yaw += c.yr * dt;

@@ -360,5 +360,13 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperarm.R'], -0.9 - 0.7 * ex - bk * 0.3, 0, 0.12 - 0.12 * ex); R(b['forearm.R'], -1.9 + 1.8 * ex, 0, 0); curl('R', 1.3);
     R(b['upperarm.L'], -0.95, 0, -0.15); R(b['forearm.L'], -1.9, 0, 0); curl('L', 1.3);
   }
+  else if (name === 'scared') {   // cowering: knees bent, arms up in front of the face, trembling
+    const tr = Math.sin(t * 22) * 0.03;
+    b.hips.position.y = rest.hips.y - 0.2;
+    R(b['upperleg.L'], -0.6, 0, 0.12); R(b['upperleg.R'], -0.6, 0, -0.12); R(b['lowerleg.L'], 1.0, 0, 0); R(b['lowerleg.R'], 1.0, 0, 0);
+    R(b.spine, 0.28 + tr, 0, 0); R(b.chest, 0.1, tr, 0); R(b.head, 0.2, tr * 2, 0);
+    R(b['upperarm.R'], -1.9, 0, 0.25); R(b['forearm.R'], -1.8, 0, 0.7); R(b['upperarm.L'], -1.9, 0, -0.25); R(b['forearm.L'], -1.8, 0, -0.7);
+    curl('R', 0.8); curl('L', 0.8);
+  }
   void k;
 }

@@ -104,11 +104,10 @@ class Stage {
     });
     this.slotPos = [[-4.5, 0.8, -0.5], [-1.5, 1.25, -0.5], [1.5, 1.25, -0.5], [4.5, 0.8, -0.5]];
     // HARIS floor decal + sky banner
-    const tex = harisTexture('HARIS'), texS = harisTexture('MADE BY HARIS');
+    const tex = harisTexture('HARIS');
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     dm.rotation.x = -Math.PI / 2; dm.position.set(0, 0.1, 4.4); this.scene.add(dm);
-    const bn = new THREE.Mesh(new THREE.PlaneGeometry(20, 7.8), new THREE.MeshBasicMaterial({ map: texS, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
-    bn.position.set(0, 3.7, -24); this.scene.add(bn); this.banner = bn;
+
     this.chars = [0, 1, 2, 3].map((id) => { const c = new HeroActor(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(360); this.scene.add(this.particles.points);
@@ -396,7 +395,7 @@ class Race {
     this.updateCars(dt, canMove);
 
 
-    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); });
+    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.sitG || (this.crouch && Math.hypot(this.me.body.vx, this.me.body.vz) > 0.5), hitMe: (p) => this.pedHitMe(p) });
     this.updateCamera(dt);
     this.updateLights();
     this.water.material.uniforms.time.value = performance.now() / 1000;
@@ -481,8 +480,8 @@ class Race {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
       if (touch.x || touch.y) { // phone: left-screen joystick like a steering wheel + pedal: up = gas, down = brake / reverse, left / right = steer (works while accelerating)
-        const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, tx = Math.abs(touch.x) < 0.1 ? 0 : touch.x;
-        gas += ty; steer += Math.sign(tx) * Math.min(1, Math.abs(tx) * 1.35);
+        const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, tx = Math.abs(touch.x) < 0.06 ? 0 : touch.x;
+        gas += ty; steer += Math.sign(tx) * Math.min(1, Math.abs(tx) * 2.0);
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
@@ -692,6 +691,11 @@ class Race {
     this.crouch = false; this.sitG = true; this.syncAct();
   }
   syncAct() { const c = $('a-crouch'), t = $('a-sit'); if (c) c.classList.toggle('on', !!this.crouch); if (t) t.classList.toggle('on', !!this.sitG); }
+  pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
+    const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
+    const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz) || 1;
+    if (knock(b, dx / d, dz / d, 7)) { b.vy = 2; b.stun = 0.4; this.sitG = false; this.crouch = false; A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); this.particles.emit(b.x, b.y + 1.2, b.z, 8, { color: '#ffffff', speed: 3, up: 2, life: 0.3, size: 0.25 }); }
+  }
   // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
   punch() {
     if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
