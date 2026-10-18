@@ -351,7 +351,7 @@ body.city-mode #t-jump, body.city-mode #t-dive { display: none !important; }
 body.driving.city-mode #car-hp { display: block; }
 #car-hp i { display: block; height: 100%; width: 100%; background: #4ade80; transition: width .25s, background .25s; }
 
-#minimap { display: none; position: absolute; left: max(12px, 2vw); bottom: max(12px, 3vh); width: clamp(116px, 26vmin, 200px); height: clamp(116px, 26vmin, 200px); border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,.5); pointer-events: none; z-index: 18; }
+#minimap { display: none; position: absolute; left: max(12px, 2vw); bottom: max(12px, 3vh); width: clamp(116px, 26vmin, 200px); height: clamp(116px, 26vmin, 200px); border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,.5); pointer-events: auto; cursor: pointer; z-index: 18; }
 body.in-race.city-mode #minimap { display: block; }
 
 /* ---- title menu: one row of buttons at the bottom so the four characters on the stage are never hidden behind them ---- */
@@ -370,3 +370,9 @@ body.in-race.city-mode #minimap { display: block; }
 #a-jump { background: radial-gradient(circle at 35% 30%, #8dffb0, #17a34a 72%) !important; border-color: #eaffef; right: 6%; bottom: 56%; width: 38%; height: 38%; }
 #a-crouch { background: radial-gradient(circle at 35% 30%, #9ad0ff, #2563eb 72%) !important; border-color: #e6f1ff; right: 58%; bottom: 14%; width: 38%; height: 38%; }
 #act-pad button:active, #act-pad button.on { background: radial-gradient(circle at 35% 30%, #fff0a0, #f59e0b 72%) !important; }
+
+.logo-by .ver { font-size: .6em; opacity: .6; margin-left: 6px; }
+#bigmap-wrap { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(8,12,24,.82); place-items: center; }
+body.big-map #bigmap-wrap { display: grid; }
+#bigmap { border-radius: 18px; border: 3px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+#bigmap-x { position: absolute; top: max(12px, 2vh); left: max(12px, 2vw); width: 48px; height: 48px; border-radius: 50%; border: 3px solid #fff; background: #e3262d; color: #fff; font-size: 22px; font-weight: 900; cursor: pointer; }

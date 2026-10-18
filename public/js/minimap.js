@@ -67,4 +67,22 @@ export class Minimap {
     const na = Math.atan2(-s * -1, c * 0) ; void na;
     { const [nx, ny] = toScr(view.x, view.z - 1000); const dx = nx - S / 2, dy = ny - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 22; g.fillStyle = '#d62828'; g.beginPath(); g.arc(S / 2 + dx / d * nr, S / 2 + dy / d * nr, S / 28, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(S / 22) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', S / 2 + dx / d * nr, S / 2 + dy / d * nr + 1); }
   }
+  // the whole island, north up: tap/click the small map (or press M / Tab) to open, again (or Esc) to close
+  drawBig(cv, me, others) {
+    if (!this.map) this.map = drawStatic();
+    const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.86); if (cv.width !== S) cv.width = cv.height = S;
+    const g = cv.getContext('2d'), k = S / 330, ox = S / 2 + 20 * S / 330, oy = S / 2 + 10 * S / 330;   // show world about -145..145 (the whole city)
+    g.clearRect(0, 0, S, S); g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
+    g.save(); g.translate(ox, oy); g.scale(k, k); g.drawImage(this.map, -O, -O); g.restore();
+    const P = (x, z) => [ox + x * k, oy + z * k];
+    const badge = (x, z, bg, glyph, r, name, col, side = 0) => { const [px, py] = P(x, z); g.fillStyle = bg; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.stroke();
+      g.font = Math.round(r * 1.2) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
+      if (name) { const fs = Math.round(Math.max(11, S / 38)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = side < 0 ? 'right' : side > 0 ? 'left' : 'center'; const tx = px + side * (r + 4), ty = side ? py : py + r + fs * 0.7; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(name, tx, ty); g.fillStyle = col || '#fff'; g.fillText(name, tx, ty); } };
+    const r = Math.max(9, S / 40);
+    badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f');
+    for (const h of HOMES) badge(h.x, h.z, h.color, '\u{1F3E0}', r * 0.8, h.name.toUpperCase(), '#fff', h.x < -90 ? -1 : 1);
+    for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, r * 0.55, 0, 7); g.fill(); g.stroke(); }
+    { const [px, py] = P(me.x, me.z), a = r * 0.8; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+    g.fillStyle = '#d62828'; g.font = '900 ' + Math.round(S / 28) + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('N', S / 2, 6);
+  }
 }

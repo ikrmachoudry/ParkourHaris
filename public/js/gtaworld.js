@@ -131,7 +131,7 @@ function terrainGeo() {
 function signTexture(text, bg, fg) {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d');
   g.fillStyle = bg; g.fillRect(0, 0, 512, 128); g.strokeStyle = fg; g.lineWidth = 8; g.strokeRect(8, 8, 496, 112);
-  g.fillStyle = fg; g.font = 'bold 72px Arial Black, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 68);
+  g.fillStyle = fg; let fs = 72; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; while (g.measureText(text).width > 450 && fs > 24) { fs -= 4; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 68);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 
@@ -237,7 +237,7 @@ export function buildGta(world, th, info, seed) {
     HOMES.forEach((h, i) => {
       const P = (lx, lz) => homeW(h, lx, lz), put = (g, lx, y, lz, c, ry = 0) => { const p = P(lx, lz); wm.add(g, p.x, y, p.z, c, 0, h.yaw + ry, 0); };
       const solid = (x0, x1, z0, z1, hh) => { const p = P(x0, z0), q = P(x1, z1); world.addSolid(Math.min(p.x, q.x), 0.2, Math.min(p.z, q.z), Math.max(p.x, q.x), hh, Math.max(p.z, q.z), { name: 'prop' }); };
-      put(Bx(23, 0.06, 23), 0, 0.19, 0, '#6fbf4f');                                // lawn
+      put(Bx(20, 0.06, 20), 0, 0.19, 0, '#6fbf4f');                                // lawn
       put(Bx(6.7, 0.06, 8.1), 2.45, 0.25, -3.0, '#b88a5a'); solid(-0.8, 5.7, -6.95, 0.95, 0.28);   // wooden floor (you stand on it)
       put(Bx(4.6, 0.05, 8.1), -3.4, 0.225, -3.0, '#6d7076');                       // garage floor
       for (const [a, b, c, d, hh] of HOME_WALLS) if (hh === WH) put(Bx(b - a, hh - 0.2, d - c), (a + b) / 2, 0.2 + (hh - 0.2) / 2, (c + d) / 2, wallC[i]);
@@ -270,14 +270,17 @@ export function buildGta(world, th, info, seed) {
       // name plaque on the wall above the garage + a big sign at the garden gate
       { const nm = h.name.toUpperCase() + ' HOME', tex = signTexture(nm, '#12202e', h.color), mk = (wd, ht) => new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
         const pl = mk(4.0, 0.9), pp = P(-3.3, 1.46); pl.position.set(pp.x, 3.15, pp.z); pl.rotation.y = h.yaw; world.group.add(pl);
-        const bg = mk(5.6, 1.4), gp = P(3.4, 11.2); bg.position.set(gp.x, 2.7, gp.z); bg.rotation.y = h.yaw; world.group.add(bg);
-        put(Bx(0.18, 3.0, 0.18), 0.7, 1.5, 11.15, '#4a4f58'); put(Bx(0.18, 3.0, 0.18), 6.1, 1.5, 11.15, '#4a4f58'); }
-      put(Bx(4.8, 0.06, 10), -3.3, 0.27, 6.2, '#9da1a8'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.27, 5.6, '#c7c9ce');   // driveway + footpath
-      for (const [a, b] of [[-10.8, -5.8], [-0.9, 2.5], [4.3, 10.8]]) put(Bx(b - a, 0.9, 0.1), (a + b) / 2, 0.7, 10.8, '#f2f2f2');   // front fence with gaps
-      put(Bx(0.1, 0.9, 21.6), -10.9, 0.7, 0, '#f2f2f2'); put(Bx(0.1, 0.9, 21.6), 10.9, 0.7, 0, '#f2f2f2'); put(Bx(21.8, 0.9, 0.1), 0, 0.7, -10.9, '#f2f2f2');
-      put(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 6), 6.2, 0.8, 11.0, '#4a4f58'); put(Bx(0.55, 0.38, 0.3), 6.2, 1.45, 11.0, h.color);       // mailbox in the player's colour
-      put(Bx(2.6, 0.18, 1.4), 6.6, 0.4, -9.2, '#8a5a34'); put(Bx(2.6, 0.5, 0.1), 6.6, 0.75, -9.55, '#8a5a34');                                // garden bench
-      { const t1 = P(-8.3, -7.8), t2 = P(8.3, 7.6), t3 = P(8.4, -4); plant(t1.x, 0.2, t1.z, 1.0); plant(t2.x, 0.2, t2.z, 0.85); plant(t3.x, 0.2, t3.z, 0.8); }
+        const bg = mk(5.6, 1.4), gp = P(3.4, 9.45); bg.position.set(gp.x, 2.7, gp.z); bg.rotation.y = h.yaw; world.group.add(bg);
+        put(Bx(0.18, 3.0, 0.18), 0.7, 1.5, 9.45, '#4a4f58'); put(Bx(0.18, 3.0, 0.18), 6.1, 1.5, 9.45, '#4a4f58'); }
+      put(Bx(4.8, 0.06, 8.8), -3.3, 0.27, 5.6, '#9da1a8'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.27, 5.6, '#c7c9ce');   // driveway + footpath
+      // boundary fence (inside the lot, never on the pavement): the front has a driveway gap and a footpath gap. It is solid.
+      { const fc = (x0, x1, z0, z1) => { put(Bx(x1 - x0, 0.9, z1 - z0), (x0 + x1) / 2, 0.7, (z0 + z1) / 2, '#f2f2f2'); const p = P(x0, z0), q = P(x1, z1), X0 = Math.min(p.x, q.x), X1 = Math.max(p.x, q.x), Z0 = Math.min(p.z, q.z), Z1 = Math.max(p.z, q.z);
+          world.addSolid(X0, 0.2, Z0, X1, 1.15, Z1, { name: 'prop' }); roads.boxes.push({ x0: X0, x1: X1, z0: Z0, z1: Z1, h: 1.15 }); };
+        for (const [a, b] of [[-9.9, -5.8], [-0.9, 2.5], [4.3, 9.9]]) fc(a, b, 9.7, 9.9);
+        fc(-9.9, -9.7, -9.9, 9.9); fc(9.7, 9.9, -9.9, 9.9); fc(-9.7, 9.7, -9.9, -9.7); }
+      put(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 6), 6.2, 0.8, 9.2, '#4a4f58'); put(Bx(0.55, 0.38, 0.3), 6.2, 1.45, 9.2, h.color);       // mailbox in the player's colour
+      put(Bx(2.6, 0.18, 1.4), 6.6, 0.4, -8.6, '#8a5a34'); put(Bx(2.6, 0.5, 0.1), 6.6, 0.75, -9.2, '#8a5a34');                                // garden bench
+      { const t1 = P(-8.3, -7.8), t2 = P(8.0, 7.6), t3 = P(8.4, -4); plant(t1.x, 0.2, t1.z, 1.0); plant(t2.x, 0.2, t2.z, 0.85); plant(t3.x, 0.2, t3.z, 0.8); }
       [-1.5, 0.3, 2.1].forEach((lx, q) => { const f = P(lx, 1.9); wm.add(new THREE.SphereGeometry(0.34, 7, 6), f.x, 0.5, f.z, ['#e63946', '#f4a261', '#ff9ec7'][q]); });   // shrubs/flowers along the wall
     });
   }

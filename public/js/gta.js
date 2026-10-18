@@ -78,10 +78,10 @@ export const PARKS = [[90, 90], [-90, 30]];
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
 export const HOMES = [
-  { char: 0, name: 'Haris', x: -102, z: -103, yaw: Math.PI, color: '#ff5f5f' },
-  { char: 1, name: 'Hannan', x: -78, z: -103, yaw: Math.PI, color: '#3ddc84' },
-  { char: 2, name: 'Hanbal', x: -102, z: -77, yaw: 0, color: '#ffc233' },
-  { char: 3, name: 'Michael', x: -78, z: -77, yaw: 0, color: '#8b6cff' },
+  { char: 0, name: 'Haris', x: -100, z: -100, yaw: Math.PI, color: '#ff5f5f' },
+  { char: 1, name: 'Hannan', x: -80, z: -100, yaw: Math.PI, color: '#3ddc84' },
+  { char: 2, name: 'Hanbal', x: -100, z: -80, yaw: 0, color: '#ffc233' },
+  { char: 3, name: 'Michael', x: -80, z: -80, yaw: 0, color: '#8b6cff' },
 ];
 // local house coordinates (+z = towards the front door / avenue, +x = right of someone at the door looking out) -> world
 export const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });
@@ -112,7 +112,7 @@ export function gtaBuildings() {
 export function gtaCars() {
   // 8 real cars (ids 11..18, see cityveh.js) parked nose-to-tail along the kerb near the spawn. Pakistan drives on the LEFT:
   // east-bound cars use the north (-z) lane, west-bound the south (+z) lane.
-  const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 6); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
+  const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 5.8); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
   return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home];
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:

@@ -363,7 +363,7 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.hips, 0, 0.35 * ex - 0.2 * -bk, 0); R(b.chest, 0.05, -0.55 * ex - 0.25 * -bk, 0); R(b.spine, 0.1 * ex, 0, 0); R(b.head, 0, 0.45 * ex, 0);
     R(b['upperleg.L'], -0.35, 0, 0.1); R(b['upperleg.R'], 0.3, 0, -0.1); R(b['lowerleg.L'], 0.25, 0, 0); R(b['lowerleg.R'], 0.15, 0, 0);
     R(b['upperarm.R'], -0.9 - 0.7 * ex - bk * 0.3, 0, 0.12 - 0.12 * ex); R(b['forearm.R'], -1.9 + 1.8 * ex, 0, 0); curl('R', 1.3);
-    R(b['upperarm.L'], 0.15 - 0.15 * ex, 0, -0.14); R(b['forearm.L'], -0.35, 0, 0); curl('L', 0.5);   // the other arm just hangs: a one-arm punch
+    R(b['upperarm.L'], -0.85 - 0.1 * ex, 0, -0.22); R(b['forearm.L'], -1.95, 0, 0); curl('L', 1.3);   // the other fist stays up by the chin like a boxer's guard: a one-arm jab
   }
   else if (name === 'scared') {   // cowering: knees bent, arms up in front of the face, trembling
     const tr = Math.sin(t * 22) * 0.03;

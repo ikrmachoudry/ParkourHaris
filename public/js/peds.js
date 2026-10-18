@@ -83,6 +83,14 @@ export class Peds {
       a.update(dt, { speed, grounded: p.st !== 'fly', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false, gesture, punch: p.punchT });
     }
   }
+  // nobody walks through you: if you touch a person on foot you are pushed out of him (he keeps his place)
+  pushOut(b) {
+    for (const p of this.list) {
+      if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.st === 'lie') continue;
+      const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), R = 0.8;
+      if (d < R && Math.abs((b.y || 0) - (p.y || 0)) < 1.4) { const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0; b.x = p.x + nx * R; b.z = p.z + nz * R; }
+    }
+  }
   // frighten the timid people near a fight / crash (the brave ones just watch)
   alarm(x, z, r, except) {
     for (const p of this.list) {

@@ -400,8 +400,10 @@ class Race {
 
 
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
+      if (this.bigMapOpen) this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })));
       this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt); }
     if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p) });
+    if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
     this.updateLights();
     this.water.material.uniforms.time.value = performance.now() / 1000;
@@ -747,6 +749,7 @@ class Race {
       this.particles.emit(r.x, r.y + 1, r.z, 14, { color: '#ffffff', speed: 5, up: 3, life: 0.4, size: 0.25 });
     }
   }
+  toggleMap(on) { if (!this.meta.city) return; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; document.body.classList.toggle('big-map', this.bigMapOpen); }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
   syncAct() { const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
@@ -991,7 +994,7 @@ class Race {
   destroy() {
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);
@@ -1239,7 +1242,9 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
-  if (e.code === 'KeyM') toggleSound();
+  if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
+  if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
+  if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (e.code === 'KeyG') press.grab = true;
   if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); }
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
@@ -1303,6 +1308,7 @@ $('p-full').onclick = () => {
     } catch { /* not supported */ }
   });
 }
+{ const mm = $('minimap'), bw = $('bigmap-wrap'); if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race && !race.over) race.toggleMap(true); }); if (bw) bw.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.toggleMap(false); }); }
 $('p-retry').onclick = () => { A.sfx.click(); const l = app.level; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; startSingle(l); };
 $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); leaveToTitle(); };
 
