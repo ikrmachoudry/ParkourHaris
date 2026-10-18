@@ -232,7 +232,7 @@ export function buildHeroChar(opts = {}) {
   if (o.hat === 'cop') { B.geo(new THREE.CylinderGeometry(0.085, 0.093, 0.075, 20), cm(0, 1.775, 0.0), 'head', mulc(shirt, 0.9)); B.geo(new THREE.CylinderGeometry(0.1, 0.098, 0.014, 20), cm(0, 1.74, 0.0, 1, 1, 1.05), 'head', mulc(shirt, 0.8)); B.geo(new THREE.BoxGeometry(0.15, 0.008, 0.07), cm(0, 1.736, 0.115, 1, 1, 1, 0.12), 'head', [0.03, 0.03, 0.03]); B.geo(ell(1, 6, 4), cm(0, 1.77, 0.0925, 0.014, 0.016, 0.004), 'head', col('#d4af37')); }
   if (o.hat === 'beanie') { B.geo(ell(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), cm(0, 1.722, -0.006, 0.092, 0.1, 0.108), 'head', [0.07, 0.07, 0.08]); B.geo(new THREE.TorusGeometry(0.087, 0.012, 6, 20), cm(0, 1.742, -0.004, 1, 1, 1.15, Math.PI / 2), 'head', [0.1, 0.1, 0.11]); }
   if (o.glasses) { B.geo(new THREE.BoxGeometry(0.058, 0.032, 0.008), cm(0.034, 1.684, 0.098), 'head', [0.02, 0.02, 0.025]); B.geo(new THREE.BoxGeometry(0.058, 0.032, 0.008), cm(-0.034, 1.684, 0.098), 'head', [0.02, 0.02, 0.025]); B.geo(new THREE.BoxGeometry(0.16, 0.006, 0.006), cm(0, 1.694, 0.096), 'head', [0.04, 0.04, 0.04]); }
-  if (o.hat === 'cap') { B.geo(ell(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cm(0, 1.72, 0, 0.09, 0.085, 0.105), 'head', col(o.capCol || '#aa1c1c')); B.geo(new THREE.BoxGeometry(0.12, 0.006, 0.07), cm(0, 1.725, 0.11, 1, 1, 1, 0.1), 'head', col(o.capCol || '#aa1c1c')); }
+  if (o.hat === 'cap') { B.geo(ell(1, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cm(0, 1.718, -0.004, 0.099, 0.094, 0.116), 'head', col(o.capCol || '#aa1c1c')); B.geo(new THREE.BoxGeometry(0.14, 0.007, 0.09), cm(0, 1.722, 0.118, 1, 1, 1, 0.1), 'head', col(o.capCol || '#aa1c1c')); }
 
   // ---------------- skeleton + mesh
   const bones = BONES.map((b) => { const bn = new THREE.Bone(); bn.name = b[0]; return bn; });
@@ -336,7 +336,7 @@ export function poseChar(ch, name, t = 0, k = 1) {
   } else if (name === 'wave') {   // friendly wave
     const w = Math.sin(t * 6) * 0.35, br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.1, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
-    R(b['upperarm.R'], -0.35, 0, 2.55); R(b['forearm.R'], -0.9, w * 0.4, w); R(b['hand.R'], 0, 0, w * 0.5); curl('R', 0.15);
+    R(b['upperarm.R'], -0.1, 0, -1.0); R(b['forearm.R'], 0, 0, -1.3 + w * 0.55); R(b['hand.R'], 0, 0, -w * 0.3); curl('R', 0.15);   // a normal wave: elbow out at the SIDE of the body, forearm up, the hand sways beside the head
     R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
   } else if (name === 'phone') {  // checking the phone
     const br = Math.sin(t * 1.5) * 0.01;

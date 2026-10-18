@@ -71,7 +71,9 @@ function clearTimers(room) {
 }
 // the missions of a room (the Mission Lobby): one hub per room, created when the first player uses it
 function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => bcast(room, msg)); return room.hub; }
-const pids = (room) => [...room.players.keys()];
+// who counts for a mission: everybody whose connection is alive and has spoken in the last 6 s (a frozen tab or a ghost
+// connection must never block a solo player from starting)
+const pids = (room, selfId) => [...room.players.values()].filter((q) => q.id === selfId || (q.ws.readyState === 1 && Date.now() - (q.seen || 0) < 6000)).map((q) => q.id);
 
 function endRound(room, reason) {
   if (room.phase !== 'race' && room.phase !== 'countdown') return;
@@ -147,12 +149,12 @@ wss.on('connection', (ws, req) => {
   ipCount.set(ip, n);
   ws.on('close', () => { const c = (ipCount.get(ip) || 1) - 1; if (c <= 0) ipCount.delete(ip); else ipCount.set(ip, c); });
   let bucket = 120, lastMsg = Date.now();
-  const p = { id: nextId++, ws, name: 'Player', char: 0, room: null, finished: false, finTime: 0, x: 0, y: 0, z: 0, lastS: 0, alive: true };
+  const p = { id: nextId++, ws, name: 'Player', char: 0, room: null, finished: false, finTime: 0, x: 0, y: 0, z: 0, lastS: 0, alive: true, seen: Date.now() };
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (raw) => {
-    const nowT = Date.now(); bucket = Math.min(120, bucket + (nowT - lastMsg) / 1000 * 80); lastMsg = nowT; if (--bucket < 0) return; // flood protection
+    const nowT = Date.now(); bucket = Math.min(120, bucket + (nowT - lastMsg) / 1000 * 80); lastMsg = nowT; p.seen = nowT; if (--bucket < 0) return; // flood protection
     let m;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m.t !== 'string') return;
@@ -226,8 +228,8 @@ wss.on('connection', (ws, req) => {
       case 'leave': removePlayer(p); break;
 
       // ---- missions (Mission Lobby): the server only keeps the shared state, the players judge their own run
-      case 'm_in': { if (!room || room.phase !== 'race') return; hubOf(room).lobby(p.id, !!m.on, pids(room)); break; }
-      case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room)); break; }
+      case 'm_in': { if (!room || room.phase !== 'race') return; hubOf(room).lobby(p.id, !!m.on, pids(room, p.id)); break; }
+      case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room, p.id)); break; }
       case 'm_res': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.result(p.id, !!m.ok, m.why, m.round | 0); break; }
 
       case 'shove': { // running into another player pushes them too (relay only)
@@ -303,6 +305,15 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => removePlayer(p));
   ws.on('error', () => {});
 });
+
+// keep every lobby panel honest: if somebody froze / left, the 'waiting for everybody' count updates within a couple of seconds
+setInterval(() => {
+  for (const room of rooms.values()) {
+    const h = room.hub; if (!h || h.phase !== 'idle' || !h.inLobby.size) continue;
+    const ids = pids(room), msg = JSON.stringify(h.lobbyMsg(ids));
+    if (msg !== h.lastLobbyMsg) { h.lastLobbyMsg = msg; bcast(room, JSON.parse(msg)); }
+  }
+}, 2000);
 
 // drop dead connections (proxies sometimes leave half-open sockets)
 setInterval(() => {

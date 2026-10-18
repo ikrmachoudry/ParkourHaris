@@ -5,16 +5,16 @@ const G = 9.81;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ids 11..18 (the old arcade cars keep ids 0..10 for the other maps)
-// kW = engine power, top = top speed target (m/s, only used for gearing), mu = tyre grip, drive = 'fwd' | 'rwd', cda = drag area (m2)
+// kW = engine power, top = top speed (m/s): the engine fades out as it is reached, mu = tyre grip, drive = 'fwd' | 'rwd', cda = drag area (m2)
 export const CITY_VEH = [
-  { id: 11, name: 'Sedan', style: 'sedan', paint: '#b3262b', mass: 1380, kW: 80, top: 50, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 1.0, hornHz: 420 },
-  { id: 12, name: 'Hatchback', style: 'hatch', paint: '#2f6fb5', mass: 1080, kW: 62, top: 44, mu: 1.0, drive: 'fwd', cda: 0.62, cyl: 3, pitch: 1.2, hornHz: 480 },
-  { id: 13, name: 'SUV', style: 'suv', paint: '#2d3b4a', mass: 2050, kW: 125, top: 49, mu: 0.95, drive: 'rwd', cda: 0.95, cyl: 6, pitch: 0.8, hornHz: 360 },
-  { id: 14, name: 'Taxi', style: 'sedan', extra: 'taxi', paint: '#f0c400', mass: 1420, kW: 72, top: 46, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 0.95, hornHz: 440 },
-  { id: 15, name: 'Police', style: 'sedan', extra: 'police', paint: '#f2f2f2', mass: 1650, kW: 150, top: 58, mu: 1.05, drive: 'rwd', cda: 0.68, cyl: 8, pitch: 0.75, hornHz: 400 },
-  { id: 16, name: 'Coupe', style: 'coupe', paint: '#c9a227', mass: 1500, kW: 175, top: 63, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.85, hornHz: 450 },
-  { id: 17, name: 'Sports', style: 'sports', paint: '#e8e8ea', mass: 1380, kW: 330, top: 84, mu: 1.2, drive: 'rwd', cda: 0.58, cyl: 8, pitch: 0.95, hornHz: 480 },
-  { id: 18, name: 'Old Sedan', style: 'sedan', paint: '#4e6a52', mass: 1450, kW: 66, top: 42, mu: 0.95, drive: 'fwd', cda: 0.7, cyl: 4, pitch: 0.9, hornHz: 400 },
+  { id: 11, name: 'Sedan', style: 'sedan', paint: '#b3262b', mass: 1380, kW: 80, top: 33.6, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 1.0, hornHz: 420 },
+  { id: 12, name: 'Hatchback', style: 'hatch', paint: '#2f6fb5', mass: 1080, kW: 62, top: 32.6, mu: 1.0, drive: 'fwd', cda: 0.62, cyl: 3, pitch: 1.2, hornHz: 480 },
+  { id: 13, name: 'SUV', style: 'suv', paint: '#2d3b4a', mass: 2050, kW: 125, top: 33.4, mu: 0.95, drive: 'rwd', cda: 0.95, cyl: 6, pitch: 0.8, hornHz: 360 },
+  { id: 14, name: 'Taxi', style: 'sedan', extra: 'taxi', paint: '#f0c400', mass: 1420, kW: 72, top: 32.8, mu: 1.0, drive: 'fwd', cda: 0.66, cyl: 4, pitch: 0.95, hornHz: 440 },
+  { id: 15, name: 'Police', style: 'sedan', extra: 'police', paint: '#f2f2f2', mass: 1650, kW: 150, top: 39.5, mu: 1.05, drive: 'rwd', cda: 0.68, cyl: 8, pitch: 0.75, hornHz: 400 },
+  { id: 16, name: 'Coupe', style: 'coupe', paint: '#c9a227', mass: 1500, kW: 175, top: 39.8, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.85, hornHz: 450 },
+  { id: 17, name: 'Sports', style: 'sports', paint: '#e8e8ea', mass: 1380, kW: 330, top: 47.2, mu: 1.2, drive: 'rwd', cda: 0.58, cyl: 8, pitch: 0.95, hornHz: 480 },
+  { id: 18, name: 'Old Sedan', style: 'sedan', paint: '#4e6a52', mass: 1450, kW: 66, top: 31.5, mu: 0.95, drive: 'fwd', cda: 0.7, cyl: 4, pitch: 0.9, hornHz: 400 },
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
@@ -64,7 +64,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
   let Fx = 0;
-  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= (u > spec.top * 1.02 ? 0 : 1); }
+  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp((spec.top - u) / 2.2, 0, 1); }   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);

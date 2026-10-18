@@ -540,7 +540,7 @@ class Race {
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (this.mission && this.mission.hold) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
       const hero = c.mesh.userData.hero;
@@ -918,19 +918,21 @@ class Race {
     tag.visible = d < 260;
   }
   updateCamera(dt) {
-    const b = this.me.body;
+    let b = this.me.body; const spec = this.mission && this.mission.specTarget();   // spectating a mission runner: the camera rides behind them
+    if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
     this.camera.fov = lerp(this.camera.fov, (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * 4)); this.camera.updateProjectionMatrix();
     let dist = this.camDist; const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
-    if (this.drive) {
+    if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
+    else if (this.drive) {
       const st = this.drive.st; this.lookT -= dt; dist = 9.2 + Math.min(4, Math.abs(st.speed) * 0.12);
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
-    this.shoulder += ((NO_TEXT && !this.drive ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
-    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive ? 1.1 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
+    this.shoulder += ((NO_TEXT && !this.drive && !spec ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
+    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-14 * dt);
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;

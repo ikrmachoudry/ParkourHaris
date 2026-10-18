@@ -3,12 +3,12 @@
 import * as THREE from 'three';
 import { buildHeroChar, poseChar } from './hchar.js';
 
-// four player looks (character ids 0..3), plus a cop and a few pedestrians for later
+// four player looks (character ids 0..3): each wears a cap in the player's own colour (matches the map dot) - no pedestrian wears one, so players stand out in a crowd, plus a cop and a few pedestrians for later
 export const HERO_LOOKS = [
-  { role: 'civilian', top: '#b53a2e', pants: '#2b3140', skinTone: '#c68e63', hair: '#16110d' },
-  { role: 'civilian', top: '#2f7a5a', pants: '#3a3a44', skinTone: '#8d5a3b', hair: '#0d0a08' },
-  { role: 'civilian', top: '#d9a52b', pants: '#27384f', skinTone: '#e0ac85', hair: '#4a3020' },
-  { role: 'civilian', top: '#5b4aa8', pants: '#22252b', skinTone: '#a8714e', hair: '#120d0a' },
+  { role: 'civilian', top: '#b53a2e', pants: '#2b3140', skinTone: '#c68e63', hair: '#16110d', hat: 'cap', capCol: '#ff5fb4' },
+  { role: 'civilian', top: '#2f7a5a', pants: '#3a3a44', skinTone: '#8d5a3b', hair: '#0d0a08', hat: 'cap', capCol: '#3b82f6' },
+  { role: 'civilian', top: '#d9a52b', pants: '#27384f', skinTone: '#e0ac85', hair: '#4a3020', hat: 'cap', capCol: '#3ddc84' },
+  { role: 'civilian', top: '#5b4aa8', pants: '#22252b', skinTone: '#a8714e', hair: '#120d0a', hat: 'cap', capCol: '#ffc233' },
 ];
 export const heroLook = (id) => HERO_LOOKS[((id | 0) % 4 + 4) % 4];
 
