@@ -3,10 +3,10 @@
 export const MAX_PLAYERS = 4;
 
 export const CHARACTERS = [
-  { id: 0, name: 'Bubbles', tag: 'The Royal Bean', color: '#ff5fb4' },
-  { id: 1, name: 'Ninja', tag: 'The Silent Bean', color: '#3b82f6' },
-  { id: 2, name: 'Dino', tag: 'The Chunky Dino', color: '#3ddc84' },
-  { id: 3, name: 'Robo', tag: 'The Bolt Bot', color: '#ffc233' },
+  { id: 0, name: 'Haris', tag: '', color: '#ff5fb4' },
+  { id: 1, name: 'Hannan', tag: '', color: '#3b82f6' },
+  { id: 2, name: 'Hanbal', tag: '', color: '#3ddc84' },
+  { id: 3, name: 'Random', tag: '', color: '#ffc233' },
 ];
 
 export const LEVEL_META = [

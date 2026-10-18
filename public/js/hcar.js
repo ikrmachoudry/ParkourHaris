@@ -32,16 +32,16 @@ export const CAR_STYLES = {
   },
   coupe: {
     L: 4.5, w: 0.93, yb: 0.24, beltF: 0.64, beltR: 0.82, twoDoor: true,
-    prof: [[2.25, 0.58], [1.9, 0.64], [1.25, 0.76], [0.55, 0.82], [0.0, 1.22], [-0.7, 1.22], [-1.35, 0.97], [-1.8, 0.9], [-2.25, 0.86]],
-    axle: 1.36, wr: 0.34, ww: 0.26, arch: 0.43,
+    prof: [[2.25, 0.58], [1.9, 0.68], [1.25, 0.8], [0.55, 0.84], [0.0, 1.28], [-0.7, 1.28], [-1.35, 1.0], [-1.8, 0.9], [-2.25, 0.86]],
+    axle: 1.36, wr: 0.33, ww: 0.26, arch: 0.43,
     doors: [[-0.25, 0.85]],
     wind: [0.0, 0.8], rear: [-1.3, -0.95], hood: [0.9, 2.18], trunk: [-2.18, -1.62],
     seatX: [-0.2, -0.8], dashX: 0.5, hly: 0.58,
   },
   sports: {
-    L: 4.45, w: 0.97, yb: 0.2, beltF: 0.56, beltR: 0.75, twoDoor: true,
-    prof: [[2.22, 0.5], [1.85, 0.56], [1.2, 0.66], [0.5, 0.73], [-0.05, 1.08], [-0.7, 1.1], [-1.25, 0.92], [-1.75, 0.86], [-2.22, 0.8]],
-    axle: 1.34, wr: 0.345, ww: 0.3, arch: 0.45,
+    L: 4.45, w: 0.97, yb: 0.2, beltF: 0.62, beltR: 0.75, twoDoor: true,
+    prof: [[2.22, 0.56], [1.85, 0.66], [1.2, 0.74], [0.5, 0.8], [-0.05, 1.19], [-0.7, 1.21], [-1.25, 0.96], [-1.75, 0.88], [-2.22, 0.8]],
+    axle: 1.34, wr: 0.33, ww: 0.3, arch: 0.44,
     doors: [[-0.3, 0.8]],
     wind: [-0.05, 0.75], rear: [-1.2, -0.92], hood: [0.85, 2.15], trunk: [-2.15, -1.65],
     seatX: [-0.25, -0.8], dashX: 0.45, hly: 0.52,
@@ -441,7 +441,7 @@ export function buildHeroCar(opts = {}) {
   const wheels = [];
   for (const [wx, s, front] of [[sp.axle, 1, true], [sp.axle, -1, true], [-sp.axle, 1, false], [-sp.axle, -1, false]]) {
     const steer = new THREE.Group(), flip = new THREE.Group(), spin = new THREE.Group();
-    steer.position.set(wx, sp.wr, s * (sp.w - 0.15)); steer.add(flip); flip.add(spin);
+    { const at = Math.abs(wx) / (sp.L / 2), side = sp.w * Math.pow(Math.max(0, 1 - Math.pow(at, 3.6)), 1 / 3.6); steer.position.set(wx, sp.wr, s * (side - 0.03 - sp.ww / 2)); } steer.add(flip); flip.add(spin);
     if (s < 0) flip.rotation.y = Math.PI; // outer rim face always points away from the car
     spin.add(new THREE.Mesh(parts.tire, mats.tire), new THREE.Mesh(parts.rim, mats.rim), new THREE.Mesh(parts.brake, mats.brake));
     group.add(steer);

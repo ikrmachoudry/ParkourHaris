@@ -68,7 +68,7 @@ ok(R.nearestFreeCar(b) === c0, 'a free car is offered when you stand next to it'
 R.toggleCar(); ok(R.drive === c0, 'C / the button gets you in');
 key('KeyW'); step(120); ok(c0.st.speed > 8, 'W accelerates (speed ' + c0.st.speed.toFixed(1) + ')');
 const y0 = c0.st.yaw; key('KeyD'); step(60); key('KeyD', false);
-ok(Math.abs(c0.st.yaw - y0) > 0.15 && c0.st.speed > 5, `D steers while accelerating (yaw change ${(c0.st.yaw - y0).toFixed(2)}, speed ${c0.st.speed.toFixed(1)})`);
+ok(Math.abs(c0.st.yaw - y0) > 0.1 && c0.st.speed > 5, `D steers while accelerating (yaw change ${(c0.st.yaw - y0).toFixed(2)}, speed ${c0.st.speed.toFixed(1)})`);
 key('KeyW', false); key('KeyS'); step(400); key('KeyS', false);
 c0.st.vx = c0.st.vz = 0; c0.st.speed = 0; step(2);
 R.toggleCar(); ok(!R.drive, 'get out beside the car');

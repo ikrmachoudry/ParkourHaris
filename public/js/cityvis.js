@@ -47,7 +47,7 @@ export function buildCityMesh(id, lo = false, bakedOnly = false) {
   const fy = sp.yb - 0.27 - (sp.twoDoor ? 0.07 : 0);
   g.userData = {
     hero: car, spec, baked, bakedOnly, full: car.group, wheels: [], pivots: [], seat: { z: sp.seatX[0], y: 0.13 + fy },
-    seatF: sp.seatX[0], seatR: 0.38, seatY: 0.14 + fy, lamp: car.lamp,
+    seatF: sp.seatX[0], seatR: 0.38, seatY: 0.14 + fy, seatS: Math.max(0.8, Math.min(1, (Math.max(...sp.prof.map((q) => q[1])) - 0.07 - (0.14 + fy)) / 1.2)), lamp: car.lamp,
     ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
   };
   return g;

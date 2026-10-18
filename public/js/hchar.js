@@ -310,8 +310,34 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperleg.L'], -0.9, 0, 0.1); R(b['upperleg.R'], -0.25, 0, -0.1); R(b['lowerleg.L'], 1.1, 0, 0); R(b['lowerleg.R'], 0.6, 0, 0);
     setArms(-2.2, -2.2); R(b['forearm.L'], -0.3, 0, 0); R(b['forearm.R'], -0.3, 0, 0); R(b.spine, 0.05, 0, 0);
   } else if (name === 'sit') {
-    R(b['upperleg.L'], -1.5, 0, 0.05); R(b['upperleg.R'], -1.5, 0, -0.05); R(b['lowerleg.L'], 1.5, 0, 0); R(b['lowerleg.R'], 1.5, 0, 0); b.hips.position.y = rest.hips.y - 0.5;
+    R(b['upperleg.L'], -1.5, 0, 0.05); R(b['upperleg.R'], -1.5, 0, -0.05); R(b['lowerleg.L'], 1.5, 0, 0); R(b['lowerleg.R'], 1.5, 0, 0); b.hips.position.y = rest.hips.y - 0.56; R(b.spine, -0.12, 0, 0);
     R(b['upperarm.L'], -0.9, 0, -0.1); R(b['upperarm.R'], -0.9, 0, 0.1); R(b['forearm.L'], -0.6, 0, 0); R(b['forearm.R'], -0.6, 0, 0);
+  }
+  else if (name === 'cross') {   // arms folded, weight on one leg: calm and confident
+    const br = Math.sin(t * 1.4) * 0.01;
+    R(b.chest, br, 0.04, 0); R(b.head, -br, -0.08, 0); R(b['upperleg.L'], -0.03, 0, 0.05); R(b['upperleg.R'], 0.06, 0, -0.1); R(b['lowerleg.R'], 0.06, 0, 0);
+    R(b['upperarm.R'], -0.7, 0, 0.15); R(b['forearm.R'], -1.4, 0, 1.2); R(b['upperarm.L'], -0.7, 0, -0.15); R(b['forearm.L'], -1.4, 0, -1.2);
+    curl('R', 0.9); curl('L', 0.9);
+  } else if (name === 'pocket') { // hands in the pockets, easy stance, small sway
+    const sw = Math.sin(t * 0.9) * 0.015;
+    R(b.chest, sw, 0.03, 0); R(b.head, -0.02, -0.12 + sw, 0); R(b['upperleg.L'], 0.05, 0, 0.08); R(b['upperleg.R'], -0.04, 0, -0.04);
+    R(b['upperarm.R'], 0.1, 0, 0.12); R(b['forearm.R'], -0.55, 0, 0.55); R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.55, 0, -0.55);
+    curl('R', 0.7); curl('L', 0.7);
+  } else if (name === 'thumbs') { // thumbs up with a relaxed grin
+    const br = Math.sin(t * 1.5) * 0.01;
+    R(b.chest, br, -0.06, 0); R(b.head, -0.02, 0.12, 0); R(b['upperleg.L'], -0.02, 0, 0.06); R(b['upperleg.R'], 0.04, 0, -0.08);
+    R(b['upperarm.R'], -0.55, -0.15, 0.35); R(b['forearm.R'], -1.5, 0, 0.4); R(b['hand.R'], 0, 0, 0); curl('R', 1.25); R(b['thumb.R'], 0, 0, -0.9);
+    R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.6, 0, -0.4);
+  } else if (name === 'wave') {   // friendly wave
+    const w = Math.sin(t * 6) * 0.35, br = Math.sin(t * 1.5) * 0.01;
+    R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.1, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
+    R(b['upperarm.R'], -0.35, 0, 2.55); R(b['forearm.R'], -0.9, w * 0.4, w); R(b['hand.R'], 0, 0, w * 0.5); curl('R', 0.15);
+    R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
+  } else if (name === 'phone') {  // checking the phone
+    const br = Math.sin(t * 1.5) * 0.01;
+    R(b.chest, 0.06 + br, 0, 0); R(b.head, 0.38, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
+    R(b['upperarm.R'], -0.65, 0.2, 0.2); R(b['forearm.R'], -1.7, 0, 0.5); R(b['hand.R'], -0.2, 0, 0); curl('R', 0.8);
+    R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
   }
   void k;
 }

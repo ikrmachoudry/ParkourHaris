@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
+const GESTURES = ['cross', 'pocket', 'thumbs', 'phone'];
 import { buildLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
@@ -110,7 +111,7 @@ class Stage {
     bn.position.set(0, 9.5, -24); this.scene.add(bn); this.banner = bn;
     this.chars = [0, 1, 2, 3].map((id) => { const c = new HeroActor(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
-    this.particles = new Particles(260); this.scene.add(this.particles.points);
+    this.particles = new Particles(360); this.scene.add(this.particles.points);
     this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = [];
   }
   setName(i, name) {
@@ -137,10 +138,10 @@ class Stage {
       const selected = this.mode === 'title' ? ((Math.floor(this.t / 3) % 4) === i) : (this.mode !== 'lobby' && this.sel === i);
       o.scale = lerp(o.scale, selected ? 1.18 : 1, Math.min(1, dt * 8));
       o.c.group.scale.setScalar(o.scale);
-      o.hop = selected ? Math.abs(Math.sin(this.t * 5)) * 0.25 : lerp(o.hop, 0, Math.min(1, dt * 8));
+      o.hop = 0;
       o.c.group.position.set(p[0], p[1] + o.hop, p[2]);
       o.c.group.rotation.y = lerpAngle(o.c.group.rotation.y, this.mode === 'lobby' ? Math.sin(this.t * 0.7 + i) * 0.3 : Math.sin(this.t * 0.6 + i * 2) * 0.35, Math.min(1, dt * 4));
-      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: selected || this.mode === 'lobby' && (Math.floor(this.t * 0.5 + i) % 2 === 0) });
+      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: selected ? 'wave' : GESTURES[i] });
       if (o.tag) { o.tag.scale.set(2.4, 0.6, 1); }
     });
     this.ambient.update(this.t, cam.position);
@@ -420,7 +421,7 @@ class Race {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.hero) { // a real driver: right-hand-drive seat of the hero car
       const f = ud.seatF, r = ud.seatR, sy = Math.sin(st.yaw), cy = Math.cos(st.yaw);
-      g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar(1); return;
+      g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar(ud.seatS || 1); return;
     }
     g.position.set(st.x + Math.sin(st.yaw) * seat.z, st.y + seat.y, st.z + Math.cos(st.yaw) * seat.z); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8);
   }
@@ -481,7 +482,12 @@ class Race {
     let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), hb };
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
-      if (ev) { A.crashSfx(st.crash || 6); this.particles.emit(st.x, st.y + 0.8, st.z, ev === 'crash' ? 26 : 12, { color: '#ffd9a0', speed: ev === 'crash' ? 7 : 4, up: 3, life: 0.5, size: 0.28 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04)); st.crash = 0; }
+      if (ev) {
+        A.crashSfx(st.crash || 6);
+        const q = IS_TOUCH ? 0.6 : 1, hit = st.crash || 6, nx = st.x + Math.sin(st.yaw) * Math.sign(st.speed || 1) * 1.9, nz = st.z + Math.cos(st.yaw) * Math.sign(st.speed || 1) * 1.9;
+        this.particles.emit(nx, st.y + 0.6, nz, Math.round((ev === 'crash' ? 16 : 6) * q), { color: '#ffcf6a', speed: 6 + hit * 0.3, up: 3, life: 0.35, size: 0.1, gravity: 14, spread: 0.6 });   // sparks
+        this.particles.emit(nx, st.y + 0.7, nz, Math.round((ev === 'crash' ? 9 : 4) * q), { color: '#b9b9b9', speed: 1.6, up: 1.4, life: 1.1, size: 0.9, gravity: -0.6, spread: 0.8 });                // dust / smoke puff
+        st.dmg = Math.min(100, (st.dmg || 0) + (ev === 'crash' ? hit * 1.4 : hit * 0.5)); this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04)); st.crash = 0; }
     } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
     if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
@@ -490,7 +496,14 @@ class Race {
     if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
     this.hornCd -= dt; this.skidT -= dt;
     if (c.mesh.userData.hero) {
-      if (st.skid > 0.3 && Math.abs(st.speed) > 6) for (const sgn of [-1, 1]) this.particles.emit(st.x - Math.sin(st.yaw) * 1.3 + Math.cos(st.yaw) * sgn * 0.8, st.y + 0.2, st.z - Math.cos(st.yaw) * 1.3 - Math.sin(st.yaw) * sgn * 0.8, 1, { color: '#dcdcdc', speed: 1.0, up: 1.1, life: 0.55, size: 0.5, gravity: -0.4 });
+      this.smokeT = (this.smokeT || 0) - dt;
+      if (this.smokeT <= 0) {
+        this.smokeT = IS_TOUCH ? 0.09 : 0.05;
+        const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw);
+        if (st.skid > 0.25 && Math.abs(st.speed) > 5) for (const sgn of [-1, 1]) this.particles.emit(st.x - fx * 1.25 + fz * sgn * 0.85, st.y + 0.12, st.z - fz * 1.25 - fx * sgn * 0.85, 1, { color: '#e6e6e6', speed: 0.5, up: 0.7, life: 0.9, size: 0.7, gravity: -0.35, spread: 0.2 });   // tyre smoke
+        else if (st.load > 0.9 && st.speed > 0.5 && st.speed < 5 && st.gear === 1) this.particles.emit(st.x - fx * 1.25, st.y + 0.1, st.z - fz * 1.25, 1, { color: '#d0d0d0', speed: 0.4, up: 0.5, life: 0.6, size: 0.45, gravity: -0.3 });       // wheelspin off the line
+        if ((st.dmg || 0) > 35) this.particles.emit(st.x + fx * 1.5, st.y + 1.0, st.z + fz * 1.5, 1, { color: st.dmg > 70 ? '#2a2a2a' : '#8a8a8a', speed: 0.3, up: 1.4, life: 1.3, size: 0.6, gravity: -0.8, spread: 0.3 });                   // engine damage smoke
+      }
     } else if (st.drift > 0.55 && Math.abs(st.speed) > 8) {
       if (this.skidT <= 0) { this.skidT = 0.25; A.sfx.skid(); }
       for (const sgn of [-1, 1]) this.particles.emit(st.x - Math.sin(st.yaw) * 1.5 + Math.cos(st.yaw) * sgn * 0.9, 0.25, st.z - Math.cos(st.yaw) * 1.5 - Math.sin(st.yaw) * sgn * 0.9, 1, { color: '#e8e8e8', speed: 1.2, up: 1.2, life: 0.5, size: 0.5, gravity: -0.5 });
@@ -896,7 +909,7 @@ function charCards(container, opts) {
   container.innerHTML = '';
   CHARACTERS.forEach((c) => {
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = c.id;
-    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.id] || ''}"><b style="color:${c.color}">${c.name}</b>${opts.small ? '' : `<span>${c.tag}</span>`}`;
+    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.id] || ''}"><b style="color:${c.color}">${c.name}</b>`;
     d.onclick = () => opts.onPick(c.id);
     container.appendChild(d);
   });

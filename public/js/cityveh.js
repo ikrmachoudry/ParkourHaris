@@ -48,15 +48,15 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const mu = spec.mu * (onRd ? 1 : 0.62) * (c.slick > 0 ? 0.3 : 1);
   // ---- driver inputs
   const gasIn = inp.gas;
-  c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 7 : 5));
+  c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 9 : 8));
   const au = Math.abs(u);
-  const dMax = Math.min(0.58, 26 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
+  const dMax = Math.min(0.6, 42 / Math.max(1, au * au));                 // lock available shrinks with speed (a real car, not a go-kart)
   const delta = -c.steer * dMax;                                          // left-positive road-wheel angle
   let throttle = 0, brake = 0;
   if (gasIn > 0.01) { if (u < -0.8) brake = gasIn; else throttle = gasIn; }
   else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
   // ---- longitudinal force
-  const P = spec.kW * 1000;
+  const P = spec.kW * 1300;   // arcade-friendly: a bit punchier than the real figure
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
   const slipRe = Math.atan((vl - b * c.yr) / (u >= 0 ? Math.max(u, 0.5) : Math.min(u, -0.5)));
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.09) / 0.14, 0, 0.9);
@@ -79,7 +79,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const brakeShareF = clamp(brake * 0.6, 0, 0.9), brakeShareR = clamp(brake * 0.4 + (inp.hb ? 0.7 : 0), 0, 0.97);
   const fcF = Math.sqrt(Math.max(0.08, 1 - Math.max(frontShare, brakeShareF) ** 2)), fcR = Math.sqrt(Math.max(0.05, 1 - Math.max(rearShare, brakeShareR) ** 2));
   const muNf = mu * Nf * fcF, muNr = mu * Nr * fcR * (inp.hb ? 0.5 : 1);
-  const Ca = 12.5;                                                          // stiffness: reaches the grip limit at ~5 deg
+  const Ca = 17;                                                          // stiffness: reaches the grip limit at ~5 deg
   let Ff = -muNf * Math.tanh(Ca * slipF), Fr = -muNr * Math.tanh(Ca * slipR);
   if (air) { Ff = Fr = 0; }
   // low speed: tyres relax so the car does not wobble when crawling
@@ -92,7 +92,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   let yawAcc = (a * Ff * cd - b * Fr) / Iz;
   if (air) yawAcc = 0;
   if (!air && !inp.hb && Math.abs(u) > 3) yawAcc -= Math.sign(c.yr) * Math.max(0, Math.abs(slipRe) - 0.12) * 5 * (Math.abs(inp.steer) > 0.05 ? 0.6 : 1.2) * (c.yr * slipRe > 0 ? 1 : 0.2);
-  c.yr += yawAcc * dt; c.yr *= Math.exp(-0.08 * dt);                         // a hint of yaw damping from the suspension
+  c.yr += yawAcc * dt; c.yr *= Math.exp(-0.5 * dt);                         // a hint of yaw damping from the suspension
   let du = axTotal + vl * c.yr, dvl = ay - u * c.yr;
   if (air) { du = -Fdrag / m; dvl = 0; }
   u += du * dt; const vl2 = vl + dvl * dt;
@@ -101,7 +101,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const kin = clamp(1 - Math.abs(u) / 2.5, 0, 1);
   let vlN = vl2 * (1 - kin) + 0 * kin;
   if (kin > 0 && !air) c.yr += (u * Math.tan(delta) / L - c.yr) * Math.min(1, dt * 12) * kin;
-  if (!air) { vlN *= Math.exp(-(onRd ? 0.0 : 0.6) * dt); }
+  if (!air) { vlN *= Math.exp(-((onRd ? 1.6 : 0.8) * (inp.hb ? 0.15 : 1)) * dt); } // sideways velocity bleeds off: the car grips instead of skating
   // back to world
   const nvr = -vlN;
   c.yaw += c.yr * dt;
