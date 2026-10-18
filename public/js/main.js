@@ -80,7 +80,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 // ------------------------------------------------------------------ app state
-const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
+const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), level: 5, net: null, room: null, myId: null, pendingJoin: null, muted: false };
 let race = null, stage = null, thumbs = [];
 const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 

@@ -171,7 +171,7 @@ wss.on('connection', (ws, req) => {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0;
-        const r = { code: genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
+        const r = { code: genCode(), hostId: p.id, level: 5, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
         rooms.set(r.code, r);
         joinRoom(p, r);
         break;
@@ -213,7 +213,7 @@ wss.on('connection', (ws, req) => {
       case 'level': {
         if (!room || room.hostId !== p.id || room.phase === 'race' || room.phase === 'countdown') return;
         const l = m.level | 0;
-        if (l < 0 || l >= LEVEL_META.length) return;
+        if (l < 0 || l >= LEVEL_META.length || LEVEL_META[l].hidden) return;
         room.level = l;
         bcast(room, lobbyMsg(room));
         break;

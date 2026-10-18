@@ -51,10 +51,10 @@ mk('b-single').onclick(); step(3);
 ok(mk('s-profile').classes.has('active'), 'profile screen');
 mk('inp-name').value = 'Haris'; ph.app.char = 2;
 mk('b-profile-next').onclick(); step(2);
-ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 7, 'level select with 7 cards (Small Room hidden)');
+ok(mk('s-levels').classes.has('active') && mk('level-cards').children.length === 2, 'level select shows only 2 maps (Annoying Maze + Haris City)');
 for (let L = 0; L < 1; L++) {
   mk('level-cards').children[L].onclick(); step(2);
-  const r = ph.race; ok(!!r && r.level === L, `race created for level ${L + 1}`);
+  const r = ph.race; ok(!!r && r.level === 5, `race created for level ${L + 1}`);
   step(300); // 5 s: countdown ends
   ok(r.phase === 'race', 'countdown -> race');
   key('KeyW'); key('Space'); step(2); key('Space', false);
