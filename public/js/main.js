@@ -19,6 +19,7 @@ import { QuestVis } from './questworld.js';
 import { HuntVis } from './huntworld.js';
 import { PH as HPH, HU, stepHunt, applyHunt, shootAnimal } from './hunt.js';
 import { GUN, makeGun, pickTarget } from './huntgun.js';
+import { WarGame } from './warclient.js';
 
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
@@ -1041,7 +1042,7 @@ function levelCards(container, opts) {
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = m.id;
     d.style.background = `linear-gradient(160deg, ${m.colors[0]}cc, ${m.colors[1]}cc)`;
     const b = best(m.id);
-    d.innerHTML = `<div><h4>${m.id + 1}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; no time limit${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
+    d.innerHTML = `<div><h4>${m.id + 1}. ${m.name}</h4><div class="stars">${'★'.repeat(m.stars)}${'☆'.repeat(5 - m.stars)}</div></div><div class="blurb">${m.blurb}</div><div class="meta">${m.sub} &bull; ${m.war ? '10 minute match' : 'no time limit'}${b ? ' &bull; best ' + fmtT(b) : ''}</div>`;
     d.onclick = () => opts.onPick(m.id);
     container.appendChild(d);
   });
@@ -1086,11 +1087,18 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
+function makeRace(levelIdx, players, localId, o) {
+  const meta = LEVEL_META[levelIdx];
+  if (!meta.war) return new Race(levelIdx, players, localId, o);
+  return new WarGame({ meta, players, localId, multi: o.multi, t0: o.t0, renderer, canvas, envTex, touch: IS_TOUCH, shadows: Q.shadows,
+    send: (m) => app.net && app.net.send(m), onMenu: () => (race && race.menuOpen ? closePause() : openPause()),
+    onEnd: (r) => app.showResults({ title: r.title, sub: r.sub, rows: r.rows, single: !o.multi, win: r.win }) });
+}
 function startSingle(levelIdx) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) });
+  race = makeRace(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) });
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -1153,6 +1161,8 @@ async function ensureNet() {
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
   net.on('an', (m) => { if (race && race.an) race.an.onNet(m); });
   net.on('aev', (m) => { if (race && race.an) race.an.onEvent(m); });
+  net.on('ws', (m) => { if (race && race.war && race.multi) race.onSnap(m); });
+  net.on('wm', (m) => { if (race && race.war) race.onMsg(m); });
   net.on('h', (m) => { if (race && race.hunt) race.huntNet(m); });
   net.on('hev', (m) => { if (race && race.hunt) race.huntEvent(m); });
   net.on('shot', (m) => { if (race && race.hunt && [m.ox, m.oy, m.oz, m.tx, m.ty, m.tz].every(Number.isFinite)) { race.hunt.vis.tracer(m.ox, m.oy, m.oz, m.tx, m.ty, m.tz); A.sfx.shot(); } });
@@ -1188,11 +1198,11 @@ function onLobby(m) {
   const prev = app.room; app.room = m;
   if (race && race.multi) { // someone joined / left mid-session: just refresh the room data
     for (const p of m.players) if (p.id !== app.myId && !race.remotes.has(p.id) && (m.phase === 'race' || m.phase === 'countdown')) race.addRemote(p);
-    if (m.phase === 'lobby' && app.screen !== 'lobby') { race.destroy(); race = null; exitLock(); renderLobby(); show('lobby'); A.startMusic(6); }
+    if (m.phase === 'lobby' && app.screen !== 'lobby') { race.destroy(); race = null; exitLock(); renderLobby(); show('lobby'); A.startMusic(99); }
     else if (app.screen === 'results') { const host = m.hostId === app.myId; if (app.resMode === 'multi') { $('b-res-next').textContent = host ? 'BACK TO LOBBY' : 'WAITING FOR HOST...'; $('b-res-next').disabled = !host; } }
     return;
   }
-  if ((first || app.screen === 'mp' || app.screen === 'profile' || app.screen === 'title') && (m.phase === 'lobby' || m.phase === 'results')) { show('lobby'); A.startMusic(6); }
+  if ((first || app.screen === 'mp' || app.screen === 'profile' || app.screen === 'title') && (m.phase === 'lobby' || m.phase === 'results')) { show('lobby'); A.startMusic(99); }
   if (prev && m.players.length > prev.players.length) A.sfx.join();
   renderLobby();
 }
@@ -1225,12 +1235,12 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
-  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed });
+  race = makeRace(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed });
   resize(); show('none'); tryLock();
 }
 
 // ------------------------------------------------------------------ input
-function tryLock() { if (race && !race.over && document.pointerLockElement !== canvas) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* needs a user gesture */ } } }
+function tryLock() { if (race && race.war) return; if (race && !race.over && document.pointerLockElement !== canvas) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* needs a user gesture */ } } }
 function exitLock() { if (document.pointerLockElement) document.exitPointerLock(); }
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
@@ -1312,8 +1322,8 @@ async function boot() {
   stage.setTitle();
   show('title');
 
-  $('b-single').onclick = () => { A.initAudio(); A.startMusic(6); A.sfx.click(); openProfile('single'); };
-  $('b-multi').onclick = () => { A.initAudio(); A.startMusic(6); A.sfx.click(); openProfile('multi'); };
+  $('b-single').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('single'); };
+  $('b-multi').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('multi'); };
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.add('active'); };
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };

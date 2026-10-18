@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
 import { HUNT_DEFS, huntAnimalLayout, huntLayout, newHunt, stepHunt, packHunt, shootAnimal } from './public/js/hunt.js';
+import { newWar, stepWar, cmdWar, packWar } from './public/js/warsim.js';
 import { newQuest, stepQuest, questLayout, questAnimalLayout, QUEST_DEFS } from './public/js/quest.js';
 import { KINDS, newAnimals, stepAnimals, hitAnimal, releaseOwner, packAnimals, jungleLayout } from './public/js/jlayout.js';
 
@@ -95,6 +96,7 @@ function startRound(room) {
   room.cars = {};
   room.an = meta.hunt ? newAnimals(HUNT_DEFS()) : meta.quest ? newAnimals(QUEST_DEFS()) : meta.free && !meta.arena ? newAnimals() : null; room.anT = Date.now();
   room.h = meta.hunt ? newHunt() : null; room.q = meta.quest ? newQuest() : null; room.seed = 1 + Math.floor(Math.random() * 1e9); room.qT = 0;
+  room.war = meta.war ? newWar(room.players.size) : null; room.warT = Date.now(); room.warN = 0;
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {
     t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed,
@@ -134,6 +136,7 @@ function joinRoom(p, room) {
     if (room.an) send(p.ws, { t: 'an', a: packAnimals(room.an) });
     if (room.h) send(p.ws, { t: 'h', ...packHunt(room.h) });
     if (room.q) send(p.ws, { t: 'q', ch: room.q.ch, ph: room.q.ph, n: room.players.size, occ: room.q.occ, hold: 0 });
+    if (room.war) send(p.ws, packWar(room.war, true));
   }
 }
 
@@ -263,6 +266,11 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 100) ? m.az : undefined });
         break;
       }
+      case 'wc': { // Age of War: a command from a human (validated inside cmdWar)
+        if (!room || room.phase !== 'race' || !room.war || !m.c || typeof m.c !== 'object') return;
+        try { const r = cmdWar(room.war, 0, m.c); if (r && r.msg) send(ws, { t: 'wm', msg: r.msg }); } catch { /* bad command */ }
+        break;
+      }
       case 'shoot': { // Jungle Hunt gun: damage a beast (unlimited ammo) and show the tracer to everybody else
         if (!room || room.phase !== 'race' || !room.h || !room.an) return;
         const t = Date.now(); if (t - (p.lastShot || 0) < 140) return; p.lastShot = t;
@@ -346,6 +354,19 @@ setInterval(() => {
       const q = room.players.get(e.pid); if (q) send(q.ws, { t: 'abite', id: e.id, nx: +e.nx.toFixed(3), nz: +e.nz.toFixed(3), big: e.big });
     }
     bcast(room, { t: 'an', a: packAnimals(room.an) });
+  }
+}, 50);
+
+// ---- Age of War: one simulation per room, 20 steps/second, snapshots at 10/second
+setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.values()) {
+    if (!room.war || room.phase !== 'race') continue;
+    const dt = Math.min(0.1, (now - (room.warT || now)) / 1000); room.warT = now;
+    room.war.n = Math.max(1, room.players.size);   // the computer gets harder or easier when people join / leave
+    try { stepWar(room.war, dt); } catch (e) { console.error('war', e); }
+    if (room.war.over || (room.warN = (room.warN || 0) + 1) % 2 === 0) { bcast(room, packWar(room.war, true)); room.war.ev.length = 0; }
+    if (room.war.over) { room.phase = 'results'; clearTimers(room); bcast(room, { t: 'end', results: [], winnerId: null, reason: 'war' }); }
   }
 }, 50);
 
