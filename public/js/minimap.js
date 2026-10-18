@@ -1,6 +1,6 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
-import { GT, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES } from './gta.js';
+import { GT, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT } from './gta.js';
 
 const W = 760, O = 380;   // 1 px = 1 m, world -380..380
 function drawStatic() {
@@ -22,6 +22,8 @@ function drawStatic() {
   road([[GT.HWY.ax, 0], [GT.HWY.bx, 0]], w); g.fillStyle = '#4a4f59'; g.beginPath(); g.arc(O + GT.HWY.bx, O, 14, 0, 7); g.fill();
   // landmarks' footprints
   for (const h of HOMES) { g.fillStyle = h.color; g.fillRect(O + h.x - 6, O + h.z - 4.3 - 3 * Math.cos(h.yaw), 12, 8.6); }
+  g.fillStyle = LOBBY.color; g.fillRect(O + LOBBY.x - LOBBY.w / 2, O + LOBBY.z - LOBBY.d / 2, LOBBY.w, LOBBY.d);   // the Mission Lobby
+  g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(O + STUNT.startX, O - 1, 2, 2); g.strokeStyle = '#ffd23f'; g.lineWidth = 2; g.beginPath(); g.moveTo(O + STUNT.ramps[0][0], O); g.lineTo(O + STUNT.finishX, O); g.stroke();   // the stunt course
   const S = REPAIR.shop; g.fillStyle = '#ffb02e'; g.fillRect(O + S.x - S.w / 2, O + S.z - S.d / 2, S.w, S.d);
   return cv;
 }
@@ -49,7 +51,7 @@ export class Minimap {
       g.font = Math.round(r * 1.25) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
     };
     const r = Math.max(8, S / 14);
-    icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r);
+    icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r);
     let near = null, nd = 1e9;
     for (const h of HOMES) { icon(h.x, h.z, h.color, '\u{1F3E0}', r * 0.85); const d = Math.hypot(h.x - view.x, h.z - view.z); if (d < nd) { nd = d; near = h; } }
     const label = (txt, x, z, color) => {   // the name of the home you are closest to, always upright under its badge
@@ -58,6 +60,7 @@ export class Minimap {
     };
     if (near && nd < 70) label(near.name.toUpperCase(), near.x, near.z, '#ffffff');
     if (Math.hypot(REPAIR.x - view.x, REPAIR.z - view.z) < 60) label('REPAIR', REPAIR.x, REPAIR.z, '#ffd23f');
+    if (Math.hypot(LOBBY.x - view.x, LOBBY.z - view.z) < 70) label('MISSIONS', LOBBY.x, LOBBY.z, '#d9b8ff');
     for (const o of others || []) { const [px, py] = toScr(o.x, o.z); if (Math.hypot(px - S / 2, py - S / 2) > S / 2 - 4) continue; g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 100); g.beginPath(); g.arc(px, py, S / 40, 0, 7); g.fill(); g.stroke(); }
     // me: an arrow in the middle that points where I am heading
     g.save(); g.translate(S / 2, S / 2); g.rotate(-(me.yaw - view.head)); const a = S / 22;
@@ -79,7 +82,7 @@ export class Minimap {
       g.font = Math.round(r * 1.2) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
       if (name) { const fs = Math.round(Math.max(11, S / 38)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = side < 0 ? 'right' : side > 0 ? 'left' : 'center'; const tx = px + side * (r + 4), ty = side ? py : py + r + fs * 0.7; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(name, tx, ty); g.fillStyle = col || '#fff'; g.fillText(name, tx, ty); } };
     const r = Math.max(9, S / 40);
-    badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f');
+    badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f'); badge(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r, 'MISSION LOBBY', '#d9b8ff'); badge(STUNT.startX + 60, 0, '#ffd23f', '\u{1F3C1}', r * 0.7, 'STUNT JUMP', '#5ef0ff');
     for (const h of HOMES) badge(h.x, h.z, h.color, '\u{1F3E0}', r * 0.8, h.name.toUpperCase(), '#fff', h.x < -90 ? -1 : 1);
     for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, r * 0.55, 0, 7); g.fill(); g.stroke(); }
     { const [px, py] = P(me.x, me.z), a = r * 0.8; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }

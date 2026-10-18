@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, REPAIR, HOMES, homeW, LOBBY, STUNT } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -137,6 +137,8 @@ function signTexture(text, bg, fg) {
 
 // house walls in local coords [x0, x1, z0, z1, height]: the front door gap is x 2.7..4.1, the garage opening x -5.5..-1.1, the garage/house door z -4.6..-3.0
 const T = 0.3, WH = 3.6;
+// the Mission Lobby walls relative to its centre [x0, x1, z0, z1]: back, left, right and the front with a 4 m door gap
+export const LOBBY_WALLS = [[-8, 8, -5.5, -5.2], [-8, -7.7, -5.5, 5.5], [7.7, 8, -5.5, 5.5], [-8, -2, 5.2, 5.5], [2, 8, 5.2, 5.5]];
 export const HOME_WALLS = [
   [-6, 6, -7.25, -7.25 + T, WH], [-6, -6 + T, -7.25, 1.25, WH], [6 - T, 6, -7.25, 1.25, WH],
   [-6, -5.5, 1.25 - T, 1.25, WH], [-1.1, 2.7, 1.25 - T, 1.25, WH], [4.1, 6, 1.25 - T, 1.25, WH],
@@ -166,6 +168,10 @@ export function buildGta(world, th, info, seed) {
       world.addSolid(x0, 0, z0, x1, hh, z1, { name: 'building' }); if (hh > 1.5) roads.boxes.push({ x0, x1, z0, z1, h: hh });
     }
   }
+  { const L = LOBBY, hw = L.w / 2, hd = L.d / 2, T3 = 0.3;   // the Mission Lobby: hollow, walk in through the front door
+    for (const [a, b, c, d] of LOBBY_WALLS) { const x0 = L.x + a, x1 = L.x + b, z0 = L.z + c, z1 = L.z + d; world.addSolid(x0, 0, z0, x1, 4, z1, { name: 'building' }); roads.boxes.push({ x0, x1, z0, z1, h: 4 }); }
+    world.addSolid(L.x - hw + T3, 0.2, L.z - hd + T3, L.x + hw - T3, 0.26, L.z + hd - T3, { name: 'prop' });
+    for (const [px, pz] of [[STUNT.finishX, -7.5], [STUNT.finishX, 7.5]]) { world.addSolid(px - 0.3, 0, pz - 0.3, px + 0.3, 6, pz + 0.3, { name: 'prop' }); roads.boxes.push({ x0: px - 0.3, x1: px + 0.3, z0: pz - 0.3, z1: pz + 0.3, h: 6 }); } }
   info.gta = { buildings: B, roads };
   if (world.headless) return;
 
@@ -285,6 +291,27 @@ export function buildGta(world, th, info, seed) {
       { const t1 = P(-8.3, -7.8), t2 = P(8.0, 7.6), t3 = P(8.4, -4); plant(t1.x, 0.2, t1.z, 1.0); plant(t2.x, 0.2, t2.z, 0.85); plant(t3.x, 0.2, t3.z, 0.8); }
       [-1.5, 0.3, 2.1].forEach((lx, q) => { const f = P(lx, 1.9); wm.add(new THREE.SphereGeometry(0.34, 7, 6), f.x, 0.5, f.z, ['#e63946', '#f4a261', '#ff9ec7'][q]); });   // shrubs/flowers along the wall
     });
+  }
+  // ---- MISSION LOBBY (walk in, step on the glowing pad) + the stunt-course start line and finish gate
+  { const L = LOBBY, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), mk = (tex, ww, hh) => new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+    wm.add(Bx(L.w + 5, 0.06, L.d + 7), L.x, 0.22, L.z + 1.5, '#4b4f58');                                  // forecourt
+    wm.add(Bx(L.w - 0.6, 0.06, L.d - 0.6), L.x, 0.23, L.z, '#2b2540');                                     // interior floor
+    for (const [a, b, c, d] of LOBBY_WALLS) wm.add(Bx(b - a, 3.8, d - c), L.x + (a + b) / 2, 2.1, L.z + (c + d) / 2, '#efe9fb');
+    wm.add(Bx(4, 0.9, 0.3), L.x, 3.55, L.z + 5.35, '#efe9fb');                                              // lintel over the door
+    wm.add(Bx(L.w + 0.6, 0.45, L.d + 0.6), L.x, 4.2, L.z, '#a855f7'); wm.add(Bx(L.w + 0.2, 0.2, L.d + 0.2), L.x, 4.02, L.z, '#f6f1e6');   // ceiling + purple roof slab
+    wm.add(Bx(L.w + 0.8, 0.5, 0.4), L.x, 3.4, L.z + 5.55, '#a855f7');                                       // purple band on the front
+    { const s = mk(signTexture('MISSION LOBBY', '#241a3b', '#ffd23f'), 10, 2.5); s.position.set(L.x, 5.9, L.z + 5.5); world.group.add(s);
+      wm.add(Bx(0.25, 2.2, 0.25), L.x - 4.6, 5.1, L.z + 5.45, '#3b3f4a'); wm.add(Bx(0.25, 2.2, 0.25), L.x + 4.6, 5.1, L.z + 5.45, '#3b3f4a'); }
+    { const s = mk(signTexture(STUNT.name, '#12202e', '#5ef0ff'), 7, 1.75); s.position.set(L.x, 2.5, L.z - 5.1); world.group.add(s); }   // the mission board on the back wall
+    world.glow.add(new THREE.CylinderGeometry(1.9, 1.9, 0.05, 28), L.pad.x, 0.28, L.pad.z, '#ffd23f'); world.glow.add(new THREE.CylinderGeometry(1.2, 1.2, 0.07, 24), L.pad.x, 0.29, L.pad.z, '#a855f7');
+    world.glow.add(Bx(2.4, 0.06, 0.6), L.x - 4, 3.9, L.z, '#fff4cf'); world.glow.add(Bx(2.4, 0.06, 0.6), L.x + 4, 3.9, L.z, '#fff4cf'); world.glow.add(Bx(2.4, 0.06, 0.6), L.x, 3.9, L.z - 2.5, '#fff4cf');
+    wm.add(Bx(5, 0.9, 0.7), L.x, 0.7, L.z - 4.5, '#3a2f55'); wm.add(Bx(5.2, 0.08, 0.8), L.x, 1.2, L.z - 4.5, '#a855f7');                       // reception desk
+    for (const sx of [-5.5, 5.5]) { wm.add(Bx(1.6, 0.4, 3), L.x + sx, 0.5, L.z + 0.5, '#5b4a8a'); wm.add(Bx(0.3, 0.8, 3), L.x + sx + Math.sign(sx) * 0.7, 0.8, L.z + 0.5, '#4a3b77'); }   // benches
+    // stunt course: start line + lane marks, finish gate
+    const S = STUNT; wm.add(Bx(0.6, 0.02, 14), S.startX - 4, 0.05, 0, '#ffffff'); for (const z of S.lanes) wm.add(Bx(5, 0.02, 0.15), S.startX - 1.5, 0.05, z + 1.5, '#ffd23f');
+    for (const pz of [-7.5, 7.5]) wm.add(Bx(0.6, 6, 0.6), S.finishX, 3, pz, '#d62828');
+    { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d'); for (let i = 0; i < 16; i++) for (let j = 0; j < 3; j++) { g.fillStyle = (i + j) % 2 ? '#111' : '#fff'; g.fillRect(i * 32, j * 32, 32, 32); }
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const bn = mk(t, 15, 2.8); bn.rotation.y = Math.PI / 2; bn.position.set(S.finishX, 6.2, 0); world.group.add(bn); const bn2 = bn.clone(); bn2.rotation.y = -Math.PI / 2; bn2.position.x += 0.05; world.group.add(bn2); }
   }
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {

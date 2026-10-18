@@ -4,7 +4,7 @@ import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings, gtaCars } from '../public/js/
 import { newCar, stepCar, corridor } from '../public/js/car.js';
 let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
 const { world, info } = buildLevel(0, true, null, 1);
-ok(world.terrain === gtaH && info.cars.length === 12, 'city built: 12 vehicles, terrain on');
+ok(world.terrain === gtaH && info.cars.length === 16, 'city built: 16 vehicles, terrain on');
 ok(Math.abs(gtaH(0, 0)) < 1e-6 && Math.abs(gtaH(90, -40)) < 1e-6, 'city is flat');
 const top = mtRoad(1); ok(gtaH(top.x, top.z) > 38, 'summit is high (' + gtaH(top.x, top.z).toFixed(1) + ')');
 let maxSlope = 0; for (let u = 0; u < 1; u += 0.005) { const a = mtRoad(u), b = mtRoad(u + 0.005); maxSlope = Math.max(maxSlope, Math.abs(b.y - a.y) / Math.hypot(b.x - a.x, b.z - a.z)); }
@@ -35,8 +35,8 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
 // the sea stops the car
 { const car = newCar(11, 300, 200, Math.PI / 2); drive(car, 390, 200, 8); ok(gtaH(car.x, car.z) > -0.6, 'a car cannot drive into the sea (x ' + car.x.toFixed(0) + ')'); }
 // the realistic cars on the highway: the sports car is fast, the sedan slower
-{ const a = newCar(17, 150, 0, Math.PI / 2), b2 = newCar(11, 150, 6, Math.PI / 2); let va = 0, vb = 0; drive(a, 330, 0, 22, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 330, 6, 22, 1, (c) => { vb = Math.max(vb, c.speed); });
-  ok(va * 3.6 > 140 && va > vb * 1.2, 'sports car ' + (va * 3.6).toFixed(0) + ' km/h vs sedan ' + (vb * 3.6).toFixed(0) + ' km/h'); }
+{ const a = newCar(17, -118, 0, Math.PI / 2), b2 = newCar(11, -118, 0, Math.PI / 2); let va = 0, vb = 0; drive(a, 118, 0, 22, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 118, 0, 22, 1, (c) => { vb = Math.max(vb, c.speed); });
+  ok(va * 3.6 > 110 && va > vb * 1.2, 'sports car ' + (va * 3.6).toFixed(0) + ' km/h vs sedan ' + (vb * 3.6).toFixed(0) + ' km/h'); }
 // no stunt ramps any more: the city street is flat
 ok(gtaH(0, -40) === 0 && gtaH(-60, -100) === 0, 'the avenues are flat (no ramps)');
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);

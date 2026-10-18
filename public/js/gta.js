@@ -43,7 +43,12 @@ export function gtaBase(x, z) {
 // STUNT RAMPS: wedges that start at (x,z) and rise in direction yaw (forward = sin yaw, cos yaw). They are part of the ground height,
 // so people walk up them and cars fly off them. [x, z, yaw, length, height, width]
 const HP = Math.PI / 2;
-export const RAMPS = [];   // (the city is realistic now: no stunt ramps)
+// MISSIONS: the Mission Lobby building (walk onto the pad inside) and the STUNT JUMP course on the coast highway: 4 white super cars wait on the start
+// line, two ramps follow, and the finish line is near the lookout.  Ramps are part of the ground height, so cars fly off them.
+export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
+export const STUNT = { name: 'STUNT JUMP', startX: 126, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[180, 0, HP0(), 20, 3.6, 12], [235, 0, HP0(), 20, 3.6, 12]], finishX: 296, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
+function HP0() { return Math.PI / 2; }
+export const RAMPS = STUNT.ramps;
 export function rampH(x, z) {
   let h = 0;
   for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
@@ -92,7 +97,7 @@ export function homeZone(x, z, pad = 0) {
   return null;
 }
 export const homeSpawn = (char) => { const h = HOMES[((char | 0) % HOMES.length + HOMES.length) % HOMES.length], p = homeW(h, 3.4, 3.6); return { x: p.x, z: p.z, yaw: h.yaw }; };
-const LOT_BLOCKS = [[-30, 30], [-90, -90]];
+const LOT_BLOCKS = [[-30, 30], [-90, -90], [90, -30]];
 export function gtaBuildings() {
   const R = rng(4242), out = [], pal = ['#e8c9a0', '#cfd8e3', '#e89c8a', '#a8c5e8', '#f1e0a6', '#b9d9b0', '#d9b8e0', '#f0b27a', '#9fb4c8'];
   for (const bx of [-90, -30, 30, 90]) for (const bz of [-90, -30, 30, 90]) {
@@ -113,7 +118,7 @@ export function gtaCars() {
   // 8 real cars (ids 11..18, see cityveh.js) parked nose-to-tail along the kerb near the spawn. Pakistan drives on the LEFT:
   // east-bound cars use the north (-z) lane, west-bound the south (+z) lane.
   const home = HOMES.map((h, i) => { const p = homeW(h, -3.3, 5.8); return { id: 11 + i, x: p.x, z: p.z, yaw: h.yaw }; });   // each home has a car in its driveway
-  return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home];
+  return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home, ...STUNT.lanes.map((z) => ({ id: 17, x: STUNT.startX, z, yaw: STUNT.yaw }))];   // 12..15 = the four white mission cars
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

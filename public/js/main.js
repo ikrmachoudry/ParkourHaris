@@ -13,6 +13,7 @@ import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone } from './gta.js';
 import { Minimap } from './minimap.js';
+import { MissionClient } from './missionui.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
 import { Net } from './net.js';
@@ -232,7 +233,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.peds = new Peds(scene, IS_TOUCH ? 10 : 16); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 10 : 16); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -349,7 +350,7 @@ class Race {
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
     const hanging = false;
-    this.stepRolling(dt); if (this.meta.city) this.updateCarFire(dt);
+    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); if (this.mission) this.mission.update(dt); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
     else {
@@ -539,7 +540,7 @@ class Race {
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) };
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (this.mission && this.mission.hold) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
       const hero = c.mesh.userData.hero;
@@ -749,6 +750,7 @@ class Race {
       this.particles.emit(r.x, r.y + 1, r.z, 14, { color: '#ffffff', speed: 5, up: 3, life: 0.4, size: 0.25 });
     }
   }
+  restoreMission(mesh) { restoreCar(mesh); }
   toggleMap(on) { if (!this.meta.city) return; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; document.body.classList.toggle('big-map', this.bigMapOpen); }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
   syncAct() { const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
@@ -997,6 +999,7 @@ class Race {
   render() { renderer.render(this.scene, this.camera); }
 
   destroy() {
+    if (this.mission) { this.mission.destroy(); this.mission = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.stopMusic(); A.engineStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
@@ -1158,6 +1161,7 @@ async function ensureNet() {
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
   net.on('jack', (m) => { if (race && race.multi) race.onJack(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
+  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
   net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();
@@ -1230,9 +1234,9 @@ function exitLock() { if (document.pointerLockElement) document.exitPointerLock(
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (locked) hadLock = true;
-  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH) openPause(); // Esc releases the mouse -> show the menu
+  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !document.body.classList.contains('m-open')) openPause(); // Esc releases the mouse -> show the menu
   if (!locked) hadLock = false;
-  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !locked);
+  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !locked && !document.body.classList.contains('m-open'));
 });
 let hadLock = false;
 let dragging = false;
@@ -1250,6 +1254,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
+  if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
   if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); }
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }

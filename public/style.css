@@ -376,3 +376,28 @@ body.in-race.city-mode #minimap { display: block; }
 body.big-map #bigmap-wrap { display: grid; }
 #bigmap { border-radius: 18px; border: 3px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 #bigmap-x { position: absolute; top: max(12px, 2vh); left: max(12px, 2vw); width: 48px; height: 48px; border-radius: 50%; border: 3px solid #fff; background: #e3262d; color: #fff; font-size: 22px; font-weight: 900; cursor: pointer; }
+
+/* ---- missions */
+#m-ui { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(8,10,24,.55); }
+#m-ui.hidden { display: none; }
+.m-card { width: min(92vw, 440px); background: linear-gradient(160deg, #2a1f4d, #14122b); border: 3px solid #a855f7; border-radius: 20px; padding: 18px 20px; color: #fff; box-shadow: 0 14px 50px rgba(0,0,0,.6); text-align: center; }
+.m-head { font-family: var(--font); letter-spacing: 3px; font-size: 13px; color: #c9a8ff; }
+.m-title { font-family: var(--font); font-size: clamp(26px, 6vmin, 40px); color: #5ef0ff; margin: 2px 0 6px; text-shadow: 0 3px 0 rgba(0,0,0,.4); }
+.m-desc { font-size: 14px; opacity: .85; margin: 0 0 12px; }
+#m-players { display: grid; gap: 6px; margin-bottom: 12px; }
+.m-p { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.08); border-radius: 12px; padding: 8px 12px; }
+.m-p i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; }
+.m-p b { flex: 1; text-align: left; font-size: 15px; }
+.m-p span { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #ffb02e; }
+.m-p.in span { color: #4ade80; }
+.m-card button { display: block; width: 100%; margin-top: 8px; padding: 13px; border-radius: 14px; border: 0; font-family: var(--font); font-size: 16px; font-weight: 900; cursor: pointer; }
+#m-start { background: linear-gradient(#5ef09a, #16a34a); color: #062b12; }
+#m-start:disabled { background: #3a3a55; color: #aaa; cursor: default; font-size: 13px; }
+#m-close { background: transparent; color: #cbb8ff; border: 2px solid #6b52b0; }
+#m-hud { position: fixed; inset: 0; z-index: 30; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+#m-chips { margin-top: max(12px, 2vh); display: flex; gap: 8px; }
+#m-chips span { min-width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: rgba(0,0,0,.55); color: #5ef0a0; display: grid; place-items: center; font-weight: 900; }
+#m-big { margin-top: 12vh; font-family: var(--font); font-size: clamp(36px, 11vmin, 96px); text-shadow: 0 4px 0 rgba(0,0,0,.5), 0 0 30px rgba(0,0,0,.4); text-align: center; }
+#m-big.pop { animation: mpop .5s ease-out; }
+@keyframes mpop { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#m-sub { margin-top: 8px; font-family: var(--font); font-size: clamp(14px, 3.2vmin, 24px); color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.6); text-align: center; padding: 0 12px; }

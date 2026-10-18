@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
+import { MissionHub } from './public/js/mission.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -68,6 +69,9 @@ function clearTimers(room) {
   for (const t of room.timers) clearTimeout(t);
   room.timers = [];
 }
+// the missions of a room (the Mission Lobby): one hub per room, created when the first player uses it
+function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => bcast(room, msg)); return room.hub; }
+const pids = (room) => [...room.players.keys()];
 
 function endRound(room, reason) {
   if (room.phase !== 'race' && room.phase !== 'countdown') return;
@@ -105,7 +109,8 @@ function removePlayer(p) {
   if (!room) return;
   room.players.delete(p.id);
   p.room = null;
-  if (room.players.size === 0) { clearTimers(room); rooms.delete(room.code); return; }
+  if (room.hub) room.hub.drop(p.id, pids(room));
+  if (room.players.size === 0) { clearTimers(room); if (room.hub) room.hub.reset(); rooms.delete(room.code); return; }
   if (room.hostId === p.id) room.hostId = room.players.values().next().value.id;
   bcast(room, { t: 'left', id: p.id });
   bcast(room, lobbyMsg(room));
@@ -220,6 +225,11 @@ wss.on('connection', (ws, req) => {
       }
       case 'leave': removePlayer(p); break;
 
+      // ---- missions (Mission Lobby): the server only keeps the shared state, the players judge their own run
+      case 'm_in': { if (!room || room.phase !== 'race') return; hubOf(room).lobby(p.id, !!m.on, pids(room)); break; }
+      case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room)); break; }
+      case 'm_res': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.result(p.id, !!m.ok, m.why, m.round | 0); break; }
+
       case 'shove': { // running into another player pushes them too (relay only)
         if (!room || room.phase !== 'race') return;
         const q = room.players.get(m.to);
@@ -236,7 +246,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const q = room.players.get(m.to);
         if (!q || q === p || !q.ws) return;
-        if (!Number.isInteger(m.c) || m.c < 0 || m.c > 7) return;
+        if (!Number.isInteger(m.c) || m.c < 0 || m.c > 15) return;
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 10) return;
         send(q.ws, { t: 'jack', from: p.id, c: m.c });
         break;
@@ -245,7 +255,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now();
         if (t - (p.lastCar || 0) < 250) return;
-        if (!num(m.c, 0, 7) || !num(m.x, -400, 400) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
+        if (!num(m.c, 0, 15) || !num(m.x, -400, 400) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
         const cy = num(m.y, -5, 120) ? m.y : 0;
         room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
