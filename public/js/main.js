@@ -1085,16 +1085,16 @@ class Race {
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds) { let bd = 0.2; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
-    if (thiefTs) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.22) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
+    if (thiefTs) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
     if (this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.snap && this.mission.ts.snap.st === 'ambush') {   // the summit: trees and boulders stop bullets; the gunman is hit only while he is out in the open
       const ts = this.mission.ts; let stop = len;
-      for (const cv of SUMMIT.covers) { const dx = cv.x - ox, dz = cv.z - oz, a2 = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx); if (a2 > 0.3 && a2 < stop && pr < cv.r * 0.9) stop = a2 - cv.r * 0.4; }
+      for (const cv of SUMMIT.covers) { const dx = cv.x - ox, dz = cv.z - oz, a2 = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx); if (a2 > 0.3 && a2 < stop && pr < cv.r * 0.8) stop = a2 - cv.r * 0.4; }
       if (ts.exposed) { const dx = ts.px - ox, dz = ts.pz - oz, a = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx);
-        if (a > 0.8 && a < stop && pr < 0.55 + a * 0.01) { stop = a; this.mission.send({ t: 'm_hit', dmg: W.dmg }); A.sfx.bonk && A.sfx.bonk(); this.particles.emit(ts.px, 1.3 + (ts.ground ? ts.ground(ts.px, ts.pz) : 0), ts.pz, 9, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); } }
+        if (a > 0.8 && a < stop && pr < 0.7 + a * 0.012) { stop = a; this.mission.send({ t: 'm_hit', dmg: W.dmg }); A.sfx.bonk && A.sfx.bonk(); this.particles.emit(ts.px, 1.3 + (ts.ground ? ts.ground(ts.px, ts.pz) : 0), ts.pz, 9, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); } }
       if (stop < len) { len = Math.max(0.5, stop); this.particles.emit(ox + fx * len, oy, oz + fz * len, 5, { color: '#cfc7b4', speed: 2.5, up: 1.5, life: 0.35, size: 0.18 }); }
     }
     let hcode = -1;

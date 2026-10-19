@@ -39,8 +39,8 @@ console.log('timeline:', r.stages.join(' '));
 ok(r.result && r.result.ok, 'a normal playthrough ends in MISSION PASSED (after ' + r.t.toFixed(0) + ' s)');
 ok(['rob', 'drive1', 'waitA', 'trunk', 'drive2', 'summit', 'ambush', 'down'].every((s, i) => r.stages[i] && r.stages[i].startsWith(s)), 'all stages run in order');
 ok(r.evs.includes('gun') && r.evs.includes('ambush') && r.evs.includes('shot') && r.evs.includes('down'), 'story events fire (gun, ambush, shot, down)');
-ok(r.hitsDone >= 5 && r.hitsDone <= 9, 'it takes 5-9 pistol hits to drop him (' + r.hitsDone + ')');
-ok(r.shots.length >= 3 && r.shots.every((q) => q.i === 1 && (q.h === 0 || q.h === 1) && Number.isFinite(q.x) && Number.isFinite(q.z)), 'he shoots at the player (' + r.shots.length + ' shots, ' + r.shots.filter((q) => q.h).length + ' hit)');
+ok(r.hitsDone >= 3 && r.hitsDone <= 6, 'it takes 3-6 pistol hits to drop him (' + r.hitsDone + ')');
+ok(r.shots.length >= 1 && r.shots.every((q) => q.i === 1 && (q.h === 0 || q.h === 1) && Number.isFinite(q.x) && Number.isFinite(q.z)), 'he shoots at the player (' + r.shots.length + ' shots, ' + r.shots.filter((q) => q.h).length + ' hit)');
 ok(r.t > 90 && r.t < 400, 'a good run takes a few minutes (' + r.t.toFixed(0) + ' s)');
 // cover: while hiding he stands behind a tree/rock (the cover is between him and the player) and cannot be hurt
 { const me = { x: 0, y: 0, z: 0, a: 0 }, dir = new ThiefDirector({ getP: () => me }); dir.start([1]); let t = 0;
@@ -52,6 +52,16 @@ ok(r.t > 90 && r.t < 400, 'a good run takes a few minutes (' + r.t.toFixed(0) + 
   ok(hid > 20 && behind / hid > 0.9, 'when hiding he is on the far side of the cover (' + behind + '/' + hid + ')');
   ok(hurtWhileHidden === 0, 'bullets do nothing while he is behind cover');
   ok(exposed > 20, 'he pops out into the open now and then (' + exposed + ' ticks)'); }
+// a real shot (the client's maths: cover blocks the bullet, a 0.7 m tube around him is a hit) must land whenever he is out in the open, from any side
+{ for (const [px, pz, name] of [[SUMMIT.x - 4, SUMMIT.z + 30, 'south'], [SUMMIT.x + 20, SUMMIT.z - 20, 'north-east'], [SUMMIT.x, SUMMIT.z - 18, 'north'], [SUMMIT.x - 14, SUMMIT.z - 9, 'close']]) {
+  const me = { x: 0, y: 0, z: 0, a: 0 }, dir = new ThiefDirector({ getP: () => me }); dir.start([1]); let t = 0;
+  while (dir.stage !== 'ambush' && t < 400) { me.x = dir.car.x - 10; me.z = dir.car.z; me.a = 256 | bits(24); dir.tick(0.1); t += 0.1; }
+  let exp = 0, land = 0, blockedN = 0;
+  for (let i = 0; i < 1500 && dir.stage === 'ambush'; i++) { me.x = px; me.z = pz; dir.tick(0.1);
+    if (dir.amb.ex > 0.5) { exp++; const th = dir.th, dx = th.x - px, dz = th.z - pz, len = Math.hypot(dx, dz), fx = dx / len, fz = dz / len; let stop = len + 1;
+      for (const cv of SUMMIT.covers) { const ax = cv.x - px, az = cv.z - pz, a2 = ax * fx + az * fz, pr = Math.abs(-ax * fz + az * fx); if (a2 > 0.3 && a2 < stop && pr < cv.r * 0.8) stop = a2 - cv.r * 0.4; }
+      if (len < stop && len > 0.8) { land++; dir.hit(1, 1); } else blockedN++; } }
+  ok(exp >= 4 && land / exp > 0.9, 'shots at the exposed thief land from the ' + name + ' (' + land + '/' + exp + ', ' + blockedN + ' blocked by cover); he ends ' + dir.stage); } }
 // the cover list sits on the flat summit
 ok(SUMMIT.covers.length >= 6 && SUMMIT.covers.every((c) => Math.hypot(c.x - SUMMIT.x, c.z - SUMMIT.z) < 16 && Math.abs(gtaH(c.x, c.z) - gtaH(SUMMIT.x, SUMMIT.z)) < 0.2), 'trees and boulders stand on the flat meadow');
 r = play('far'); ok(r.result && !r.result.ok && r.result.why === 'lost', 'nobody near for 12 s: the thief is lost');

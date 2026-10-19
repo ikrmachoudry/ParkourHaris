@@ -77,7 +77,7 @@ export class ThiefDirector {
     this.stage = 'rob'; this.st = 0; this.T = 0; this.s = 0; this.v = 0; this.veh = -1; this.trunk = 0; this.lost = 0; this.dmin = 0; this.ended = false;
     this.car = { x: c.x, z: c.z, yaw: c.yaw, v: 0, drv: 0 };
     this.th = { x: w[0], z: w[1], yaw: Math.PI, sp: 0, pose: 'idle', mode: 'foot' };   // mode: foot | car | rear
-    this.amb = { hp: 9, hpMax: 9, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.ambT = 0; this.seed = 12345; this.base = { x: 0, z: 0 };
+    this.amb = { hp: 5, hpMax: 5, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.ambT = 0; this.seed = 12345; this.base = { x: 0, z: 0 };
   }
   start(members) { this.members = [...members]; this.reset(); this.go('rob'); }
   go(stage) { this.stage = stage; this.st = 0; const k = { drive1: 'chase', waitA: 'stopA', trunk: 'trunk', drive2: 'drive2', ambush: 'ambush', down: 'down' }[stage]; if (k) this.onEv(k); }
@@ -127,7 +127,7 @@ export class ThiefDirector {
       case 'summit': {   // arrived: step out and run for cover
         c.v = 0; const t = this.st, D = this.carPt(0, 2.0);
         if (t < 0.9) { c.drv = 0; th.mode = 'foot'; th.x = D.x; th.z = D.z; th.sp = 0; th.pose = 'idle'; th.yaw = c.yaw + Math.PI / 2; }
-        else { th.mode = 'foot'; this.amb = { hp: 9, hpMax: 9, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.go('ambush'); }
+        else { th.mode = 'foot'; this.amb = { hp: 5, hpMax: 5, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.go('ambush'); }
         break;
       }
       case 'ambush': this.ambush(dt); break;
@@ -174,7 +174,8 @@ export class ThiefDirector {
       }
       case 'pop': {   // steps out sideways, raises the gun
         th.sp = 0; th.pose = 'aim'; th.yaw = angLerp(th.yaw, tgtYaw, 0.35); A.ex = Math.min(1, A.ex + dt * 3.4);
-        if (P) { const lx = Math.cos(tgtYaw), lz = -Math.sin(tgtYaw); th.x = this.base.x + lx * A.side * 1.0 * A.ex; th.z = this.base.z + lz * A.side * 1.0 * A.ex; }
+        if (P) { const lx = Math.cos(tgtYaw), lz = -Math.sin(tgtYaw); const so = SUMMIT.covers[A.cover].r + 1.1;   // steps fully out of the cover's shadow (a boulder is 1.7 m wide: the old 1 m step left him behind it, so bullets hit the rock)
+        th.x = this.base.x + lx * A.side * so * A.ex; th.z = this.base.z + lz * A.side * so * A.ex; }
         if (A.ex >= 1) { A.phase = 'shoot'; A.t = 0; }
         break;
       }
@@ -195,9 +196,11 @@ export class ThiefDirector {
       default: break;
     }
   }
+  // how much he is out in the open: sprinting between covers counts (everybody can see him), ducking behind a rock does not
+  exposure() { const A = this.amb; return !A ? 0 : A.phase === 'run' && this.stage === 'ambush' ? 1 : A.ex; }
   // a player's bullet reached him: only counts while he is out in the open; hp 9 = eight pistol hits or six from an AK-47
   hit(id, dmg) {
-    if (this.ended || this.stage !== 'ambush' || !this.amb || this.amb.ex < 0.5 || !this.members.includes(id)) return false;
+    if (this.ended || this.stage !== 'ambush' || !this.amb || this.exposure() < 0.5 || !this.members.includes(id)) return false;
     this.amb.hp -= Math.max(0.2, Math.min(2, +dmg || 1));
     if (this.amb.hp <= 0) { this.go('down'); this.th.pose = 'down'; this.th.sp = 0; return true; }
     this.onEv('hurt', { h: Math.max(0, Math.round(this.amb.hp / this.amb.hpMax * 100)) });
@@ -207,7 +210,7 @@ export class ThiefDirector {
   // what everybody needs to draw the scene
   snap() {
     const c = this.car, th = this.th, f = (v) => +v.toFixed(2);
-    return { st: this.stage, c: [f(c.x), f(c.z), +c.yaw.toFixed(3), f(c.v), c.drv], p: [f(th.x), f(th.z), +th.yaw.toFixed(3), f(th.sp), th.pose, th.mode], tr: +this.trunk.toFixed(2), veh: this.veh, d: Math.round(this.dmin), ex: +this.amb.ex.toFixed(2), hp: Math.max(0, Math.round(this.amb.hp / this.amb.hpMax * 100)) };
+    return { st: this.stage, c: [f(c.x), f(c.z), +c.yaw.toFixed(3), f(c.v), c.drv], p: [f(th.x), f(th.z), +th.yaw.toFixed(3), f(th.sp), th.pose, th.mode], tr: +this.trunk.toFixed(2), veh: this.veh, d: Math.round(this.dmin), ex: +this.exposure().toFixed(2), hp: Math.max(0, Math.round(this.amb.hp / this.amb.hpMax * 100)) };
   }
 }
 export { BANK, POLICE, CHASE, SUMMIT };
