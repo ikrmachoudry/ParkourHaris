@@ -159,8 +159,8 @@ export function buildGta(world, th, info, seed) {
   // ---- collision: blocks (a low kerb), buildings, the park fountains
   for (const bx of BLK) for (const bz of BLK) world.addSolid(bx - 23.5, 0, bz - 23.5, bx + 23.5, 0.2, bz + 23.5, { name: 'block' });
   for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2, { name: 'building' });
-  for (const [px, pz] of PARKS) world.addSolid(px - 2.6, 0.2, pz - 2.6, px + 2.6, 1.2, pz + 2.6, { name: 'fountain' });
-  roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.6, x1: px + 2.6, z0: pz - 2.6, z1: pz + 2.6, h: 1.2 }))];
+  for (const [px, pz] of PARKS) world.addSolid(px - 2.85, 0.2, pz - 2.85, px + 2.85, 1.2, pz + 2.85, { name: 'fountain' });
+  roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.85, x1: px + 2.85, z0: pz - 2.85, z1: pz + 2.85, h: 1.2 }))];
   { // landmark colliders: the repair workshop and the four houses
     const S = REPAIR.shop; world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
     for (const h of HOMES) for (const [a, b, c, d, hh] of HOME_WALLS) {   // hollow houses: real walls with door gaps (you can walk in), no solid box
@@ -203,7 +203,7 @@ export function buildGta(world, th, info, seed) {
   }
   for (const b of B) {
     wm.add(new THREE.BoxGeometry(b.w + 0.8, 0.5, b.d + 0.8), b.x, b.h + 0.25, b.z, '#4a4f5e');                 // roof slab
-    wm.add(new THREE.BoxGeometry(b.w + 0.7, 1.3, b.d + 0.7), b.x, 0.65, b.z, '#6a6470');                         // stone plinth
+    wm.add(new THREE.BoxGeometry(b.w + 0.04, 1.3, b.d + 0.04), b.x, 0.65, b.z, '#6a6470');                         // stone plinth
     wm.add(new THREE.BoxGeometry(b.w + 1.3, 0.55, b.d + 1.3), b.x, b.h - 0.3, b.z, '#ece4d3');                    // cornice
     if (b.h > 34) for (let y = 20; y < b.h - 6; y += 20) wm.add(new THREE.BoxGeometry(b.w + 0.45, 0.35, b.d + 0.45), b.x, y, b.z, '#d9d2c4');   // floor ledges
     { const rx = b.x - b.w * 0.25, rz = b.z - b.d * 0.2, ty = b.h + 0.5;                                      // rooftop water tank on legs + dish + AC boxes
@@ -238,7 +238,7 @@ export function buildGta(world, th, info, seed) {
     for (let i = 0; i < 3; i++) { for (let k = 0; k < 4; k++) wm.add(new THREE.TorusGeometry(0.42, 0.18, 8, 14), S.x + 18.5 + i * 0.1, 0.22 + k * 0.38, S.z - S.d / 2 - 1.3 - i * 1.0, '#17171a', Math.PI / 2, 0, 0); solidProp(S.x + 18.5, S.z - S.d / 2 - 1.3 - i * 1.0, 0.6, 1.6); }
     for (let i = 0; i < 3; i++) { wm.add(new THREE.CylinderGeometry(0.42, 0.42, 1.0, 12), S.x - 18 + i * 0.9, 0.75, S.z - S.d / 2 - 1.2, ['#c0392b', '#2b6cb0', '#f1c40f'][i]); solidProp(S.x - 18 + i * 0.9, S.z - S.d / 2 - 1.2, 0.45, 1.2); }
     wm.add(Bx(1.8, 1.6, 0.9), S.x - 20, 1.0, S.z - S.d / 2 - 0.6, '#c0392b'); solidProp(S.x - 20, S.z - S.d / 2 - 0.6, 0.9, 1.6);
-    for (const [dx, dz] of [[-8, -3], [8, -3], [-8, 3], [8, 3]]) wm.add(new THREE.ConeGeometry(0.28, 0.7, 10), bx + dx, 0.62, bz + dz, '#ff6a1a');
+    for (const [dx, dz] of [[-8, -3], [8, -3], [-8, 3], [8, 3]]) { wm.add(new THREE.ConeGeometry(0.28, 0.7, 10), bx + dx, 0.62, bz + dz, '#ff6a1a'); solidProp(bx + dx, bz + dz, 0.26, 0.7, 0.2); }
     plant(S.x - 21, 0.2, 14, 0.9); plant(S.x + 21, 0.2, 14, 0.9);
   }
   // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Dawood) with garage, driveway, fence, porch and garden
@@ -290,6 +290,11 @@ export function buildGta(world, th, info, seed) {
       put(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 6), 6.2, 0.8, 9.2, '#4a4f58'); put(Bx(0.55, 0.38, 0.3), 6.2, 1.45, 9.2, h.color);       // mailbox in the player's colour
       put(Bx(2.6, 0.18, 1.4), 6.6, 0.4, -8.6, '#8a5a34'); put(Bx(2.6, 0.5, 0.1), 6.6, 0.75, -9.2, '#8a5a34');                                // garden bench
       { const t1 = P(-8.3, -7.8), t2 = P(8.0, 7.6), t3 = P(8.4, -4); plant(t1.x, 0.2, t1.z, 1.0); plant(t2.x, 0.2, t2.z, 0.85); plant(t3.x, 0.2, t3.z, 0.8); }
+      // everything you can see inside and around the house is solid
+      for (const [a, b, c, d, hh] of [[3.35, 5.65, -4.4, -3.3, 1.25], [3.9, 5.1, -5.65, -4.95, 0.7], [3.6, 5.4, -6.95, -6.4, 1.9], [0.5, 3.3, -6.95, -6.2, 1.3], [-0.4, 0.4, -6.95, -6.2, 2.1],
+        [1.05, 2.15, -4.45, -3.35, 0.9], [1.35, 1.85, -5.05, -2.75, 0.8], [4.05, 5.65, -1.95, 0.15, 0.95], [-4.7, -2.1, -6.95, -6.2, 1.2], [-5.65, -5.25, -6.95, -5.3, 2.2], [-2.15, -1.25, -7.05, -6.15, 1.0],
+        [1.1, 5.7, 1.2, 3.6, 0.42], [5.6, 5.8, 3.5, 3.7, 3.4], [1.0, 1.2, 3.5, 3.7, 3.4], [0.6, 0.8, 9.35, 9.55, 3.0], [6.0, 6.2, 9.35, 9.55, 3.0], [6.1, 6.3, 9.1, 9.3, 1.7], [5.3, 7.9, -9.3, -7.9, 1.0], [2.75, 2.85, -0.3, 1.0, 2.7]]) solid(a, b, c, d, hh);
+      for (const lx of [-1.5, 0.3, 2.1]) solid(lx - 0.3, lx + 0.3, 1.6, 2.2, 0.85);
       [-1.5, 0.3, 2.1].forEach((lx, q) => { const f = P(lx, 1.9); wm.add(new THREE.SphereGeometry(0.34, 7, 6), f.x, 0.5, f.z, ['#e63946', '#f4a261', '#ff9ec7'][q]); });   // shrubs/flowers along the wall
     });
   }
@@ -297,7 +302,7 @@ export function buildGta(world, th, info, seed) {
   { const Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d), sign = (txt, bg, fg, w, h) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTexture(txt, bg, fg), toneMapped: false }));
     { const S = BANK, fz = S.z - S.d / 2;
       wm.add(Bx(44, 0.06, 20), S.x, 0.23, fz - 9, '#b9b4a8');                                        // paved forecourt (the police cars park here)
-      wm.add(Bx(S.w + 1.2, 1.2, S.d + 1.2), S.x, 0.6, S.z, '#8d8578');
+      wm.add(Bx(S.w + 0.1, 1.2, S.d + 0.1), S.x, 0.6, S.z, '#8d8578');
       wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2 + 0.02, S.z, '#e6dcc6');
       wm.add(Bx(S.w + 1.4, 0.8, S.d + 1.4), S.x, S.h + 0.4, S.z, '#4a4f5e');
       wm.add(Bx(S.w + 0.8, 0.8, S.d + 0.8), S.x, S.h - 0.5, S.z, '#f1ead8');
@@ -306,14 +311,14 @@ export function buildGta(world, th, info, seed) {
       world.glow.add(Bx(4.4, 0.18, 0.1), S.x, 6.2, fz - 0.42, '#ffe08a');
       for (let i = -3; i <= 3; i++) { const cx = S.x + i * 4.6; wm.add(new THREE.CylinderGeometry(0.62, 0.7, 10.6, 14), cx, 6.5, fz - 2.6, '#f4efe2'); wm.add(Bx(1.7, 0.45, 1.7), cx, 11.95, fz - 2.6, '#d9d2c0'); wm.add(Bx(1.6, 0.4, 1.6), cx, 1.4, fz - 2.6, '#d9d2c0'); solidProp(cx, fz - 2.6, 0.7, 11); }
       wm.add(Bx(33.6, 1.1, 6.2), S.x, 12.7, fz - 2.8, '#f1ead8'); wm.add(Bx(34.2, 0.5, 6.6), S.x, 13.5, fz - 2.8, '#4a4f5e');
-      wm.add(Bx(31, 0.3, 4.6), S.x, 0.35, fz - 3.6, '#a8a294'); wm.add(Bx(27, 0.3, 3.4), S.x, 0.55, fz - 3.0, '#bdb7a8');   // steps
+      wm.add(Bx(31, 0.1, 4.6), S.x, 0.25, fz - 3.6, '#a8a294'); wm.add(Bx(27, 0.1, 3.4), S.x, 0.29, fz - 3.0, '#bdb7a8'); world.addSolid(S.x - 15.5, 0, fz - 5.9, S.x + 15.5, 0.3, fz - 1.3, { name: 'step' }); world.addSolid(S.x - 13.5, 0, fz - 4.7, S.x + 13.5, 0.34, fz - 1.3, { name: 'step' });   // steps (walkable)
       wm.add(Bx(20.4, 4.4, 0.3), S.x, 16.3, fz - 0.4, '#14304f');                                             // name board on the roof
       const sg = sign('CITY BANK', '#14304f', '#ffd23f', 19.6, 3.9); sg.position.set(S.x, 16.3, fz - 0.58); sg.rotation.y = Math.PI; world.group.add(sg);
       wm.add(new THREE.CylinderGeometry(0.1, 0.12, 6, 8), S.x + 14.5, 18.4, fz + 3, '#c9d1d9'); wm.add(Bx(2.6, 1.6, 0.06), S.x + 15.9, 20.6, fz + 3, '#1c7c3c');
     }
     { const S = POLICE, fz = S.z + S.d / 2;
       wm.add(Bx(44, 0.06, 24), S.x, 0.23, fz + 10.5, '#8e939c');                                       // forecourt with the delivery ring
-      wm.add(Bx(S.w + 1.2, 1.0, S.d + 1.2), S.x, 0.5, S.z, '#6a7280');
+      wm.add(Bx(S.w + 0.1, 1.0, S.d + 0.1), S.x, 0.5, S.z, '#6a7280');
       wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2 + 0.02, S.z, '#cdd6e6');
       wm.add(Bx(S.w + 0.3, 1.5, S.d + 0.3), S.x, 9.4, S.z, '#1f3f8a');
       wm.add(Bx(S.w + 1.4, 0.8, S.d + 1.4), S.x, S.h + 0.4, S.z, '#3b4254');
@@ -343,6 +348,8 @@ export function buildGta(world, th, info, seed) {
     world.glow.add(Bx(2.4, 0.06, 0.6), L.x - 4, 3.9, L.z, '#fff4cf'); world.glow.add(Bx(2.4, 0.06, 0.6), L.x + 4, 3.9, L.z, '#fff4cf'); world.glow.add(Bx(2.4, 0.06, 0.6), L.x, 3.9, L.z - 2.5, '#fff4cf');
     wm.add(Bx(5, 0.9, 0.7), L.x, 0.7, L.z - 4.5, '#3a2f55'); wm.add(Bx(5.2, 0.08, 0.8), L.x, 1.2, L.z - 4.5, '#a855f7');                       // reception desk
     for (const sx of [-5.5, 5.5]) { wm.add(Bx(1.6, 0.4, 3), L.x + sx, 0.5, L.z + 0.5, '#5b4a8a'); wm.add(Bx(0.3, 0.8, 3), L.x + sx + Math.sign(sx) * 0.7, 0.8, L.z + 0.5, '#4a3b77'); }   // benches
+    world.addSolid(L.x - 2.6, 0.2, L.z - 4.9, L.x + 2.6, 1.25, L.z - 4.1, { name: 'prop' });
+    for (const sx of [-5.5, 5.5]) world.addSolid(L.x + sx - 1.0, 0.2, L.z - 1.0, L.x + sx + 1.0, 1.2, L.z + 2.0, { name: 'prop' });
     // stunt course: start line + lane marks, finish gate
     const S = STUNT; wm.add(Bx(0.6, 0.02, 14), S.startX - 4, 0.05, 0, '#ffffff'); for (const z of S.lanes) wm.add(Bx(5, 0.02, 0.15), S.startX - 1.5, 0.05, z + 1.5, '#ffd23f');
     for (const pz of [-7.5, 7.5]) wm.add(Bx(0.6, 6, 0.6), S.finishX, 3, pz, '#d62828');

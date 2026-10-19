@@ -182,7 +182,7 @@ export class GlbActor extends HeroActor {
     const ce = CLIP_FOR[this.pose], clip = ce && CLIPS && rt.Qm && CLIPS.clips[ce.c];
     if (clip) {
       const sp = st.speed || 0; let fi;
-      if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 11 - t * 6.5 : 11 - t * 7)); }   // jump: rising -> apex -> falling, driven by the real vertical speed
+      if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 6 - t * 2.5 : 6 - t * 1.0)); }   // only the first leg lift of the clip (frames 3-7): the clip's second leg swing (8-19) read as a double jump   // jump: rising -> apex -> falling, driven by the real vertical speed
       else if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
       else { this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1); fi = (this.ct / clip.dur) % 1 * clip.n; }
       const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
