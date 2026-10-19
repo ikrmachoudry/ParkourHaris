@@ -7,6 +7,7 @@ import { buildHeroBike, BIKE_KINDS } from './hbike.js';
 import { cityVeh } from './cityveh.js';
 import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
+import { buildTruck, TRUCK } from './htruck.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const camPos = new THREE.Vector3(1e6, 0, 0);
@@ -54,9 +55,9 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
-const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92], tractor: [buildTractor, TRACTOR, 0.8, 0.96] };   // builder, size, seat height of the rider's origin, rider scale
+const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
-  const [build, RICK, seatY, seatS] = MODELS[spec.model];
+  const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];
   const full = bakedOnly ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
   const bk = build({ paint: spec.paint, detail: 'lo' }), baked = bakeCar(bk.group);
   const g = new THREE.Group(), rot = new THREE.Group();
@@ -65,7 +66,7 @@ function buildRickMesh(spec, lo, bakedOnly) {
   sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
   g.userData = {
     hero: full || bk, spec, baked, bakedOnly, full: full ? full.group : baked, wheels: [], pivots: [], seat: { z: RICK.seatX, y: 0.8 },
-    seatF: RICK.seatX, seatR: 0, seatY, seatS, lamp: null,
+    seatF: RICK.seatX, seatR, seatY, seatS, lamp: null,
     ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
   };
   return g;
