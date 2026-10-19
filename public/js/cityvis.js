@@ -1,5 +1,6 @@
 // Visual side of the city vehicles: wraps a procedural hero car (hcar.js) so it behaves like the old arcade car meshes
 // (position + yaw on the outer group, userData.seat for the driver) and adds suspension roll / pitch, wheel spin, door animation.
+import { syncDamage, applySag } from './cardamage.js';
 import * as THREE from 'three';
 import { buildHeroCar, CAR_STYLES } from './hcar.js';
 import { buildHeroBike, BIKE_KINDS } from './hbike.js';
@@ -75,11 +76,12 @@ export function buildCityMesh(id, lo = false, bakedOnly = false) {
 // per-frame: wheels, steering, body roll / pitch, driver door
 export function animateCityMesh(mesh, st, dt) {
   const u = mesh.userData, car = u.hero, spec = u.spec;
+  const sag = (st.dmg || u.dmKey) ? syncDamage(mesh, st) : null;   // bullet holes, cracked glass, flat tyres
   { // level of detail: the full animated car near the camera or when somebody is inside, the merged baked copy far away
     const dx = mesh.position.x - camPos.x, dz = mesh.position.z - camPos.z, d2 = dx * dx + dz * dz;
     const near = !u.bakedOnly && (st.driver !== -1 || d2 < (u.near ? 26 * 26 : 19 * 19));
     if (near !== !!u.near || u.near === undefined) { u.near = near; u.full.visible = near; u.baked.visible = !near; }
-    if (!near) { mesh.rotation.z = 0; mesh.rotation.x = -(st.pitch || 0); return; }
+    if (!near) { mesh.rotation.z = 0; mesh.rotation.x = -(st.pitch || 0); applySag(mesh, sag); return; }
   }
   const spd = st.speed || 0;
   // yaw rate (remote cars have none): from the change of heading
@@ -101,7 +103,7 @@ export function animateCityMesh(mesh, st, dt) {
   car.steer(-(st.steer || 0) * dMax);
   u.roll += (clamp(ay * 0.0065, -0.075, 0.075) - u.roll) * Math.min(1, dt * 9);
   u.pit += (clamp(-ax * 0.0042, -0.05, 0.05) - u.pit) * Math.min(1, dt * 9);
-  mesh.rotation.z = u.roll; mesh.rotation.x = -(st.pitch || 0) + u.pit;
+  mesh.rotation.z = u.roll; mesh.rotation.x = -(st.pitch || 0) + u.pit; applySag(mesh, sag);
   // doors: driver door swings open when somebody gets in / out, then shuts
   if (st.driver !== u.lastDrv) { u.lastDrv = st.driver; u.doorT = 0; }
   u.doorT += dt;

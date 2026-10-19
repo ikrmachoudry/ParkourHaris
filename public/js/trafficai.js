@@ -11,6 +11,7 @@
 //   - an abandoned car stays where it is for a while, then disappears and a new one rejoins the traffic far away from you.
 // Multiplayer: the room host runs this AI and streams every car (snapshot); the others are 'puppets' (puppet = true) that only follow the stream,
 // so everybody sees the same cars stopping, honking, being jacked. Other players are treated like people / cars in the lane, but are never affected.
+import { syncDamage, applySag } from './cardamage.js';
 import { TRAFFIC, trafficPos } from './gta.js';
 
 const MODES = ['drive', 'abandoned', 'struggle', 'gone'];
@@ -66,12 +67,12 @@ export class TrafficAI {
       }
       c.tau += dt * c.v / L.sp;
       const p = trafficPos(L, c.k, c.tau); st.x = p.x; st.z = p.z; st.yaw = p.yaw; const k = L.sp ? c.v / L.sp : 0; st.vx = p.vx * k; st.vz = p.vz * k; st.speed = c.v;
-      if (c.m) { c.m.visible = c.vis; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; }
+      if (c.m) { c.m.visible = c.vis; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
     }
   }
   // ---- multiplayer stream. entry: [tau, v, mode, vis]
-  snapshot() { const r = (v, n) => Math.round(v * n) / n; return this.cars.map((c) => [r(c.tau, 1000), r(c.v, 100), MODES.indexOf(c.mode), c.vis ? 1 : 0]); }
-  applySnap(d) { const now = performance.now(); for (let i = 0; i < d.length && i < this.cars.length; i++) { const c = this.cars[i], e = d[i]; c.net = e; c.netAt = now; } }
+  snapshot() { const r = (v, n) => Math.round(v * n) / n; return this.cars.map((c) => { const e = [r(c.tau, 1000), r(c.v, 100), MODES.indexOf(c.mode), c.vis ? 1 : 0]; if (c.st.dmg && c.st.dmg.length) e.push(c.st.dmg); return e; }); }
+  applySnap(d) { const now = performance.now(); for (let i = 0; i < d.length && i < this.cars.length; i++) { const c = this.cars[i], e = d[i]; c.net = e; c.netAt = now; c.st.dmg = Array.isArray(e[4]) ? e[4].slice(0, 14) : undefined; } }
   puppetStep(c, dt, t) {
     const e = c.net, L = c.L; if (c.tau === 0 && !c.init) { c.tau = t; c.init = true; }
     if (e) {
@@ -80,7 +81,7 @@ export class TrafficAI {
     }
     if (c.mode !== 'gone') c.tau += dt * c.v / L.sp;
     const st = c.st, p = trafficPos(L, c.k, c.tau); st.x = c.mode === 'gone' ? 1e5 : p.x; st.z = c.mode === 'gone' ? 1e5 : p.z; st.yaw = p.yaw; const k = L.sp ? c.v / L.sp : 0; st.vx = p.vx * k; st.vz = p.vz * k; st.speed = c.v;
-    if (c.m) { c.m.visible = c.vis && c.mode !== 'gone'; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; }
+    if (c.m) { c.m.visible = c.vis && c.mode !== 'gone'; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
   }
   // the traffic car a person on foot can jack right now: stopped (or crawling) and next to him
   nearestJack(x, z) {

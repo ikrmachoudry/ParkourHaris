@@ -19,6 +19,7 @@ import { MissionClient } from './missionui.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
 import { bodyHalf } from './hitbox.js';
+import { hitCode, addHit } from './cardamage.js';
 import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
@@ -140,7 +141,8 @@ class Stage {
   update(dt) {
     this.t += dt;
     const cam = this.camera;
-    cam.position.set(Math.sin(this.t * 0.25) * 1.8, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(0, 1.9, 0);
+    this.camX = lerp(this.camX === undefined ? 0 : this.camX, this.mode === 'title' && cam.aspect > 1.2 ? 2.3 : 0, Math.min(1, dt * 3));   // on the title page the menu buttons sit on the right: slide the whole podium to the left so nobody hides behind them
+    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);
     this.sky.position.copy(cam.position);
     this.water.material.uniforms.time.value = this.t;
     this.chars.forEach((o, i) => {
@@ -870,7 +872,8 @@ class Race {
       case 'al': this.peds.alarm(+m.x, +m.z, Math.min(40, +m.r || 14), null, !!m.g); break;
       case 'pu': this.peds.punch(+m.x, +m.z, +m.fx, +m.fz, quiet, Math.min(3, +m.dmg || 1), Math.min(3, +m.reach || 1.85), Number.isInteger(m.i) ? m.i : -1); break;
       case 'ki': { const p = this.peds.byIndex(m.i | 0); if (p) this.peds.kick(p, +m.fx, +m.fz, quiet); break; }
-      case 'sh': { this.peds.shoot(+m.ox, +m.oz, +m.fx, +m.fz, Math.min(80, +m.range || 40), Math.min(2, +m.dmg || 1), quiet, Number.isInteger(m.i) ? m.i : -1); const c = this.tai && this.tai.cars[m.c | 0]; if (c && m.c >= 0) this.tai.hit(c); break; }
+      case 'sh': { this.peds.shoot(+m.ox, +m.oz, +m.fx, +m.fz, Math.min(80, +m.range || 40), Math.min(2, +m.dmg || 1), quiet, Number.isInteger(m.i) ? m.i : -1); const c = this.tai && this.tai.cars[m.c | 0]; if (c && m.c >= 0) { this.tai.hit(c); if (Number.isInteger(m.d) && m.d >= 0 && m.d < 16384) addHit(c.st, m.d); } break; }
+      case 'cd': { const c = this.tai && this.tai.cars[m.c | 0]; if (c && Number.isInteger(m.d) && m.d >= 0 && m.d < 16384) { this.tai.hit(c); addHit(c.st, m.d); } break; }
       case 'tj': { const c = this.tai.cars[m.c | 0]; if (c && c.mode === 'drive') this.tai.begin(c); break; }
       case 'tk': { const c = this.tai.cars[m.c | 0]; if (!c || c.mode === 'gone') break; this.tai.take(c); if (!m.e) { const p = this.peds.adopt(+m.x, +m.z, +m.yaw, !!m.b, 'fly', m.l | 0); p.vx = +m.vx || 0; p.vz = +m.vz || 0; this.peds.alarm(+m.x, +m.z, 22, p, true); } break; }
       case 'ai': this.remoteAims.set(m.from, { x: +m.x, z: +m.z, dx: +m.dx, dz: +m.dz, at: performance.now() }); break;
@@ -934,7 +937,7 @@ class Race {
     if (j.empty) this.evt({ k: 'tk', c: this.tai.cars.indexOf(c), e: 1 });
     // the traffic car becomes a real, drivable (and sellable) car at the same place
     const id = st.id, mesh = buildCarMesh(id, IS_TOUCH), bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; mesh.position.set(st.x, 0, st.z); mesh.rotation.y = st.yaw; this.scene.add(mesh);
-    const st2 = newCar(id, st.x, st.z, st.yaw); st2.y = 0; if (bh) { st2.hl = Math.max(st2.hl || 0, bh.hl - 0.03); st2.hw = Math.max(st2.hw || 0, bh.hw - 0.03); } st2.local = true; st2.stolen = true; st2.driver = -1; st2.parked = true;
+    const st2 = newCar(id, st.x, st.z, st.yaw); st2.y = 0; if (bh) { st2.hl = Math.max(st2.hl || 0, bh.hl - 0.03); st2.hw = Math.max(st2.hw || 0, bh.hw - 0.03); } st2.local = true; st2.stolen = true; if (st.dmg) st2.dmg = st.dmg.slice(); st2.driver = -1; st2.parked = true;
     const car = { st: st2, mesh, local: true }; this.cars.push(car); this.tai.take(c);
     this.toggleCar();
   }
@@ -957,6 +960,20 @@ class Race {
     if (this.fireHeld && this.weapon === 'ak') this.fire();
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
   }
+  // the sounds and sparks of a hit on a car: glass, tyre or body (code from cardamage.hitCode)
+  carHitFx(code, x, z) {
+    const zone = code & 3, d = Math.hypot(x - this.camera.position.x, z - this.camera.position.z), v = Math.max(0.25, 1 - d / 60);
+    if (zone === 0) A.sfx.glass(v); else if (zone === 2) A.sfx.hiss(v); else A.sfx.metal(v);
+    this.particles.emit(x, zone === 2 ? 0.3 : 1.0, z, zone === 0 ? 9 : 6, { color: zone === 0 ? '#dff4ff' : '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.14 });
+  }
+  // a swing with the bat at a car in front of me: cracks glass or dents the body
+  batCar(b, fx, fz) {
+    const reach = 2.7, cand = []; if (this.tai) for (const c of this.tai.cars) if (c.mode !== 'gone' && c.vis) cand.push({ c, st: c.st, tai: true }); for (const c of this.cars) if (c !== this.drive && c.st.hl) cand.push({ c, st: c.st, tai: false });
+    for (const q of cand) { const st = q.st, dx = st.x - b.x, dz = st.z - b.z; if (dx * dx + dz * dz > 49) continue;
+      for (let d = 0.8; d <= reach; d += 0.15) { const px = b.x + fx * d, pz = b.z + fz * d, rx = px - st.x, rz = pz - st.z, f = Math.sin(st.yaw), g = Math.cos(st.yaw), lz = rx * f + rz * g, lx = -rx * g + rz * f;
+        if (Math.abs(lz) < (st.hl || 2.3) + 0.1 && Math.abs(lx) < (st.hw || 1) + 0.1) { const zone = Math.random() < 0.6 ? 0 : 3, code = hitCode(st, px, pz, zone === 0 ? 1.2 : 0.65, zone); if (q.tai) { this.tai.hit(q.c); const ix = this.tai.cars.indexOf(q.c); if (this.multi && !this.simHost) this.evt({ k: 'cd', c: ix, d: code }); else addHit(st, code); } else addHit(st, code); this.carHitFx(code, px, pz); return true; } } }
+    return false;
+  }
   fire() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
     if (this.fireCd > 0 || this.reloadT > 0) return false;
@@ -970,12 +987,23 @@ class Race {
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
-    if (this.tai) for (const c of this.tai.cars) { if (c.mode === 'gone' || !c.vis) continue; const dx = c.st.x - ox, dz = c.st.z - oz, a = dx * fx + dz * fz; if (a < 1 || a > len || Math.abs(-dx * fz + dz * fx) > 1.4) continue; len = a; this.tai.hit(c); hc = this.tai.cars.indexOf(c); this.particles.emit(ox + fx * a, 0.9, oz + fz * a, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.25, size: 0.15 }); }
+    let hcode = -1;
+    { // cars: the box of the car decides if the bullet meets it (nearest first); the aim height decides WHAT it hits: low = a tyre, high = glass, between = the body
+      const drop = (this.camPitch - (NO_TEXT ? 0.17 : 0.34)) * 0.9, hAt = (a) => Math.max(0.1, Math.min(2, oy - drop * a));
+      const hitBox = (st, dd) => { const dx = ox + fx * dd - st.x, dz = oz + fz * dd - st.z, f = Math.sin(st.yaw), g = Math.cos(st.yaw), lz = dx * f + dz * g, lx = -dx * g + dz * f; return Math.abs(lz) < (st.hl || 2.3) + 0.05 && Math.abs(lx) < (st.hw || 1) + 0.05; };
+      const test = (st) => { const dx = st.x - ox, dz = st.z - oz, a0 = dx * fx + dz * fz; if (a0 < 0.5 || a0 - 3.5 > len || Math.abs(-dx * fz + dz * fx) > 3.2) return -1; for (let dd = Math.max(0.3, a0 - 3.4); dd < Math.min(len, a0 + 0.2); dd += 0.12) if (hitBox(st, dd)) return dd; return -1; };
+      let best = null, bd = len;
+      if (this.tai) for (const c of this.tai.cars) { if (c.mode === 'gone' || !c.vis) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: true }; } }
+      for (const c of this.cars) { if (c === this.drive || !c.st.hl) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: false }; } }
+      if (best) { len = bd; const st = best.c.st, code = hitCode(st, ox + fx * bd, oz + fz * bd, hAt(bd)); hcode = code;
+        if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else addHit(st, code);
+        this.carHitFx(code, ox + fx * bd, oz + fz * bd); }
+    }
     // tracer + muzzle flash + bang
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
     this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'ak' ? 0.07 : 0.05);
     w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
-    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt }); }
+    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
   }
   // ---- the weapon store: step on the pad inside
@@ -1036,6 +1064,7 @@ class Race {
     if (this.kickK && this.peds) { const t = this.peds.downed(b.x, b.z, fx, fz); if (t) { this.evt({ k: 'ki', i: t.i, fx: +fx.toFixed(3), fz: +fz.toFixed(3) }); this.peds.kick(t, fx, fz, (p) => { this.earn(PAY.hit); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.12); this.particles.emit(p.x, 0.4, p.z, 12, { color: '#ffffff', speed: 3, up: 1.5, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 0.4, p.z, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.2 }); }); return; } }
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
     if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); A.sfx.bonk(); this.particles.emit(p.x, 1.2, p.z, 10, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
+    if (BW && this.batCar(b, fx, fz)) return;
     for (const r of this.remotes.values()) {
       if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
@@ -1412,7 +1441,7 @@ function leaveToTitle() {
   if (race) { race.destroy(); race = null; }
   if (app.net && app.room) { app.net.send({ t: 'leave' }); }
   app.room = null; exitLock();
-  stage.setTitle(); show('title');
+  stage.setTitle(); show('title'); A.initAudio(); A.startMusic(99);
 }
 
 // ---- multiplayer
@@ -1629,9 +1658,19 @@ async function boot() {
 
   $('b-single').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('single'); };
   $('b-multi').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('multi'); };
-  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.add('active'); };
-  $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); };
+  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
+  $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
+  $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
+  $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
+  // volume sliders (title settings + pause menu): music and sound effects, remembered between visits
+  { const V = A.getVolumes(), sl = (cls, v) => document.querySelectorAll(cls).forEach((e) => { e.value = Math.round(v * 100); });
+    sl('.vol-m', V.music); sl('.vol-s', V.sfx);
+    document.querySelectorAll('.vol-m').forEach((e) => { e.oninput = () => { A.initAudio(); A.setMusicVolume(e.value / 100); sl('.vol-m', e.value / 100); }; });
+    document.querySelectorAll('.vol-s').forEach((e) => { e.oninput = () => { A.initAudio(); A.setSfxVolume(e.value / 100); sl('.vol-s', e.value / 100); }; e.onchange = () => A.sfx.shot(0, 0.5); }); }
+  // music on the title page: start loading at once; browsers only let sound play after the first tap / key, so unlock on it
+  A.initAudio(); A.startMusic(99);
+  { const un = () => { A.initAudio(); if (!app.screen || app.screen === 'title' || app.screen === 'profile') A.startMusic(99); for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, un, true); }; for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, un, true); }
   $('b-profile-back').onclick = () => { A.sfx.back(); stage.setTitle(); show('title'); };
   $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };

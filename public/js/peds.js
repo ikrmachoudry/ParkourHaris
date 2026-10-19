@@ -65,8 +65,8 @@ export class Peds {
         p.vy -= 9.81 * dt; if (this.step(p, p.vx * dt, p.vz * dt) === 2) { p.vx = p.vz = 0; } p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
         if (p.y <= 0) { p.y = 0; p.vx *= 0.3; p.vz *= 0.3; if (Math.abs(p.vy) > 1.5) p.vy = -p.vy * 0.25; else { p.vy = 0; p.st = 'lie'; p.wait = 0; } }
         p.lie = Math.min(1, p.lie + dt * 4);
-      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { if (this.step(p, p.vx * dt, p.vz * dt) === 2) p.vx = p.vz = 0; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
-      else if (p.st === 'gone') { if (p.temp) { p.dead = true; continue; } p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
+      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { if (this.step(p, p.vx * dt, p.vz * dt) === 2) p.vx = p.vz = 0; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.hp > 0 && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > (p.hp <= 0 ? 40 : 5)) { p.st = 'gone'; p.wait = 0; } }
+      else if (p.st === 'gone') { if (p.temp) { p.dead = true; continue; } p.wait += dt; if (p.wait > (p.hp <= 0 ? 50 : 6)) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
       const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
       if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
       if (!p.actor) { p.actor = new HeroActor(p.i, p.look); this.scene.add(p.actor.group); }
@@ -162,9 +162,9 @@ export class Peds {
     for (const p of this.list) {
       if (only >= 0 && p.i !== only) continue;
       if (only < 0 && (!p.actor || !p.actor.group.visible)) continue;
-      if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie') continue;
+      if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie') continue; if (p.hp <= 0) continue;   // a body stays a body
       const dx = p.x - ox, dz = p.z - oz, a = dx * fx + dz * fz; if (only < 0 && (a < 0.3 || a > bd)) continue;
-      if (only < 0 && Math.abs(-dx * fz + dz * fx) > 0.55) continue; if (only >= 0 && dx * dx + dz * dz > (range + 6) * (range + 6)) continue;
+      if (only < 0 && Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (only >= 0 && dx * dx + dz * dz > (range + 6) * (range + 6)) continue;
       bd = a; best = p;
     }
     this.alarm(ox, oz, 32, best, true);

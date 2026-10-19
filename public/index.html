@@ -29,14 +29,14 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v48</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v49</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
       <button class="btn big pink" id="b-multi"><b>MULTIPLAYER</b><small>Play with friends online</small></button>
       <div class="row">
         <button class="btn blue" id="b-help">HOW TO PLAY</button>
-        <button class="btn purple" id="b-sound">SOUND: ON</button>
+        <button class="btn purple" id="b-settings">&#9881; SETTINGS</button>
       </div>
     </div>
     <div class="made">&copy; HARIS &bull; Punjabi GTA</div>
@@ -170,6 +170,18 @@
     </div>
   </section>
 
+  <!-- ============ SETTINGS ============ -->
+  <section id="s-settings" class="screen panel-screen hidden">
+    <div class="panel">
+      <h2>Settings</h2>
+      <div class="vols">
+        <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
+        <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
+      </div>
+      <div class="row end"><button class="btn purple" id="b-sound">SOUND: ON</button><button class="btn green" id="b-settings-close">DONE</button></div>
+    </div>
+  </section>
+
   <!-- ============ HELP ============ -->
   <section id="s-help" class="screen panel-screen hidden">
     <div class="panel">
@@ -199,6 +211,10 @@
         <button class="btn blue" id="p-full">FULLSCREEN</button>
         <button class="btn pink" id="p-retry">RESTART</button>
         <button class="btn grey" id="p-gfx">GFX: AUTO</button>
+      </div>
+      <div class="vols">
+        <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
+        <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
       </div>
       <ul class="help pkeys">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>

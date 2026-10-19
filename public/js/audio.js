@@ -1,5 +1,8 @@
 // All sounds are synthesised with WebAudio (no files to download -> instant load, zero lag).
 let ctx = null, master = null, sfxG = null, musG = null, noiseBuf = null;
+let sfxVol = 1, musVol = 1, revIn = null;
+try { const v = JSON.parse(localStorage.getItem('pgta_vol') || 'null'); if (v) { sfxVol = Math.max(0, Math.min(1, +v.s)); musVol = Math.max(0, Math.min(1, +v.m)); if (!isFinite(sfxVol)) sfxVol = 1; if (!isFinite(musVol)) musVol = 1; } } catch (e) { /* defaults */ }
+const MUS = 0.22, SFX = 0.7;
 let muted = false, musicOn = true, timer = null, musicState = null;
 
 export function initAudio() {
@@ -9,8 +12,12 @@ export function initAudio() {
   ctx = new AC();
   setTimeout(loadBank, 0);
   master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ctx.destination);
-  sfxG = ctx.createGain(); sfxG.gain.value = 0.7; sfxG.connect(master);
-  musG = ctx.createGain(); musG.gain.value = 0.22; musG.connect(master);
+  sfxG = ctx.createGain(); sfxG.gain.value = SFX * sfxVol; sfxG.connect(master);
+  musG = ctx.createGain(); musG.gain.value = MUS * musVol; musG.connect(master);
+  { // a short room tail for the gunshots: decaying noise impulse
+    const sr = ctx.sampleRate, n = Math.floor(sr * 0.7), ib = ctx.createBuffer(2, n, sr);
+    for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.2); }
+    const cv = ctx.createConvolver(); cv.buffer = ib; revIn = ctx.createGain(); revIn.gain.value = 1; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; revIn.connect(cv); cv.connect(lp); lp.connect(sfxG); }
   const len = ctx.sampleRate;
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
@@ -42,7 +49,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain'];
+const SAMPLES = ['glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain'];
 const bank = {};
 let bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
 function decode(url, cb) {
@@ -55,17 +62,19 @@ function loadBank() {
   for (const n of SAMPLES) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; });
 }
 // play a recorded sample. pan -1..1 (a far-away sound is quieter and duller)
-export function play(name, vol = 1, rate = 1, delay = 0, pan = 0) {
+export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 0) {
   const b = bank[name]; if (!ctx || !b) return false;
   const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
   const g = ctx.createGain(); g.gain.value = vol; let n = g;
-  s.connect(g);
+  if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; s.connect(f); f.connect(g); } else s.connect(g);
+  if (rev && revIn) { const r = ctx.createGain(); r.gain.value = rev; g.connect(r); r.connect(revIn); }
   if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); n = p; }
   n.connect(sfxG); s.start(ctx.currentTime + delay); return true;
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot: a little pitch variation so that full-auto does not sound like one looped file
-const shotS = (name, vol, rate) => play(name, vol, rate * rnd(0.94, 1.06));
+// a gunshot = the sharp crack + a low, lowpassed body (the chest thump) + a short room tail; a little random detune so full auto does not sound like one looped file
+const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
 export const voice = {
   scream(vol = 0.8) { return play(pick(['scream1', 'scream2']), vol, rnd(0.92, 1.3)); },
   death(vol = 0.9) { return play('death', vol, rnd(0.9, 1.1)); },
@@ -87,8 +96,11 @@ export const sfx = {
   swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); } },
   cash() { tone('triangle', 988, 1480, 0.08, 0.22); tone('triangle', 1480, 1976, 0.14, 0.18, 0.07); },
   empty() { tone('square', 1400, 1000, 0.025, 0.1); },
-  shot(pan = 0, vol = 1) { if (shotS('pistol', 0.9 * vol, 1)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
-  akShot(pan = 0, vol = 1) { if (shotS('ak', 1 * vol, 0.9)) return; sfx.shot(); },
+  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.8 * vol, 0.92, 0.78, 900, 0.75, 0.45)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
+  akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 0.95 * vol, 0.84, 0.7, 700, 0.6, 0.4)) return; sfx.shot(); },
+  glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
+  metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },
+  hiss(v = 1) { noise(0.7, 0.22 * v, 'highpass', 3500, 2200, 0, 0.7); play('metal1', 0.4 * v, 0.7); },
   bonk() { if (play(pick(['hit1', 'hit2']), 0.95, rnd(0.92, 1.08))) return; tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
   hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
   door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
@@ -198,8 +210,12 @@ export function startMusic(levelIdx) {
   tick();
 }
 export function stopMusic() { if (timer) clearInterval(timer); timer = null; musicState = null; menuStop(); }
-export function setMusicVolume(v) { if (musG) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.1); }
-export function duckMusic(d) { if (musG) musG.gain.setTargetAtTime(d ? 0.08 : 0.22, ctx.currentTime, 0.2); }
+let ducked = false;
+const saveVol = () => { try { localStorage.setItem('pgta_vol', JSON.stringify({ s: sfxVol, m: musVol })); } catch (e) { /* private window */ } };
+export function setMusicVolume(v) { musVol = Math.max(0, Math.min(1, v)); saveVol(); if (musG) musG.gain.setTargetAtTime(MUS * musVol * (ducked ? 0.36 : 1), ctx.currentTime, 0.05); }
+export function setSfxVolume(v) { sfxVol = Math.max(0, Math.min(1, v)); saveVol(); if (sfxG) sfxG.gain.setTargetAtTime(SFX * sfxVol, ctx.currentTime, 0.05); }
+export const getVolumes = () => ({ music: musVol, sfx: sfxVol });
+export function duckMusic(d) { ducked = !!d; if (musG) musG.gain.setTargetAtTime(MUS * musVol * (d ? 0.36 : 1), ctx.currentTime, 0.2); }
 export const audioReady = () => !!ctx;
 
 // ---- car engine: two detuned saw oscillators + low-pass, pitch follows speed
