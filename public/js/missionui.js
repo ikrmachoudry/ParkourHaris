@@ -36,7 +36,7 @@ export class MissionClient {
     const id = this.race.localId, h = this.hub;
     if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0);
   }
-  pressStart() { if (this.phase === 'idle' && this.lobby.in.length >= this.lobby.total && this.lobby.total > 0) { this.send({ t: 'm_start' }); if (this.relock) this.relock(); } }
+  pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
   localP() {
     const R = this.race, b = R.me.body, d = R.drive, st = d && d.st;
@@ -197,8 +197,8 @@ export class MissionClient {
       for (const b of document.querySelectorAll('#m-pick button')) b.classList.toggle('on', b.dataset.m === mi); }
     const all = this.race.multi ? this.race.players : [{ id: this.race.localId, name: this.race.me.name, char: this.race.me.char }];
     el.innerHTML = all.map((p) => `<div class="m-p ${this.lobby.in.includes(p.id) ? 'in' : ''}"><i style="background:${CHARACTERS[p.char].color}"></i><b>${String(p.name).replace(/[<>&]/g, '')}</b><span>${this.lobby.in.includes(p.id) ? 'READY' : 'WAITING'}</span></div>`).join('');
-    const ready = this.lobby.in.length >= this.lobby.total && this.lobby.total > 0, st = $('m-start');
-    if (st) { st.disabled = !ready; st.textContent = ready ? 'START MISSION' : 'WAITING FOR EVERYBODY (' + this.lobby.in.length + '/' + this.lobby.total + ')'; }
+    const ready = this.lobby.in.includes(this.race.localId), st = $('m-start');
+    if (st) { st.disabled = !ready; st.textContent = ready ? 'START MISSION' + (this.lobby.in.length > 1 ? ' (' + this.lobby.in.length + ' PLAYERS)' : ' (SOLO)') : 'STEP ON THE PAD'; }
   }
   big(txt, ms, col) { const e = $('m-big'); if (!e) return; e.textContent = txt; e.style.color = col || '#fff'; e.classList.remove('pop'); void e.offsetWidth; if (txt) e.classList.add('pop'); clearTimeout(this.bigT); if (ms && txt) this.bigT = setTimeout(() => { e.textContent = ''; }, ms); }
   sub(txt, ms) { const e = $('m-sub'); if (!e) return; e.textContent = txt; clearTimeout(this.subT); if (ms && txt) this.subT = setTimeout(() => { e.textContent = ''; }, ms); }

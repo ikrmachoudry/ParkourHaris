@@ -5,8 +5,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = []; const h = new MissionHub((m) => log.push(m)); const all = ['a', 'b'];
 const last = (t) => [...log].reverse().find((m) => m.t === t);
 h.lobby('a', true, all); ok(last('m_lobby').in.length === 1 && last('m_lobby').total === 2, 'lobby shows 1 of 2 on the pad');
-ok(!h.start('a', all), 'cannot start until everybody is on the pad');
-h.lobby('b', true, all); ok(h.start('b', all), 'anybody can start once everybody is on the pad');
+{ const X = []; const x = new MissionHub((m) => X.push(m)); x.lobby('a', true, all); ok(x.start('a', all) && x.members.length === 1 && x.members[0] === 'a', 'a player who does not enter the lobby is NOT dragged into the mission (he keeps playing in the city)'); ok(!x.start('b', all), 'and cannot start it without stepping on the pad'); x.reset(); }
+h.lobby('b', true, all); ok(h.start('b', all), 'two players on the pad start together');
 ok(last('m_go').members.length === 2 && last('m_go').members[1].seat === 1 && last('m_go').round === 1, 'm_go seats everybody');
 await wait(BRIEF_MS + 150); ok(h.phase === 'run' && !!last('m_run'), 'countdown ends: run');
 h.result('a', true, '', 1); ok(h.phase === 'run' && last('m_st').res.a === true, 'one pass: still waiting for the other');

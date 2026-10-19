@@ -27,11 +27,11 @@ export class MissionHub {
     if (this.phase !== 'idle' || !this.inLobby.has(id) || !MISSIONS.includes(mission) || mission === this.mission) return;
     this.mission = mission; this.emit(this.lobbyMsg(all));
   }
-  // anybody on the pad can start once EVERYBODY in the room is on the pad
+  // anybody on the pad can start; the mission is for the players standing on the pad, everybody else keeps playing in the open city
   start(id, all) {
     if (this.phase !== 'idle' || !this.inLobby.has(id)) return false;
-    if (!all.length || !all.every((i) => this.inLobby.has(i))) return false;
-    this.members = [...all]; this.round = 0; this.go(); return true;
+    const who = all.filter((i) => this.inLobby.has(i)); if (!who.length) return false;
+    this.members = who; this.round = 0; this.go(); return true;
   }
   go() {
     this.clear(); this.phase = 'brief'; this.round++; this.res = new Map();

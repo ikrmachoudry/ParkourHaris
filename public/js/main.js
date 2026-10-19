@@ -424,7 +424,7 @@ class Race {
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
       if (this.bigMapOpen) this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route());
       this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt, this.mission && this.mission.marks(), this.mission && this.mission.route()); }
-    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60, this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
+    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
     this.updateLights();
@@ -656,6 +656,8 @@ class Race {
     for (const r of this.remotes.values()) {
       const g = r.model.group; g.rotation.order = 'YXZ';
       if (!r.has) continue;
+      if (this.ghost(r)) { g.visible = false; if (r.vcar) r.vcar.mesh.visible = false; continue; }
+      g.visible = true; if (r.vcar) r.vcar.mesh.visible = true;
       if (!(r.flags & LOCALCAR) && r.vcar) { this.scene.remove(r.vcar.mesh); r.vcar = null; }
       if (r.flags & 256) {
         const c = (r.flags & LOCALCAR) ? this.remoteCar(r) : this.cars[carFlagIdx(r.flags)];
@@ -722,7 +724,7 @@ class Race {
     if (this.finished) return;
     const lim = P.R * 2 + 0.06;
     for (const r of this.remotes.values()) {
-      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 500) continue; // never collide with a ghost whose packets stopped
+      if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 500) continue; // never collide with a ghost whose packets stopped
       const dx = b.x - r.x, dz = b.z - r.z, dy = b.y - r.y;
       if (Math.abs(dy) > P.H * 0.8) continue;
       const d = Math.hypot(dx, dz);
@@ -785,7 +787,7 @@ class Race {
   batHit(b) {
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     for (const r of this.remotes.values()) {
-      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
+      if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
       if (d > (this.swingMega ? 4.4 : 2.9) || Math.abs(dy) > 1.7 || d < 1e-3) continue;
       if ((dx * fx + dz * fz) / d < 0.1) continue;                        // must be in front of me
@@ -842,31 +844,32 @@ class Race {
       const mesh = buildCarMesh(id, IS_TOUCH); mesh.rotation.order = 'YXZ'; this.scene.add(mesh); const st = newCar(id, r.x, r.z, r.yaw); st.local = true; r.vcar = { st, mesh, local: true, remote: true };
     } return r.vcar;
   }
+  ghost(r) { const B = this.busy; return !!(B && B.size && B.has(this.localId) !== B.has(r.id)); }   // somebody in a mission while I am not (or the other way round): he is not in my instance
   netWorld(dt) {
     if (!this.multi || !this.peds || !this.tai) return;
     const host = this.simHost; this.peds.puppet = this.tai.puppet = !host;
     const others = [], persons = [];
-    for (const r of this.remotes.values()) { if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 1500) continue; if (!(r.flags & (256 | PAX))) { persons.push({ x: r.x, z: r.z }); others.push({ x: r.x, z: r.z, id: r.id }); } }
+    for (const r of this.remotes.values()) { if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 1500) continue; if (!(r.flags & (256 | PAX))) { persons.push({ x: r.x, z: r.z }); others.push({ x: r.x, z: r.z, id: r.id }); } }
     this.peds.others = host ? others : []; this.netPersons = host ? persons : [];
     this.netAims = []; if (host) { const now = performance.now(); for (const [id, a] of this.remoteAims) if (now - a.at < 600) this.netAims.push(a); else this.remoteAims.delete(id); }
     // the aim of a guest: the host's traffic must stop for his gun too
     if (!host) { this.aimSendT = (this.aimSendT || 0) - dt; if (this.aimOn && !this.drive && this.aimSendT <= 0) { this.aimSendT = 0.25; const b = this.me.body; this.evt({ k: 'ai', x: +b.x.toFixed(1), z: +b.z.toFixed(1), dx: +Math.sin(b.yaw).toFixed(2), dz: +Math.cos(b.yaw).toFixed(2) }); } return; }
     this.streamT = (this.streamT || 0) - dt; if (this.streamT > 0) return; this.streamT = 0.17;
-    app.net.send({ t: 'pd', d: this.peds.snapshot() });
+    app.net.send({ t: 'pd', d: this.peds.snapshot(), lt: +this.levelTime.toFixed(2) });
     const hk = this.honkOut; this.honkOut = []; app.net.send({ t: 'tf', d: this.tai.snapshot(), h: hk.length ? hk.slice(0, 3) : undefined });
   }
   onWorld(m) {   // a stream from the host
     if (this.simHost) return;
-    if (m.t === 'pd') this.peds.applySnap(m.d); else { this.tai.applySnap(m.d); if (m.h) for (const h of m.h) { const d = Math.hypot(h[0] - this.camera.position.x, h[1] - this.camera.position.z); if (d < 40) A.sfx.honk(); } }
+    if (m.t === 'pd') { this.peds.applySnap(m.d); if (typeof m.lt === 'number') { const off = m.lt - this.levelTime; this.pedOff = this.pedOff === undefined || Math.abs(off - this.pedOff) > 2 ? off : this.pedOff + (off - this.pedOff) * 0.2; } } else { this.tai.applySnap(m.d); if (m.h) for (const h of m.h) { const d = Math.hypot(h[0] - this.camera.position.x, h[1] - this.camera.position.z); if (d < 40) A.sfx.honk(); } }
   }
   onEvent(m) {   // host: something a guest did to the shared world
     if (!this.simHost || !this.peds) return; const quiet = () => {};
     switch (m.k) {
       case 'st': this.peds.startle(+m.x, +m.z, Math.min(30, +m.r || 14)); break;
       case 'al': this.peds.alarm(+m.x, +m.z, Math.min(40, +m.r || 14), null, !!m.g); break;
-      case 'pu': this.peds.punch(+m.x, +m.z, +m.fx, +m.fz, quiet, Math.min(3, +m.dmg || 1), Math.min(3, +m.reach || 1.85)); break;
+      case 'pu': this.peds.punch(+m.x, +m.z, +m.fx, +m.fz, quiet, Math.min(3, +m.dmg || 1), Math.min(3, +m.reach || 1.85), Number.isInteger(m.i) ? m.i : -1); break;
       case 'ki': { const p = this.peds.byIndex(m.i | 0); if (p) this.peds.kick(p, +m.fx, +m.fz, quiet); break; }
-      case 'sh': { this.peds.shoot(+m.ox, +m.oz, +m.fx, +m.fz, Math.min(80, +m.range || 40), Math.min(2, +m.dmg || 1), quiet); const c = this.tai && this.tai.cars[m.c | 0]; if (c && m.c >= 0) this.tai.hit(c); break; }
+      case 'sh': { this.peds.shoot(+m.ox, +m.oz, +m.fx, +m.fz, Math.min(80, +m.range || 40), Math.min(2, +m.dmg || 1), quiet, Number.isInteger(m.i) ? m.i : -1); const c = this.tai && this.tai.cars[m.c | 0]; if (c && m.c >= 0) this.tai.hit(c); break; }
       case 'tj': { const c = this.tai.cars[m.c | 0]; if (c && c.mode === 'drive') this.tai.begin(c); break; }
       case 'tk': { const c = this.tai.cars[m.c | 0]; if (!c || c.mode === 'gone') break; this.tai.take(c); if (!m.e) { const p = this.peds.adopt(+m.x, +m.z, +m.yaw, !!m.b, 'fly', m.l | 0); p.vx = +m.vx || 0; p.vz = +m.vz || 0; this.peds.alarm(+m.x, +m.z, 22, p, true); } break; }
       case 'ai': this.remoteAims.set(m.from, { x: +m.x, z: +m.z, dx: +m.dx, dz: +m.dz, at: performance.now() }); break;
@@ -964,13 +967,14 @@ class Race {
     if (this.peds) { let bd = 0.2; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + 1.25;
     let len = W.range, hc = -1;
-    if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) len = h.d; }
+    let shotAt = -1;
+    if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
     if (this.tai) for (const c of this.tai.cars) { if (c.mode === 'gone' || !c.vis) continue; const dx = c.st.x - ox, dz = c.st.z - oz, a = dx * fx + dz * fz; if (a < 1 || a > len || Math.abs(-dx * fz + dz * fx) > 1.4) continue; len = a; this.tai.hit(c); hc = this.tai.cars.indexOf(c); this.particles.emit(ox + fx * a, 0.9, oz + fz * a, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.25, size: 0.15 }); }
     // tracer + muzzle flash + bang
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
     this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'ak' ? 0.07 : 0.05);
     A.sfx.shot();
-    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc }); }
+    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt }); }
     return true;
   }
   // ---- the weapon store: step on the pad inside
@@ -1014,7 +1018,7 @@ class Race {
     const b = this.me.body, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));
-    if (!this.kickK) for (const r of this.remotes.values()) { if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue; const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz); if (d < 1.9 && d > 1e-3 && (dx * fx + dz * fz) / d > 0.3 && Math.abs(r.y - b.y) < 1.5 && (r.flags & (2 | 2097152))) { this.kickK = true; break; } }
+    if (!this.kickK) for (const r of this.remotes.values()) { if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue; const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz); if (d < 1.9 && d > 1e-3 && (dx * fx + dz * fz) / d > 0.3 && Math.abs(r.y - b.y) < 1.5 && (r.flags & (2 | 2097152))) { this.kickK = true; break; } }
     this.punchCd = this.kickK ? 0.7 : 0.72; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(); return true;
   }
   updatePunch(dt, b) {
@@ -1030,10 +1034,9 @@ class Race {
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     if (this.kickK && this.peds) { const t = this.peds.downed(b.x, b.z, fx, fz); if (t) { this.evt({ k: 'ki', i: t.i, fx: +fx.toFixed(3), fz: +fz.toFixed(3) }); this.peds.kick(t, fx, fz, (p) => { this.earn(PAY.hit); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.12); this.particles.emit(p.x, 0.4, p.z, 12, { color: '#ffffff', speed: 3, up: 1.5, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 0.4, p.z, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.2 }); }); return; } }
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
-    this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85 });
-    if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); A.sfx.bonk(); this.particles.emit(p.x, 1.2, p.z, 10, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) return;
+    if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); A.sfx.bonk(); this.particles.emit(p.x, 1.2, p.z, 10, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
     for (const r of this.remotes.values()) {
-      if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
+      if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue;
       const dx = r.x - b.x, dz = r.z - b.z, dy = r.y - b.y, d = Math.hypot(dx, dz);
       if (d > 1.9 || Math.abs(dy) > 1.5 || d < 1e-3) continue;
       if ((dx * fx + dz * fz) / d < 0.3) continue;
@@ -1433,6 +1436,7 @@ async function ensureNet() {
   for (const t of ['pd', 'tf']) net.on(t, (m) => { if (race && race.multi && race.peds) race.onWorld({ ...m, t }); });
   net.on('ev', (m) => { if (race && race.multi) race.onEvent(m); });
   net.on('fx', (m) => { if (race && race.multi) race.onFx(m); });
+  net.on('m_busy', (m) => { if (race && race.multi) race.busy = new Set(m.ids || []); });
   net.on('ph', (m) => { if (race && race.multi) race.onPedHit(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });

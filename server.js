@@ -80,7 +80,14 @@ function clearTimers(room) {
   room.timers = [];
 }
 // the missions of a room (the Mission Lobby): one hub per room, created when the first player uses it
-function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => bcast(room, msg), { getP: (id) => { const q = room.players.get(id); return q ? { x: q.x || 0, y: q.y || 0, z: q.z || 0, a: q.a | 0 } : null; } }); return room.hub; }
+function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => missionEmit(room, msg), { getP: (id) => { const q = room.players.get(id); return q ? { x: q.x || 0, y: q.y || 0, z: q.z || 0, a: q.a | 0 } : null; } }); return room.hub; }
+// Mission messages go only to the players IN the mission (the others keep playing in the open city); lobby / idle messages go to everybody.
+// 'm_busy' tells everybody who is inside a running mission, so players inside and outside never see or touch each other (GTA Online style private instance).
+function missionEmit(room, msg) {
+  const h = room.hub, mem = h && h.members && h.members.length ? h.members : null;
+  if (!mem || msg.t === 'm_lobby' || msg.t === 'm_idle') bcast(room, msg); else for (const id of mem) { const q = room.players.get(id); if (q) send(q.ws, msg); }
+  if (msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) || msg.t === 'm_idle' || (msg.t === 'm_end' && msg.pass)) bcast(room, { t: 'm_busy', ids: msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) ? (mem || []) : [] });
+}
 // who counts for a mission: everybody whose connection is alive and has spoken in the last 6 s (a frozen tab or a ghost
 // connection must never block a solo player from starting)
 const pids = (room, selfId) => [...room.players.values()].filter((q) => q.id === selfId || (q.ws.readyState === 1 && Date.now() - (q.seen || 0) < 6000)).map((q) => q.id);
@@ -292,7 +299,7 @@ wss.on('connection', (ws, req) => {
       // the others send what they do to them (punch, shot, horn, carjack) to the host as events. The server only relays.
       case 'tf': case 'pd': { // host -> everybody: traffic / pedestrian state
         if (!room || room.phase !== 'race' || room.hostId !== p.id || !Array.isArray(m.d) || m.d.length > 90) return;
-        bcast(room, { t: m.t, d: m.d, h: Array.isArray(m.h) ? m.h.slice(0, 4) : undefined }, p.id);
+        bcast(room, { t: m.t, d: m.d, h: Array.isArray(m.h) ? m.h.slice(0, 4) : undefined, lt: num(m.lt, -1e4, 1e7) ? m.lt : undefined }, p.id);
         break;
       }
       case 'ev': { // guest -> host: an action on the shared world

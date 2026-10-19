@@ -131,13 +131,14 @@ export class Peds {
     if (onHit) onHit(p, false);
   }
   // a punch from the player: hurts the nearest person in front (hidden health, no bar). Some run, some fight back, the rest get scared.
-  punch(x, z, fx, fz, onHit, dmg = 1, reach = 1.85) {
-    let best = null, bd = 9; const r2 = reach * reach;
+  punch(x, z, fx, fz, onHit, dmg = 1, reach = 1.85, only = -1) {   // only: a guest already chose the person on his screen: hit exactly him (the positions differ by a little)
+    let best = null, bd = 9; const r2 = (only >= 0 ? 5 : reach) ** 2;
     for (const p of this.list) {
+      if (only >= 0 && p.i !== only) continue;
       if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight') continue;
       const dx = p.x - x, dz = p.z - z, d2 = dx * dx + dz * dz;
-      if (d2 > r2 || d2 < 1e-4 || (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3) continue;
-      if (d2 < bd) { bd = d2; best = p; }
+      if (d2 > r2 || d2 < 1e-4 || (only < 0 && (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3)) continue;
+      if (d2 < bd || only >= 0) { bd = d2; best = p; }
     }
     if (!best) return false;
     best.hp -= dmg; if (this.puppet) best.hold = 0.6;
@@ -145,16 +146,17 @@ export class Peds {
     else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; }
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
     this.alarm(best.x, best.z, 12, best);
-    if (onHit) onHit(best, best.hp <= 0); return true;
+    this.lastHit = best; if (onHit) onHit(best, best.hp <= 0); return true;
   }
   // a bullet: the first person on the line (ox,oz) + (fx,fz) * [0..range] within 0.55 m of it. Returns { p, dead, d } or null. Everybody near panics (gunfire).
-  shoot(ox, oz, fx, fz, range, dmg, onHit) {
+  shoot(ox, oz, fx, fz, range, dmg, onHit, only = -1) {
     let best = null, bd = range;
     for (const p of this.list) {
-      if (!p.actor || !p.actor.group.visible) continue;
+      if (only >= 0 && p.i !== only) continue;
+      if (only < 0 && (!p.actor || !p.actor.group.visible)) continue;
       if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie') continue;
-      const dx = p.x - ox, dz = p.z - oz, a = dx * fx + dz * fz; if (a < 0.3 || a > bd) continue;
-      if (Math.abs(-dx * fz + dz * fx) > 0.55) continue;
+      const dx = p.x - ox, dz = p.z - oz, a = dx * fx + dz * fz; if (only < 0 && (a < 0.3 || a > bd)) continue;
+      if (only < 0 && Math.abs(-dx * fz + dz * fx) > 0.55) continue; if (only >= 0 && dx * dx + dz * dz > (range + 6) * (range + 6)) continue;
       bd = a; best = p;
     }
     this.alarm(ox, oz, 32, best, true);
@@ -162,7 +164,7 @@ export class Peds {
     best.hp -= dmg; if (this.puppet) best.hold = 0.6; const dead = best.hp <= 0;
     if (dead) { best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
     else if (best.st !== 'lie') { if (best.brave && Math.random() < 0.35) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; } else { best.st = 'flee'; best.timer = 6; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); } }
-    if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
+    this.lastHit = best; if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
   }
   // a driver pulled out of a car: a temporary person who is thrown to the ground, then runs / cowers / fights ('fight' = brave)
   adopt(x, z, yaw, brave, mode = 'fly', look = 0) {
