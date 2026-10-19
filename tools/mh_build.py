@@ -24,7 +24,7 @@ V, F, G = mh.load_obj()
 V = mh.macro(V, gender=1.0, age=0.52, muscle=0.9, weight=L_['weight'] - 0.1, african=.12, asian=.28, caucasian=.60)
 # athletic / bodybuilder build: broad shoulders + lats, narrow waist and hips, flat hard chest, no glute / hip bulge
 V = V.copy()
-for nm, w in [('torso/torso-vshape-incr', 1.0), ('torso/torso-muscle-dorsi-incr', 0.9), ('torso/torso-scale-horiz-incr', 0.25), ('hip/hip-scale-horiz-decr', 0.9), ('hip/hip-scale-depth-decr', 0.6), ('buttocks/buttocks-volume-decr', 1.0), ('stomach/stomach-pregnant-decr', 1.0), ('pelvis/pelvis-tone-incr', 1.0), ('hip/hip-waist-up', 0.3)]: mh.apply(V, nm, w)
+for nm, w in [('torso/torso-vshape-incr', 1.0), ('torso/torso-muscle-dorsi-incr', 0.9), ('torso/torso-scale-horiz-incr', 0.25), ('hip/hip-scale-horiz-decr', 0.1), ('hip/hip-scale-depth-decr', 0.15), ('buttocks/buttocks-volume-incr', 0.15), ('armslegs/l-upperleg-muscle-incr', 1.0), ('armslegs/r-upperleg-muscle-incr', 1.0), ('armslegs/l-lowerleg-muscle-incr', 1.0), ('armslegs/r-lowerleg-muscle-incr', 1.0), ('stomach/stomach-pregnant-decr', 1.0), ('pelvis/pelvis-tone-incr', 1.0), ('hip/hip-waist-up', 0.3)]: mh.apply(V, nm, w)
 body = [f for f, g in zip(F, G) if g == 'body']
 tris = []
 for f in body:
@@ -153,7 +153,7 @@ nrm = np.zeros_like(P0)
 fn = np.cross(P0[T0[:, 1]] - P0[T0[:, 0]], P0[T0[:, 2]] - P0[T0[:, 0]])
 for k in range(3): np.add.at(nrm, T0[:, k], fn)
 nrm /= np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-9)
-infl = np.zeros(len(P0)); m_ = isShirt & (tors > 0.5); infl[m_] = (0.12 + 0.03 * np.clip((hem + 1.2 - y) / 1.2, 0, 1))[m_]; infl[isShirt & (arms > 0.5)] = 0.10; infl[isPants] = 0.07
+infl = np.zeros(len(P0)); m_ = isShirt & (tors > 0.5); infl[m_] = (0.12 + 0.03 * np.clip((hem + 1.2 - y) / 1.2, 0, 1))[m_]; infl[isShirt & (arms > 0.5)] = 0.10; infl[isPants] = 0.08
 infl[isShoe] = 0.22; infl[hair] = 0.14; infl[cap] = 0.24
 # soften at borders
 for _ in range(5):

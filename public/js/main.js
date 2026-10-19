@@ -204,7 +204,7 @@ class Remote {
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
-    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & 256)), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / 0.45)) : (this.pn = 0) });
+    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & 256)), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / 0.62)) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -795,12 +795,12 @@ class Race {
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));
     if (!this.kickK) for (const r of this.remotes.values()) { if (!r.has || (r.flags & 8) || Date.now() - r.rxAt > 800) continue; const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz); if (d < 1.9 && d > 1e-3 && (dx * fx + dz * fz) / d > 0.3 && Math.abs(r.y - b.y) < 1.5 && (r.flags & (2 | 2097152))) { this.kickK = true; break; } }
-    this.punchCd = this.kickK ? 0.7 : 0.55; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(); return true;
+    this.punchCd = this.kickK ? 0.7 : 0.72; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(); return true;
   }
   updatePunch(dt, b) {
     if (this.punchCd > 0) this.punchCd -= dt;
     if (this.punchT > 0) {
-      this.punchT += dt / (this.kickK ? 0.55 : 0.45);
+      this.punchT += dt / (this.kickK ? 0.55 : 0.62);
       if (b.stun > 0) { this.punchT = 0; this.punchPending = false; }
       else if (this.punchPending && this.punchT >= (this.kickK ? 0.48 : 0.42)) { this.punchPending = false; this.punchHit(b); }
       if (this.punchT >= 1) this.punchT = 0;
@@ -973,7 +973,7 @@ class Race {
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
-      const st = this.drive.st; this.lookT -= dt; dist = 9.2 + Math.min(4, Math.abs(st.speed) * 0.12);
+      const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   // phones: chase camera a bit closer
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
