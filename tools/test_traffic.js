@@ -37,8 +37,11 @@ ctx.honks = 0;
 { const cars = mk(), ai = new TrafficAI(cars); const c = cars[3]; ai.update(10, ctx()); ok(!ai.nearestJack(c.st.x + 2, c.st.z), 'a car doing 9+ m/s cannot be jacked'); c.v = 0; const j = ai.nearestJack(c.st.x + 2, c.st.z); ok(j === c, 'a stopped car can');
   ai.begin(c); for (let i = 0; i < 30; i++) ai.update(10 + i / 30, ctx()); ok(c.v === 0 && c.mode === 'struggle', 'the car stays put during the struggle'); }
 
-// 5. shot at: the driver floors it
-{ const cars = mk(), ai = new TrafficAI(cars); const c = cars[0]; ai.update(5, ctx()); ai.hit(c); let t = 5; for (let i = 0; i < 90; i++) { t += 1 / 30; ai.update(t, ctx()); } ok(c.v > c.L.sp * 1.1, 'a shot-at driver speeds up (v=' + c.v.toFixed(1) + ' vs ' + c.L.sp + ')'); }
+// 5. shot at (GTA V): he brakes, the door opens and he gets out (flees screaming, or fights if brave); the car is left behind
+{ for (const brave of [false, true]) { const cars = mk(), ai = new TrafficAI(cars); const c = cars[0]; c.brave = brave; ai.update(5, ctx()); ai.hit(c); ctx.out = null; let t = 5, out = -1; for (let i = 0; i < 240 && out < 0; i++) { t += 1 / 30; ai.update(t, ctx()); if (ctx.out) out = i / 30; }
+  ok(ctx.out === 'flee' || ctx.out === 'fight', 'a shot-at driver gets out (' + ctx.out + ' after ' + out.toFixed(1) + ' s' + (brave ? ', brave' : '') + ')'); ok(out >= 0 && out < 4 && c.mode === 'abandoned', 'he stops fast and the car is abandoned (' + c.mode + ')'); if (!brave) ok(ctx.out === 'flee', 'a normal driver runs away'); }
+  // a puppet (guest screen) never spawns the person itself: the host does
+  const cars = mk(), ai = new TrafficAI(cars); ai.puppet = true; ai.hit(cars[0]); ok(cars[0].mode === 'drive' && !cars[0].shot, 'a puppet only reacts, the host does the bail-out'); }
 
 // 6. economy: buying, ammo, shooting, reloading, selling
 { localStorage._ = {}; const w = new Wallet(); ok(w.money === 400, 'start cash $400');

@@ -34,6 +34,7 @@ export function gtaBase(x, z) {
     }
     if (best < GT.HW + 14) { const t = 1 - sm(GT.HW + 2.5, GT.HW + 14, best); h = mix(h, h0 + bh, t); }
   }
+  if (r < M.Rt) h = mix(h, mtC(M.Rt), 1 - sm(M.Rt - 5, M.Rt, r));   // the summit is a flat meadow (radius 15), blending into the slope by r = 20 (where the road ends)
   { // coast highway + lookout plaza are flat
     const H = GT.HWY, dz2 = Math.abs(z - H.z), ex = x < H.ax ? H.ax - x : x > H.bx ? x - H.bx : 0, d = Math.hypot(dz2, ex);
     if (x > H.ax - 10 && d < 26) h = mix(h, 0, 1 - sm(GT.HW + 2.5, GT.HW + 16, d));
@@ -73,6 +74,15 @@ export const CHASE = {
   stopA: 330,                                                                      // arc length (m) of the first stop (set by buildRoute: the trunk stop on the west avenue)
   flee: { x: -375, z: -375, r: 13 },                                               // the summit plaza
 };
+// the grassy summit of Mount Haris: big old trees and boulders to hide behind (the thief's ambush) - everybody hides behind the same ones.
+// r = how far from the middle of the cover a person has to stand to be behind it; kind: 'tree' | 'rock'. They sit on the flat meadow (radius 16) away from where the road arrives.
+export const SUMMIT = (() => {
+  const M = GT.MT, arr = M.th0 + M.T * TAU, covers = [];
+  [[70, 12, 'tree'], [105, 9.5, 'rock'], [140, 13.5, 'tree'], [180, 11, 'rock'], [220, 13.5, 'tree'], [255, 9.5, 'rock'], [292, 12, 'tree'], [330, 13.5, 'rock'], [20, 13.5, 'tree']].forEach(([deg, rad, kind]) => {
+    const a = arr + deg * Math.PI / 180; covers.push({ x: M.cx + Math.cos(a) * rad, z: M.cz + Math.sin(a) * rad, r: kind === 'tree' ? 0.95 : 1.7, kind });
+  });
+  return { x: M.cx, z: M.cz, covers };
+})();
 function HP0() { return Math.PI / 2; }
 // THE STUNT PARK: a flat arena south-east of the Mission Lobby with a fast oval circuit (two straights joined by two wide turns).
 //   top straight (east-bound, z = zT): speed booster, then a ramp.  bottom straight (west-bound, z = zB): speed booster, a lit TUNNEL, then a low kicker.

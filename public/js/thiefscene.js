@@ -22,6 +22,7 @@ export class ThiefScene {
   apply(m) { this.snap = m; this.at = performance.now(); }
   clear() { this.snap = null; this.first = true; this.ri = undefined; if (this.built) { this.car.visible = false; this.actor.group.visible = false; } }
   get stage() { return this.snap ? this.snap.st : ''; }
+  get exposed() { return !!this.snap && this.snap.st === 'ambush' && this.snap.ex > 0.5; }
   // seat positions (same maths as Race.seatModel) for the thief
   seat(g, x, y, z, yaw, ud, f, r) {
     const sy = Math.sin(yaw), cy = Math.cos(yaw);
@@ -53,8 +54,9 @@ export class ThiefScene {
       if (c) { const u2 = c.mesh.userData; this.seat(g, c.st.x, c.st.y, c.st.z, c.st.yaw, u2, (u2.seatF || 0) - 1.0, 0); }
       this.actor.update(dt, { seated: true, speed: 0, grounded: true });
     } else {
-      g.position.set(this.px, this.ground(this.px, this.pz), this.pz); g.rotation.set(0, this.pyaw, 0); g.scale.setScalar(1);
-      this.actor.update(dt, { seated: false, speed: psp, grounded: true, gesture: pose === 'aim' ? 'aim' : pose === 'scared' ? 'scared' : undefined });
+      g.rotation.order = 'YXZ'; g.position.set(this.px, this.ground(this.px, this.pz), this.pz); g.rotation.set(0, this.pyaw, 0); g.scale.setScalar(1);
+      if (pose === 'down') { g.rotation.set(-Math.PI / 2, this.pyaw, 0); g.position.y += 0.22; this.actor.update(dt, { seated: false, speed: 0, grounded: true }); }   // shot dead: lies flat
+      else this.actor.update(dt, { seated: false, speed: psp, grounded: true, weapon: s.st === 'ambush' || s.st === 'summit' || pose === 'aim' ? 'pistol' : undefined, aiming: pose === 'aim', crouch: pose === 'duck', gesture: pose === 'aim' ? 'aim' : pose === 'scared' ? 'scared' : undefined });
     }
   }
   // the red line on the maps: the rest of his road, from where he is to the summit (points about every 12 m)

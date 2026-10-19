@@ -43,7 +43,7 @@ export class MissionHub {
   }
   // ---- THIEF CHASE: the story is played by a director that lives right here (server in multiplayer), everybody just draws what it broadcasts
   startThief() {
-    if (!this.dir) this.dir = new ThiefDirector({ getP: (id) => this.getP(id), onEv: (k) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0 }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
+    if (!this.dir) this.dir = new ThiefDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
     this.dir.start(this.members); let last = Date.now();
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_th', ...this.dir.snap() }); } }, 100);
   }
@@ -53,6 +53,8 @@ export class MissionHub {
     this.clear(); this.phase = 'done'; this.emit({ t: 'm_end', pass: true, round: this.round });
     this.later(DONE_MS, () => { this.reset(); this.emit({ t: 'm_idle' }); });
   }
+  // a player's bullet reached the thief (he can only be hurt while he is out from behind his cover)
+  hit(id, dmg) { if (this.mission !== 'thief' || this.phase !== 'run' || !this.dir || !this.members.includes(id)) return false; return this.dir.hit(id, dmg); }
   // a player reports the result of the current run
   result(id, ok, why, round) {
     if (this.mission !== 'stunt') return;

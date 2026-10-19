@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -100,7 +100,11 @@ function roadGeo(roads, h) {
       quad([sx - a, 0.108, sz - b2], [sx - a, 0.108, sz + b2], [sx + a, 0.108, sz + b2], [sx + a, 0.108, sz - b2], '#eeeeea');
     }
   }
-  for (const p of roads.plazas) { // round plazas
+  for (const p of roads.plazas) { // round plazas (the summit one is grass with a small paved circle in the middle)
+    if (p.g === 'summit') {
+      for (const [rr, yy, cc] of [[15.5, 0.093, '#5aa03a'], [5.5, 0.098, '#464b5a']]) { const seg = 28; for (let i = 0; i < seg; i++) { const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2; quad([p.x, p.y + yy, p.z], [p.x + Math.cos(a0) * rr, p.y + yy, p.z + Math.sin(a0) * rr], [p.x + Math.cos(a1) * rr, p.y + yy, p.z + Math.sin(a1) * rr], [p.x, p.y + yy, p.z], cc); } }
+      continue;
+    }
     const seg = 28; for (let i = 0; i < seg; i++) { const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2; quad([p.x, p.y + 0.095, p.z], [p.x + Math.cos(a0) * p.r, p.y + 0.095, p.z + Math.sin(a0) * p.r], [p.x + Math.cos(a1) * p.r, p.y + 0.095, p.z + Math.sin(a1) * p.r], [p.x, p.y + 0.095, p.z], '#464b5a'); }
   }
   void h;
@@ -121,7 +125,8 @@ function terrainGeo() {
     if (h < 0.9 && box > 400) tmp.lerp(col.set('#f0dd9f'), smooth(0.9, 0.2, h) * 0.9 + 0.1);   // beach
     if (h < -0.4) tmp.lerp(col.set('#d8c68a'), 0.8);
     tmp.lerp(col.set('#8d8274'), smooth(0.62, 1.0, slope));                                        // rock on steep ground
-    if (h > 33) tmp.lerp(col.set('#ffffff'), smooth(33, 41, h));                                    // snow on the summit
+    if (h > 33) tmp.lerp(col.set('#ffffff'), smooth(33, 41, h));                                    // snow on the upper slopes
+    { const mr = Math.hypot(x - GT.MT.cx, z - GT.MT.cz); tmp.lerp(col.set('#5fa23a').multiplyScalar(0.9 + R() * 0.2), 1 - smooth(GT.MT.Rt + 14, GT.MT.Rt + 36, mr)); }   // the summit top is a green meadow
     tmp.lerp(col.set('#aab2bb'), city);                                                             // the city ground is paved
     cs[k] = tmp.r; cs[k + 1] = tmp.g; cs[k + 2] = tmp.b;
   }
@@ -157,6 +162,35 @@ export function drawInfinity(g, cx, cy, a, lw) {
   g.strokeStyle = gr; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
   for (let i = 0; i <= 120; i++) { const t = i / 120 * Math.PI * 2, d = 1 + Math.sin(t) ** 2, x = cx + a * Math.cos(t) / d, y = cy + a * Math.sin(t) * Math.cos(t) / d * 1.25; i ? g.lineTo(x, y) : g.moveTo(x, y); }
   g.closePath(); g.stroke();
+}
+// the big lit AK-47 over the weapon store: a rugged, worn rifle (wood furniture, banana magazine, scratches) glowing in neon on a dark board
+function akSignTexture() {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512; const g = cv.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, 512); bg.addColorStop(0, '#1a0a0c'); bg.addColorStop(1, '#2a1014'); g.fillStyle = bg; g.fillRect(0, 0, 1024, 512);
+  g.shadowColor = '#ff3b3b'; g.shadowBlur = 26; g.strokeStyle = '#ff5a4a'; g.lineWidth = 9; g.strokeRect(14, 14, 996, 484); g.strokeStyle = '#ffb347'; g.lineWidth = 3; g.strokeRect(30, 30, 964, 452);
+  g.shadowBlur = 0;
+  const poly = (pts, fill, stroke) => { g.beginPath(); pts.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fillStyle = fill; g.fill(); if (stroke) { g.strokeStyle = stroke; g.lineWidth = 3; g.stroke(); } };
+  g.save(); g.translate(0, 70);
+  g.shadowColor = '#ff7a2a'; g.shadowBlur = 24;   // warm glow round the whole rifle
+  poly([[80, 285], [260, 262], [275, 340], [150, 388], [112, 372]], '#7a4020', '#ffb347');                                  // butt stock (wood)
+  poly([[260, 258], [500, 250], [520, 335], [275, 342]], '#2e3239', '#9aa3ad');                                             // receiver
+  poly([[270, 258], [505, 250], [500, 238], [285, 244]], '#3a3f47', '#9aa3ad');                                             // dust cover
+  poly([[505, 262], [700, 266], [705, 322], [520, 330]], '#8e5226', '#ffb347');                                             // wooden hand guard
+  poly([[505, 240], [770, 244], [770, 262], [505, 262]], '#2a2d33', '#9aa3ad');                                             // gas tube
+  poly([[700, 286], [940, 292], [940, 310], [705, 312]], '#23262c', '#9aa3ad');                                             // barrel
+  poly([[940, 284], [985, 282], [985, 318], [940, 316]], '#1b1d22', '#ffb347');                                             // muzzle brake
+  poly([[880, 262], [892, 262], [892, 292], [880, 292]], '#23262c', '#9aa3ad');                                             // front sight
+  poly([[400, 332], [472, 332], [500, 420], [520, 462], [462, 468], [424, 420]], '#3a3f47', '#9aa3ad');                     // banana magazine
+  poly([[300, 338], [352, 338], [372, 430], [318, 438]], '#6b3a1c', '#ffb347');                                             // pistol grip
+  g.strokeStyle = '#9aa3ad'; g.lineWidth = 6; g.beginPath(); g.moveTo(352, 340); g.quadraticCurveTo(372, 392, 398, 342); g.stroke();   // trigger guard
+  g.shadowBlur = 0;
+  // wear: scratches, chipped edges and rust spots
+  g.strokeStyle = 'rgba(255,230,190,.55)'; g.lineWidth = 2; for (let k = 0; k < 26; k++) { const x = 120 + (k * 137) % 780, y = 270 + (k * 53) % 120, l = 14 + (k * 29) % 38; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y - 5 - (k % 4) * 3); g.stroke(); }
+  for (let k = 0; k < 16; k++) { g.fillStyle = 'rgba(150,70,20,.55)'; g.beginPath(); g.arc(280 + (k * 97) % 480, 262 + (k * 41) % 70, 3 + k % 4, 0, 6.3); g.fill(); }
+  g.restore();
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#ff2a2a'; g.shadowBlur = 30; g.fillStyle = '#ffe9c4';
+  g.font = 'bold 118px Arial Black, Arial, sans-serif'; g.fillText('AK-47', 512, 108); g.shadowBlur = 14; g.fillStyle = '#ffd23f'; g.font = 'bold 44px Arial Black, Arial, sans-serif'; g.fillText('WEAPON STORE  \u2022  GUNS & AMMO', 512, 470);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 function intellimumTexture() {
   const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256; const g = cv.getContext('2d');
@@ -411,6 +445,13 @@ export function buildGta(world, th, info, seed) {
     for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) put('pistol', L.x + 7.5, 1.45 + r * 0.8, L.z - 2.25 + c * 1.45, 0, 0, 3.4);                      // pistols, barrels to the right
     for (let r = 0; r < 4; r++) put('ak', L.x - 7.5, 1.3 + r * 0.7, L.z - 0.2 + (r % 2 ? 0.3 : -0.3), Math.PI, 0, 1.7);                                      // AK-47s, barrels to the left
     for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) for (const cx of [3.7, 6.0]) put('bat', L.x + sx * cx, 1.75 + r * 0.62, L.z - 5.0, 0, Math.PI / 2, 1.9);   // bats laid across the back wall
+    { const bw = 15, bh = 7.5, by = 4.43 + 3.2 + bh / 2, bz = L.z + 0.4, tex = akSignTexture(), mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });   // the big lit AK-47 board on the roof, readable from the street (+z) and from behind
+      for (const px of [-5.5, 5.5]) wm.add(Bx(0.45, 3.4, 0.45), L.x + px, 4.43 + 1.7, bz, '#2a2d35');
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), mat); f.position.set(L.x, by, bz + 0.12); world.group.add(f);
+      const k = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), mat); k.position.set(L.x, by, bz - 0.12); k.rotation.y = Math.PI; world.group.add(k);
+      world.addSolid(L.x - bw / 2, by - bh / 2, bz - 0.15, L.x + bw / 2, by + bh / 2, bz + 0.15, { name: 'prop' }); world.addSolid(L.x - 5.75, 4.4, bz - 0.25, L.x - 5.25, 7.7, bz + 0.25, { name: 'prop' }); world.addSolid(L.x + 5.25, 4.4, bz - 0.25, L.x + 5.75, 7.7, bz + 0.25, { name: 'prop' });
+      for (const [gx, gy, gw, gh] of [[0, by + bh / 2 + 0.08, bw + 0.3, 0.14], [0, by - bh / 2 - 0.08, bw + 0.3, 0.14]]) world.glow.add(Bx(gw, gh, 0.14), L.x + gx, gy, bz, '#ff3b3b');
+      for (const sx of [-1, 1]) world.glow.add(Bx(0.14, bh + 0.3, 0.14), L.x + sx * (bw / 2 + 0.08), by, bz, '#ff3b3b'); }
     { const s3 = mk(signTexture('BAT   PISTOL   AK-47', '#2a0f12', '#ffffff'), 7, 1.0); s3.position.set(L.x, 2.7, L.z - 5.1); world.group.add(s3); } }
   // ---- INTELLIMUM AUTOS: a glass showroom, four display cars, a pylon sign with the infinity logo and the SELL ring on the lot
   { const S = AUTOS.showroom, Z = AUTOS.zone, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), fz = S.z + S.d / 2;
@@ -434,8 +475,12 @@ export function buildGta(world, th, info, seed) {
     const ring = new THREE.RingGeometry(Z.r - 0.9, Z.r, 56); ring.rotateX(-Math.PI / 2);                          // the sell ring
     world.glow.add(ring, Z.x, 0.31, Z.z, '#22d3ee'); wm.add(new THREE.CylinderGeometry(Z.r - 0.9, Z.r - 0.9, 0.03, 56), Z.x, 0.28, Z.z, '#10303a');
     for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; world.glow.add(Bx(0.5, 0.06, 2.2), Z.x + Math.cos(a) * (Z.r - 2.0), 0.33, Z.z + Math.sin(a) * (Z.r - 2.0), '#ffd23f', 0, -a, 0); }
-    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const g = cv.getContext('2d'); g.fillStyle = '#10303a'; g.fillRect(0, 0, 256, 256); drawInfinity(g, 128, 120, 92, 14); g.fillStyle = '#fff'; g.font = 'bold 40px Arial Black, Arial'; g.textAlign = 'center'; g.fillText('SELL', 128, 232);
-      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const pl = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, transparent: true, depthWrite: false })); pl.rotation.x = -Math.PI / 2; pl.position.set(Z.x, 0.36, Z.z); world.group.add(pl); }
+    { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 512; const g = cv.getContext('2d');   // the disc inside the ring: logo + the slogan, upright for a driver coming in from the street (south)
+      g.fillStyle = '#10303a'; g.beginPath(); g.arc(256, 256, 252, 0, Math.PI * 2); g.fill();
+      drawInfinity(g, 256, 140, 112, 22); g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#ffffff'; g.font = 'bold 54px Arial Black, Arial'; g.fillText('SELL VEHICLES', 256, 296);
+      g.fillStyle = '#ffd23f'; g.font = 'bold 72px Arial Black, Arial'; g.fillText('AND GET $', 256, 380);
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; const pl = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 9.4), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, transparent: true, depthWrite: false })); pl.rotation.x = -Math.PI / 2; pl.position.set(Z.x, 0.36, Z.z); world.group.add(pl); }
   }
   // ---- the STUNT PARK: boost pads, a lit tunnel, a start gate and the parking grid for the four white cars
   { const P = PARK, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), solid = (x0, z0, x1, z1, h) => { world.addSolid(x0, 0, z0, x1, h, z1, { name: 'prop' }); roads.boxes.push({ x0, x1, z0, z1, h }); };
@@ -486,6 +531,13 @@ export function buildGta(world, th, info, seed) {
     let onRoad = false; for (let u = 0; u <= 1; u += 0.02) { const p = mtRoad(u); if (Math.hypot(p.x - x, p.z - z) < 13) { onRoad = true; break; } } if (onRoad) continue;
     plant(x, h, z, 1.2 + R() * 1.2, true); n++;
   }
+  // ---- the summit meadow: big old trees and boulders to hide behind (SUMMIT.covers: the thief ambush uses the same list) plus a ring of ordinary trees
+  { const M = GT.MT, y = mtC(M.Rt);
+    for (const c of SUMMIT.covers) { if (c.kind === 'tree') { tree(wm, c.x, y, c.z, 2.6, R); solidProp(c.x, c.z, 0.8, 5, y); }
+      else { wm.add(new THREE.DodecahedronGeometry(1.9, 0), c.x, y + 0.9, c.z, '#7e7b73', R() * 3, R() * 3, 0); wm.add(new THREE.DodecahedronGeometry(1.2, 0), c.x + 1.2, y + 0.5, c.z + 0.6, '#8a867d', R() * 3, R() * 3, 0); solidProp(c.x, c.z, 1.55, 2.4, y); } }   // (the meadow is dead flat, so y is the same everywhere)
+    const arr = M.th0 + M.T * Math.PI * 2;
+    for (let k = 0; k < 14; k++) { const a = arr + (50 + k * 22.8) * Math.PI / 180, rad = 16.5 + R() * 1.5, px = M.cx + Math.cos(a) * rad, pz = M.cz + Math.sin(a) * rad; plant(px, gtaH(px, pz), pz, 1.8 + R() * 0.9); }
+    for (let k = 0; k < 18; k++) { const a = R() * 6.28, rad = 3 + R() * 6; if (Math.abs(((a - arr) % 6.2832) + 6.2832) % 6.2832 < 0.7) continue; wm.add(new THREE.SphereGeometry(0.35 + R() * 0.3, 5, 4), M.cx + Math.cos(a) * rad, y + 0.15, M.cz + Math.sin(a) * rad, '#4f8f33'); } }   // bushes
   // ---- lookout + summit props
   { const M = GT.MT, y = mtC(M.Rt); wm.add(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), M.cx, y + 4.5, M.cz, '#ddd'); world.glow.add(new THREE.BoxGeometry(3.4, 1.8, 0.1), M.cx + 1.7, y + 8, M.cz, '#ff6b9d'); }
   // ---- stunt ramps (orange wedges with white stripes + glowing top edge)

@@ -503,3 +503,6 @@ body.touch #a-weapon { right: calc(var(--pad-big) + var(--pad-gap)); bottom: cal
 /* GET IN: only shows when a car is close; own spot on the bottom row, clear of every other button, blue and gently pulsing so it is noticed */
 body.touch.city-mode:not(.driving) #b-car { left: auto; top: auto; transform: none; right: calc(var(--pad-x) + var(--pad-big) + var(--pad-size) + var(--pad-gap) * 3); bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); background: rgba(35,125,215,.82) !important; animation: carnear 1.1s ease-in-out infinite; }
 @keyframes carnear { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+
+/* GTA V style hurt haze: light red at the edges, never a health bar */
+#hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 6; background: radial-gradient(ellipse at center, rgba(160,0,10,0) 45%, rgba(190,10,20,.55) 80%, rgba(120,0,8,.9) 100%); transition: opacity .12s linear; }

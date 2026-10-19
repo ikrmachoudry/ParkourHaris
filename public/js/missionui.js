@@ -12,7 +12,7 @@ const REASON = { slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 
 const IDX_BITS = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24), PAXF = 33554432;
 const DESC = {
   stunt: 'Everybody gets the same white super car on the coast highway. Hit BOTH ramps at full speed and fly. If anybody fails, everybody restarts.',
-  thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris, catch him on foot, put him in the back of your police car and drive him to the POLICE STATION.',
+  thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris. At the top he hides behind the trees and rocks with a pistol and shoots at you: get out, take cover, and shoot him down when he pops out. You get a police pistol if you have none.',
 };
 const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE' };
 
@@ -34,7 +34,7 @@ export class MissionClient {
   send(m) {
     if (this.race.multi) { this.sendNet(m); return; }
     const id = this.race.localId, h = this.hub;
-    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0);
+    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1);
   }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
@@ -69,13 +69,13 @@ export class MissionClient {
     const R = this.race;
     if (m.t === 'm_lobby') { this.lobby = { in: m.in || [], total: m.total || 1 }; if (m.mission) this.mission = m.mission; this.renderPanel(); }
     else if (m.t === 'm_th') this.ts.apply(m);
-    else if (m.t === 'm_ev') this.onEv(m.k, m.d);
+    else if (m.t === 'm_ev') this.onEv(m.k, m.d, m);
     else if (m.t === 'm_go') this.onGo(m);
     else if (m.t === 'm_run') { if (this.phase === 'brief') { this.phase = 'run'; this.hold = false; this.runT0 = performance.now(); this.jumps = 0; this.air = false; this.finished = false; this.showFin(false); this.big('GO!', 900); A.sfx.pickup(); this.chips(); } }
     else if (m.t === 'm_st') { this.res = m.res || {}; this.chips(); }
     else if (m.t === 'm_end') {
       this.hold = false; this.showFin(false);
-      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS BEHIND BARS!' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
+      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '') + ' - RESTARTING FOR EVERYBODY', 3800); A.sfx.bonk(); }
     } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
@@ -118,11 +118,14 @@ export class MissionClient {
     }
     this.big('THIEF CHASE', 2600, '#ff6b6b'); this.sub(this.seat & 1 ? 'YOU RIDE ALONG - YOUR PARTNER DRIVES' : 'YOU DRIVE - WATCH THE BANK', 7000); this.chips();
   }
-  onEv(k, d) {
+  onEv(k, d, m) {
     if (this.mission !== 'thief' || this.phase !== 'run') return;   // story text only while the mission really runs
+    if (k === 'shot') { this.race.thiefShot(m); return; }
+    if (k === 'hurt') { A.sfx.bonk(); return; }
+    if (k === 'ambush') this.race.policeGun();
     if ((k === 'stopA' || k === 'trunk' || k === 'gun') && d > 70) return;   // you only get the scene text if you are close enough to see it
     const T = { chase: ['GET HIM!', 'STAY CLOSE - HE SLOWS DOWN IF YOU FALL BEHIND', '#ff6b6b'], stopA: ['', 'HE STOPPED - GET CLOSE', ''], trunk: ['WHAT IS HE DOING?', 'HE IS OPENING THE BOOT...', '#ffd23f'], gun: ['HE HAS A GUN!', '', '#ff4040'],
-      drive2: ['AFTER HIM!', 'HE IS HEADING FOR MOUNT HARIS', '#ff6b6b'], flee: ['CATCH HIM ON FOOT!', 'RUN HIM DOWN - HE IS RUNNING ROUND THE SUMMIT', '#ffd23f'], arrest: ['GOT HIM!', 'BRING A POLICE CAR NEXT TO HIM', '#5ef0a0'], loaded: ['IN THE BACK!', 'TAKE HIM TO THE POLICE STATION', '#5ef0a0'] }[k];
+      drive2: ['AFTER HIM!', 'HE IS HEADING FOR MOUNT HARIS', '#ff6b6b'], ambush: ['HE IS UP THE HILL!', 'HE HIDES BEHIND TREES AND ROCKS - SHOOT HIM WHEN HE POPS OUT', '#ffd23f'], down: ['HE IS DOWN!', '', '#5ef0a0'] }[k];
     if (!T) return; this.big('', 1); this.sub('', 1); if (T[0]) this.big(T[0], 2000, T[2]); if (T[1]) this.sub(T[1], 3500); if (k === 'gun') A.sfx.bonk(); else A.sfx.pickup();
   }
   // the camera shot during the cut-scene (null = the normal camera)
@@ -131,8 +134,7 @@ export class MissionClient {
   marks() {
     if (this.mission !== 'thief' || (this.phase !== 'run' && this.phase !== 'brief') || !this.ts.snap) return null;
     const s = this.ts.snap, out = [], foot = s.p[5] === 'foot';
-    if (s.st === 'deliver') out.push({ x: POLICE.zone.x, z: POLICE.zone.z, color: '#2a5bd7', glyph: '\u{1F693}' });
-    else if (s.st !== 'rob') { out.push({ x: CHASE.flee.x, z: CHASE.flee.z, color: '#e11d2e', glyph: '\u{1F3C1}' }); out.push({ x: foot ? this.ts.px : this.ts.cx, z: foot ? this.ts.pz : this.ts.cz, color: '#e11d2e', glyph: '\u{1F9B9}' }); }
+    if (s.st !== 'rob') { out.push({ x: CHASE.flee.x, z: CHASE.flee.z, color: '#e11d2e', glyph: '\u{1F3C1}' }); if (s.st !== 'ambush' && s.st !== 'down') out.push({ x: foot ? this.ts.px : this.ts.cx, z: foot ? this.ts.pz : this.ts.cz, color: '#e11d2e', glyph: '\u{1F9B9}' }); }
     return out;
   }
   // the red line on the maps: the road he will take, from where he is now to the summit

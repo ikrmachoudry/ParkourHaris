@@ -37,6 +37,8 @@ export class Wallet {
   owns(w) { return !!this.s.owned[w]; }
   buy(w) { const W = WEAPONS[w]; if (!W || this.owns(w) || !this.spend(W.price)) return false; this.s.owned[w] = true; if (!W.melee) { this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; } save(); return true; }
   buyAmmo(w) { const W = WEAPONS[w]; if (!W || W.melee || !this.owns(w) || !this.spend(W.ammoPrice)) return false; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; }
+  // an issued weapon (the police pistol in the thief mission): owned, loaded, with spare magazines; a gun you already own just gets topped up
+  gift(w) { const W = WEAPONS[w]; if (!W || W.melee) return false; if (!this.owns(w)) { this.s.owned[w] = true; this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack * 1.5; save(); return true; } if (this.mag(w) + this.reserve(w) < 24) { this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; } return false; }
   mag(w) { return this.s.mag[w] || 0; }
   reserve(w) { return this.s.ammo[w] || 0; }
   // fire one round; false when the magazine is empty

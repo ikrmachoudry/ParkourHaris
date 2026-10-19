@@ -249,6 +249,7 @@ wss.on('connection', (ws, req) => {
       case 'm_in': { if (!room || room.phase !== 'race') return; hubOf(room).lobby(p.id, !!m.on, pids(room, p.id)); break; }
       case 'm_pick': { if (!room || room.phase !== 'race') return; hubOf(room).pick(p.id, String(m.mission || ''), pids(room, p.id)); break; }
       case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room, p.id)); break; }
+      case 'm_hit': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.hit(p.id, Math.min(2, +m.dmg || 1)); break; }
       case 'm_res': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.result(p.id, !!m.ok, m.why, m.round | 0); break; }
 
       case 'shove': { // running into another player pushes them too (relay only)

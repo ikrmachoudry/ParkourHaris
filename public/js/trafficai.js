@@ -5,7 +5,7 @@
 //   - brakes hard for a person on foot who stands or walks in his lane, and for any vehicle ahead; honks if you keep blocking him
 //   - an impatient (brave) driver who has been blocked for a long time gets out and fights
 //   - gun pointed at his car: he stops dead, hands off the wheel; a moment later he gets out and runs (the brave ones fight)
-//   - shot at / hit: he floors it
+//   - shot at / hit with a bat: he brakes, jumps out of the door and runs screaming (the brave ones fight)
 //   - carjack (walk up to the stopped car and press the car button): he resists for a moment (longer when you are unarmed), then is dragged out and thrown;
 //     the timid ones run or cower, the brave ones get up and punch you. The car is yours.
 //   - an abandoned car stays where it is for a while, then disappears and a new one rejoins the traffic far away from you.
@@ -33,7 +33,7 @@ export class TrafficAI {
       if (c.hold > 0) c.hold -= dt;
       if (c.mode === 'gone') {
         c.goneT -= dt;
-        if (c.goneT <= 0) { const p = trafficPos(L, c.k, c.tau); const far = !ctx.me || Math.hypot(p.x - ctx.me.x, p.z - ctx.me.z) > 60; if (far) { c.mode = 'drive'; c.v = L.sp; c.vis = true; c.struggle = 0; c.panic = 0; c.scared = 0; c.blockT = 0; } else c.tau += dt * L.sp * 0.5; }
+        if (c.goneT <= 0) { const p = trafficPos(L, c.k, c.tau); const far = !ctx.me || Math.hypot(p.x - ctx.me.x, p.z - ctx.me.z) > 60; if (far) { c.mode = 'drive'; c.v = L.sp; c.vis = true; c.struggle = 0; c.panic = 0; c.scared = 0; c.shot = false; c.blockT = 0; } else c.tau += dt * L.sp * 0.5; }
         else continue;
       }
       if (c.mode === 'abandoned') { c.v = Math.max(0, c.v - DEC * dt); c.goneT -= dt; if (c.goneT <= 0) { c.mode = 'gone'; c.goneT = 20; c.vis = false; } }
@@ -63,7 +63,7 @@ export class TrafficAI {
           if (c.blockT > 7 && c.brave) { c.mode = 'abandoned'; c.goneT = 25; c.v = 0; if (ctx.driverOut) ctx.driverOut(c, 'fight'); }
         } else c.blockT = Math.max(0, c.blockT - dt * 2);
         // pointed at with a gun and now stopped: he gets out with his hands up
-        if (c.scared > 0 && c.v < 0.3) { c.stopT += dt; if (c.stopT > 0.9) { c.mode = 'abandoned'; c.goneT = 25; c.stopT = 0; if (ctx.driverOut) ctx.driverOut(c, c.brave && this.R() < 0.5 ? 'fight' : this.R() < 0.5 ? 'cower' : 'flee'); } } else if (c.scared <= 0) c.stopT = 0;
+        if (c.scared > 0 && c.v < 0.3) { c.stopT += dt; if (c.stopT > 0.9) { c.mode = 'abandoned'; c.goneT = 25; c.stopT = 0; const shot = c.shot; c.shot = false; if (ctx.driverOut) ctx.driverOut(c, shot ? (c.brave && this.R() < 0.4 ? 'fight' : 'flee') : c.brave && this.R() < 0.5 ? 'fight' : this.R() < 0.5 ? 'cower' : 'flee'); } } else if (c.scared <= 0) c.stopT = 0;
       }
       c.tau += dt * c.v / L.sp;
       const p = trafficPos(L, c.k, c.tau); st.x = p.x; st.z = p.z; st.yaw = p.yaw; const k = L.sp ? c.v / L.sp : 0; st.vx = p.vx * k; st.vz = p.vz * k; st.speed = c.v;
@@ -95,5 +95,7 @@ export class TrafficAI {
   begin(c) { c.mode = 'struggle'; c.v = 0; c.hold = 0.8; }
   // the car has been taken: hide it, it rejoins the traffic far away after a while
   take(c) { c.mode = 'gone'; c.goneT = 45; c.hold = 0.8; c.vis = false; if (c.m) c.m.visible = false; c.st.x = c.st.z = 1e5; }
-  hit(c) { if (c.mode === 'drive') { c.panic = 6; c.scared = 0; } }
+  // shot at / hit by a bat (GTA V): he brakes at once, the door flies open a moment later and he scrambles out screaming (the brave ones come out fighting).
+  // On a guest's screen the host's AI does it and the stream shows it.
+  hit(c) { if (c.mode !== 'drive') return; if (this.puppet) { c.panic = 6; return; } c.panic = 0; c.scared = Math.max(c.scared, 3); c.stopT = 0.55; c.shot = true; }
 }

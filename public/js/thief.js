@@ -6,10 +6,10 @@
 //  waitA    he stops at the roadside and waits until somebody is near
 //  trunk    gets out, opens the boot, pulls out a gun, slams the boot, runs back to the car
 //  drive2   the chase goes on: out of the city, up the spiral road of Mount Haris
-//  flee     at the summit he jumps out and runs round the plaza: catch him ON FOOT
-//  cuffed   arrested, hands up: drive a police car next to him and he gets in the back
-//  deliver  take him to the POLICE STATION
-import { GT, mtRoad, gtaH, BANK, POLICE, CHASE } from './gta.js';
+//  summit   at the top he jumps out with his pistol and runs for cover on the grassy summit
+//  ambush   he hides behind trees and boulders, pops out and shoots at the nearest player; shoot him while he is out in the open
+//  down     he is dead: MISSION PASSED (and the reward)
+import { GT, mtRoad, gtaH, BANK, POLICE, CHASE, SUMMIT } from './gta.js';
 
 const STEP = 1.5, PAX = 33554432;
 const hyp = Math.hypot;
@@ -70,17 +70,17 @@ export const THIEF_BRIEF_MS = 9000;
 const WALK_SPEED = 4.3;
 
 export class ThiefDirector {
-  // getP(id) -> { x, y, z, a } (a = the net flags: 256 | vehicle index << 9 while driving, PAX while a passenger) or null;  onEnd(ok, why);  onEv(key)
+  // getP(id) -> { x, y, z, a } (a = the net flags: 256 | vehicle index << 9 while driving, PAX while a passenger) or null;  onEnd(ok, why);  onEv(key, extra)
   constructor({ getP, onEnd, onEv }) { this.getP = getP; this.onEnd = onEnd || (() => {}); this.onEv = onEv || (() => {}); this.R = buildRoute(); this.W = walkPath(CHASE.walk); this.members = []; this.reset(); }
   reset() {
     const c = CHASE.thiefCar, w = CHASE.walk[0];
     this.stage = 'rob'; this.st = 0; this.T = 0; this.s = 0; this.v = 0; this.veh = -1; this.trunk = 0; this.lost = 0; this.dmin = 0; this.ended = false;
     this.car = { x: c.x, z: c.z, yaw: c.yaw, v: 0, drv: 0 };
     this.th = { x: w[0], z: w[1], yaw: Math.PI, sp: 0, pose: 'idle', mode: 'foot' };   // mode: foot | car | rear
-    this.phi = 0; this.fleeT = 0; this.exit = null; this.cuffT = 0;
+    this.amb = { hp: 9, hpMax: 9, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.ambT = 0; this.seed = 12345; this.base = { x: 0, z: 0 };
   }
   start(members) { this.members = [...members]; this.reset(); this.go('rob'); }
-  go(stage) { this.stage = stage; this.st = 0; const k = { drive1: 'chase', waitA: 'stopA', trunk: 'trunk', drive2: 'drive2', flee: 'flee', cuffed: 'arrest', deliver: 'loaded' }[stage]; if (k) this.onEv(k); }
+  go(stage) { this.stage = stage; this.st = 0; const k = { drive1: 'chase', waitA: 'stopA', trunk: 'trunk', drive2: 'drive2', ambush: 'ambush', down: 'down' }[stage]; if (k) this.onEv(k); }
   near() { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - this.car.x, P.z - this.car.z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }
   end(ok, why) { if (this.ended) return; this.ended = true; this.stage = ok ? 'done' : 'fail'; this.onEnd(ok, why); }
   // placement helpers (car space: f = forward, r = the driver's side)
@@ -124,46 +124,90 @@ export class ThiefDirector {
         else { const e = this.carPt(0, 0.4); th.x = e.x; th.z = e.z; th.sp = 0; th.mode = 'car'; th.pose = 'sit'; c.drv = 1; this.trunk = 0; if (t > 8.9) { this.v = 0; this.go('drive2'); } }
         break;
       }
-      case 'summit': {   // arrived: step out and run
+      case 'summit': {   // arrived: step out and run for cover
         c.v = 0; const t = this.st, D = this.carPt(0, 2.0);
-        const C = CHASE.flee;
-        if (t < 0.9) { c.drv = 0; th.mode = 'foot'; th.x = D.x; th.z = D.z; th.sp = 0; th.pose = 'idle'; th.yaw = c.yaw + Math.PI / 2; this.phi = Math.atan2(D.z - C.z, D.x - C.x); }
-        else { th.mode = 'foot'; this.go('flee'); this.fx = { x: th.x, z: th.z }; }
+        if (t < 0.9) { c.drv = 0; th.mode = 'foot'; th.x = D.x; th.z = D.z; th.sp = 0; th.pose = 'idle'; th.yaw = c.yaw + Math.PI / 2; }
+        else { th.mode = 'foot'; this.amb = { hp: 9, hpMax: 9, cover: -1, phase: 'run', t: 0, shots: 0, cycles: 0, spot: null, side: 1, ex: 0, wait: 0 }; this.go('ambush'); }
         break;
       }
-      case 'flee': {
-        this.fleeT += dt; const C = CHASE.flee, run = Math.max(3.6, 5.7 - this.fleeT * 0.05);   // he gets tired
-        this.phi += run / C.r * dt;
-        const tx = C.x + C.r * Math.cos(this.phi), tz = C.z + C.r * Math.sin(this.phi), k = clamp(this.st / 1.2, 0, 1);
-        const nx = lerp(this.fx.x, tx, k), nz = lerp(this.fx.z, tz, k);
-        th.yaw = Math.atan2(nx - th.x, nz - th.z); th.x = nx; th.z = nz; th.sp = run; th.pose = 'run'; th.mode = 'foot';
-        if (this.fleeT > 150) return this.end(false, 'escaped');
-        for (const id of this.members) { const P = this.getP(id); if (!P || (P.a & PAX)) continue; const drv = !!(P.a & 256);   // caught by a runner (3.2 m) or run over / rammed by a car (5 m)
-          if (hyp(P.x - th.x, P.z - th.z) < (drv ? 5 : 3.2) && Math.abs(P.y - gtaH(th.x, th.z)) < 3) { this.arrester = id; this.go('cuffed'); th.sp = 0; th.pose = 'scared'; break; }
-        }
-        break;
-      }
-      case 'cuffed': {
-        th.sp = 0; th.pose = 'scared'; this.cuffT += dt;
-        { const P = this.getP(this.arrester); if (P) th.yaw = angLerp(th.yaw, Math.atan2(P.x - th.x, P.z - th.z), 0.2); }
-        for (const id of this.members) {   // a police car (driver in it) pulls up next to him: he gets in the back
-          const P = this.getP(id); if (!P || !(P.a & 256)) continue; const idx = carIdxOf(P.a);
-          if (CHASE.copIdx.includes(idx) && hyp(P.x - th.x, P.z - th.z) < 11) { this.veh = idx; th.mode = 'rear'; th.pose = 'sit'; th.sp = 0; this.go('deliver'); break; }
-        }
-        break;
-      }
-      case 'deliver': {   // the car he sits in must reach the police station
-        const Z = POLICE.zone;
-        for (const id of this.members) { const P = this.getP(id); if (!P || !(P.a & 256) || carIdxOf(P.a) !== this.veh) continue; if (hyp(P.x - Z.x, P.z - Z.z) < Z.r) { this.onEv('done'); return this.end(true); } }
+      case 'ambush': this.ambush(dt); break;
+      case 'down': {   // shot dead: lies there a moment, then the mission is passed
+        th.sp = 0; th.pose = 'down'; this.amb.ex = 0; if (this.st > 2.6) { this.onEv('done'); return this.end(true); }
         break;
       }
       default: break;
     }
   }
+  rnd() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
+  // the person on foot (or in a car) nearest to the thief
+  nearestTo(x, z) { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - x, P.z - z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }
+  // the spot BEHIND cover k as seen from the player (the cover stands between them)
+  coverSpot(k, P) {
+    const cv = SUMMIT.covers[k], ax = P ? cv.x - P.x : cv.x - SUMMIT.x, az = P ? cv.z - P.z : cv.z - SUMMIT.z, l = hyp(ax, az) || 1, o = cv.r + 0.45;
+    return { x: cv.x + ax / l * o, z: cv.z + az / l * o };
+  }
+  // pick a new cover: not the one he is at, not next to a player, preferably far from the nearest one
+  pickCover(P) {
+    let bk = 0, bs = -1e9; SUMMIT.covers.forEach((cv, k) => { if (k === this.amb.cover) return; const d = P ? hyp(cv.x - P.x, cv.z - P.z) : 20; const sc = Math.min(d, 38) + this.rnd() * 14 - (d < 9 ? 60 : 0); if (sc > bs) { bs = sc; bk = k; } });
+    return bk;
+  }
+  // THE AMBUSH: he hides behind a tree or a boulder, pops out, fires at the nearest player and ducks again; he changes cover now and then (at once if somebody gets close).
+  // He can only be hurt while he is out in the open (ex > 0.5).  Players report their hits with hit().
+  ambush(dt) {
+    const th = this.th, A = this.amb; A.t += dt; this.ambT = (this.ambT || 0) + dt;
+    if (this.ambT > 300) return this.end(false, 'escaped');
+    let np = this.nearestTo(th.x, th.z); const P = np.P;
+    if (A.cover < 0) { A.cover = this.pickCover(P); A.spot = this.coverSpot(A.cover, P); A.phase = 'run'; A.t = 0; }
+    const tgtYaw = P ? Math.atan2(P.x - th.x, P.z - th.z) : th.yaw;
+    const moveTo = (tx, tz, sp) => { const dx = tx - th.x, dz = tz - th.z, d = hyp(dx, dz); if (d < 0.25) return true; const st = Math.min(d, sp * dt); th.x += dx / d * st; th.z += dz / d * st; th.yaw = angLerp(th.yaw, Math.atan2(dx, dz), 0.3); th.sp = sp; th.pose = 'run'; return false; };
+    switch (A.phase) {
+      case 'run': {   // sprint to the cover (the spot is recomputed so it stays on the far side from the player)
+        A.spot = this.coverSpot(A.cover, P); A.ex = Math.max(0, A.ex - dt * 4);
+        if (moveTo(A.spot.x, A.spot.z, 6.2)) { A.phase = 'hide'; A.t = 0; A.wait = 1.1 + this.rnd() * 1.4; th.sp = 0; }
+        break;
+      }
+      case 'hide': {   // crouched behind it
+        th.sp = 0; th.pose = 'duck'; th.yaw = angLerp(th.yaw, tgtYaw, 0.2); A.ex = Math.max(0, A.ex - dt * 4); A.spot = this.coverSpot(A.cover, P); th.x += (A.spot.x - th.x) * Math.min(1, dt * 4); th.z += (A.spot.z - th.z) * Math.min(1, dt * 4);
+        if (np.d < 7 && A.t > 0.5) { A.cover = this.pickCover(P); A.phase = 'run'; A.t = 0; break; }   // somebody is on top of him: run
+        if (A.t > A.wait) { A.phase = 'pop'; A.t = 0; A.shots = 0; A.side = this.rnd() < 0.5 ? -1 : 1; this.base = { x: th.x, z: th.z }; }
+        break;
+      }
+      case 'pop': {   // steps out sideways, raises the gun
+        th.sp = 0; th.pose = 'aim'; th.yaw = angLerp(th.yaw, tgtYaw, 0.35); A.ex = Math.min(1, A.ex + dt * 3.4);
+        if (P) { const lx = Math.cos(tgtYaw), lz = -Math.sin(tgtYaw); th.x = this.base.x + lx * A.side * 1.0 * A.ex; th.z = this.base.z + lz * A.side * 1.0 * A.ex; }
+        if (A.ex >= 1) { A.phase = 'shoot'; A.t = 0; }
+        break;
+      }
+      case 'shoot': {   // three quick shots, 0.5 s apart
+        th.sp = 0; th.pose = 'aim'; th.yaw = angLerp(th.yaw, tgtYaw, 0.4); A.ex = 1;
+        if (A.t > 0.35 + A.shots * 0.5 && A.shots < 3 && P) {
+          A.shots++; const d = np.d, drv = !!(P.a & 256), pHit = (d < 14 ? 0.55 : d < 32 ? 0.4 : d < 55 ? 0.25 : 0.1) * (drv ? 0.7 : 1);
+          this.onEv('shot', { i: np.id, h: this.rnd() < pHit ? 1 : 0, x: +th.x.toFixed(1), z: +th.z.toFixed(1) });
+        }
+        if (A.shots >= 3 && A.t > 0.35 + 3 * 0.5 + 0.1) { A.cycles++; A.phase = 'duck'; A.t = 0; }
+        break;
+      }
+      case 'duck': {   // back behind the cover (after every second volley he moves on)
+        th.sp = 0; th.pose = 'duck'; A.ex = Math.max(0, A.ex - dt * 5); th.x += (this.base.x - th.x) * Math.min(1, dt * 8); th.z += (this.base.z - th.z) * Math.min(1, dt * 8);
+        if (A.ex <= 0) { if (A.cycles % 2 === 0 || np.d < 14) { A.cover = this.pickCover(P); A.phase = 'run'; } else { A.phase = 'hide'; A.wait = 1.2 + this.rnd() * 1.6; } A.t = 0; }
+        break;
+      }
+      default: break;
+    }
+  }
+  // a player's bullet reached him: only counts while he is out in the open; hp 9 = eight pistol hits or six from an AK-47
+  hit(id, dmg) {
+    if (this.ended || this.stage !== 'ambush' || !this.amb || this.amb.ex < 0.5 || !this.members.includes(id)) return false;
+    this.amb.hp -= Math.max(0.2, Math.min(2, +dmg || 1));
+    if (this.amb.hp <= 0) { this.go('down'); this.th.pose = 'down'; this.th.sp = 0; return true; }
+    this.onEv('hurt', { h: Math.max(0, Math.round(this.amb.hp / this.amb.hpMax * 100)) });
+    if (this.amb.phase === 'pop') { this.amb.phase = 'shoot'; this.amb.t = 0; this.amb.ex = 1; }   // hit while stepping out: he fires back at once
+    return true;
+  }
   // what everybody needs to draw the scene
   snap() {
     const c = this.car, th = this.th, f = (v) => +v.toFixed(2);
-    return { st: this.stage, c: [f(c.x), f(c.z), +c.yaw.toFixed(3), f(c.v), c.drv], p: [f(th.x), f(th.z), +th.yaw.toFixed(3), f(th.sp), th.pose, th.mode], tr: +this.trunk.toFixed(2), veh: this.veh, d: Math.round(this.dmin) };
+    return { st: this.stage, c: [f(c.x), f(c.z), +c.yaw.toFixed(3), f(c.v), c.drv], p: [f(th.x), f(th.z), +th.yaw.toFixed(3), f(th.sp), th.pose, th.mode], tr: +this.trunk.toFixed(2), veh: this.veh, d: Math.round(this.dmin), ex: +this.amb.ex.toFixed(2), hp: Math.max(0, Math.round(this.amb.hp / this.amb.hpMax * 100)) };
   }
 }
-export { BANK, POLICE, CHASE };
+export { BANK, POLICE, CHASE, SUMMIT };

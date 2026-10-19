@@ -12,7 +12,7 @@ import { makeHero } from './glbactor.js';
 import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { Peds } from './peds.js';
-import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS } from './gta.js';
+import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
 import { Minimap } from './minimap.js';
 import { MissionClient } from './missionui.js';
@@ -437,7 +437,7 @@ class Race {
     this.scenery.update(lt, this.camera.position);
     this.ambient.update(performance.now() / 1000, this.camera.position);
     this.particles.update(dt);
-    this.hud(dt);
+    this.hud(dt); this.hurtTick(dt);
   }
 
   events(b) {
@@ -499,7 +499,7 @@ class Race {
       this.drive = null; this.paxMode = false;
       if (bail) try {   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
         const l = Math.hypot(vx0, vz0) || 1; b.hitCd = 0; b.immune = 0;
-        if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(24, sp0 * 0.8))) { b.vy = 3.5 + Math.min(4, sp0 * 0.1); b.stun = Math.min(1.15, 0.7 + sp0 * 0.01); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
+        if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(24, sp0 * 0.8))) { b.vy = 3.5 + Math.min(4, sp0 * 0.1); b.stun = Math.min(1.15, 0.7 + sp0 * 0.01); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
       } catch (e) { console.warn(e); }
       if (this.lightsOn && this.beam) { this.lightsOn = false; this.applyLights(c); this.lightsOn = true; }
       document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
@@ -600,7 +600,11 @@ class Race {
         const q = IS_TOUCH ? 0.6 : 1, hit = st.crash || 6, nx = st.x + Math.sin(st.yaw) * Math.sign(st.speed || 1) * 1.9, nz = st.z + Math.cos(st.yaw) * Math.sign(st.speed || 1) * 1.9;
         this.particles.emit(nx, st.y + 0.6, nz, Math.round((ev === 'crash' ? 16 : 6) * q), { color: '#ffcf6a', speed: 6 + hit * 0.3, up: 3, life: 0.35, size: 0.1, gravity: 14, spread: 0.6 });   // sparks
         this.particles.emit(nx, st.y + 0.7, nz, Math.round((ev === 'crash' ? 9 : 4) * q), { color: '#b9b9b9', speed: 1.6, up: 1.4, life: 1.1, size: 0.9, gravity: -0.6, spread: 0.8 });                // dust / smoke puff
-        this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04)); st.crash = 0; }
+        this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04));
+        { const bike = !!c.mesh.userData.bike, cr = st.crash || 0;   // GTA V: no health bar - a crash only tints the screen red for a moment (a rider is more exposed than a driver in a car)
+          if (cr > 4) this.hurtFx(Math.min(1, (cr - 3) / (bike ? 14 : 24)) * (bike ? 1 : 0.6));
+          if (bike && cr > 13 && !this.paxMode) { this.toggleCar(true); const rb = this.me.body; rb.hitCd = 0; rb.immune = 0; if (knock(rb, Math.sin(st.yaw), Math.cos(st.yaw), Math.min(14, 5 + cr * 0.5))) { rb.vy = 3.5 + Math.min(3, cr * 0.15); rb.stun = 0.9; this.hurtFx(1); } } }   // a hard hit throws the biker over the handlebars
+        st.crash = 0; }
     } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
     if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
@@ -905,7 +909,7 @@ class Race {
     const dx = px - b.x, dz = pz - b.z, dd = Math.hypot(dx, dz) || 1, yaw = Math.atan2(-dx, -dz);
     const p = this.peds.adopt(px, pz, Math.atan2(dx, dz), mode === 'fight', mode === 'fight' ? 'fight' : mode, Math.floor(Math.random() * 10));
     if (mode === 'fight') { p.atk = 0.6; } else { p.dx = dx / dd; p.dz = dz / dd; p.yaw = Math.atan2(p.dx, p.dz); p.timer = mode === 'cower' ? 1.6 : 6; }
-    void yaw; A.sfx.door();
+    void yaw; A.sfx.door(); if (mode !== 'fight') this.peds.voice('scream', p);
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   startJack(tj) {
@@ -960,6 +964,26 @@ class Race {
     if (this.fireHeld && this.weapon === 'ak') this.fire();
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
   }
+  // ---- THIEF CHASE on the summit: the thief's volleys and the police pistol
+  policeGun() {
+    if (!this.wallet) return; const had = this.wallet.owns('pistol') || this.wallet.owns('ak'), g = this.wallet.gift('pistol');
+    if (!had) { this.weapon = 'pistol'; this.syncAct(); this.updateAmmoHud(); this.toast('POLICE PISTOL ISSUED'); } else if (g) { this.updateAmmoHud(); this.toast('AMMO TOPPED UP'); }
+  }
+  thiefShot(m) {
+    const mi = this.mission, ts = mi && mi.ts; if (!ts || !m || !Number.isFinite(+m.x) || !Number.isFinite(+m.z) || !this.tracers) return;
+    const sx = +m.x, sz = +m.z, sy = (ts.ground ? ts.ground(sx, sz) : 0) + 1.4, mine = m.i === this.localId;
+    let tx, ty, tz; if (mine) { const b = this.me.body; tx = b.x; ty = b.y + 1.1; tz = b.z; if (this.drive) { tx = this.drive.st.x; tz = this.drive.st.z; ty = this.drive.st.y + 0.9; } } else { const r = this.remotes && this.remotes.get(m.i); if (r) { tx = r.x; ty = (r.y || 0) + 1.1; tz = r.z; } else { const b = this.me.body; tx = b.x; ty = b.y + 1.1; tz = b.z; } }
+    if (!m.h) { tx += (Math.random() - 0.5) * 3; tz += (Math.random() - 0.5) * 3; ty += (Math.random() - 0.5); }
+    const dx = tx - sx, dy = ty - sy, dz = tz - sz, len = Math.hypot(dx, dy, dz) || 1, q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
+    if (q) { q.t = 0.09; q.m.visible = true; q.m.position.set(sx + dx / 2, sy + dy / 2, sz + dz / 2); q.m.lookAt(tx, ty, tz); q.m.scale.set(1, 1, Math.min(len, 90)); }
+    const cd = Math.hypot(sx - this.camera.position.x, sz - this.camera.position.z); A.sfx.shot(0, Math.max(0.25, 1 - cd / 140));
+    this.particles.emit(sx, sy, sz, 3, { color: '#ffd23f', speed: 2, up: 0.5, life: 0.1, size: 0.25 });
+    if (m.h) { if (mine) { this.hurtFx(0.55); this.shake = Math.max(this.shake || 0, 0.3); } this.particles.emit(tx, ty, tz, 6, { color: '#ff5a4a', speed: 2.4, up: 1.2, life: 0.3, size: 0.15 }); }
+    else this.particles.emit(tx, Math.max(0.1, ty - 0.8), tz, 5, { color: '#cfc7b4', speed: 2, up: 1.6, life: 0.4, size: 0.2 });
+  }
+  // GTA V style damage feedback: no health bar, a red haze at the screen edges that fades by itself (k 0..1); a few quick hits stack up
+  hurtFx(k) { this.hurt = Math.min(1, Math.max(this.hurt || 0, 0.15) * 0.5 + Math.max(0.12, k) * 0.8 + (this.hurt || 0) * 0.3); A.voice && A.voice.pain && A.voice.pain(); }
+  hurtTick(dt) { const el = $('hurt'); if (!el) return; if (this.hurt > 0.01) { this.hurt = Math.max(0, this.hurt - dt * 0.45); el.style.opacity = String(Math.min(0.85, this.hurt * 0.85)); } else if (el.style.opacity !== '0') { this.hurt = 0; el.style.opacity = '0'; } }
   // the sounds and sparks of a hit on a car: glass, tyre or body (code from cardamage.hitCode)
   carHitFx(code, x, z) {
     const zone = code & 3, d = Math.hypot(x - this.camera.position.x, z - this.camera.position.z), v = Math.max(0.25, 1 - d / 60);
@@ -983,10 +1007,19 @@ class Race {
     let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds) { let bd = 0.2; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
+    const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
+    if (thiefTs) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.22) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
+    if (this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.snap && this.mission.ts.snap.st === 'ambush') {   // the summit: trees and boulders stop bullets; the gunman is hit only while he is out in the open
+      const ts = this.mission.ts; let stop = len;
+      for (const cv of SUMMIT.covers) { const dx = cv.x - ox, dz = cv.z - oz, a2 = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx); if (a2 > 0.3 && a2 < stop && pr < cv.r * 0.9) stop = a2 - cv.r * 0.4; }
+      if (ts.exposed) { const dx = ts.px - ox, dz = ts.pz - oz, a = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx);
+        if (a > 0.8 && a < stop && pr < 0.55 + a * 0.01) { stop = a; this.mission.send({ t: 'm_hit', dmg: W.dmg }); A.sfx.bonk && A.sfx.bonk(); this.particles.emit(ts.px, 1.3 + (ts.ground ? ts.ground(ts.px, ts.pz) : 0), ts.pz, 9, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); } }
+      if (stop < len) { len = Math.max(0.5, stop); this.particles.emit(ox + fx * len, oy, oz + fz * len, 5, { color: '#cfc7b4', speed: 2.5, up: 1.5, life: 0.35, size: 0.18 }); }
+    }
     let hcode = -1;
     { // cars: the box of the car decides if the bullet meets it (nearest first); the aim height decides WHAT it hits: low = a tyre, high = glass, between = the body
       const drop = (this.camPitch - (NO_TEXT ? 0.17 : 0.34)) * 0.9, hAt = (a) => Math.max(0.1, Math.min(2, oy - drop * a));
