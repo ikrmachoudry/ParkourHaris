@@ -228,7 +228,7 @@ function beamTexture() {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; _beamTex = t; return t;
 }
 const WEAPON_ICON = { fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
-  bat: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 26l4-1 15-15a3 3 0 0 0-4-4L6 21z"/><path d="M5 27l2-2"/></svg>',
+  bat: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"><g transform="rotate(42 16 16)"><path d="M14.7 27 L14.7 17.5 C14.7 14.5 12.2 12.5 12.2 9 L12.2 5.5 C12.2 1.8 19.8 1.8 19.8 5.5 L19.8 9 C19.8 12.5 17.3 14.5 17.3 17.5 L17.3 27 Z"/><ellipse cx="16" cy="28.3" rx="2.6" ry="1.5"/></g></svg>',
   pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
   ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
 const BULLET_ICON = '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"><path d="M16 2.5c3.4 3 5 7 5 11.5v9H11v-9c0-4.5 1.6-8.5 5-11.5z"/><path d="M10 25.5h12v3.5H10z"/><path d="M10 22.5h12" stroke="#d6463c" stroke-width="1.6" fill="none"/></svg>';
@@ -853,21 +853,22 @@ class Race {
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
     if (!open || this.drive || this.over) { el.classList.add('hidden'); el.innerHTML = ''; this.wheelOpen = false; return; }
-    const vm = Math.min(window.innerWidth, window.innerHeight), ws = Math.max(72, Math.min(124, vm * 0.25)), R = ws * 1.5, cur = this.weapon || 'fist';
-    // the wheel fans out from the weapon button (left of it), so the thumb barely moves
-    let cx = window.innerWidth / 2, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
+    const vm = Math.min(window.innerWidth, window.innerHeight), ws = Math.max(66, Math.min(112, vm * 0.23)), cur = this.weapon || 'fist';
+    // the wheel sits right beside the weapon button (2 x 2, tight), so the thumb barely moves
+    let cx = window.innerWidth * 0.8, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
     const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47' };
     ['fist', 'bat', 'pistol', 'ak'].forEach((k, i) => {
-      const a = (112 + i * 45) * Math.PI / 180, owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button');
-      const px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, cx + Math.cos(a) * R)), py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, cy + Math.sin(a) * R));
+      const owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button'), col = i % 2, row = i >> 1, gap = 6;
+      let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row ? 1 : -1) * (ws / 2 + gap / 2);
+      px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, px)); py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, py));
       s.className = 'ws' + (cur === k ? ' sel' : '') + (owned ? '' : ' lock'); s.style.left = Math.round(px) + 'px'; s.style.top = Math.round(py) + 'px';
       s.innerHTML = WEAPON_ICON[k] + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'LOCKED') + '</small>';
       const pick = (e) => { e.preventDefault(); e.stopPropagation(); if (!owned) return; this.equip(k); A.sfx.click(); this.toggleWheel(false); };
       s.addEventListener('pointerdown', pick); el.appendChild(s);
     });
-    const hub = document.createElement('div'); hub.className = 'hub'; hub.style.left = Math.round(cx) + 'px'; hub.style.top = Math.round(cy) + 'px'; hub.innerHTML = '<b>' + NAMES[cur] + '</b>'; el.appendChild(hub);
-    el.onpointerdown = (e) => { if (e.target === el || e.target === hub) { e.preventDefault(); this.toggleWheel(false); } };
+    const hub = null;
+    el.onpointerdown = (e) => { if (e.target === el) { e.preventDefault(); this.toggleWheel(false); } };
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ }
   }
   cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
@@ -1076,6 +1077,7 @@ class Race {
   }
   fire() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
+    if (OPT.ammo && this.wallet.s) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
     this.wallet.shoot(w); this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
