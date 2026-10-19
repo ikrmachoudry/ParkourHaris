@@ -204,6 +204,7 @@ export function gtaCars() {
     ...CHASE.copsHome.map((q) => ({ id: 15, ...q })),
     ...[88.2, 91.6].map((z) => ({ id: 25, x: PARK.spawn.x - 13, z, yaw: PARK.spawn.yaw })),   // two purple 160 km/h racing cars in the Stunt Park infield
     (() => { const h = HOMES[1], p = homeW(h, 1.8, 6.6); return { id: 24, x: p.x, z: p.z, yaw: h.yaw }; })(),   // the yellow 144 km/h coupe in Hannan's front yard
+    (() => { const h = HOMES[2], p = homeW(h, 2.2, 7.6); return { id: 26, x: p.x, z: p.z, yaw: h.yaw }; })(),   // Hanbal's tractor (21 km/h)
     (() => { const h = HOMES[3], p = homeW(h, 1.8, 6.6); return { id: 23, x: p.x, z: p.z, yaw: h.yaw }; })()];   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
