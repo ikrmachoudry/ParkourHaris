@@ -19,7 +19,7 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] } };   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
+const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 } };   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
 // ---- which GLB bone plays which driver bone ----
@@ -182,16 +182,18 @@ export class GlbActor extends HeroActor {
     const ce = CLIP_FOR[this.pose], clip = ce && CLIPS && rt.Qm && CLIPS.clips[ce.c];
     if (clip) {
       const sp = st.speed || 0; let fi;
-      if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
+      if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 11 - t * 6.5 : 11 - t * 7)); }   // jump: rising -> apex -> falling, driven by the real vertical speed
+      else if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
       else { this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1); fi = (this.ct / clip.dur) % 1 * clip.n; }
-      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
+      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
       const Wm = rt.Wm || (rt.Wm = {}); const sc = hk * 0.01 * (rt.mxHipsY / 100) ** 0;
       NEED.forEach((n, j) => {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
         Wm[n] = Wm[n] || new THREE.Quaternion(); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr);
       });
       const mo = (rt.mOff = rt.mOff || new THREE.Vector3()); _v.fromArray(clip.hips, i0 * 3); mo.fromArray(clip.hips, i1 * 3); mo.lerp(_v, 1 - al);   // (lerp from i1 towards i0 by 1-al)
-      mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); src = Wm; srcKey = ce.c; off = mo;
+      mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); if (ce.air) mo.y *= 0.2;   // the game body already rises and falls
+      src = Wm; srcKey = ce.c; off = mo;
     } else this.ct = 0;
     if (this.srcKey !== srcKey) { this.srcKey = srcKey; this.mixT = 0; rt.fromW = rt.fromW || {}; for (const n of NEED) rt.fromW[n] = (rt.fromW[n] || new THREE.Quaternion()).copy(Wout[n] || src[n]); rt.fromOff = (rt.fromOff || new THREE.Vector3()).copy(rt.curOff || off); }
     this.mixT = (this.mixT == null ? 1 : this.mixT) + dt; const mk = Math.min(1, this.mixT / 0.18), ms = mk * mk * (3 - 2 * mk);
