@@ -269,8 +269,6 @@ body.driving:not(.touch) #car-keys { display: block; }
 body.driving.touch #car-pad { display: block; }
 body.driving #t-jump, body.driving #t-dive, body.driving #t-bat, body.driving #t-fire, body.driving #hud-hint { display: none !important; }
 body.driving.touch #car-speed { bottom: auto; top: 16%; left: 50%; }
-#c-horn { position: absolute; border-radius: 50%; opacity: .78; }
-#c-horn { right: max(18px, 3vw); bottom: calc(max(14px, 4vh) + clamp(70px, 18vmin, 104px) + 14px); width: clamp(48px, 12vmin, 70px); height: clamp(48px, 12vmin, 70px); font-size: clamp(20px, 5vmin, 30px); background: radial-gradient(circle at 35% 30%, #ffe27a, #e8a417); box-shadow: 0 4px 0 #9a6a05; }
 #car-pad button:active, .carbtn:active { filter: brightness(1.2); transform: translateY(3px); }
 body.touch .carbtn { padding: 0; width: clamp(66px, 17vmin, 92px); height: clamp(66px, 17vmin, 92px); justify-content: center; border-radius: 50%; left: auto; right: max(22px, 3vw); bottom: calc(max(12px, 4vh) + clamp(70px, 18vmin, 104px) * 2 + 36px); transform: none; animation: none; }
 body.touch .carbtn em, body.touch .carbtn kbd { display: none; }
@@ -418,3 +416,34 @@ body.big-map #touch, body.m-open #touch, body.m-fin-open #touch { display: none 
 .m-card #m-pick button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
 .m-card #m-pick button.on { background: linear-gradient(#7c5cff, #5a3cf0); color: #fff; border-color: #c9a8ff; }
 @media (max-height: 480px) { #s-title .menu { width: min(190px, 26vw); gap: 6px; top: 56px; bottom: auto; } #s-title .logo { padding-right: min(190px, 26vw); } #s-title .menu .btn.big { padding: 6px 8px; } #s-title .menu .row .btn { padding: 6px 6px; } }
+
+/* ================= phone controls, GTA mobile style: flat grey translucent circles, white glyphs, no words ================= */
+:root { --pad-bg: rgba(112,112,112,.55); --pad-on: rgba(170,170,170,.75); --pad-size: clamp(62px, 16vmin, 92px); --pad-big: clamp(78px, 21vmin, 112px); --pad-gap: 14px; --pad-x: max(18px, 3vw); --pad-y: max(14px, 5vh); }
+/* on foot: always-visible joystick bottom-left (it still follows the thumb) */
+body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { display: block; left: calc(var(--pad-x) + 75px); top: calc(100vh - var(--pad-y) - 75px); }
+body.touch.in-race.city-mode.driving #joy { display: none !important; }
+body.touch #joy { width: 150px; height: 150px; margin: -75px 0 0 -75px; background: var(--pad-bg); border: 0; }
+body.touch #joy-knob { width: 64px; height: 64px; background: rgba(30,30,30,.6); box-shadow: none; }
+/* on foot buttons: punch up top right, jump + crouch below it */
+body.touch #act-pad button, body.touch .carbtn, body.touch #car-pad button { background: var(--pad-bg) !important; border: 0 !important; box-shadow: none !important; color: #fff; }
+body.touch #act-pad button:active, body.touch #act-pad button.on, body.touch .carbtn:active, body.touch #car-pad button:active, body.touch #car-pad button.on { background: var(--pad-on) !important; transform: scale(.94); filter: none; }
+body.touch #act-pad i { display: none; }
+body.touch #act-pad { width: calc(var(--pad-big) * 2.1); height: calc(var(--pad-big) * 2.6); right: var(--pad-x); bottom: var(--pad-y); }
+body.touch #a-punch { right: 0; bottom: auto; top: 0; width: var(--pad-big); height: var(--pad-big); }
+body.touch #a-crouch { right: calc(var(--pad-big) + var(--pad-gap)); bottom: auto; top: calc(var(--pad-big) * .45); width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-jump { right: 0; bottom: 0; top: auto; width: var(--pad-big); height: var(--pad-big); }
+body.touch #a-sit { display: none; }
+/* get in / get out: grey circle with the car glyph (no yellow / blue pills) */
+body.touch.city-mode .carbtn { width: var(--pad-size); height: var(--pad-size); padding: 0; animation: none; }
+/* in a vehicle or on a bike: steering arrows bottom-left, brake + gas pedals bottom-right, handbrake and horn above them */
+#car-pad button { position: absolute; border-radius: 50%; display: grid; place-items: center; padding: 0; -webkit-tap-highlight-color: transparent; }
+#car-pad button svg { width: 52%; height: 52%; pointer-events: none; }
+body.driving.touch #car-pad { display: block; }
+#c-left, #c-right { bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); }
+#c-left { left: var(--pad-x); } #c-right { left: calc(var(--pad-x) + var(--pad-size) + var(--pad-gap)); }
+#c-gas { right: var(--pad-x); bottom: var(--pad-y); width: var(--pad-big); height: var(--pad-big); }
+#c-brake { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap)); bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); }
+#c-hb { right: var(--pad-x); bottom: calc(var(--pad-y) + var(--pad-big) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); }
+#c-horn { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap)); bottom: calc(var(--pad-y) + var(--pad-size) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); font-size: 0; }
+body.touch.driving .carbtn.exit { right: var(--pad-x); top: 24%; bottom: auto; }
+body.touch.driving #act-pad { display: none !important; }

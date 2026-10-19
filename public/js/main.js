@@ -24,7 +24,7 @@ import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
 const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
-const touch = { x: 0, y: 0, jump: false, grab: false };
+const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -554,6 +554,8 @@ class Race {
     if (canMove) {
       if (keys.has('KeyW') || keys.has('ArrowUp')) gas++; if (keys.has('KeyS') || keys.has('ArrowDown')) gas--;
       if (keys.has('KeyD') || keys.has('ArrowRight')) steer++; if (keys.has('KeyA') || keys.has('ArrowLeft')) steer--;
+      { const tgt = (touch.sr ? 1 : 0) - (touch.sl ? 1 : 0); touch.bs += (tgt - touch.bs) * Math.min(1, dt * (tgt ? 5 : 9)); if (Math.abs(touch.bs) > 0.02) steer += touch.bs; else touch.bs = 0;   // on-screen steering arrows ease in and out
+        gas += (touch.gas ? 1 : 0) - (touch.brk ? 1 : 0); }
       if (touch.x || touch.y) { // phone: left-screen joystick like a steering wheel + pedal: up = gas, down = brake / reverse, left / right = steer (works while accelerating)
         // a steady thumb pushing UP to accelerate always wanders a little sideways: a dead zone that grows with the push, then a soft curve (small movements = gentle steering, the edge = full lock)
         const ty = Math.abs(touch.y) < 0.12 ? 0 : touch.y, dz = 0.2 + 0.16 * Math.min(1, Math.abs(touch.y) * 1.3), ax = Math.abs(touch.x);
@@ -562,7 +564,7 @@ class Race {
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
       const hero = c.mesh.userData.hero;
@@ -1335,7 +1337,7 @@ function openPause() {
   if (!race || race.over || race.menuOpen) return;
   race.menuOpen = true;
   if (!race.multi) { race.paused = true; race.pauseAt = performance.now(); }
-  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false;
+  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0;
   $('p-title').textContent = race.multi ? 'Menu' : 'Paused';
   $('p-info').textContent = race.meta.name + (race.multi ? '  \u2022  race goes on!' : '');
   syncGfx();
@@ -1450,9 +1452,9 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
-      if (t.clientX < window.innerWidth * 0.5 && joyId === null) {
+      if (t.clientX < window.innerWidth * 0.5 && joyId === null && !document.body.classList.contains('driving')) {
         joyId = t.identifier; ox = t.clientX; oy = t.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
-      } else if (camId === null && t.clientX >= window.innerWidth * 0.5) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
+      } else if (camId === null && (t.clientX >= window.innerWidth * 0.5 || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
     }
   }, { passive: false });
   zone.addEventListener('touchmove', (e) => {
@@ -1470,7 +1472,7 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   }, { passive: false });
   const end = (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); }
+      if (t.identifier === joyId) { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; }
       if (t.identifier === camId) camId = null;
     }
   };
@@ -1489,7 +1491,10 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });
   btn('t-bat', () => { if (race && !race.over && !race.menuOpen) race.swing(); });
-  btn('c-horn', () => { if (race) race.honkOn(); }, () => A.hornStop());
+  act('c-horn', () => { if (race) race.honkOn(); }, () => A.hornStop());
+  act('c-left', () => { touch.sl = 1; }, () => { touch.sl = 0; }); act('c-right', () => { touch.sr = 1; }, () => { touch.sr = 0; });
+  act('c-gas', () => { touch.gas = 1; }, () => { touch.gas = 0; }); act('c-brake', () => { touch.brk = 1; }, () => { touch.brk = 0; });
+  act('c-hb', () => { touch.hb = 1; }, () => { touch.hb = 0; });
   btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
   { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });

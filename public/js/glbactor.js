@@ -15,6 +15,13 @@ export function loadGlb(url) {
   return cache.get(url);
 }
 
+// ---- baked Mixamo clips (tools/mixamo_bake.mjs): optional, any pose without a clip keeps the procedural / mocap driver ----
+let CLIPS = null, clipsP = null;
+const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
+// which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
+const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.6 }, idle: { c: 'idle', loop: 1 }, crouch: { c: 'crouch', loop: 1 }, crouchwalk: { c: 'crouchwalk', v0: 1.1 } };
+const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
+
 // ---- which GLB bone plays which driver bone ----
 const norm = (n) => String(n).replace(/^.*[:|]/, '').replace(/^mixamorig/i, '');
 function sideOf(n) {
@@ -57,7 +64,7 @@ export class GlbActor extends HeroActor {
   constructor(id, url, opts = {}) {
     super(id, opts.look);
     this.opts = opts; this.ready = false; this.failed = false; this.shell = null;
-    loadGlb(url).then((g) => this.attach(g), (e) => { this.failed = true; console.warn('GLB failed', url, e && e.message); });
+    Promise.all([loadGlb(url), loadClips()]).then(([g]) => this.attach(g), (e) => { this.failed = true; console.warn('GLB failed', url, e && e.message); });
   }
   attach(gltf) {
     if (this.disposed) return;
@@ -105,7 +112,17 @@ export class GlbActor extends HeroActor {
       else if (k.startsWith('lowerleg')) { dNew = dirTo('foot.' + sd); dMy = dd(k, 'foot.' + sd); }
       else { dNew = new THREE.Vector3(0, 0, 1); dMy = new THREE.Vector3(0, 0, 1); }   // foot: pose deltas only (keeps the model's own toe pitch)
       if (this.opts.flip) { /* model faces -z: directions in world are already handled by the rotated model */ }
-      T[k] = { bone, Q: new THREE.Quaternion().setFromUnitVectors(dNew.normalize(), dMy.normalize()), Rr: wq(bone), restLocal: bone.quaternion.clone() };
+      const dN = dNew.clone().normalize();
+      T[k] = { bone, Q: new THREE.Quaternion().setFromUnitVectors(dNew.normalize(), dMy.normalize()), Rr: wq(bone), restLocal: bone.quaternion.clone(), dN };
+    }
+    // Mixamo clip retarget: rest rotation from the target's rest bone directions to Mixamo's T-pose directions
+    let Qm = null, mxHipsY = 1;
+    if (CLIPS && CLIPS.restPos) {
+      const P = (k) => new THREE.Vector3(...CLIPS.restPos[k]); const dm = (a, b) => P(b).sub(P(a)).normalize();
+      const DM = { hips: dm('hips', 'spine'), spine: dm('spine', 'chest'), chest: dm('chest', 'neck'), neck: dm('neck', 'head'), head: new THREE.Vector3(0, 1, 0) };
+      for (const s of ['L', 'R']) Object.assign(DM, { ['upperarm.' + s]: dm('upperarm.' + s, 'forearm.' + s), ['forearm.' + s]: dm('forearm.' + s, 'hand.' + s), ['hand.' + s]: dm('forearm.' + s, 'hand.' + s), ['upperleg.' + s]: dm('upperleg.' + s, 'lowerleg.' + s), ['lowerleg.' + s]: dm('lowerleg.' + s, 'foot.' + s), ['foot.' + s]: new THREE.Vector3(0, 0, 1) });
+      Qm = {}; for (const k of NEED) Qm[k] = new THREE.Quaternion().setFromUnitVectors(T[k].dN, DM[k]);
+      mxHipsY = CLIPS.hipsY;
     }
     // everything else in the skeleton keeps its rest rotation (fingers, twist bones, clavicles ride along)
     const all = []; model.traverse((o) => { if (o.isBone) all.push(o); });
@@ -121,7 +138,7 @@ export class GlbActor extends HeroActor {
     const S = hr.bone.getWorldScale(new THREE.Vector3()).x || 1;
     const gp = gun.position.clone().applyQuaternion(rel).divideScalar(S);
     const rootQ = new Map(); for (const bone of all) if (!bone.parent || !bone.parent.isBone) rootQ.set(bone, bone.parent ? wq(bone.parent) : new THREE.Quaternion());
-    this.rt = { rootQ, map, T, rest, byBone, all, root: model, hips, hipsRestLocal, hipsParentS, hipsParentQ, hipsWorldY, scale: s };
+    this.rt = { Qm, mxHipsY, rootQ, map, T, rest, byBone, all, root: model, hips, hipsRestLocal, hipsParentS, hipsParentQ, hipsWorldY, scale: s };
     if (gun.parent) gun.parent.remove(gun);
     hr.bone.add(gun); gun.quaternion.copy(rel); gun.position.copy(gp); gun.scale.setScalar(1 / S);
     model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
@@ -140,8 +157,8 @@ export class GlbActor extends HeroActor {
     // running leans the whole upper body forward a little (the mocap is upright; a real sprinter leans ~10 degrees), walking just slightly
     { const lean = this.pose === 'run' ? 0.2 : this.pose === 'walk' || this.pose === 'crouchwalk' ? 0.05 : 0; this.lean = (this.lean || 0) + (lean - (this.lean || 0)) * Math.min(1, dt * 8);
       if (this.lean > 0.002) { _q.setFromAxisAngle(_v.set(1, 0, 0), this.lean); for (const n of ['spine', 'chest', 'neck', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) G[n].premultiply(_q); _q.setFromAxisAngle(_v.set(1, 0, 0), this.lean * 0.4); G.head.premultiply(_q); } }
-    // walking / running: relaxed, less deeply bent elbows (arms hang and swing loosely beside the body) - other poses (aim, punch...) stay untouched
-    if (this.pose === 'run' || this.pose === 'walk' || this.pose === 'crouchwalk') for (const sd of ['L', 'R']) G['forearm.' + sd].slerp(G['upperarm.' + sd], 0.4), G['hand.' + sd].slerp(G['upperarm.' + sd], 0.3);
+    // walking / running: flexed elbows (forearms lifted forward, arms swing beside the body) - other poses (aim, punch...) stay untouched
+    if (this.pose === 'run' || this.pose === 'walk' || this.pose === 'crouchwalk') { const fl = this.pose === 'run' ? 0.5 : 0.3; _q.setFromAxisAngle(_v.set(1, 0, 0), -fl); for (const sd of ['L', 'R']) { G['forearm.' + sd].premultiply(_q); G['hand.' + sd].premultiply(_q); } }   // more flexed elbows: forearm lifts forward, like a jogger
     // the wider MakeHuman shoulders need the hanging arms a bit further out (otherwise hands cross the belly): swing sideways of the body like a real person
     for (const sd of ['L', 'R']) {
       const up = G['upperarm.' + sd]; _v2.set(0, -1, 0).applyQuaternion(up);
@@ -156,11 +173,32 @@ export class GlbActor extends HeroActor {
     }
     { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk') ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : 0.3;
       this.fist = (this.fist == null ? tgt : this.fist) + (tgt - (this.fist == null ? tgt : this.fist)) * Math.min(1, dt * 12); }
+    // ---- choose the motion source: a baked Mixamo clip when there is one for this pose, otherwise the procedural / mocap driver ----
+    const Wout = rt.Wout || (rt.Wout = {}); const Wd = rt.Wd || (rt.Wd = {}); const hk = rt.hipsWorldY / this.ch.rest.hips.y;
+    for (const n of NEED) { Wd[n] = Wd[n] || new THREE.Quaternion(); Wd[n].copy(G[n]).multiply(rt.T[n].Q).multiply(rt.T[n].Rr); }
+    const dOff = (rt.dOff = rt.dOff || new THREE.Vector3()).set(b.hips.position.x - this.ch.rest.hips.x, b.hips.position.y - this.ch.rest.hips.y, b.hips.position.z - this.ch.rest.hips.z).multiplyScalar(hk);
+    let src = Wd, srcKey = 'drv', off = dOff;
+    const ce = CLIP_FOR[this.pose], clip = ce && CLIPS && rt.Qm && CLIPS.clips[ce.c];
+    if (clip) {
+      const sp = st.speed || 0; this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1);
+      const fi = (this.ct / clip.dur) % 1 * clip.n, i0 = Math.floor(fi) % clip.n, i1 = (i0 + 1) % clip.n, al = fi - Math.floor(fi);
+      const Wm = rt.Wm || (rt.Wm = {}); const sc = hk * 0.01 * (rt.mxHipsY / 100) ** 0;
+      NEED.forEach((n, j) => {
+        _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
+        Wm[n] = Wm[n] || new THREE.Quaternion(); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr);
+      });
+      const mo = (rt.mOff = rt.mOff || new THREE.Vector3()); _v.fromArray(clip.hips, i0 * 3); mo.fromArray(clip.hips, i1 * 3); mo.lerp(_v, 1 - al);   // (lerp from i1 towards i0 by 1-al)
+      mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); src = Wm; srcKey = ce.c; off = mo;
+    } else this.ct = 0;
+    if (this.srcKey !== srcKey) { this.srcKey = srcKey; this.mixT = 0; rt.fromW = rt.fromW || {}; for (const n of NEED) rt.fromW[n] = (rt.fromW[n] || new THREE.Quaternion()).copy(Wout[n] || src[n]); rt.fromOff = (rt.fromOff || new THREE.Vector3()).copy(rt.curOff || off); }
+    this.mixT = (this.mixT == null ? 1 : this.mixT) + dt; const mk = Math.min(1, this.mixT / 0.18), ms = mk * mk * (3 - 2 * mk);
+    for (const n of NEED) { Wout[n] = Wout[n] || new THREE.Quaternion(); if (ms < 1 && rt.fromW) Wout[n].copy(rt.fromW[n]).slerp(src[n], ms); else Wout[n].copy(src[n]); }
+    rt.curOff = (rt.curOff || new THREE.Vector3()); if (ms < 1 && rt.fromOff) rt.curOff.copy(rt.fromOff).lerp(off, ms); else rt.curOff.copy(off);
     // walk the GLB skeleton parents-first
     const walk = (bone, pw) => {
       let w;
       const k = rt.byBone.get(bone);
-      if (k) { const t = rt.T[k]; w = _q2.copy(G[k]).multiply(t.Q).multiply(t.Rr); const local = pw.clone().invert().multiply(w); bone.quaternion.copy(local); w = w.clone(); }
+      if (k) { const t = rt.T[k]; w = _q2.copy(rt.Wout[k]); const local = pw.clone().invert().multiply(w); bone.quaternion.copy(local); w = w.clone(); }
       else if (bone.userData.curl) {   // finger / thumb joints: curl into a fist (world axis across the palm, converted into the parent's frame)
         const cu = bone.userData.curl, ang = cu.a * this.fist;
         _v.copy(cu.axis).applyQuaternion(_q.copy(pw).invert()).normalize();
@@ -173,10 +211,8 @@ export class GlbActor extends HeroActor {
     for (const bone of rt.all) if (!bone.parent || !bone.parent.isBone) {
       walk(bone, rt.rootQ.get(bone));
     }
-    // hips: copy the driver's offset (bounce, lean, sitting height) scaled to this body, in the hips parent's local space
-    const k = rt.hipsWorldY / this.ch.rest.hips.y;
-    _v.set(b.hips.position.x - this.ch.rest.hips.x, b.hips.position.y - this.ch.rest.hips.y, b.hips.position.z - this.ch.rest.hips.z).multiplyScalar(k);
-    _v.applyQuaternion(_q.copy(rt.hipsParentQ).invert()).divideScalar(rt.hipsParentS);
+    // hips: bounce / lean / sitting height (driver offset or Mixamo hips travel) scaled to this body, in the hips parent's local space
+    _v.copy(rt.curOff).applyQuaternion(_q.copy(rt.hipsParentQ).invert()).divideScalar(rt.hipsParentS);
     rt.hips.position.copy(rt.hipsRestLocal).add(_v);
   }
   dispose() {
