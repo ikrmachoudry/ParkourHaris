@@ -21,6 +21,12 @@ export class ThiefScene {
   ground(x, z) { const t = this.R.info.track; return t && t.terrain ? t.terrain(x, z) : 0; }
   apply(m) { this.snap = m; this.at = performance.now(); }
   clear() { this.snap = null; this.first = true; this.ri = undefined; if (this.built) { this.car.visible = false; this.actor.group.visible = false; } }
+  // the car as a solid for the physics (same fields as a city car state): heavy, so you bounce off it instead of driving through
+  get carSt() {
+    if (!this.built || !this.car.visible || !this.snap || this.cx === undefined) return null;
+    const o = this._cs || (this._cs = { id: 22, hl: 2.3, hw: 1.0, y: 0, driver: 1, heavy: true, parked: false }), cv = this.snap.c[3] || 0, sy = Math.sin(this.cyaw), cy = Math.cos(this.cyaw);
+    o.x = this.cx; o.z = this.cz; o.yaw = this.cyaw; o.y = this.car.position.y; o.speed = cv; o.vx = sy * cv; o.vz = cy * cv; return o;
+  }
   get stage() { return this.snap ? this.snap.st : ''; }
   get exposed() { return !!this.snap && this.snap.st === 'ambush' && this.snap.ex > 0.5; }
   // seat positions (same maths as Race.seatModel) for the thief

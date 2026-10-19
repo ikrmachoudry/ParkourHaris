@@ -110,7 +110,7 @@ export function animateCityMesh(mesh, st, dt) {
   const t = u.doorT, k = t < 0.35 ? t / 0.35 : t < 1.5 ? 1 : t < 2.0 ? 1 - (t - 1.5) / 0.5 : 0;
   const e = k * k * (3 - 2 * k);
   if (e !== u.door) { u.door = e; car.setDoor(0, e); }
-  if (car.lamp && car.lamp.material && spec.extra === 'police') { const f = Math.floor(performance.now() / 160) % 2; car.lamp.material.emissiveIntensity = st.driver !== -1 ? (f ? 1.4 : 0.2) : 0.35; }
+  if (car.police) car.police.on = st.driver !== -1 || st.siren !== false;
 }
 
 // traffic: only the cheap baked copy (never animated) in its own colour

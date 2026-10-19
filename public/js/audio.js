@@ -96,8 +96,8 @@ export const sfx = {
   swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); } },
   cash() { tone('triangle', 988, 1480, 0.08, 0.22); tone('triangle', 1480, 1976, 0.14, 0.18, 0.07); },
   empty() { tone('square', 1400, 1000, 0.025, 0.1); },
-  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.8 * vol, 0.92, 0.78, 900, 0.75, 0.45)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
-  akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 0.95 * vol, 0.84, 0.7, 700, 0.6, 0.4)) return; sfx.shot(); },
+  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
+  akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
   glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
   metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },
   hiss(v = 1) { noise(0.7, 0.22 * v, 'highpass', 3500, 2200, 0, 0.7); play('metal1', 0.4 * v, 0.7); },
@@ -321,6 +321,36 @@ export function hornStop() {
   setTimeout(() => { try { const t = ctx.currentTime; h.g.gain.cancelScheduledValues(t); h.g.gain.setTargetAtTime(0.0001, t, 0.035); setTimeout(() => { for (const o of h.oscs) { try { o.stop(); } catch { /* noop */ } } }, 260); } catch { /* noop */ } }, wait * 1000);
 }
 export const hornOn = () => !!horn;
+
+// POLICE SIREN: a two-tone wail that swoops between ~650 and ~1450 Hz, switching to a faster yelp every few seconds (a hard-edged sawtooth + square through a gritty shaper).
+// sirenStart / sirenStop = the siren of the car you drive (the horn button toggles it); sirenFar(v) = the chasing police cars, louder the closer they are.
+function makeSiren(base, vol) {
+  const t = ctx.currentTime, g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.08);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 1300; pk.gain.value = 6; pk.Q.value = 0.9;
+  const sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.2); } sh.curve = cv;
+  const mix = ctx.createGain(); mix.gain.value = 0.55; mix.connect(sh); sh.connect(lp); lp.connect(pk); pk.connect(g); g.connect(sfxG);
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.type = 'triangle'; lfo.frequency.value = 0.34; lg.gain.value = 420; lfo.connect(lg);
+  const oscs = [lfo];
+  for (const [mul, type, gv] of [[1, 'sawtooth', 0.55], [1.005, 'square', 0.3], [2, 'triangle', 0.18]]) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = base * mul; lg.connect(o.frequency); const og = ctx.createGain(); og.gain.value = gv; o.connect(og); og.connect(mix); o.start(); oscs.push(o); }
+  lfo.start();
+  const S = { g, oscs, lfo, lg, vol, t0: t, mode: 0, next: t + 7 };
+  return S;
+}
+function sirenTick(S) {   // wail <-> yelp
+  if (!S || !ctx) return; const t = ctx.currentTime; if (t < S.next) return; S.mode ^= 1; S.next = t + (S.mode ? 4.5 : 8); S.lfo.frequency.setTargetAtTime(S.mode ? 1.6 : 0.34, t, 0.3);
+}
+function killSiren(S) { if (!S) return; try { const t = ctx.currentTime; S.g.gain.cancelScheduledValues(t); S.g.gain.setTargetAtTime(0.0001, t, 0.06); setTimeout(() => { for (const o of S.oscs) { try { o.stop(); } catch { /* noop */ } } }, 400); } catch { /* noop */ } }
+let sirenP = null, sirenF = null;
+export function sirenStart() { if (!ctx || sirenP) return; sirenP = makeSiren(900, 0.2); }
+export function sirenStop() { if (!sirenP) return; killSiren(sirenP); sirenP = null; }
+export const sirenOn = () => !!sirenP;
+export function sirenFar(v) {
+  if (!ctx) return; v = Math.max(0, Math.min(1, v));
+  if (v < 0.02) { if (sirenF) { killSiren(sirenF); sirenF = null; } return; }
+  if (!sirenF) sirenF = makeSiren(780, 0.0002);
+  sirenF.g.gain.setTargetAtTime(Math.max(0.0002, 0.17 * v), ctx.currentTime, 0.12);
+}
+export function sirenTickAll() { sirenTick(sirenP); sirenTick(sirenF); }
 
 // tyre squeal: a continuous band of noise whose loudness follows how hard the tyres are sliding
 export function skidSet(level) {

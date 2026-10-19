@@ -40,7 +40,7 @@ export class Minimap {
   }
   resize() { const d = Math.min(2, window.devicePixelRatio || 1), s = this.cv.clientWidth || 150; this.cv.width = this.cv.height = Math.round(s * d); }
   // view: { x, z, head } where head = the world direction (yaw) that should point up;  me: { x, z, yaw };  others: [{ x, z, color }]
-  draw(view, me, others, dt, marks, route) {
+  draw(view, me, others, dt, marks, route, wi) {
     this.t += dt || 0; if (this.t < 0.033) return; this.t = 0;
     if (!this.map) this.map = drawStatic();
     const g = this.g, S = this.cv.width; if (!S) { this.resize(); return; }
@@ -70,6 +70,12 @@ export class Minimap {
     if (Math.hypot(LOBBY.x - view.x, LOBBY.z - view.z) < 70) label('MISSIONS', LOBBY.x, LOBBY.z, '#d9b8ff');
     if (Math.hypot(380 - view.x, 92 - view.z) < 90) label('STUNT PARK', 380, 92, '#8dffb0');
     for (const o of others || []) { const [px, py] = toScr(o.x, o.z); if (Math.hypot(px - S / 2, py - S / 2) > S / 2 - 4) continue; g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 100); g.beginPath(); g.arc(px, py, S / 40, 0, 7); g.fill(); g.stroke(); }
+    if (wi) {   // police: the search circle (pulses blue / red) and the officers (flashing blue / red dots)
+      const f = wi.phase;
+      if (wi.circle) { const [cx, cy] = toScr(wi.circle.x, wi.circle.z), rr = wi.circle.r * k; g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip();
+        g.fillStyle = f ? 'rgba(40,90,255,.22)' : 'rgba(255,40,40,.16)'; g.strokeStyle = f ? 'rgba(90,140,255,.95)' : 'rgba(255,90,90,.95)'; g.lineWidth = Math.max(2.5, S / 40); g.beginPath(); g.arc(cx, cy, rr, 0, 7); g.fill(); g.stroke(); g.restore(); }
+      for (const c of wi.cops) { const [px, py] = toScr(c.x, c.z); if (Math.hypot(px - S / 2, py - S / 2) > S / 2 - 3) continue; g.fillStyle = f ? '#3b6bff' : '#ff3b3b'; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.2, S / 110); g.beginPath(); g.arc(px, py, c.car ? S / 38 : S / 52, 0, 7); g.fill(); g.stroke(); }
+    }
     // me: an arrow in the middle that points where I am heading
     g.save(); g.translate(S / 2, S / 2); g.rotate(-(me.yaw - view.head)); const a = S / 22;
     g.fillStyle = '#ffffff'; g.strokeStyle = '#13203a'; g.lineWidth = Math.max(1.5, S / 100); g.beginPath(); g.moveTo(0, -a * 1.4); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore();
@@ -79,7 +85,7 @@ export class Minimap {
     { const [nx, ny] = toScr(view.x, view.z - 1000); const dx = nx - S / 2, dy = ny - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 22; g.fillStyle = '#d62828'; g.beginPath(); g.arc(S / 2 + dx / d * nr, S / 2 + dy / d * nr, S / 28, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(S / 22) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', S / 2 + dx / d * nr, S / 2 + dy / d * nr + 1); }
   }
   // the whole island, north up: tap/click the small map (or press M / Tab) to open, again (or Esc) to close
-  drawBig(cv, me, others, marks, route) {
+  drawBig(cv, me, others, marks, route, wi) {
     if (!this.map) this.map = drawStatic();
     const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.86); if (cv.width !== S) cv.width = cv.height = S;
     const g = cv.getContext('2d'), k = S / 1020, ox = S / 2, oy = S / 2;   // show the whole island (-510..510)
@@ -96,6 +102,11 @@ export class Minimap {
     for (const m of marks || []) badge(m.x, m.z, m.color, m.glyph, r * 0.9);
     for (const h of HOMES) badge(h.x, h.z, h.color, '\u{1F3E0}', r * 0.8, h.name.toUpperCase(), '#fff', h.x < -90 ? -1 : 1);
     for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, r * 0.55, 0, 7); g.fill(); g.stroke(); }
+    if (wi) {
+      const f = wi.phase;
+      if (wi.circle) { const [cx, cy] = P(wi.circle.x, wi.circle.z); g.fillStyle = f ? 'rgba(40,90,255,.22)' : 'rgba(255,40,40,.16)'; g.strokeStyle = f ? 'rgba(90,140,255,.95)' : 'rgba(255,90,90,.95)'; g.lineWidth = Math.max(3, S / 120); g.beginPath(); g.arc(cx, cy, wi.circle.r * k, 0, 7); g.fill(); g.stroke(); }
+      for (const c of wi.cops) { const [px, py] = P(c.x, c.z); g.fillStyle = f ? '#3b6bff' : '#ff3b3b'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, c.car ? r * 0.5 : r * 0.35, 0, 7); g.fill(); g.stroke(); }
+    }
     { const [px, py] = P(me.x, me.z), a = r * 0.8; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }
     g.fillStyle = '#d62828'; g.font = '900 ' + Math.round(S / 28) + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('N', S / 2, 6);
   }

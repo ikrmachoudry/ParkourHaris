@@ -226,10 +226,26 @@ function makeWheelParts(sp, seg) {
   return { tire: cleanGeo(tire), rim: rimAll, brake: merge([disc, hub]) };
 }
 
+
+// ---- police liveries / lights
+let _glow = null, _ptex = null; const policeList = [];
+function glowTex() { if (_glow) return _glow; const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return (_glow = new THREE.CanvasTexture(c)); }
+function policeTex() { if (_ptex) return _ptex; const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#0b2a78'; x.font = '900 104px Arial Black, Impact, Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('POLICE', 256, 58); x.fillRect(10, 112, 492, 9); const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (_ptex = t); }
+// call every frame: alternating red / blue strobes (double flash each) with glow halos on EVERY police car. set car.police.on = false to put one out.
+export function flashPolice(now = performance.now()) {
+  const ph = Math.floor(now / 70) % 16, r = ph === 0 || ph === 2 || ph === 4 ? 1 : 0, b = ph === 8 || ph === 10 || ph === 12 ? 1 : 0;
+  for (let i = policeList.length - 1; i >= 0; i--) {
+    const p = policeList[i].deref(); if (!p) { policeList.splice(i, 1); continue; }
+    const on = p.on !== false;
+    p.red.emissiveIntensity = on ? (r ? 3.2 : 0.08) : 0.05; p.blue.emissiveIntensity = on ? (b ? 3.2 : 0.08) : 0.05;
+    p.sprites[0].material.opacity = on && r ? 1 : 0; p.sprites[1].material.opacity = on && b ? 1 : 0;
+  }
+}
+
 // ---------------------------------------------------------------- the car
 export function buildHeroCar(opts = {}) {
   const { style = 'sedan', paint = '#b01818', detail = 'hi' } = opts;
-  const sp = CAR_STYLES[style], hi = detail !== 'lo'; let car_lamp = null;
+  const sp = CAR_STYLES[style], hi = detail !== 'lo'; let car_lamp = null, police = null;
   const G = buildGrid(sp, detail);
   const { N, K, R, kc, xs } = G;
   const ix = (x) => clamp(Math.round(((x + sp.L / 2) / sp.L) * N), 0, N);
@@ -425,9 +441,24 @@ export function buildHeroCar(opts = {}) {
   if (opts.extra === 'police' || opts.extra === 'taxi') {
     const roofY = sp.prof.reduce((m, p) => Math.max(m, p[1]), 0), rx = -0.05;
     if (opts.extra === 'police') {
-      const bar = cleanGeo(rbox(0.22, 0.07, 1.1, 0.025, 1), [0.08, 0.08, 0.1]); xf(bar, rx, roofY + 0.04, 0); chrome.push(cleanGeo(rbox(0.01, 0.01, 0.01, 0.004)));
+      const bar = cleanGeo(rbox(0.3, 0.07, 1.4, 0.025, 1), [0.06, 0.06, 0.08]); xf(bar, rx, roofY + 0.04, 0);
       group.add(Object.assign(new THREE.Mesh(merge([bar]), mats.trim)));
-      for (const [z, c] of [[-0.3, [0.9, 0.05, 0.05]], [0.3, [0.1, 0.2, 1.0]]]) { const l = cleanGeo(rbox(0.2, 0.06, 0.46, 0.02, 1), c); xf(l, rx, roofY + 0.1, z); lamps.push(l); }
+      const mk = (hex) => new THREE.MeshStandardMaterial({ color: '#1a1a1a', emissive: hex, emissiveIntensity: 0.15, roughness: 0.25 });
+      const lampM = [mk('#ff1010'), mk('#1a44ff')];
+      police = { red: lampM[0], blue: lampM[1], sprites: [], on: true };
+      [[-0.36, 0], [0.36, 1]].forEach(([z, i]) => {
+        const l = cleanGeo(rbox(0.27, 0.11, 0.62, 0.03, 1), [1, 1, 1]); xf(l, rx, roofY + 0.1, z);
+        const m = new THREE.Mesh(merge([l]), lampM[i]); group.add(m);
+        const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: i ? '#3a66ff' : '#ff2020', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        sp2.position.set(rx, roofY + 0.22, z); sp2.scale.setScalar(hi ? 3.6 : 3); sp2.renderOrder = 9; group.add(sp2); police.sprites.push(sp2);
+      });
+      // POLICE on both doors (reads toward the nose on the right side, like a real car)
+      const ptex = policeTex();
+      for (const side of [1, -1]) {
+        const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.375), new THREE.MeshStandardMaterial({ map: ptex, transparent: true, alphaTest: 0.35, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        pl.position.set(-0.42, sp.yb + 0.5, side * (sp.w + 0.012)); if (side < 0) pl.rotation.y = Math.PI; group.add(pl);
+      }
+      policeList.push(new WeakRef(police));
     } else {
       const l = cleanGeo(rbox(0.22, 0.12, 0.5, 0.05, 1), [1, 0.95, 0.75]); xf(l, rx, roofY + 0.08, 0); lamps.push(l);
     }
@@ -472,7 +503,7 @@ export function buildHeroCar(opts = {}) {
     },
     hurtLook(hp) { if (hood && hood.pivot) this.setLid(hood, hp < 15 ? 0.3 : hp < 40 ? 0.16 : 0); },
     repair() { const o = bodyGeo.userData.orig; if (o) { bodyGeo.attributes.position.array.set(o.p); if (o.c) bodyGeo.attributes.color.array.set(o.c); bodyGeo.attributes.position.needsUpdate = true; if (bodyGeo.attributes.color) bodyGeo.attributes.color.needsUpdate = true; bodyGeo.computeVertexNormals(); } if (hood && hood.pivot) this.setLid(hood, 0); },
-    lamp: car_lamp, style: sp,
+    lamp: car_lamp, style: sp, police,
   };
   return car;
 }

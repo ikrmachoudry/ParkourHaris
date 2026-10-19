@@ -136,8 +136,8 @@ export function makeWater(v, y) {
 
 // ---------------------------------------------------------------- particles
 export class Particles {
-  constructor(max = 500) {
-    this.max = max; this.n = 0;
+  constructor(max = 500, opt = {}) {
+    this.max = max; this.n = 0; this.gr = new Float32Array(max); this.am = new Float32Array(max).fill(1);
     this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.size = new Float32Array(max); this.alpha = new Float32Array(max);
     this.vel = new Float32Array(max * 3); this.life = new Float32Array(max); this.maxLife = new Float32Array(max); this.grav = new Float32Array(max); this.s0 = new Float32Array(max);
     const g = new THREE.BufferGeometry();
@@ -147,7 +147,7 @@ export class Particles {
     g.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
     g.setDrawRange(0, 0);
     this.mat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, uniforms: { scale: { value: 600 } },
+      transparent: true, depthWrite: false, blending: opt.additive ? THREE.AdditiveBlending : THREE.NormalBlending, uniforms: { scale: { value: 600 } },
       vertexShader: 'attribute float size; attribute float alpha; attribute vec3 color; varying float vA; varying vec3 vC; uniform float scale; void main(){ vA=alpha; vC=color; vec4 mv = modelViewMatrix*vec4(position,1.0); gl_PointSize = size*scale/max(1.0,-mv.z); gl_Position = projectionMatrix*mv; }',
       fragmentShader: 'varying float vA; varying vec3 vC; void main(){ vec2 c = gl_PointCoord-0.5; float d = length(c); if(d>0.5) discard; gl_FragColor = vec4(vC, vA*smoothstep(0.5,0.1,d)); }',
     });
@@ -161,12 +161,13 @@ export class Particles {
       const a = Math.random() * Math.PI * 2, sp = (o.speed ?? 3) * (0.3 + Math.random() * 0.9), up = o.up ?? 3;
       const j = i * 3;
       this.pos[j] = x + (Math.random() - 0.5) * (o.spread ?? 0.3); this.pos[j + 1] = y; this.pos[j + 2] = z + (Math.random() - 0.5) * (o.spread ?? 0.3);
-      this.vel[j] = Math.cos(a) * sp; this.vel[j + 1] = up * (0.4 + Math.random() * 0.9); this.vel[j + 2] = Math.sin(a) * sp;
+      this.vel[j] = Math.cos(a) * sp + (o.vx ?? 0); this.vel[j + 1] = up * (0.4 + Math.random() * 0.9); this.vel[j + 2] = Math.sin(a) * sp + (o.vz ?? 0);
+      this.gr[i] = o.grow ?? 0; this.am[i] = o.alpha ?? 1;
       const rc = o.rainbow ? this._c.setHSL(Math.random(), 0.9, 0.6) : col;
       this.col[j] = rc.r; this.col[j + 1] = rc.g; this.col[j + 2] = rc.b;
       this.life[i] = this.maxLife[i] = (o.life ?? 0.6) * (0.6 + Math.random() * 0.8);
       this.s0[i] = (o.size ?? 0.35) * (0.6 + Math.random() * 0.8); this.size[i] = this.s0[i];
-      this.grav[i] = o.gravity ?? 9; this.alpha[i] = 1;
+      this.grav[i] = o.gravity ?? 9; this.alpha[i] = 0;
     }
   }
   update(dt) {
@@ -176,7 +177,8 @@ export class Particles {
       this.vel[j + 1] -= this.grav[i] * dt;
       this.pos[j] += this.vel[j] * dt; this.pos[j + 1] += this.vel[j + 1] * dt; this.pos[j + 2] += this.vel[j + 2] * dt;
       const k = Math.max(0, this.life[i] / this.maxLife[i]);
-      this.alpha[i] = Math.min(1, k * 1.6); this.size[i] = this.s0[i] * (0.4 + 0.6 * k);
+      if (this.gr[i] > 0) { const age = 1 - k; this.alpha[i] = this.am[i] * Math.min(1, age * 7) * Math.min(1, k * 1.8); this.size[i] = this.s0[i] * (0.35 + age * this.gr[i]); }   // smoke: swells as it rises, fades in and out
+      else { this.alpha[i] = this.am[i] * Math.min(1, k * 1.6); this.size[i] = this.s0[i] * (0.4 + 0.6 * k); }
     }
     this.geo.setDrawRange(0, this.n);
     this.geo.attributes.position.needsUpdate = true; this.geo.attributes.color.needsUpdate = true;
