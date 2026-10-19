@@ -357,12 +357,12 @@ body.driving.city-mode #car-hp { display: block; }
 body.in-race.city-mode #minimap { display: block; }
 
 /* ---- title menu: one row of buttons at the bottom so the four characters on the stage are never hidden behind them ---- */
-#s-title .menu { display: flex; gap: 12px; width: min(1000px, 96vw); align-items: stretch; margin-bottom: 3vh; }
-#s-title .menu .btn.big { flex: 1.3 1 0; font-size: clamp(18px, 2.6vw, 30px); padding: 14px 10px; }
-#s-title .menu .btn.big small { font-size: clamp(11px, 1.3vw, 15px); }
-#s-title .menu .row { flex: 1 1 0; flex-direction: column; flex-wrap: nowrap; gap: 12px; }
-#s-title .menu .row .btn { flex: 1; font-size: clamp(14px, 1.8vw, 22px); padding: 8px; }
-@media (max-width: 640px) { #s-title .menu { flex-wrap: wrap; } #s-title .menu .btn.big { flex: 1 1 45%; } #s-title .menu .row { flex: 1 1 100%; flex-direction: row; } }
+/* title buttons: one column on the left side, top to bottom */
+#s-title .menu { position: absolute; left: max(2.5vw, env(safe-area-inset-left)); bottom: 3vh; display: flex; flex-direction: column; gap: 10px; width: min(300px, 44vw); margin: 0; align-items: stretch; z-index: 3; }
+#s-title .menu .btn.big { flex: none; font-size: clamp(16px, 2.2vw, 26px); padding: 10px 10px; }
+#s-title .menu .btn.big small { font-size: clamp(10px, 1.1vw, 14px); }
+#s-title .menu .row { display: contents; }
+#s-title .menu .row .btn { flex: none; font-size: clamp(13px, 1.6vw, 20px); padding: 9px 8px; }
 
 /* ---- PUBG-style colourful action buttons ---- */
 #act-pad button { border-width: 3px; box-shadow: 0 5px 0 rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.4); }
@@ -416,3 +416,4 @@ body.big-map #touch, body.m-open #touch, body.m-fin-open #touch { display: none 
 #m-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 4px; }
 .m-card #m-pick button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
 .m-card #m-pick button.on { background: linear-gradient(#7c5cff, #5a3cf0); color: #fff; border-color: #c9a8ff; }
+@media (max-height: 480px) { #s-title .menu { width: min(210px, 30vw); gap: 6px; bottom: 2vh; } #s-title .menu .btn.big { padding: 6px 8px; } #s-title .menu .row .btn { padding: 6px 6px; } }
