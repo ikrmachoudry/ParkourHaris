@@ -19,13 +19,14 @@ export const CITY_VEH = [
   { id: 20, name: 'Cruiser', style: 'bikeC', kind: 'cruiser', paint: '#1f3a8a', mass: 360, kW: 58, top: 33.5, mu: 1.1, drive: 'rwd', cda: 0.5, cyl: 2, pitch: 0.75, hornHz: 480, latG: 0.95, dLock: 0.42, dK: 40 },
   { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540, latG: 0.95, dLock: 0.42, dK: 40 },
   { id: 22, name: 'Getaway', style: 'sedan', paint: '#14151a', mass: 1450, kW: 120, top: 36, mu: 1.0, drive: 'rwd', cda: 0.66, cyl: 6, pitch: 0.85, hornHz: 400 },   // the thief's black car (scripted, nobody drives it)
+  { id: 23, name: 'Auto Rickshaw', style: 'rick', rick: true, paint: '#1f9d55', mass: 520, kW: 9, top: 65 / 3.6, mu: 0.9, drive: 'rwd', cda: 0.95, cyl: 1, pitch: 1.7, hornHz: 640 },   // three-wheeler: reads 62 km/h flat out (top is the fade-out target, a bit above)
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
 // geometry the physics needs (metres) from the body style
 const STYLE_GEO = {
   sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
-  bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
+  rick: { L: 2.75, w: 1.3, wb: 1.9 }, bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
 };
 
 export function newCityState(c, spec) { // add the dynamic fields to a plain car state (see car.js newCar)

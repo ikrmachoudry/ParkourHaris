@@ -201,7 +201,8 @@ export function gtaCars() {
   return [...[[11, -30, -5.0], [12, -22, -5.0], [13, -14, -5.0], [14, 12, 5.0], [15, 21, 5.0], [16, 30, 5.0], [17, -38, 5.0], [18, 40, -5.0]].map(([id, x, z]) => ({ id, x, z, yaw: z > 0 ? -Math.PI / 2 : Math.PI / 2 })), ...home, ...[0, 1, 2, 3].map((k) => ({ id: 17, x: PARK.spawn.x, z: PARK.spawn.z + k * PARK.spawn.step, yaw: PARK.spawn.yaw })),
     // 16..23 = motorbikes: five on the kerb near the spawn, three in the Stunt Park infield (the net flags carry a 5-bit vehicle index)
     ...[[19, -4], [20, -1.5], [21, 1], [19, 3.5], [20, 6]].map(([id, x]) => ({ id, x, z: -5.0, yaw: Math.PI / 2 })), ...[[19, 86.6], [21, 89.8], [20, 93]].map(([id, z]) => ({ id, x: PARK.spawn.x - 7, z, yaw: PARK.spawn.yaw })),
-    ...CHASE.copsHome.map((q) => ({ id: 15, ...q }))];   // 12..15 = the four white mission cars (they wait in the Stunt Park)
+    ...CHASE.copsHome.map((q) => ({ id: 15, ...q })),
+    (() => { const h = HOMES[3], p = homeW(h, 1.8, 6.6); return { id: 23, x: p.x, z: p.z, yaw: h.yaw }; })()];   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { buildHeroCar, CAR_STYLES } from './hcar.js';
 import { buildHeroBike, BIKE_KINDS } from './hbike.js';
 import { cityVeh } from './cityveh.js';
+import { buildRickshaw, RICK } from './hrick.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const camPos = new THREE.Vector3(1e6, 0, 0);
@@ -52,8 +53,24 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
+function buildRickMesh(spec, lo, bakedOnly) {
+  const full = bakedOnly ? null : buildRickshaw({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
+  const bk = buildRickshaw({ paint: spec.paint, detail: 'lo' }), baked = bakeCar(bk.group);
+  const g = new THREE.Group(), rot = new THREE.Group();
+  rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(RICK.L * 1.25, RICK.w * 2.6), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
+  g.userData = {
+    hero: full || bk, spec, baked, bakedOnly, full: full ? full.group : baked, wheels: [], pivots: [], seat: { z: RICK.seatX, y: 0.8 },
+    seatF: RICK.seatX, seatR: 0, seatY: 0.62, seatS: 0.92, lamp: null,
+    ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
+  };
+  return g;
+}
+
 export function buildCityMesh(id, lo = false, bakedOnly = false) {
   if (cityVeh(id).kind) return buildBikeMesh(cityVeh(id), lo, bakedOnly);
+  if (cityVeh(id).rick) return buildRickMesh(cityVeh(id), lo, bakedOnly);
   const spec = cityVeh(id), sp = CAR_STYLES[spec.style];
   const opts = { style: spec.style, paint: spec.paint, extra: spec.extra };
   const loCar = (lo || bakedOnly) ? buildHeroCar({ ...opts, detail: 'lo' }) : null;       // cheap copy for distance
