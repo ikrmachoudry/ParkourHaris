@@ -359,10 +359,10 @@ export function buildGta(world, th, info, seed) {
         const bg = mk(5.6, 1.4), gp = P(3.4, 9.45); bg.position.set(gp.x, 2.7, gp.z); bg.rotation.y = h.yaw; world.group.add(bg);
         put(Bx(0.18, 3.0, 0.18), 0.7, 1.5, 9.45, '#4a4f58'); put(Bx(0.18, 3.0, 0.18), 6.1, 1.5, 9.45, '#4a4f58'); }
       put(Bx(4.8, 0.06, 8.8), -3.3, 0.21, 5.6, '#3a3d43'); put(Bx(1.3, 0.06, 8.4), 3.4, 0.21, 5.6, '#565a61');   // driveway + footpath: tops at 0.24, above the lawn (0.22) - same-height tops flickered (z-fighting)
-      // boundary fence (inside the lot, never on the pavement): the front has a driveway gap and a footpath gap. It is solid.
+      // boundary fence (inside the lot, never on the pavement): the front is open between the two corner posts. It is solid.
       { const fc = (x0, x1, z0, z1) => { put(Bx(x1 - x0, 0.9, z1 - z0), (x0 + x1) / 2, 0.7, (z0 + z1) / 2, '#4b4e55'); const p = P(x0, z0), q = P(x1, z1), X0 = Math.min(p.x, q.x), X1 = Math.max(p.x, q.x), Z0 = Math.min(p.z, q.z), Z1 = Math.max(p.z, q.z);
           world.addSolid(X0, 0.2, Z0, X1, 1.15, Z1, { name: 'prop' }); roads.boxes.push({ x0: X0, x1: X1, z0: Z0, z1: Z1, h: 1.15 }); };
-        for (const [a, b] of [[-9.9, -5.8], [-0.9, 2.5], [4.3, 9.9]]) fc(a, b, 9.7, 9.9);
+        for (const [a, b] of [[-9.9, -8.4], [8.4, 9.9]]) fc(a, b, 9.7, 9.9);   // wide open gate: only the two corner posts of the front fence are left, so a truck / tractor can drive straight out of the yard
         fc(-9.9, -9.7, -9.9, 9.9); fc(9.7, 9.9, -9.9, 9.9); fc(-9.7, 9.7, -9.9, -9.7); }
       put(new THREE.CylinderGeometry(0.07, 0.07, 1.1, 6), 6.2, 0.8, 9.2, '#4a4f58'); put(Bx(0.55, 0.38, 0.3), 6.2, 1.45, 9.2, h.color);       // mailbox in the player's colour
       put(Bx(2.6, 0.18, 1.4), 6.6, 0.4, -8.6, '#8a5a34'); put(Bx(2.6, 0.5, 0.1), 6.6, 0.75, -9.2, '#8a5a34');                                // garden bench
