@@ -13,7 +13,8 @@ import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
-import { say, stopSay } from './commentary.js';
+import { say, stopSay, setCommentary } from './commentary.js';
+import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
@@ -379,6 +380,8 @@ class Race {
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
     const hanging = false;
+    { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
+      if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
     this.comT = (this.comT === undefined ? 14 : this.comT) - dt; if (this.comT <= 0) { this.comT = 22 + Math.random() * 25; const dsp = this.drive ? Math.abs(this.drive.st.speed) : 0; say(dsp > 30 ? 'fast' : this.meta.city ? 'idle' : 'gen'); }
     this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); } }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
@@ -973,7 +976,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.wanted && this.meta.city) { this.wanted.crime(kind, x, z); if (kind === 'kill' || kind === 'jack') say(kind); } }
+  crime(kind, x, z) { if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); if (kind === 'kill' || kind === 'jack') say(kind); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = this.weapon === 'pistol' || this.weapon === 'ak', empty = tj.mode === 'abandoned';
@@ -1773,6 +1776,11 @@ async function boot() {
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
+  document.querySelectorAll('#quick .qrow').forEach((row) => {
+    const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
+    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); paint(); if (k === 'commentary') { setCommentary(OPT.commentary); if (OPT.commentary) say('gen', true); } };
+  });
+  setCommentary(OPT.commentary);
   $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
   $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits

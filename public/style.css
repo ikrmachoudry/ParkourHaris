@@ -549,3 +549,15 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #wheel .ws svg { width: 62%; height: 62%; }
 #wheel .ws small { font-size: calc(var(--ws) * .19); margin-top: -4px; }
 #wheel .hub { width: calc(var(--ws) * .8); height: calc(var(--ws) * .8); margin: calc(var(--ws) * -.4) 0 0 calc(var(--ws) * -.4); background: rgba(0,0,0,.4); border-color: #ffd23f; font-size: calc(var(--ws) * .13); pointer-events: none; }
+
+/* v54: iPhone-style quick switches on the title screen */
+#quick { position: absolute; left: max(2.5vw, env(safe-area-inset-left)); bottom: max(5vh, 22px); width: min(290px, 46vw); background: rgba(28,28,30,.92); border-radius: 16px; padding: 2px 0; z-index: 2; box-shadow: 0 4px 18px rgba(0,0,0,.45); }
+#quick .qrow { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; color: #fff; font: 500 clamp(14px, 2.2vmin + 6px, 17px) system-ui, -apple-system, sans-serif; padding: 6px 12px; position: relative; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#quick .qrow + .qrow::before { content: ''; position: absolute; left: 52px; right: 0; top: 0; height: 1px; background: rgba(255,255,255,.14); }
+#quick .qi { flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-style: normal; font-size: 16px; color: #fff; }
+#quick .qrow span { flex: 1; }
+#quick .sw { flex: none; width: 46px; height: 28px; border-radius: 14px; background: #3a3a3c; position: relative; transition: background .2s; }
+#quick .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.4); transition: transform .2s; }
+#quick .qrow.on .sw { background: #34c759; }
+#quick .qrow.on .sw::after { transform: translateX(18px); }
+@media (max-height: 480px) { #quick { bottom: 10px; } #quick .qrow { padding: 4px 10px; } #quick .qi { width: 24px; height: 24px; font-size: 14px; } #quick .sw { width: 42px; height: 25px; } #quick .sw::after { width: 21px; height: 21px; } #quick .qrow.on .sw::after { transform: translateX(17px); } }

@@ -13,6 +13,7 @@ import { buildTrafficMesh } from './cityvis.js';
 import { GT, POLICE } from './gta.js';
 import * as A from './audio.js';
 import { say } from './commentary.js';
+import { OPT } from './opts.js';
 
 const GRID = GT.GRID, EDGE = GRID[GRID.length - 1], LANE = 2.7;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -240,7 +241,7 @@ export class Wanted {
     if (onFoot) { for (const o of this.foot) if (!o.dead && o.down <= 0 && Math.hypot(o.x - px, o.z - pz) < 1.9) { near = true; break; } }
     else if (speed < 3.2) { for (const c of this.cars) if (Math.hypot(c.x - px, c.z - pz) < 5.2) { near = true; break; } if (!near) for (const o of this.foot) if (!o.dead && o.down <= 0 && Math.hypot(o.x - px, o.z - pz) < 3.2) { near = true; break; } }
     this.bust = near ? this.bust + dt / (onFoot ? 1.5 : 2.0) : Math.max(0, this.bust - dt * 0.9);
-    if (this.bust >= 1) { this.busted(); return; }
+    if (this.bust >= 1) { if (OPT.invincible) this.bust = 0.99; else { this.busted(); return; } }
     this.hud(true); this.siren(px, pz);
   }
   siren(px, pz) {
