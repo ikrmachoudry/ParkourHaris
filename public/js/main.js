@@ -211,6 +211,10 @@ class Remote {
 
 // ------------------------------------------------------------------ the race
 const makeActor = (id) => makeHero(id);
+const WEAPON_ICON = { fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
+  bat: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 26l4-1 15-15a3 3 0 0 0-4-4L6 21z"/><path d="M5 27l2-2"/></svg>',
+  pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
+  ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
 let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the world
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
@@ -225,7 +229,7 @@ class Race {
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
     this.camYaw = 0; this.camPitch = NO_TEXT ? 0.17 : 0.34; this.camDist = NO_TEXT ? 3.5 : 8.2; this.shoulder = 0; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
-    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
+    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.weapon = null; this.aiming = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
@@ -390,7 +394,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode);
     else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); }
-    m.update(dt, { seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive ? null : this.weapon, aiming: !!this.aiming && this.weapon && this.weapon !== 'bat' && !this.drive, punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -782,7 +786,9 @@ class Race {
   restoreMission(mesh) { restoreCar(mesh); }
   toggleMap(on) { if (!this.meta.city) return; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; document.body.classList.toggle('big-map', this.bigMapOpen); }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
-  syncAct() { const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
+  cycleWeapon() { if (this.over || this.drive) return; const L = [null, 'bat', 'pistol', 'ak']; this.weapon = L[(L.indexOf(this.weapon) + 1) % L.length]; if (!this.weapon || this.weapon === 'bat') this.aiming = false; this.syncAct(); }
+  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat') return; this.aiming = !this.aiming; this.syncAct(); }
+  syncAct() { const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist']; const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz) || 1;
@@ -1143,7 +1149,7 @@ function startSingle(levelIdx) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) });
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -1284,7 +1290,7 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
-  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed });
+  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed }); race.syncAct();
   resize(); show('none'); tryLock();
 }
 
@@ -1316,7 +1322,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyQ') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); }
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
@@ -1487,6 +1493,8 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
+  act('a-weapon', () => { if (race && !race.over && !race.menuOpen) race.cycleWeapon(); });
+  act('a-aim', () => { if (race && !race.over && !race.menuOpen) race.toggleAim(); });
   act('a-punch', () => { if (race && !race.over && !race.menuOpen) race.punch(); });
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   btn('t-dive', () => { if (race && !race.over) press.dive = true; });

@@ -19,7 +19,8 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 } };   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
+const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 },
+  pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' } };   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
 // ---- which GLB bone plays which driver bone ----
@@ -172,7 +173,7 @@ export class GlbActor extends HeroActor {
       _q.setFromAxisAngle(_v.set(0, 1, 0), sd === 'L' ? yaw : -yaw);
       G['forearm.' + sd].premultiply(_q); G['hand.' + sd].premultiply(_q);
     }
-    { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk') ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : 0.3;
+    { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk' || p === 'batswing' || /^(pistol|rifle)/.test(p)) ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : 0.3;
       this.fist = (this.fist == null ? tgt : this.fist) + (tgt - (this.fist == null ? tgt : this.fist)) * Math.min(1, dt * 12); }
     // ---- choose the motion source: a baked Mixamo clip when there is one for this pose, otherwise the procedural / mocap driver ----
     const Wout = rt.Wout || (rt.Wout = {}); const Wd = rt.Wd || (rt.Wd = {}); const hk = rt.hipsWorldY / this.ch.rest.hips.y;
@@ -191,6 +192,7 @@ export class GlbActor extends HeroActor {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
         Wm[n] = Wm[n] || new THREE.Quaternion(); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr);
       });
+      if (ce.lower) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.lower); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
       const mo = (rt.mOff = rt.mOff || new THREE.Vector3()); _v.fromArray(clip.hips, i0 * 3); mo.fromArray(clip.hips, i1 * 3); mo.lerp(_v, 1 - al);   // (lerp from i1 towards i0 by 1-al)
       mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); if (ce.air) mo.y *= 0.2;   // the game body already rises and falls
       src = Wm; srcKey = ce.c; off = mo;

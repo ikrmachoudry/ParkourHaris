@@ -447,3 +447,9 @@ body.driving.touch #car-pad { display: block; }
 #c-horn { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap)); bottom: calc(var(--pad-y) + var(--pad-size) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); font-size: 0; }
 body.touch.driving .carbtn.exit { right: var(--pad-x); top: 24%; bottom: auto; }
 body.touch.driving #act-pad { display: none !important; }
+
+/* weapon cycle + aim buttons */
+#a-weapon { right: 52%; bottom: 46%; width: 28%; height: 28%; }
+#a-aim { right: 52%; bottom: 78%; width: 28%; height: 28%; }
+body.touch #a-weapon { right: calc(var(--pad-big) + var(--pad-gap)); bottom: auto; top: calc(var(--pad-big) * .45 + var(--pad-size) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-aim { right: calc(var(--pad-big) + var(--pad-gap)); bottom: 0; top: auto; width: var(--pad-size); height: var(--pad-size); }

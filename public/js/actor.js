@@ -33,9 +33,17 @@ export class HeroActor {
     if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
     if (st.stun > 0 && !st.seated) name = 'fall';
+    const w = st.weapon && !st.seated ? st.weapon : null;   // 'bat' | 'pistol' | 'ak'
+    if (w && (name === 'idle' || name === 'walk' || name === 'crouch' || name === 'crouchwalk')) {
+      const mv = sp > 0.25;
+      if (w === 'pistol') name = st.aiming ? 'aim' : mv ? 'pistolWalk' : 'pistolIdle';
+      else if (w === 'ak') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
+    }
     if (name === 'idle' && st.gesture) name = st.gesture;
-    if (st.punch > 0 && !st.seated) { name = st.kick ? 'kick' : 'punch'; t = st.punch; }
-    poseChar(this.ch, name, t, 1);
+    if (st.punch > 0 && !st.seated) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }
+    const DRV = { pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim' };
+    poseChar(this.ch, DRV[name] || name, t, 1);
+    { const W = this.ch.wmesh; if (w) { this.ch.gun.visible = true; for (const k in W) W[k].visible = k === w; } else for (const k in W) W[k].visible = k === 'pistol'; }
     // blend from the previous frame's pose (fast, so it still looks crisp)
     const k = Math.min(1, dt * 16);
     for (const n in this.ch.bones) {

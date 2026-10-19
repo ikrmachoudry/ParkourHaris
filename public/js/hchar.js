@@ -272,9 +272,21 @@ export function buildHeroChar(opts = {}) {
   const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.03, 8), gm); bar.rotation.x = Math.PI / 2; bar.position.set(0, 0.074, 0.14); gp.add(bar);
   // map gun axes onto the hand: gun x -> hand x, gun up -> hand +z, gun forward -> hand -y
   gp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  // melee bat + AK-47 (same gun frame as the pistol: +z along the fingers, +y up). Which one shows is chosen by the actor (st.weapon).
+  const wood = new THREE.MeshStandardMaterial({ color: '#b9854a', roughness: 0.6, metalness: 0.02 }), dwood = new THREE.MeshStandardMaterial({ color: '#6b3f1e', roughness: 0.55, metalness: 0.02 });
+  const bat = new THREE.Group(); { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.016, 0.8, 10), wood); m.position.set(0, 0.3, 0); bat.add(m);
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 8), wood); k.position.set(0, -0.11, 0); bat.add(k); const t = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), wood); t.position.set(0, 0.7, 0); bat.add(t); }
+  const ak = new THREE.Group(); { const A = (w, h, d, x, y, z, m = gm, rx = 0) => { const q = part(w, h, d, x, y, z, m, rx); ak.add(q); return q; };
+    A(0.045, 0.07, 0.34, 0, 0.07, 0.12); A(0.04, 0.04, 0.24, 0, 0.065, 0.4, dwood); A(0.036, 0.022, 0.2, 0, 0.115, 0.38, gm2);
+    A(0.03, 0.12, 0.05, 0, -0.01, 0.0, dwood, -0.2); A(0.034, 0.17, 0.07, 0, -0.03, 0.2, gm2, 0.35); A(0.04, 0.09, 0.3, 0, 0.04, -0.26, dwood, 0.12);
+    A(0.008, 0.035, 0.008, 0, 0.14, 0.52); A(0.01, 0.025, 0.012, 0, 0.14, 0.14);
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.2, 8), gm); br.rotation.x = Math.PI / 2; br.position.set(0, 0.075, 0.62); ak.add(br); }
+  bat.visible = ak.visible = false;
+  for (const o of [bat, ak]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  gun.add(bat, ak);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;
-  const ch = { group, mesh, bones: bn, rest, gun, tris: Math.round(tris), outfit: o };
+  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak }, tris: Math.round(tris), outfit: o };
   ch.pose = (name, t = 0, k = 1) => poseChar(ch, name, t, k);
   return ch;
 }
@@ -338,6 +350,18 @@ export function poseChar(ch, name, t = 0, k = 1) {
       R(b['upperarm.L'], -0.6, -0.2, -0.2); R(b['forearm.L'], -1.25, 0, 0); R(b['hand.L'], 0, 0, 0);
       curl('R', 1.25); curl('L', 0.9);
     }
+  } else if (name === 'batswing') {   // two-handed baseball swing: t = 0..1 progress. wind up over the right shoulder, whip around at hip-shoulder height, follow through
+    const u = Math.max(0, Math.min(1, t)), e = (x) => x * x * (3 - 2 * x), wind = e(Math.min(1, u / 0.32)), hit = e(Math.max(0, Math.min(1, (u - 0.32) / 0.28))), fol = e(Math.max(0, (u - 0.6) / 0.4));
+    const sw = -0.9 + 1.9 * hit - 0.25 * fol; // body/arm yaw: back (-) to across the front (+)
+    b.hips.position.y = rest.hips.y - 0.06;
+    R(b['upperleg.L'], -0.28, 0, 0.14); R(b['upperleg.R'], 0.25, 0, -0.14); R(b['lowerleg.L'], 0.35, 0, 0); R(b['lowerleg.R'], 0.3, 0, 0);
+    b.hips.rotation.y = 0.5 * (hit * 1.2 - wind * 0.8) ;
+    R(b.spine, 0.08, 0.6 * (hit - wind * 0.9), 0); R(b.chest, 0.04, 0.5 * (hit - wind * 0.9), 0); R(b.head, -0.1, -0.3 * (hit - wind * 0.9), 0);
+    // both hands stay together on the handle (arms hold their shape relative to the chest, the body turns), the wrists cock the bat up then lay it flat through the hit
+    const cock = 1.0 * (wind - hit) + 0.3 * hit - 0.5 * fol;
+    R(b['upperarm.R'], -1.15, -0.05, 0.22); R(b['forearm.R'], -0.75, 0, 0.05); R(b['hand.R'], -cock, 0, 0);
+    R(b['upperarm.L'], -1.15, -0.5, -0.22); R(b['forearm.L'], -0.85, 0, -0.05); R(b['hand.L'], -cock, 0, 0);
+    curl('R', 1.35); curl('L', 1.25);
   } else if (name === 'jump') {   // GTA-style leap: t = vertical speed / 7 (+1 rising ... -1 falling). Lead knee driven up, trailing leg kicked back, fists pumping, body leaning into the jump.
     const k = Math.max(0, Math.min(1, (t + 1) / 2)), m = (fall, rise) => fall + (rise - fall) * k;
     b.hips.position.y = rest.hips.y - m(0.02, 0.1);
