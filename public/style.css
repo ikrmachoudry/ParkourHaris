@@ -357,8 +357,9 @@ body.driving.city-mode #car-hp { display: block; }
 body.in-race.city-mode #minimap { display: block; }
 
 /* ---- title menu: one row of buttons at the bottom so the four characters on the stage are never hidden behind them ---- */
-/* title buttons: one column on the left side, top to bottom */
-#s-title .menu { position: absolute; left: max(2.5vw, env(safe-area-inset-left)); bottom: 3vh; display: flex; flex-direction: column; gap: 10px; width: min(300px, 44vw); margin: 0; align-items: stretch; z-index: 3; }
+/* title buttons: one column at the top right (below the fullscreen button), logo centred in the space that is left */
+#s-title .logo { padding-right: min(300px, 40vw); }
+#s-title .menu { position: absolute; right: max(2.5vw, env(safe-area-inset-right)); top: 72px; bottom: auto; display: flex; flex-direction: column; gap: 10px; width: min(300px, 44vw); margin: 0; align-items: stretch; z-index: 3; }
 #s-title .menu .btn.big { flex: none; font-size: clamp(16px, 2.2vw, 26px); padding: 10px 10px; }
 #s-title .menu .btn.big small { font-size: clamp(10px, 1.1vw, 14px); }
 #s-title .menu .row { display: contents; }
@@ -416,4 +417,4 @@ body.big-map #touch, body.m-open #touch, body.m-fin-open #touch { display: none 
 #m-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 4px; }
 .m-card #m-pick button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
 .m-card #m-pick button.on { background: linear-gradient(#7c5cff, #5a3cf0); color: #fff; border-color: #c9a8ff; }
-@media (max-height: 480px) { #s-title .menu { width: min(210px, 30vw); gap: 6px; bottom: 2vh; } #s-title .menu .btn.big { padding: 6px 8px; } #s-title .menu .row .btn { padding: 6px 6px; } }
+@media (max-height: 480px) { #s-title .menu { width: min(190px, 26vw); gap: 6px; top: 56px; bottom: auto; } #s-title .logo { padding-right: min(190px, 26vw); } #s-title .menu .btn.big { padding: 6px 8px; } #s-title .menu .row .btn { padding: 6px 6px; } }
