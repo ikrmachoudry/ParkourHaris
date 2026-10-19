@@ -19,7 +19,7 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.6 }, idle: { c: 'idle', loop: 1 }, crouch: { c: 'crouch', loop: 1 }, crouchwalk: { c: 'crouchwalk', v0: 1.1 } };
+const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] } };   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
 // ---- which GLB bone plays which driver bone ----
@@ -122,6 +122,7 @@ export class GlbActor extends HeroActor {
       const DM = { hips: dm('hips', 'spine'), spine: dm('spine', 'chest'), chest: dm('chest', 'neck'), neck: dm('neck', 'head'), head: new THREE.Vector3(0, 1, 0) };
       for (const s of ['L', 'R']) Object.assign(DM, { ['upperarm.' + s]: dm('upperarm.' + s, 'forearm.' + s), ['forearm.' + s]: dm('forearm.' + s, 'hand.' + s), ['hand.' + s]: dm('forearm.' + s, 'hand.' + s), ['upperleg.' + s]: dm('upperleg.' + s, 'lowerleg.' + s), ['lowerleg.' + s]: dm('lowerleg.' + s, 'foot.' + s), ['foot.' + s]: new THREE.Vector3(0, 0, 1) });
       Qm = {}; for (const k of NEED) Qm[k] = new THREE.Quaternion().setFromUnitVectors(T[k].dN, DM[k]);
+      { const hr = (typeof window !== 'undefined' && window.__hr != null) ? window.__hr : (this.opts.handRoll == null ? 0.8 : this.opts.handRoll); if (hr) for (const sd of ['L', 'R']) { const k = 'hand.' + sd; Qm[k].premultiply(new THREE.Quaternion().setFromAxisAngle(DM[k], sd === 'L' ? hr : -hr)); } }
       mxHipsY = CLIPS.hipsY;
     }
     // everything else in the skeleton keeps its rest rotation (fingers, twist bones, clavicles ride along)
@@ -180,8 +181,10 @@ export class GlbActor extends HeroActor {
     let src = Wd, srcKey = 'drv', off = dOff;
     const ce = CLIP_FOR[this.pose], clip = ce && CLIPS && rt.Qm && CLIPS.clips[ce.c];
     if (clip) {
-      const sp = st.speed || 0; this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1);
-      const fi = (this.ct / clip.dur) % 1 * clip.n, i0 = Math.floor(fi) % clip.n, i1 = (i0 + 1) % clip.n, al = fi - Math.floor(fi);
+      const sp = st.speed || 0; let fi;
+      if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
+      else { this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1); fi = (this.ct / clip.dur) % 1 * clip.n; }
+      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
       const Wm = rt.Wm || (rt.Wm = {}); const sc = hk * 0.01 * (rt.mxHipsY / 100) ** 0;
       NEED.forEach((n, j) => {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
