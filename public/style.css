@@ -491,3 +491,15 @@ body.touch #c-lights { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap
 @media (max-width: 700px) { .helpgrid { grid-template-columns: 1fr; } }
 /* help + settings sit above the title menu and dim it, so no button shows through */
 #s-help, #s-settings { z-index: 40; background: rgba(8, 12, 40, .55); align-items: center; justify-content: center; }
+
+/* ===== v51 phone buttons: one tidy block in the bottom-right corner ===== */
+/*   right column (big):  JUMP above PUNCH       left column (small, stacked):  WEAPON / AIM / CROUCH       car button: bottom row, left of the block  */
+body.touch #act-pad { width: calc(var(--pad-big) + var(--pad-size) + var(--pad-gap)); height: calc(var(--pad-size) * 3 + var(--pad-gap) * 2); right: var(--pad-x); bottom: var(--pad-y); }
+body.touch #a-punch  { right: 0; bottom: 0; top: auto; width: var(--pad-big); height: var(--pad-big); }
+body.touch #a-jump   { right: 0; bottom: calc(var(--pad-big) + var(--pad-gap)); top: auto; width: var(--pad-big); height: var(--pad-big); }
+body.touch #a-crouch { right: calc(var(--pad-big) + var(--pad-gap)); bottom: 0; top: auto; width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-aim    { right: calc(var(--pad-big) + var(--pad-gap)); bottom: calc(var(--pad-size) + var(--pad-gap)); top: auto; width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-weapon { right: calc(var(--pad-big) + var(--pad-gap)); bottom: calc((var(--pad-size) + var(--pad-gap)) * 2); top: auto; width: var(--pad-size); height: var(--pad-size); }
+/* GET IN: only shows when a car is close; own spot on the bottom row, clear of every other button, blue and gently pulsing so it is noticed */
+body.touch.city-mode:not(.driving) #b-car { left: auto; top: auto; transform: none; right: calc(var(--pad-x) + var(--pad-big) + var(--pad-size) + var(--pad-gap) * 3); bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); background: rgba(35,125,215,.82) !important; animation: carnear 1.1s ease-in-out infinite; }
+@keyframes carnear { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
