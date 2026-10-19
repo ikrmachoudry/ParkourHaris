@@ -12,11 +12,12 @@ import { HeroActor } from './actor.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { GT, POLICE } from './gta.js';
 import * as A from './audio.js';
+import { say } from './commentary.js';
 
 const GRID = GT.GRID, EDGE = GRID[GRID.length - 1], LANE = 2.7;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = (a, b) => a + Math.random() * (b - a);
-const HEAT = [0.6, 2.4, 5.2, 9, 14];                        // heat needed for 1..5 stars
+const HEAT = [3, 12, 26, 45, 70];                        // heat needed for 1..5 stars
 const CARS = [0, 1, 2, 3, 3, 4], FOOT = [0, 1, 2, 3, 4, 5];  // patrol cars / officers on foot per star level
 const CRIME = { shot: 0.3, hit: 0.7, kill: 2.2, run: 1.0, jack: 2.4, car: 1.3, copHit: 2.4, copKill: 4.2, crash: 0.5 };
 const COP_LOOK = { role: 'cop', skinTone: '#c68e63', hair: '#15100c' };
@@ -46,6 +47,8 @@ export class Wanted {
     this.el = document.getElementById('wanted'); this.elBust = document.getElementById('bust-bar');
     this.lastStars = -1; this.flashPhase = 0;
   }
+  nearestCop(b) { if (b.stun > 0) return null; for (const c of this.cars) if (Math.hypot(c.x - b.x, c.z - b.z) < 4.6 && c.v < 4) return c; return null; }
+  takeCar(c) { const i = this.cars.indexOf(c); if (i >= 0) this.removeCar(i); }
   get active() { return this.stars > 0; }
   boxes() { const t = this.R.info && this.R.info.track; return (t && t.boxes) || []; }
   ground(x, z) { const t = this.R.info && this.R.info.track; return t && t.terrain ? t.terrain(x, z) : 0; }
@@ -57,6 +60,7 @@ export class Wanted {
     if (cd && now - (this.crimeCd[kind] || 0) < cd) return; this.crimeCd[kind] = now;
     this.heat += w; if (this.stars > 0) this.heat = Math.max(this.heat, HEAT[this.stars - 1]);
     let s = 0; for (let i = 0; i < HEAT.length; i++) if (this.heat >= HEAT[i]) s = i + 1;
+    if (s > this.stars) { const t = performance.now(); if (this.stars > 0 && t - (this.lastRise || 0) < 7000) s = this.stars; else s = this.stars + 1; if (s > this.stars) this.lastRise = t; }   // never faster than one new star per 7 s
     if (s > this.stars) { this.setStars(s); if (this.stars === 1 || !this.search) this.search = { x: x ?? this.R.me.body.x, z: z ?? this.R.me.body.z, r: this.radius() }; }
     this.sightT = Math.max(this.sightT, 0.0); this.unseenT = Math.min(this.unseenT, 0.5); this.evade = 0;
   }
@@ -64,7 +68,7 @@ export class Wanted {
   setStars(n) {
     n = clamp(n, 0, 5); if (n === this.stars) return; const up = n > this.stars; this.stars = n;
     if (up) this.R.toast && this.R.toast(n === 1 ? 'WANTED' : 'WANTED  ' + '★'.repeat(n));
-    if (n === 0) { this.heat = 0; this.search = null; this.evade = 0; this.cool = 0; this.R.toast && this.R.toast('WANTED LEVEL CLEARED'); } else if (this.search) this.search.r = this.radius();
+    if (n === 0) { this.heat = 0; this.search = null; this.evade = 0; this.cool = 0; say('cleared'); } else if (this.search) this.search.r = this.radius();
     this.hud(true);
   }
 
@@ -253,7 +257,7 @@ export class Wanted {
   busted() {
     const R = this.R, W = R.wallet; this.bust = 0;
     let fine = 0; if (W) { fine = Math.min(W.money, Math.max(40, Math.round(W.money * 0.06 / 10) * 10)); if (fine) W.add(-fine, 'fine'); }
-    this.showBanner('BUSTED', fine ? '-$' + fine : '');
+    this.showBanner('BUSTED', fine ? '-$' + fine : ''); say('busted', true);
     A.sirenFar(0); this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.seen = false; this.unseenT = 99;
     this.clearAll(true);
     if (R.drive) R.toggleCar(true);

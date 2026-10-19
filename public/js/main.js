@@ -13,6 +13,7 @@ import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
+import { say, stopSay } from './commentary.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
@@ -378,6 +379,7 @@ class Race {
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
     const hanging = false;
+    this.comT = (this.comT === undefined ? 14 : this.comT) - dt; if (this.comT <= 0) { this.comT = 22 + Math.random() * 25; const dsp = this.drive ? Math.abs(this.drive.st.speed) : 0; say(dsp > 30 ? 'fast' : this.meta.city ? 'idle' : 'gen'); }
     this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); } }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
@@ -473,6 +475,13 @@ class Race {
     }
     g.position.set(st.x + Math.sin(st.yaw) * seat.z, st.y + seat.y, st.z + Math.cos(st.yaw) * seat.z); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8);
   }
+  // a patrol car that the police are driving can be stolen like any car (GTA V): one of the city's police cars is moved there and you get in it
+  stealCop(cc) {
+    const c = this.cars.find((q) => q.st.id === 15 && !q.st.wreck && q.st.driver === -1 && q !== this.drive) || this.cars.find((q) => q.mesh.userData.hero && q.st.driver === -1 && !q.st.wreck && q !== this.drive); if (!c) return false;
+    const s = c.st; s.x = cc.x; s.z = cc.z; s.y = this.info.track.terrain ? this.info.track.terrain(cc.x, cc.z) : 0; s.yaw = cc.yaw || 0; s.vx = s.vz = s.speed = 0; s.hp = 100; s.parked = true; s.driver = -1; s.wreck = false; s.dmg = undefined;
+    if (c.mesh.userData.hero) c.mesh.userData.hero.repair();
+    this.wanted.takeCar(cc); this.crime('jack', s.x, s.z); this.toggleCar(); return true;
+  }
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
@@ -512,7 +521,7 @@ class Race {
       this.camYaw = st.yaw + Math.PI; this.camInit = false; if (NO_TEXT) this.camPitch = 0.17;
     } else {
       const c = this.nearestFreeCar(b);
-      if (!c) { const tj = this.nearestJack(b); if (tj) this.startJack(tj); return; }
+      if (!c) { const cc = this.wanted && this.wanted.nearestCop(b); if (cc && this.stealCop(cc)) return; const tj = this.nearestJack(b); if (tj) this.startJack(tj); return; }
       { const ci = this.cars.indexOf(c);   // somebody else is driving this car and the passenger seat is free: ride along instead of stealing it
         if (this.multi && c.st.driver !== -1 && c.st.driver !== this.localId && (ci < 12 || ci >= 24) && !c.mesh.userData.bike && !c.st.wreck && (c.st.pax === undefined || c.st.pax === -1)) {
           this.drive = c; this.paxMode = true; c.st.pax = this.localId; b.vx = b.vz = b.vy = 0; b.grounded = true;
@@ -631,7 +640,7 @@ class Race {
         st.crash = 0; }
     } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
-    if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
+    if (ev === 'crash') { say('crash'); A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
     if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
@@ -723,7 +732,7 @@ class Race {
     for (const r of this.remotes.values()) if (r.vcar) { const c = r.vcar; c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
     // "get in" prompt
     if (this.drive && this.paxMode) this.drive.st.pax = this.localId;
-    const near = !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || this.nearestJack(b));
+    const near = !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || this.nearestJack(b) || (this.wanted && this.wanted.nearestCop(b)));
     if (!!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
   }
@@ -841,17 +850,20 @@ class Race {
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
     if (!open || this.drive || this.over) { el.classList.add('hidden'); el.innerHTML = ''; this.wheelOpen = false; return; }
-    const vm = Math.min(window.innerWidth, window.innerHeight), ws = Math.max(64, Math.min(112, vm * 0.2)), R = Math.max(ws * 1.05, vm * 0.27), cur = this.weapon || 'fist';
+    const vm = Math.min(window.innerWidth, window.innerHeight), ws = Math.max(72, Math.min(124, vm * 0.25)), R = ws * 1.5, cur = this.weapon || 'fist';
+    // the wheel fans out from the weapon button (left of it), so the thumb barely moves
+    let cx = window.innerWidth / 2, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
     const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47' };
     ['fist', 'bat', 'pistol', 'ak'].forEach((k, i) => {
-      const a = -Math.PI / 2 + i * Math.PI / 2, owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button');
-      s.className = 'ws' + (cur === k ? ' sel' : '') + (owned ? '' : ' lock'); s.style.left = 'calc(50% + ' + Math.round(Math.cos(a) * R) + 'px)'; s.style.top = 'calc(50% + ' + Math.round(Math.sin(a) * R) + 'px)';
-      s.innerHTML = WEAPON_ICON[k] + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'NOT OWNED') + '</small>';
+      const a = (112 + i * 45) * Math.PI / 180, owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button');
+      const px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, cx + Math.cos(a) * R)), py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, cy + Math.sin(a) * R));
+      s.className = 'ws' + (cur === k ? ' sel' : '') + (owned ? '' : ' lock'); s.style.left = Math.round(px) + 'px'; s.style.top = Math.round(py) + 'px';
+      s.innerHTML = WEAPON_ICON[k] + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'LOCKED') + '</small>';
       const pick = (e) => { e.preventDefault(); e.stopPropagation(); if (!owned) return; this.equip(k); A.sfx.click(); this.toggleWheel(false); };
       s.addEventListener('pointerdown', pick); el.appendChild(s);
     });
-    const hub = document.createElement('div'); hub.className = 'hub'; hub.style.left = '50%'; hub.style.top = '50%'; hub.innerHTML = 'WEAPON<b>' + NAMES[cur] + '</b>'; el.appendChild(hub);
+    const hub = document.createElement('div'); hub.className = 'hub'; hub.style.left = Math.round(cx) + 'px'; hub.style.top = Math.round(cy) + 'px'; hub.innerHTML = '<b>' + NAMES[cur] + '</b>'; el.appendChild(hub);
     el.onpointerdown = (e) => { if (e.target === el || e.target === hub) { e.preventDefault(); this.toggleWheel(false); } };
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ }
   }
@@ -961,7 +973,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.wanted && this.meta.city) this.wanted.crime(kind, x, z); }
+  crime(kind, x, z) { if (this.wanted && this.meta.city) { this.wanted.crime(kind, x, z); if (kind === 'kill' || kind === 'jack') say(kind); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = this.weapon === 'pistol' || this.weapon === 'ak', empty = tj.mode === 'abandoned';
@@ -1404,7 +1416,7 @@ class Race {
     if (this.mission) { this.mission.destroy(); this.mission = null; }
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
-    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
+    stopSay(); A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }

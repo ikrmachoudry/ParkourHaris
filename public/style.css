@@ -542,3 +542,10 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #busted b { font: 900 clamp(48px, 14vmin, 110px)/1 Impact, 'Arial Black', sans-serif; letter-spacing: .06em; color: #cfe0ff; text-shadow: 0 0 22px #3b6bff, 0 4px 0 #0b1b55; }
 #busted i { font: 800 clamp(18px, 4vmin, 28px) system-ui, sans-serif; font-style: normal; color: #ff9a9a; margin-top: 8px; }
 @keyframes bustin { from { transform: scale(1.25); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* v53b: weapon wheel bigger and tighter, fanned out from the weapon button */
+#wheel { background: rgba(5,8,25,.35); }
+#wheel .ws { border-width: 4px; background: rgba(28,32,56,.88); }
+#wheel .ws svg { width: 62%; height: 62%; }
+#wheel .ws small { font-size: calc(var(--ws) * .19); margin-top: -4px; }
+#wheel .hub { width: calc(var(--ws) * .8); height: calc(var(--ws) * .8); margin: calc(var(--ws) * -.4) 0 0 calc(var(--ws) * -.4); background: rgba(0,0,0,.4); border-color: #ffd23f; font-size: calc(var(--ws) * .13); pointer-events: none; }
