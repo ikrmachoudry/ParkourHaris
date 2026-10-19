@@ -22,14 +22,16 @@ for (const sp of specs) {
     res.hipsY = res.restPos.hips[1];
   }
   const clip = g.animations[0]; const tr = {}; for (const t of clip.tracks) tr[t.name] = t;
-  const n = clip.tracks.find((t) => t.name.endsWith('.quaternion')).times.length, dur = clip.duration;
+  // the real frame count is the hips POSITION track (some exports give the hips rotation more keys than the other bones): sample every track by TIME
+  const hpT = tr['mixamorigHips.position'] || tr['mixamorig:Hips.position'], times = hpT ? Array.from(hpT.times) : Array.from(clip.tracks.find((t) => t.name.endsWith('.quaternion')).times), n = times.length, dur = clip.duration;
+  const itp = {}; for (const t of clip.tracks) itp[t.name] = t.createInterpolant();
   const restHipsPos = B.hips.position.clone();
   const Gs = [], H = [];
   // sample every track at the clip's own frame times
   for (let f = 0; f < n; f++) {
     // single-key tracks (e.g. Neck1) hold their value
-    for (const o of Object.values(byName)) { const t = tr[o.name + '.quaternion']; if (t) o.quaternion.fromArray(t.values, Math.min(f, t.values.length / 4 - 1) * 4); }
-    const hp = tr['mixamorigHips.position'] || tr['mixamorig:Hips.position']; if (hp) B.hips.position.fromArray(hp.values, f * 3);
+    for (const o of Object.values(byName)) { const t = tr[o.name + '.quaternion']; if (t) o.quaternion.fromArray(itp[t.name].evaluate(times[f])); }
+    if (hpT) B.hips.position.fromArray(itp[hpT.name].evaluate(times[f]));
     g.updateMatrixWorld(true);
     for (const k of NEED) { const q = wq(B[k]).multiply(restQ[k].clone().invert()); if (Gs.length && f && false) q.x = q.x; Gs.push(...q.toArray().map(r4)); }
     H.push(...B.hips.getWorldPosition(new THREE.Vector3()).sub(new THREE.Vector3(...res.restPos.hips)).toArray().map(r4));

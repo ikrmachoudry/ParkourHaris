@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
+import { makeWeaponModel } from './weaponmodels.js';
 import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS } from './gta.js';
 
 const col = new THREE.Color();
@@ -395,11 +396,15 @@ export function buildGta(world, th, info, seed) {
     world.glow.add(new THREE.CylinderGeometry(1.9, 1.9, 0.05, 28), L.pad.x, 0.28, L.pad.z + 0.0, '#ff4d5a'); world.glow.add(new THREE.CylinderGeometry(1.2, 1.2, 0.07, 24), L.pad.x, 0.29, L.pad.z, '#ffd23f');
     for (const dx of [-4, 0, 4]) world.glow.add(Bx(2.4, 0.06, 0.6), L.x + dx, 3.9, L.z - 1, '#fff4cf');
     wm.add(Bx(5, 1.1, 1), L.x, 0.75, L.z - 4.4, '#3a2a2e'); wm.add(Bx(5.2, 0.08, 1.1), L.x, 1.3, L.z - 4.4, '#e63946');   // counter
-    // weapon racks on the walls: bats, pistols and rifles
-    for (let i = 0; i < 6; i++) { const x = L.x - 7.2 + i * 0.5; wm.add(new THREE.CylinderGeometry(0.035, 0.02, 0.9, 8), x, 1.9, L.z - 2 + (i % 2) * 0.4, '#b9854a', 0, 0, 0.12); }   // bats along the west wall
-    wm.add(Bx(0.1, 2.0, 5), L.x - 7.85, 1.7, L.z - 0.5, '#2b2f38'); wm.add(Bx(0.1, 2.0, 5), L.x + 7.85, 1.7, L.z - 0.5, '#2b2f38');
-    for (let i = 0; i < 5; i++) { wm.add(Bx(0.1, 0.12, 0.38), L.x + 7.7, 2.2 - (i % 2) * 0.5, L.z - 2.4 + i * 0.95, '#111'); wm.add(Bx(0.08, 0.2, 0.06), L.x + 7.7, 2.1 - (i % 2) * 0.5, L.z - 2.55 + i * 0.95, '#111'); }   // pistols on the east wall
-    for (let i = 0; i < 3; i++) { wm.add(Bx(0.1, 0.1, 1.0), L.x - 7.7, 2.5 - i * 0.45, L.z + 0.2, '#6b3f1e'); wm.add(Bx(0.09, 0.08, 0.5), L.x - 7.7, 2.5 - i * 0.45, L.z + 0.95, '#1b1b1f'); }   // rifles on the west wall
+    // weapon racks on the walls: real models (pistols on the east wall, AK-47s on the west wall, bats on the back wall), each group on a dark board with a coloured light strip
+    wm.add(Bx(0.12, 3.0, 5.8), L.x - 7.64, 2.05, L.z - 0.2, '#a7adb7'); wm.add(Bx(0.12, 3.0, 5.8), L.x + 7.64, 2.05, L.z - 0.2, '#d9dde3');   // light boards: the dark guns stand out
+    wm.add(Bx(5.6, 2.2, 0.12), L.x - 4.9, 2.5, L.z - 5.14, '#1c1f26'); wm.add(Bx(5.6, 2.2, 0.12), L.x + 4.9, 2.5, L.z - 5.14, '#1c1f26');
+    world.glow.add(Bx(0.05, 0.07, 5.8), L.x + 7.56, 0.55, L.z - 0.2, '#22d3ee'); world.glow.add(Bx(0.05, 0.07, 5.8), L.x - 7.56, 0.55, L.z - 0.2, '#ff4d5a');
+    world.glow.add(Bx(5.6, 0.07, 0.05), L.x - 4.9, 1.34, L.z - 5.06, '#ffb347'); world.glow.add(Bx(5.6, 0.07, 0.05), L.x + 4.9, 1.34, L.z - 5.06, '#ffb347');
+    const put = (kind, x, y, z, ry, rz, sc) => { const m = makeWeaponModel(kind); m.position.set(x, y, z); m.rotation.set(0, ry, rz); m.scale.setScalar(sc); world.group.add(m); };
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) put('pistol', L.x + 7.5, 1.45 + r * 0.8, L.z - 2.25 + c * 1.45, 0, 0, 3.4);                      // pistols, barrels to the right
+    for (let r = 0; r < 4; r++) put('ak', L.x - 7.5, 1.3 + r * 0.7, L.z - 0.2 + (r % 2 ? 0.3 : -0.3), Math.PI, 0, 1.7);                                      // AK-47s, barrels to the left
+    for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) for (const cx of [3.7, 6.0]) put('bat', L.x + sx * cx, 1.75 + r * 0.62, L.z - 5.0, 0, Math.PI / 2, 1.9);   // bats laid across the back wall
     { const s3 = mk(signTexture('BAT   PISTOL   AK-47', '#2a0f12', '#ffffff'), 7, 1.0); s3.position.set(L.x, 2.7, L.z - 5.1); world.group.add(s3); } }
   // ---- INTELLIMUM AUTOS: a glass showroom, four display cars, a pylon sign with the infinity logo and the SELL ring on the lot
   { const S = AUTOS.showroom, Z = AUTOS.zone, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), fz = S.z + S.d / 2;
@@ -480,7 +485,7 @@ export function buildGta(world, th, info, seed) {
   }
   // ---- traffic: real cars (merged, cheap) circling the avenues; they are solid for you and for people on foot
   const traffic = [], tl = info.trafficList = [], tcol = ['#c9c9cf', '#1f3a5f', '#9a2b2b', '#e8e2d0', '#2d5a3d', '#6a6f78', '#d9b34a', '#4a2b5e', '#2b2b30'], tids = [11, 12, 13, 14, 16, 18];
-  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: id === 12 ? 1.98 : 2.3, hw: 0.95 }; tl.push(st); traffic.push({ L, k, m, st }); } });
+  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), bb = new THREE.Box3().setFromObject(m), st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: (bb.max.z - bb.min.z) / 2 - 0.1, hw: (bb.max.x - bb.min.x) / 2 - 0.1 }; /* the solid box is the real size of the model (it used to be smaller: the car body went through you) */ tl.push(st); traffic.push({ L, k, m, st }); } });
   const tai = info.tai = new TrafficAI(traffic), dctx = { me: null, carSt: null, cars: [], aim: null };
   world.updaters.push((t) => { tai.update(t, info.trafficCtx || dctx); });
 }

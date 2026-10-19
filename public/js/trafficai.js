@@ -41,11 +41,12 @@ export class TrafficAI {
         // ---- what is in front of me?
         let gap = 1e9, byMe = false;
         const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), look = c.v * c.v / (2 * DEC) + 7;
-        const test = (x, z, hl, hw, mine) => { const dx = x - st.x, dz = z - st.z, a = dx * fx + dz * fz, l = -dx * fz + dz * fx; if (a < 0.2 || a > look + HALF_L + hl || Math.abs(l) > 0.95 + hw) return; const g = a - HALF_L - hl; if (g < gap) { gap = g; byMe = !!mine; } };
+        const HL = st.hl || HALF_L, HW = st.hw || 0.95;
+        const test = (x, z, hl, hw, mine) => { const dx = x - st.x, dz = z - st.z, a = dx * fx + dz * fz, l = -dx * fz + dz * fx; if (a < 0.2 || a > look + HL + hl || Math.abs(l) > HW + 0.3 + hw) return; const g = a - HL - hl; if (g < gap) { gap = g; byMe = !!mine; } };
         if (ctx.me) test(ctx.me.x, ctx.me.z, 0.45, 0.45, true);
         if (ctx.persons) for (const o of ctx.persons) test(o.x, o.z, 0.45, 0.45, true);
         if (ctx.carSt) test(ctx.carSt.x, ctx.carSt.z, ctx.carSt.hl || 2.2, ctx.carSt.hw || 1, true);
-        for (const o of this.cars) if (o !== c && o.mode !== 'gone' && o.vis) test(o.st.x, o.st.z, 2.2, 0.95, false);
+        for (const o of this.cars) if (o !== c && o.mode !== 'gone' && o.vis) test(o.st.x, o.st.z, o.st.hl || 2.2, o.st.hw || 0.95, false);
         for (const o of ctx.cars) if (o.driver !== -1 && o !== ctx.carSt && Math.abs(o.speed) > 0.5) test(o.x, o.z, o.hl || 2.2, o.hw || 1, false);
         // gun pointed at me: stop dead
         if (c.mode === 'drive') for (const aim of (ctx.aims || (ctx.aim ? [ctx.aim] : []))) { const dx = st.x - aim.x, dz = st.z - aim.z, d = Math.hypot(dx, dz); if (d < 30 && d > 1 && (dx * aim.dx + dz * aim.dz) / d > 0.93) c.scared = Math.max(c.scared, 1.5); }

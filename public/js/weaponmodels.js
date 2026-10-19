@@ -1,0 +1,29 @@
+// Standalone 3D weapon models (baseball bat, pistol, AK-47) for the shop walls. Gun frame: +z = barrel, +y = up, origin = grip.
+import * as THREE from 'three';
+
+const M = {};
+const mat = (k, o) => M[k] || (M[k] = new THREE.MeshStandardMaterial(o));
+const steel = () => mat('steel', { color: '#2c2f34', roughness: 0.35, metalness: 0.85 });
+const black = () => mat('black', { color: '#121214', roughness: 0.6, metalness: 0.3 });
+const wood = () => mat('wood', { color: '#c4915a', roughness: 0.55, metalness: 0.02 });
+const dwood = () => mat('dwood', { color: '#7a4421', roughness: 0.55, metalness: 0.02 });
+const part = (g, w, h, d, x, y, z, m, rx = 0) => { const q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); q.position.set(x, y, z); q.rotation.x = rx; g.add(q); return q; };
+const cyl = (g, r0, r1, len, x, y, z, m, axis = 'z') => { const q = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, 10), m); if (axis === 'z') q.rotation.x = Math.PI / 2; q.position.set(x, y, z); g.add(q); return q; };
+
+export function makeWeaponModel(kind) {
+  const g = new THREE.Group();
+  if (kind === 'pistol') {
+    part(g, 0.032, 0.04, 0.2, 0, 0.074, 0.03, steel()); part(g, 0.028, 0.03, 0.14, 0, 0.044, 0.01, black()); part(g, 0.032, 0.11, 0.046, 0, 0, -0.012, black(), -0.12);
+    part(g, 0.007, 0.034, 0.05, 0, 0.034, 0.05, black()); part(g, 0.01, 0.014, 0.012, 0, 0.098, 0.115, steel()); part(g, 0.014, 0.012, 0.012, 0, 0.098, -0.055, steel()); cyl(g, 0.0085, 0.0085, 0.03, 0, 0.074, 0.14, steel());
+  } else if (kind === 'ak') {
+    part(g, 0.045, 0.07, 0.34, 0, 0.07, 0.12, steel()); part(g, 0.04, 0.04, 0.24, 0, 0.065, 0.4, dwood()); part(g, 0.036, 0.022, 0.2, 0, 0.115, 0.38, black());
+    part(g, 0.03, 0.12, 0.05, 0, -0.01, 0, dwood(), -0.2); part(g, 0.034, 0.17, 0.07, 0, -0.03, 0.2, black(), 0.35); part(g, 0.04, 0.09, 0.3, 0, 0.04, -0.26, dwood(), 0.12);
+    part(g, 0.008, 0.035, 0.008, 0, 0.14, 0.52, steel()); part(g, 0.01, 0.025, 0.012, 0, 0.14, 0.14, steel()); cyl(g, 0.0085, 0.0085, 0.2, 0, 0.075, 0.62, steel());
+  } else {   // bat: the long axis is y here; the caller lays it down
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.016, 0.8, 12), wood()); body.position.y = 0.3; g.add(body);
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 10), wood()); knob.position.y = -0.11; g.add(knob);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), wood()); tip.position.y = 0.7; g.add(tip);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.0185, 0.0185, 0.2, 10), black()); grip.position.y = -0.0; g.add(grip);
+  }
+  return g;
+}
