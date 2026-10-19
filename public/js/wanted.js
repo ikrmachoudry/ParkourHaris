@@ -12,7 +12,6 @@ import { HeroActor } from './actor.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { GT, POLICE } from './gta.js';
 import * as A from './audio.js';
-import { say } from './commentary.js';
 import { OPT } from './opts.js';
 
 const GRID = GT.GRID, EDGE = GRID[GRID.length - 1], LANE = 2.7;
@@ -69,7 +68,7 @@ export class Wanted {
   setStars(n) {
     n = clamp(n, 0, 5); if (n === this.stars) return; const up = n > this.stars; this.stars = n;
     if (up) this.R.toast && this.R.toast(n === 1 ? 'WANTED' : 'WANTED  ' + '★'.repeat(n));
-    if (n === 0) { this.heat = 0; this.search = null; this.evade = 0; this.cool = 0; say('cleared'); } else if (this.search) this.search.r = this.radius();
+    if (n === 0) { this.heat = 0; this.search = null; this.evade = 0; this.cool = 0; /* cleared */ } else if (this.search) this.search.r = this.radius();
     this.hud(true);
   }
 
@@ -258,7 +257,7 @@ export class Wanted {
   busted() {
     const R = this.R, W = R.wallet; this.bust = 0;
     let fine = 0; if (W) { fine = Math.min(W.money, Math.max(40, Math.round(W.money * 0.06 / 10) * 10)); if (fine) W.add(-fine, 'fine'); }
-    this.showBanner('BUSTED', fine ? '-$' + fine : ''); say('busted', true);
+    this.showBanner('BUSTED', fine ? '-$' + fine : '');
     A.sirenFar(0); this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.seen = false; this.unseenT = 99;
     this.clearAll(true);
     if (R.drive) R.toggleCar(true);

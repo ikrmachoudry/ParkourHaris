@@ -335,7 +335,7 @@ body.is-full #b-full .fs-out { display: block; }
 
 /* ---- action buttons (PUBG / Call of Duty style cluster at the thumb: big PUNCH, JUMP above it, CROUCH and SIT to its left) ---- */
 #act-pad { display: none; position: absolute; right: max(14px, 2.5vw); bottom: max(12px, 4vh); width: clamp(170px, 38vmin, 250px); height: clamp(170px, 38vmin, 250px); pointer-events: none; z-index: 20; }
-body.in-race.city-mode:not(.driving) #act-pad { display: block; }
+body.touch.in-race.city-mode:not(.driving) #act-pad { display: block; }
 #act-pad button { position: absolute; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.7); background: rgba(20,16,50,.55); display: grid; place-items: center; align-content: center; padding: 0; cursor: pointer; touch-action: none; pointer-events: auto; -webkit-tap-highlight-color: transparent; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
 #act-pad button svg { width: 52%; height: 52%; }
 #act-pad button i { font-style: normal; font-family: var(--font); font-size: clamp(8px, 1.9vmin, 11px); color: #fff; letter-spacing: .5px; margin-top: -2px; text-shadow: 0 1px 2px #000; }

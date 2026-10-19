@@ -13,7 +13,6 @@ import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
-import { say, stopSay, setCommentary } from './commentary.js';
 import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
@@ -30,7 +29,8 @@ import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
-const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0;
+const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches && matchMedia('(hover: hover)').matches && !matchMedia('(pointer: coarse)').matches;   // a laptop / PC with a mouse (even a touchscreen laptop): keyboard + mouse only
+const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -382,7 +382,6 @@ class Race {
     const hanging = false;
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
-    this.comT = (this.comT === undefined ? 14 : this.comT) - dt; if (this.comT <= 0) { this.comT = 22 + Math.random() * 25; const dsp = this.drive ? Math.abs(this.drive.st.speed) : 0; say(dsp > 30 ? 'fast' : this.meta.city ? 'idle' : 'gen'); }
     this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); } }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
@@ -643,7 +642,7 @@ class Race {
         st.crash = 0; }
     } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
-    if (ev === 'crash') { say('crash'); A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
+    if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
     if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
@@ -977,7 +976,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); if (kind === 'kill' || kind === 'jack') say(kind); } }
+  crime(kind, x, z) { if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = this.weapon === 'pistol' || this.weapon === 'ak', empty = tj.mode === 'abandoned';
@@ -1421,7 +1420,7 @@ class Race {
     if (this.mission) { this.mission.destroy(); this.mission = null; }
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
-    stopSay(); A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
+    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
@@ -1693,7 +1692,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.toggleWheel(); else if (e.code === 'KeyR') race.toggleAim(); else if (e.code === 'Digit1') race.equip('fist'); else if (e.code === 'Digit2') race.equip('bat'); else if (e.code === 'Digit3') race.equip('pistol'); else if (e.code === 'Digit4') race.equip('ak'); else if (e.code === 'Escape' && race.wheelOpen) race.toggleWheel(false); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
@@ -1780,9 +1779,8 @@ async function boot() {
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
   document.querySelectorAll('#quick .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); paint(); if (k === 'commentary') { setCommentary(OPT.commentary); if (OPT.commentary) say('gen', true); } };
+    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); paint(); };
   });
-  setCommentary(OPT.commentary);
   $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
   $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits
