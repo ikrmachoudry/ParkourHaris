@@ -72,7 +72,8 @@ def rot(v, o, ax, ang):
     k = ax / np.linalg.norm(ax); d = v - o; c, s_ = np.cos(ang), np.sin(ang)
     return o + d * c + np.cross(k, d) * s_ + np.outer(d @ k, k) * (1 - c)
 Vf = V.copy()
-CURL = {2: (1.25, 1.35, 0.8), 3: (1.25, 1.35, 0.8), 4: (1.3, 1.4, 0.8), 5: (1.3, 1.4, 0.8), 1: (1.0, 0.9, 0.6)}
+# relaxed open hand (fingers softly curled), like a person jogging - not a fist
+CURL = {2: (0.30, 0.38, 0.30), 3: (0.34, 0.42, 0.32), 4: (0.40, 0.48, 0.36), 5: (0.46, 0.54, 0.40), 1: (0.0, 0.0, 0.0)}
 for sd in 'LR':
     nrm_ = np.array([-1.0, 0, 0]) if sd == 'L' else np.array([1.0, 0, 0])
     for n in range(1, 6):

@@ -137,6 +137,8 @@ export class GlbActor extends HeroActor {
     // driver world rotations (rest = identity)
     const G = rt.G || (rt.G = {}); const PAR = rt.PAR || (rt.PAR = { spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', 'upperarm.L': 'chest', 'forearm.L': 'upperarm.L', 'hand.L': 'forearm.L', 'upperarm.R': 'chest', 'forearm.R': 'upperarm.R', 'hand.R': 'forearm.R', 'upperleg.L': 'hips', 'lowerleg.L': 'upperleg.L', 'foot.L': 'lowerleg.L', 'upperleg.R': 'hips', 'lowerleg.R': 'upperleg.R', 'foot.R': 'lowerleg.R' });
     for (const k of NEED) { const q = G[k] || (G[k] = new THREE.Quaternion()); q.copy(b[k].quaternion); if (PAR[k]) q.premultiply(G[PAR[k]]); }
+    // walking / running: relaxed, less deeply bent elbows (arms hang and swing loosely beside the body) - other poses (aim, punch...) stay untouched
+    if (this.pose === 'run' || this.pose === 'walk' || this.pose === 'crouchwalk') for (const sd of ['L', 'R']) G['forearm.' + sd].slerp(G['upperarm.' + sd], 0.4), G['hand.' + sd].slerp(G['upperarm.' + sd], 0.3);
     // the wider MakeHuman shoulders need the hanging arms a bit further out (otherwise hands cross the belly): swing sideways of the body like a real person
     for (const sd of ['L', 'R']) {
       const up = G['upperarm.' + sd]; _v2.set(0, -1, 0).applyQuaternion(up);
