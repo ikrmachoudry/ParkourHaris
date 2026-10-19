@@ -11,6 +11,15 @@ const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
+// night: which windows are lit (a 4x4 block of window cells, matches windowTexture's layout; read through the second uv set)
+function litWindowTexture(glass, seed) {
+  const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), R = rng(seed);
+  g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+  const wx = glass ? 6 : 26, wy = glass ? 10 : 22, ww = 128 - wx * 2, wh = glass ? 86 : 78, cols = ['#ffd890', '#ffe7b0', '#ffc878', '#cfe4ff', '#ffdca0'];
+  for (let cy = 0; cy < 4; cy++) for (let cx = 0; cx < 4; cx++) { if (cx === 0 && cy === 3) continue; if (R() > (glass ? 0.62 : 0.5)) continue; g.fillStyle = cols[Math.floor(R() * cols.length)]; g.fillRect(cx * 128 + wx, cy * 128 + wy, ww, wh); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.channel = 1; return t;
+}
+
 function windowTexture(glass) {
   const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
   g.fillStyle = glass ? '#c9d3df' : '#ffffff'; g.fillRect(0, 0, S, S);
@@ -51,6 +60,7 @@ function buildingGeo(b) {
     const wide = nx > 0.5 ? b.d : b.w;
     uv.setXY(i, u * wide / 4.2, v * b.h / 3.6);
   }
+  { const u1 = new Float32Array(uv.count * 2); for (let i = 0; i < uv.count; i++) { u1[i * 2] = uv.getX(i) / 4; u1[i * 2 + 1] = uv.getY(i) / 4; } g.setAttribute('uv1', new THREE.BufferAttribute(u1, 2)); }
   g.translate(b.x, b.h / 2, b.z);
   const c = col.set(b.col), n = g.attributes.position.count, cs = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { cs[i * 3] = c.r; cs[i * 3 + 1] = c.g; cs[i * 3 + 2] = c.b; }
@@ -247,8 +257,9 @@ export function buildGta(world, th, info, seed) {
   // ---- buildings (windows) + roofs / awnings
   const wt = windowTexture(false), wg = windowTexture(true), wallTex = grainTexture(128, 235, 30, 22, 31);
   const plain = B.filter((b) => b.zone > 0), towers = B.filter((b) => b.zone === 0);
-  const bm = new THREE.Mesh(mergeGeometries(plain.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wt, bumpMap: wallTex, bumpScale: 0.6, roughness: 0.78, metalness: 0.02 })); bm.castShadow = true; bm.receiveShadow = true; world.group.add(bm);
-  const gm = new THREE.Mesh(mergeGeometries(towers.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wg, roughness: 0.22, metalness: 0.55, envMapIntensity: 1.5 })); gm.castShadow = true; gm.receiveShadow = true; world.group.add(gm);
+  const bm = new THREE.Mesh(mergeGeometries(plain.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wt, bumpMap: wallTex, bumpScale: 0.6, roughness: 0.78, metalness: 0.02, emissive: '#ffffff', emissiveMap: litWindowTexture(false, 5), emissiveIntensity: 0 })); bm.castShadow = true; bm.receiveShadow = true; world.group.add(bm);
+  const gm = new THREE.Mesh(mergeGeometries(towers.map(buildingGeo)), new THREE.MeshStandardMaterial({ vertexColors: true, map: wg, roughness: 0.22, metalness: 0.55, envMapIntensity: 1.5, emissive: '#ffffff', emissiveMap: litWindowTexture(true, 9), emissiveIntensity: 0 })); gm.castShadow = true; gm.receiveShadow = true; world.group.add(gm);
+  world.nightMats = [bm.material, gm.material]; world.lampPools = [];
   const wm = world.main, R = rng(seed || 7), kerb = '#d9dde2';
   const props = roads.props = [];   // thin solid things (tree trunks, lamp posts, benches): cars bump into them, people cannot walk through
   const solidProp = (x, z, r, h, y = 0) => { world.addSolid(x - r, y, z - r, x + r, y + h, z + r, { name: 'prop' }); props.push({ x0: x - r, x1: x + r, z0: z - r, z1: z + r, h: y + h }); };
@@ -259,6 +270,7 @@ export function buildGta(world, th, info, seed) {
     wm.add(new THREE.BoxGeometry(horiz ? 0.1 : 1.9, 0.1, horiz ? 1.9 : 0.1), x + ax, 7.15, z + az, '#4d545e');
     wm.add(new THREE.BoxGeometry(horiz ? 0.34 : 0.7, 0.14, horiz ? 0.7 : 0.34), x + ax * 1.9, 7.1, z + az * 1.9, '#9aa1aa');
     world.glow.add(new THREE.BoxGeometry(horiz ? 0.28 : 0.55, 0.05, horiz ? 0.55 : 0.28), x + ax * 1.9, 7.02, z + az * 1.9, '#fff1c4');
+    world.lampPools.push([x + ax * 1.9, z + az * 1.9]);
     solidProp(x, z, 0.16, 7);
   };
   for (const bx of BLK) for (const bz of BLK) {

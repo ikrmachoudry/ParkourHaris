@@ -94,12 +94,17 @@ export function makeSky(v) {
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
       top: { value: new THREE.Color(v.top) }, horizon: { value: new THREE.Color(v.horizon) }, bottom: { value: new THREE.Color(v.bottom) },
-      sunDir: { value: sunDir }, sunColor: { value: new THREE.Color(v.sun) },
+      sunDir: { value: sunDir }, sunColor: { value: new THREE.Color(v.sun) }, moonDir: { value: new THREE.Vector3(0, -1, 0) }, night: { value: 0 },
     },
     vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position.z = gl_Position.w; }',
-    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunColor; varying vec3 vD;
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunColor; uniform vec3 moonDir; uniform float night; varying vec3 vD;
       void main(){ float h = vD.y; vec3 c = h>0.0 ? mix(horizon, top, pow(h, 0.55)) : mix(horizon, bottom, pow(-h, 0.45));
         float s = max(dot(normalize(vD), sunDir), 0.0); c += sunColor * (pow(s, 600.0)*3.0 + pow(s, 24.0)*0.35 + pow(s, 6.0)*0.12);
+        if(night > 0.01){ vec3 nd = normalize(vD); vec3 p = nd*72.0; vec3 id = floor(p); vec3 f = fract(p)-0.5;
+          float hs = fract(sin(dot(id, vec3(12.9898,78.233,45.164)))*43758.5453); float tw = 0.55+0.45*fract(hs*91.7);
+          float star = step(0.982, hs) * smoothstep(0.3, 0.0, length(f)) * tw * smoothstep(0.02, 0.3, nd.y);
+          float m = dot(nd, moonDir); float disc = smoothstep(0.9989, 0.9992, m);
+          c += night * (vec3(1.0,0.97,0.9)*star*1.6 + vec3(0.93,0.95,1.0)*disc*1.5 + vec3(0.45,0.55,0.9)*pow(max(m,0.0), 160.0)*0.28); }
         gl_FragColor = vec4(c, 1.0); }`,
   });
   const m = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), mat);
@@ -291,9 +296,10 @@ export function buildScenery(scene, key, info, world) {
       dyn.push((t) => { c.position.x += 0.012 * (1 + (c.userData.ph % 1)); if (c.position.x > 300) c.position.x = -300; });
     }
   } else if (key === 'gta') {
+    const cloudMat = scene.userData.cloudMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.92, fog: false });   // shared: the day/night cycle tints it
     for (let i = 0; i < 46; i++) { // clouds over the whole island
       const c = new THREE.Group(), x = (R() - 0.5) * 900, z = (R() - 0.5) * 900, y = 130 + R() * 70, k = 3 + Math.floor(R() * 3);
-      for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(8 + R() * 8, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.92, fog: false })); m.position.set(q * 11 - k * 5, R() * 4, R() * 6); m.scale.y = 0.6; c.add(m); }
+      for (let q = 0; q < k; q++) { const m = new THREE.Mesh(sph(8 + R() * 8, 10, 8), cloudMat); m.position.set(q * 11 - k * 5, R() * 4, R() * 6); m.scale.y = 0.6; c.add(m); }
       c.position.set(x, y, z); c.userData.ph = R() * 6; group.add(c);
       dyn.push((t) => { c.position.x += 0.02 * (1 + (c.userData.ph % 1)); if (c.position.x > 480) c.position.x = -480; });
     }

@@ -13,6 +13,7 @@ import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
+import { DayNight } from './daynight.js';
 import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
@@ -275,12 +276,13 @@ class Race {
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
 
-    scene.add(new THREE.HemisphereLight(v.hemiSky, v.hemiGround, v.hemiI));
+    const hemi = this.hemi = new THREE.HemisphereLight(v.hemiSky, v.hemiGround, v.hemiI); scene.add(hemi);
     const sun = this.sun = new THREE.DirectionalLight(v.sun, v.sunI);
     this.sunDir = new THREE.Vector3(...v.sunPos).normalize().multiplyScalar(90);
     sun.castShadow = Q.shadows; sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
     const sc = sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 5; sc.far = 220; sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
     scene.add(sun, sun.target);
+    this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.dn.update(0); }
 
     this.particles = new Particles(600); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 160 : 320, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
@@ -1379,6 +1381,11 @@ class Race {
   updateLights() {
     const t = this.camTarget;
     this.sun.position.set(t.x + this.sunDir.x, t.y + this.sunDir.y, t.z + this.sunDir.z); this.sun.target.position.copy(t);
+    if (this.dn) {
+      this.dn.update(this.lastDt || 0.016);
+      const mo = this.dn.moon, md = this.moonDir; if (md) { mo.position.set(t.x + md.x, t.y + md.y, t.z + md.z); mo.target.position.copy(t); }
+      if (this.dn.night !== this.nightOn) { this.nightOn = this.dn.night; this.lightsOn = this.nightOn; if (this.drive && !this.paxMode) this.applyLights(this.drive); }   // headlights come on at dusk, off at dawn (L still toggles them)
+    }
   }
 
   // ---- HUD
