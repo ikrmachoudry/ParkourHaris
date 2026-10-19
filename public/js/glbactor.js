@@ -148,13 +148,19 @@ export class GlbActor extends HeroActor {
       const yaw = Math.max(0, _v2.z) * (this.opts.foreOut == null ? 0.75 : this.opts.foreOut);
       _q.setFromAxisAngle(_v.set(0, 1, 0), sd === 'L' ? yaw : -yaw);
       G['forearm.' + sd].premultiply(_q); G['hand.' + sd].premultiply(_q);
-      { _v2.set(0, -1, 0).applyQuaternion(G['hand.' + sd]); const hf = Math.max(0, -_v2.y) * 0.3; G['hand.' + sd].premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), sd === 'L' ? hf : -hf)); }
     }
+    { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk') ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : 0.3;
+      this.fist = (this.fist == null ? tgt : this.fist) + (tgt - (this.fist == null ? tgt : this.fist)) * Math.min(1, dt * 12); }
     // walk the GLB skeleton parents-first
     const walk = (bone, pw) => {
       let w;
       const k = rt.byBone.get(bone);
       if (k) { const t = rt.T[k]; w = _q2.copy(G[k]).multiply(t.Q).multiply(t.Rr); const local = pw.clone().invert().multiply(w); bone.quaternion.copy(local); w = w.clone(); }
+      else if (bone.userData.curl) {   // finger / thumb joints: curl into a fist (world axis across the palm, converted into the parent's frame)
+        const cu = bone.userData.curl, ang = cu.a * this.fist;
+        _v.copy(cu.axis).applyQuaternion(_q.copy(pw).invert()).normalize();
+        bone.quaternion.setFromAxisAngle(_v, ang).multiply(rt.rest.get(bone)); w = pw.clone().multiply(bone.quaternion);
+      }
       else { bone.quaternion.copy(rt.rest.get(bone)); w = pw.clone().multiply(bone.quaternion); }
       for (const c of bone.children) if (c.isBone) walk(c, w);
     };

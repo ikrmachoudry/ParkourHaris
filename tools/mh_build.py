@@ -67,6 +67,28 @@ for b, lst in W.items():
     d = drv(b)
     for i, w in lst: wt[i, NI[d]] += w
 
+# ---------- fists: curl the finger vertices around the MakeHuman finger joints (weights straight from the rig) ----------
+def rot(v, o, ax, ang):
+    k = ax / np.linalg.norm(ax); d = v - o; c, s_ = np.cos(ang), np.sin(ang)
+    return o + d * c + np.cross(k, d) * s_ + np.outer(d @ k, k) * (1 - c)
+Vf = V.copy()
+CURL = {2: (1.25, 1.35, 0.8), 3: (1.25, 1.35, 0.8), 4: (1.3, 1.4, 0.8), 5: (1.3, 1.4, 0.8), 1: (1.0, 0.9, 0.6)}
+for sd in 'LR':
+    nrm_ = np.array([-1.0, 0, 0]) if sd == 'L' else np.array([1.0, 0, 0])
+    for n in range(1, 6):
+        js = [bpos(f'finger{n}-{k}.{sd}', 'head') for k in (1, 2, 3)]
+        d = bpos(f'finger{n}-3.{sd}', 'tail') - js[0]; d /= np.linalg.norm(d)
+        nn = nrm_ - d * (d @ nrm_); ax = np.cross(d, nn)
+        ws = [np.zeros(len(V)) for _ in range(3)]
+        for k in range(3):
+            for i, w in W.get(f'finger{n}-{k + 1}.{sd}', []): ws[k][i] += w
+        tot = sum(ws); idx_ = np.nonzero(tot > 1e-6)[0]
+        if not len(idx_): continue
+        p0 = V[idx_]; acc = np.zeros_like(p0)
+        T1 = lambda p: rot(p, js[0], ax, CURL[n][0]); T2 = lambda p: T1(rot(p, js[1], ax, CURL[n][1])); T3 = lambda p: T1(rot(p, js[1], ax, CURL[n][1])) if False else T1(rot(rot(p, js[2], ax, CURL[n][2]), js[1], ax, CURL[n][1]))
+        acc = ws[0][idx_, None] * T1(p0) + ws[1][idx_, None] * T2(p0) + ws[2][idx_, None] * T3(p0) + (1 - tot[idx_, None]) * p0
+        Vf[idx_] = acc
+V = Vf
 # ---------- eyes (little skinned spheres) ----------
 def sphere(c, r, nu=10, nv=7):
     pts = []; tr = []
