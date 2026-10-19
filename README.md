@@ -25,3 +25,4 @@ Health check: `/health`. Port: Railway sets `PORT` automatically. Limits built i
 
 ## Credits
 Walking and running animation: motion-capture data from the CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu, free for all uses), converted by tools/mocap_bake.mjs onto the game's own character skeleton.
+Player bodies: MakeHuman base mesh and rig data (CC0, makehumancommunity/makehuman), skinned and dressed by tools/mh_build.py; the same game animations drive them (public/js/glbactor.js).

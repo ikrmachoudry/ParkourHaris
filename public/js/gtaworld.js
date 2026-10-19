@@ -241,7 +241,7 @@ export function buildGta(world, th, info, seed) {
     for (const [dx, dz] of [[-8, -3], [8, -3], [-8, 3], [8, 3]]) wm.add(new THREE.ConeGeometry(0.28, 0.7, 10), bx + dx, 0.62, bz + dz, '#ff6a1a');
     plant(S.x - 21, 0.2, 14, 0.9); plant(S.x + 21, 0.2, 14, 0.9);
   }
-  // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Michael) with garage, driveway, fence, porch and garden
+  // ---- HOMES: a house for each player (Haris, Hannan, Hanbal, Dawood) with garage, driveway, fence, porch and garden
   { const roofC = ['#8a3b2e', '#4a5a6a', '#6b4f3a', '#3d4d3d'], wallC = ['#efe3cf', '#e5ddd0', '#f0e8d8', '#dcd6c8'], Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
     HOMES.forEach((h, i) => {
       const P = (lx, lz) => homeW(h, lx, lz), put = (g, lx, y, lz, c, ry = 0) => { const p = P(lx, lz); wm.add(g, p.x, y, p.z, c, 0, h.yaw + ry, 0); };

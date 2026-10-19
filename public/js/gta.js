@@ -142,14 +142,14 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 10139
 export const BLK = [-210, -150, -90, -30, 30, 90, 150, 210];
 export const PARKS = [[90, 90], [-90, 30], [-150, -150], [150, 150], [-210, 30], [210, -90], [150, -210]];
 export const CUSTOM_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90]];   // repair shop, the four homes, mission lobby, bank, police station
-// LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Michael).
+// LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Dawood).
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
 export const HOMES = [
   { char: 0, name: 'Haris', x: -100, z: -100, yaw: Math.PI, color: '#ff5f5f' },
   { char: 1, name: 'Hannan', x: -80, z: -100, yaw: Math.PI, color: '#3ddc84' },
   { char: 2, name: 'Hanbal', x: -100, z: -80, yaw: 0, color: '#ffc233' },
-  { char: 3, name: 'Michael', x: -80, z: -80, yaw: 0, color: '#8b6cff' },
+  { char: 3, name: 'Dawood', x: -80, z: -80, yaw: 0, color: '#8b6cff' },
 ];
 // local house coordinates (+z = towards the front door / avenue, +x = right of someone at the door looking out) -> world
 export const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });

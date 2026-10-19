@@ -8,6 +8,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
+import { makeHero } from './glbactor.js';
 import { cityVeh } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { Peds } from './peds.js';
@@ -116,7 +117,7 @@ class Stage {
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     dm.rotation.x = -Math.PI / 2; dm.position.set(0, 0.1, 4.4); this.scene.add(dm);
 
-    this.chars = [0, 1, 2, 3].map((id) => { const c = new HeroActor(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
+    this.chars = [0, 1, 2, 3].map((id) => { const c = makeHero(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(360); this.scene.add(this.particles.points);
     this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = [];
@@ -209,7 +210,7 @@ class Remote {
 }
 
 // ------------------------------------------------------------------ the race
-const makeActor = (id) => new HeroActor(id);
+const makeActor = (id) => makeHero(id);
 let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the world
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
@@ -1107,7 +1108,7 @@ function makeThumbs() {
   const cam = new THREE.PerspectiveCamera(30, 256 / 320, 0.1, 50); cam.position.set(0, 1.25, 6.6); cam.lookAt(0, 0.98, 0);
   const out = [];
   for (let i = 0; i < CHARACTERS.length; i++) {
-    const c = new HeroActor(i); c.group.rotation.y = -0.35; sc.add(c.group); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
+    const c = makeHero(i); c.group.rotation.y = -0.35; sc.add(c.group); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
     r.render(sc, cam); out.push(r.domElement.toDataURL('image/png')); sc.remove(c.group); c.dispose();
   }
   pm.dispose(); r.dispose(); r.forceContextLoss();
