@@ -34,6 +34,7 @@ export class Peds {
       let speed = 0, gesture = null;
       if (p.st === 'walk') {
         this.pose(p, t - (p.shift || 0));
+        if (!p.temp) for (const c of vehicles) { const sp = Math.abs(c.speed); if (sp < 9 || c.y > 1) continue; const dx = p.x - c.x, dz = p.z - c.z; if (dx * dx + dz * dz < 36 && (dx * c.vx + dz * c.vz) / (Math.hypot(dx, dz) * sp + 1e-3) > -0.2 && Math.random() < dt * 3 * (sp / 15)) { this.scare(p, c.x, c.z); break; } }   // a car racing past scares him
         if (me && ctx.sit && p.fear > 0.55) { const mx = me.x - p.x, mz = me.z - p.z; if (mx * mx + mz * mz < 36) this.scare(p, me.x, me.z); }   // somebody sitting down and acting odd right next to him
       } else if (p.st === 'cower') {
         p.timer -= dt; gesture = 'scared'; if (p.timer <= 0) { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }
@@ -59,8 +60,8 @@ export class Peds {
         p.vy -= 9.81 * dt; p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
         if (p.y <= 0) { p.y = 0; p.vx *= 0.3; p.vz *= 0.3; if (Math.abs(p.vy) > 1.5) p.vy = -p.vy * 0.25; else { p.vy = 0; p.st = 'lie'; p.wait = 0; } }
         p.lie = Math.min(1, p.lie + dt * 4);
-      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { p.x += p.vx * dt; p.z += p.vz * dt; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
-      else if (p.st === 'gone') { p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
+      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { p.x += p.vx * dt; p.z += p.vz * dt; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
+      else if (p.st === 'gone') { if (p.temp) { p.dead = true; continue; } p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
       const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
       if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
       if (!p.actor) { p.actor = new HeroActor(p.i, p.look); this.scene.add(p.actor.group); }
@@ -83,6 +84,7 @@ export class Peds {
       a.group.rotation.x = -1.45 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0);
       a.update(dt, { speed, grounded: p.st !== 'fly', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false, gesture, punch: p.punchT });
     }
+    for (let i = this.list.length - 1; i >= 0; i--) { const p = this.list[i]; if (p.dead) { if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.splice(i, 1); } }
   }
   // nobody walks through you: if you touch a person on foot you are pushed out of him (he keeps his place)
   pushOut(b) {
@@ -93,9 +95,9 @@ export class Peds {
     }
   }
   // frighten the timid people near a fight / crash (the brave ones just watch)
-  alarm(x, z, r, except) {
+  alarm(x, z, r, except, gun) {
     for (const p of this.list) {
-      if (p === except || p.st !== 'walk' || p.brave) continue;
+      if (p === except || p.st !== 'walk' || (p.brave && !(gun && Math.random() < 0.6))) continue;
       const dx = p.x - x, dz = p.z - z; if (dx * dx + dz * dz < r * r) this.scare(p, x, z);
     }
   }
@@ -124,21 +126,47 @@ export class Peds {
     if (onHit) onHit(p, false);
   }
   // a punch from the player: hurts the nearest person in front (hidden health, no bar). Some run, some fight back, the rest get scared.
-  punch(x, z, fx, fz, onHit) {
-    let best = null, bd = 9;
+  punch(x, z, fx, fz, onHit, dmg = 1, reach = 1.85) {
+    let best = null, bd = 9; const r2 = reach * reach;
     for (const p of this.list) {
       if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight') continue;
       const dx = p.x - x, dz = p.z - z, d2 = dx * dx + dz * dz;
-      if (d2 > 3.4 || d2 < 1e-4 || (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3) continue;
+      if (d2 > r2 || d2 < 1e-4 || (dx * fx + dz * fz) / Math.sqrt(d2) < 0.3) continue;
       if (d2 < bd) { bd = d2; best = p; }
     }
     if (!best) return false;
-    best.hp -= 1;
+    best.hp -= dmg;
     if (best.hp <= 0) { best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0; best.punchT = 0; }
     else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; }
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
     this.alarm(best.x, best.z, 12, best);
     if (onHit) onHit(best, best.hp <= 0); return true;
   }
+  // a bullet: the first person on the line (ox,oz) + (fx,fz) * [0..range] within 0.55 m of it. Returns { p, dead, d } or null. Everybody near panics (gunfire).
+  shoot(ox, oz, fx, fz, range, dmg, onHit) {
+    let best = null, bd = range;
+    for (const p of this.list) {
+      if (!p.actor || !p.actor.group.visible) continue;
+      if (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie') continue;
+      const dx = p.x - ox, dz = p.z - oz, a = dx * fx + dz * fz; if (a < 0.3 || a > bd) continue;
+      if (Math.abs(-dx * fz + dz * fx) > 0.55) continue;
+      bd = a; best = p;
+    }
+    this.alarm(ox, oz, 32, best, true);
+    if (!best) return null;
+    best.hp -= dmg; const dead = best.hp <= 0;
+    if (dead) { best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
+    else if (best.st !== 'lie') { if (best.brave && Math.random() < 0.35) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; } else { best.st = 'flee'; best.timer = 6; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); } }
+    if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
+  }
+  // a driver pulled out of a car: a temporary person who is thrown to the ground, then runs / cowers / fights ('fight' = brave)
+  adopt(x, z, yaw, brave, mode = 'fly', look = 0) {
+    const R = Math.random, i = 100 + (this.nextI = (this.nextI || 0) + 1);
+    const p = { i, axis: 0, g: 0, off: 0, lo: 0, span: 1, sp: 1.3, ph: 0, look: LOOKS[look % LOOKS.length], actor: null, x, z, yaw, st: mode, hitT: 0, vx: 0, vz: 0, vy: 0, y: 0, lie: 0, wait: 0, pause: 0, temp: true, hp: 3, hpMax: 3, brave, fear: R(), timer: 4, dx: Math.sin(yaw), dz: Math.cos(yaw), atk: 0.6, punchT: 0 };
+    if (mode === 'fly') { p.vx = Math.sin(yaw + 1.6) * 3; p.vz = Math.cos(yaw + 1.6) * 3; p.vy = 2.2; }
+    this.list.push(p); return p;
+  }
+  // horn / a car racing past: the timid people near it jump and run (only these AI people: other players are never affected)
+  startle(x, z, r) { for (const p of this.list) { if (p.st !== 'walk' || p.temp) continue; const dx = p.x - x, dz = p.z - z; if (dx * dx + dz * dz < r * r && (p.brave ? Math.random() < 0.12 : Math.random() < 0.7)) this.scare(p, x, z); } }
   dispose() { for (const p of this.list) if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.length = 0; }
 }

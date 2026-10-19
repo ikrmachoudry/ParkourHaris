@@ -1,6 +1,6 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
-import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE } from './gta.js';
+import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS } from './gta.js';
 
 const W = 1100, O = 550;   // 1 px = 1 m, world -550..550
 function drawStatic() {
@@ -28,6 +28,7 @@ function drawStatic() {
   g.fillStyle = LOBBY.color; g.fillRect(O + LOBBY.x - LOBBY.w / 2, O + LOBBY.z - LOBBY.d / 2, LOBBY.w, LOBBY.d);   // the Mission Lobby
   g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(O + STUNT.startX, O - 1, 2, 2); g.strokeStyle = '#ffd23f'; g.lineWidth = 2; g.beginPath(); g.moveTo(O + STUNT.ramps[0][0], O); g.lineTo(O + STUNT.finishX, O); g.stroke();   // the stunt course
   g.fillStyle = '#d4a017'; g.fillRect(O + BANK.x - BANK.w / 2, O + BANK.z - BANK.d / 2, BANK.w, BANK.d); g.fillStyle = '#2a5bd7'; g.fillRect(O + POLICE.x - POLICE.w / 2, O + POLICE.z - POLICE.d / 2, POLICE.w, POLICE.d);   // the bank and the police station
+  g.fillStyle = ARMS.color; g.fillRect(O + ARMS.x - ARMS.w / 2, O + ARMS.z - ARMS.d / 2, ARMS.w, ARMS.d); { const A = AUTOS.showroom; g.fillStyle = AUTOS.color; g.fillRect(O + A.x - A.w / 2, O + A.z - A.d / 2, A.w, A.d); g.fillStyle = 'rgba(34,211,238,.35)'; g.beginPath(); g.arc(O + AUTOS.zone.x, O + AUTOS.zone.z, AUTOS.zone.r, 0, 7); g.fill(); }
   const S = REPAIR.shop; g.fillStyle = '#ffb02e'; g.fillRect(O + S.x - S.w / 2, O + S.z - S.d / 2, S.w, S.d);
   return cv;
 }

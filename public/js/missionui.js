@@ -4,6 +4,7 @@ import * as A from './audio.js';
 import { STUNT, LOBBY, PARK, CHASE, BANK, POLICE } from './gta.js';
 import { ThiefScene } from './thiefscene.js';
 import { MissionHub } from './mission.js';
+import { MISSION_PAY } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
 
 const $ = (id) => document.getElementById(id);
@@ -74,7 +75,7 @@ export class MissionClient {
     else if (m.t === 'm_st') { this.res = m.res || {}; this.chips(); }
     else if (m.t === 'm_end') {
       this.hold = false; this.showFin(false);
-      if (m.pass) { this.phase = 'done'; this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS BEHIND BARS!' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
+      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || 1500, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS BEHIND BARS!' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '') + ' - RESTARTING FOR EVERYBODY', 3800); A.sfx.bonk(); }
     } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }

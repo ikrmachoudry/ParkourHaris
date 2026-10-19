@@ -57,6 +57,10 @@ export const STUNT = { name: 'STUNT JUMP', startX: 272, lanes: [-4.5, -1.5, 1.5,
 // Both are just buildings (nobody can go in). Two 4-door police cars wait in front of the station; for the mission they are moved to the bank.
 export const BANK = { x: 30, z: 95, w: 34, d: 20, h: 15 };
 export const POLICE = { x: 30, z: -100, w: 34, d: 16, h: 12, zone: { x: 30, z: -76, r: 9 } };
+// THE WEAPON STORE (block -30,-90; walk in through the door on the south side and step on the red pad at the counter) and INTELLIMUM AUTOS (block 90,30: a showroom and an open lot;
+// drive a stolen car onto the ring and stop to sell it).
+export const ARMS = { x: -30, z: -98, w: 16, d: 11, pad: { x: -30, z: -100.4 }, color: '#e63946' };
+export const AUTOS = { x: 90, z: 30, showroom: { x: 90, z: 14, w: 34, d: 12, h: 7 }, zone: { x: 90, z: 40, r: 5.6 }, color: '#22d3ee' };
 export const CHASE = {
   name: 'THIEF CHASE',
   cops: [{ x: 20, z: 74, yaw: 0 }, { x: 40, z: 74, yaw: 0 }],                      // the police cars at the bank (nose to the door)
@@ -141,7 +145,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 10139
 //   CUSTOM_BLOCKS (the random buildings disappear) and build the landmark on it in gtaworld.js (see the repair shop / the bank for an example).
 export const BLK = [-210, -150, -90, -30, 30, 90, 150, 210];
 export const PARKS = [[90, 90], [-90, 30], [-150, -150], [150, 150], [-210, 30], [210, -90], [150, -210]];
-export const CUSTOM_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90]];   // repair shop, the four homes, mission lobby, bank, police station
+export const CUSTOM_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -90], [-30, -90], [90, 30]];   // repair shop, the four homes, mission lobby, bank, police station
 // LANDMARKS: the auto repair shop (drive into the bay under the canopy) and a house for each player (Haris, Hannan, Hanbal, Dawood).
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };

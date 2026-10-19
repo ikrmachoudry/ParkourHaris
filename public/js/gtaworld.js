@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE } from './gta.js';
+import { TrafficAI } from './trafficai.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -137,6 +138,7 @@ function signTexture(text, bg, fg) {
 
 // house walls in local coords [x0, x1, z0, z1, height]: the front door gap is x 2.7..4.1, the garage opening x -5.5..-1.1, the garage/house door z -4.6..-3.0
 const T = 0.3, WH = 3.6;
+const AUTOS_SHOW = [[-12, 11, '#c0392b'], [-4, 12, '#f1f5f9'], [4, 14, '#1f3a5f'], [12, 16, '#d9b34a']];   // [x offset, car id, colour] of the cars on display
 // the Mission Lobby walls relative to its centre [x0, x1, z0, z1]: back, left, right and the front with a 4 m door gap
 export const LOBBY_WALLS = [[-8, 8, -5.5, -5.2], [-8, -7.7, -5.5, 5.5], [7.7, 8, -5.5, 5.5], [-8, -2, 5.2, 5.5], [2, 8, 5.2, 5.5]];
 export const HOME_WALLS = [
@@ -147,6 +149,22 @@ export const HOME_WALLS = [
   [3.35, 5.65, -4.4, -3.3, 0.9], [3.9, 5.1, -5.65, -4.95, 0.5], [3.8, 5.2, -6.9, -6.4, 0.9], [0.5, 3.3, -6.9, -6.2, 0.95], [-0.4, 0.4, -6.9, -6.2, 1.8],
   [4.05, 5.65, -1.95, 0.15, 0.6], [-4.7, -2.1, -6.9, -6.2, 0.95], [-5.65, -5.2, -6.9, -5.3, 1.9],
 ];
+// the INTELLIMUM infinity mark: a lemniscate drawn with a teal -> indigo stroke
+export function drawInfinity(g, cx, cy, a, lw) {
+  const gr = g.createLinearGradient(cx - a, cy, cx + a, cy); gr.addColorStop(0, '#22d3ee'); gr.addColorStop(1, '#6366f1');
+  g.strokeStyle = gr; g.lineWidth = lw; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+  for (let i = 0; i <= 120; i++) { const t = i / 120 * Math.PI * 2, d = 1 + Math.sin(t) ** 2, x = cx + a * Math.cos(t) / d, y = cy + a * Math.sin(t) * Math.cos(t) / d * 1.25; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.closePath(); g.stroke();
+}
+function intellimumTexture() {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256; const g = cv.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 1024, 0); bg.addColorStop(0, '#0b1530'); bg.addColorStop(1, '#101c3f'); g.fillStyle = bg; g.fillRect(0, 0, 1024, 256);
+  g.strokeStyle = '#22d3ee'; g.lineWidth = 6; g.strokeRect(8, 8, 1008, 240);
+  drawInfinity(g, 150, 128, 105, 22);
+  g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.textBaseline = 'middle'; let fs = 108; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; while (g.measureText('INTELLIMUM').width > 700 && fs > 40) { fs -= 4; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; }
+  g.fillText('INTELLIMUM', 285, 100); g.fillStyle = '#22d3ee'; g.font = 'bold 74px Arial Black, Arial, sans-serif'; g.letterSpacing = '14px'; g.fillText('AUTOS', 290, 185);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
 export function buildGta(world, th, info, seed) {
   world.waterY = GT.SEA; world.killY = -2.6;
   world.terrain = gtaH;
@@ -173,6 +191,14 @@ export function buildGta(world, th, info, seed) {
     for (const [a, b, c, d] of LOBBY_WALLS) { const x0 = L.x + a, x1 = L.x + b, z0 = L.z + c, z1 = L.z + d; world.addSolid(x0, 0, z0, x1, 4, z1, { name: 'building' }); roads.boxes.push({ x0, x1, z0, z1, h: 4 }); }
     world.addSolid(L.x - hw + T3, 0.2, L.z - hd + T3, L.x + hw - T3, 0.26, L.z + hd - T3, { name: 'prop' });
     for (const [px, pz] of [[STUNT.finishX, -7.5], [STUNT.finishX, 7.5]]) { world.addSolid(px - 0.3, 0, pz - 0.3, px + 0.3, 6, pz + 0.3, { name: 'prop' }); roads.boxes.push({ x0: px - 0.3, x1: px + 0.3, z0: pz - 0.3, z1: pz + 0.3, h: 6 }); } }
+  { const L = ARMS;   // the weapon store: hollow, walk in through the front door (same walls as the lobby)
+    for (const [a, b, c, d] of LOBBY_WALLS) { const x0 = L.x + a, x1 = L.x + b, z0 = L.z + c, z1 = L.z + d; world.addSolid(x0, 0, z0, x1, 4, z1, { name: 'building' }); roads.boxes.push({ x0, x1, z0, z1, h: 4 }); }
+    world.addSolid(L.x - 2.6, 0.2, L.z - 4.9, L.x + 2.6, 1.25, L.z - 3.9, { name: 'prop' });   // counter
+    world.addSolid(L.x - L.w / 2 + 0.3, 0.2, L.z - L.d / 2 + 0.3, L.x + L.w / 2 - 0.3, 0.26, L.z + L.d / 2 - 0.3, { name: 'prop' }); }
+  { const S = AUTOS.showroom;   // INTELLIMUM AUTOS: the glass showroom is solid; four cars stand on plinths in front of it
+    world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
+    for (const [dx] of AUTOS_SHOW) { world.addSolid(S.x + dx - 1.15, 0, 22.8 - 2.5, S.x + dx + 1.15, 1.6, 22.8 + 2.5, { name: 'prop' }); roads.boxes.push({ x0: S.x + dx - 1.15, x1: S.x + dx + 1.15, z0: 22.8 - 2.5, z1: 22.8 + 2.5, h: 1.6 }); }
+    for (const px of [-17.5, 17.5]) { world.addSolid(S.x + px - 0.5, 0, 24, S.x + px + 0.5, 9, 25, { name: 'prop' }); roads.boxes.push({ x0: S.x + px - 0.5, x1: S.x + px + 0.5, z0: 24, z1: 25, h: 9 }); } }
   info.gta = { buildings: B, roads };
   if (world.headless) return;
 
@@ -356,6 +382,43 @@ export function buildGta(world, th, info, seed) {
     { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d'); for (let i = 0; i < 16; i++) for (let j = 0; j < 3; j++) { g.fillStyle = (i + j) % 2 ? '#111' : '#fff'; g.fillRect(i * 32, j * 32, 32, 32); }
       const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const bn = mk(t, 15, 2.8); bn.rotation.y = Math.PI / 2; bn.position.set(S.finishX, 6.2, 0); world.group.add(bn); const bn2 = bn.clone(); bn2.rotation.y = -Math.PI / 2; bn2.position.x += 0.05; world.group.add(bn2); }
   }
+  // ---- WEAPON STORE: a hollow shop with a counter, the weapons on the walls and a red pad to stand on
+  { const L = ARMS, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), mk = (tex, ww, hh) => new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+    wm.add(Bx(L.w + 5, 0.06, L.d + 7), L.x, 0.22, L.z + 1.5, '#4b4f58');
+    wm.add(Bx(L.w - 0.6, 0.06, L.d - 0.6), L.x, 0.23, L.z, '#2a2024');
+    for (const [a, b, c, d] of LOBBY_WALLS) wm.add(Bx(b - a, 3.8, d - c), L.x + (a + b) / 2, 2.1, L.z + (c + d) / 2, '#e8e2dc');
+    wm.add(Bx(4, 0.9, 0.3), L.x, 3.55, L.z + 5.35, '#e8e2dc');
+    wm.add(Bx(L.w + 0.6, 0.45, L.d + 0.6), L.x, 4.2, L.z, '#e63946'); wm.add(Bx(L.w + 0.2, 0.2, L.d + 0.2), L.x, 4.02, L.z, '#f6f1e6');
+    wm.add(Bx(L.w + 0.8, 0.5, 0.4), L.x, 3.4, L.z + 5.55, '#e63946');
+    { const s2 = mk(signTexture('WEAPON STORE', '#2a0f12', '#ffd23f'), 10, 2.5); s2.position.set(L.x, 5.9, L.z + 5.5); world.group.add(s2);
+      wm.add(Bx(0.25, 2.2, 0.25), L.x - 4.6, 5.1, L.z + 5.45, '#3b3f4a'); wm.add(Bx(0.25, 2.2, 0.25), L.x + 4.6, 5.1, L.z + 5.45, '#3b3f4a'); }
+    world.glow.add(new THREE.CylinderGeometry(1.9, 1.9, 0.05, 28), L.pad.x, 0.28, L.pad.z + 0.0, '#ff4d5a'); world.glow.add(new THREE.CylinderGeometry(1.2, 1.2, 0.07, 24), L.pad.x, 0.29, L.pad.z, '#ffd23f');
+    for (const dx of [-4, 0, 4]) world.glow.add(Bx(2.4, 0.06, 0.6), L.x + dx, 3.9, L.z - 1, '#fff4cf');
+    wm.add(Bx(5, 1.1, 1), L.x, 0.75, L.z - 4.4, '#3a2a2e'); wm.add(Bx(5.2, 0.08, 1.1), L.x, 1.3, L.z - 4.4, '#e63946');   // counter
+    // weapon racks on the walls: bats, pistols and rifles
+    for (let i = 0; i < 6; i++) { const x = L.x - 7.2 + i * 0.5; wm.add(new THREE.CylinderGeometry(0.035, 0.02, 0.9, 8), x, 1.9, L.z - 2 + (i % 2) * 0.4, '#b9854a', 0, 0, 0.12); }   // bats along the west wall
+    wm.add(Bx(0.1, 2.0, 5), L.x - 7.85, 1.7, L.z - 0.5, '#2b2f38'); wm.add(Bx(0.1, 2.0, 5), L.x + 7.85, 1.7, L.z - 0.5, '#2b2f38');
+    for (let i = 0; i < 5; i++) { wm.add(Bx(0.1, 0.12, 0.38), L.x + 7.7, 2.2 - (i % 2) * 0.5, L.z - 2.4 + i * 0.95, '#111'); wm.add(Bx(0.08, 0.2, 0.06), L.x + 7.7, 2.1 - (i % 2) * 0.5, L.z - 2.55 + i * 0.95, '#111'); }   // pistols on the east wall
+    for (let i = 0; i < 3; i++) { wm.add(Bx(0.1, 0.1, 1.0), L.x - 7.7, 2.5 - i * 0.45, L.z + 0.2, '#6b3f1e'); wm.add(Bx(0.09, 0.08, 0.5), L.x - 7.7, 2.5 - i * 0.45, L.z + 0.95, '#1b1b1f'); }   // rifles on the west wall
+    { const s3 = mk(signTexture('BAT   PISTOL   AK-47', '#2a0f12', '#ffffff'), 7, 1.0); s3.position.set(L.x, 2.7, L.z - 5.1); world.group.add(s3); } }
+  // ---- INTELLIMUM AUTOS: a glass showroom, four display cars, a pylon sign with the infinity logo and the SELL ring on the lot
+  { const S = AUTOS.showroom, Z = AUTOS.zone, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), fz = S.z + S.d / 2;
+    wm.add(Bx(46, 0.06, 40), AUTOS.x, 0.22, 30, '#3f434c');                                                   // black-top lot
+    wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2, S.z, '#e9edf2'); wm.add(Bx(S.w + 1, 0.5, S.d + 1), S.x, S.h + 0.25, S.z, '#0f1a33');
+    wm.add(Bx(S.w - 2, 3.6, 0.3), S.x, 2.2, fz + 0.08, '#8fd8ee'); wm.add(Bx(S.w - 1.6, 0.4, 0.45), S.x, 4.2, fz + 0.1, '#0f1a33');   // the glass front
+    for (let i = -3; i <= 3; i++) wm.add(Bx(0.25, 3.8, 0.4), S.x + i * 4.2, 2.1, fz + 0.1, '#0f1a33');
+    for (const px of [-17.5, 17.5]) { wm.add(Bx(0.9, 9, 0.9), S.x + px, 4.5, 24.5, '#0f1a33'); }                      // sign pylons
+    const lg = new THREE.Mesh(new THREE.PlaneGeometry(34.6, 8.65), new THREE.MeshBasicMaterial({ map: intellimumTexture(), toneMapped: false })); lg.position.set(S.x, 9.2 - 0.0, 24.45); lg.rotation.y = Math.PI; world.group.add(lg);
+    { const lg2 = lg.clone(); lg2.position.z = 24.55; lg2.rotation.y = 0; world.group.add(lg2); }
+    world.glow.add(Bx(34, 0.12, 0.12), S.x, 13.6, 24.5, '#22d3ee');
+    for (const [dx, id, c] of AUTOS_SHOW) {                                                                     // display cars on plinths
+      wm.add(Bx(2.3, 0.35, 5), S.x + dx, 0.38, 22.8, '#cfd6df'); const m = buildTrafficMesh(id, c); m.position.set(S.x + dx, 0.55, 22.8); m.rotation.y = Math.PI * (dx < 0 ? 0.88 : 1.12); world.group.add(m); }
+    const ring = new THREE.RingGeometry(Z.r - 0.9, Z.r, 56); ring.rotateX(-Math.PI / 2);                          // the sell ring
+    world.glow.add(ring, Z.x, 0.31, Z.z, '#22d3ee'); wm.add(new THREE.CylinderGeometry(Z.r - 0.9, Z.r - 0.9, 0.03, 56), Z.x, 0.28, Z.z, '#10303a');
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; world.glow.add(Bx(0.5, 0.06, 2.2), Z.x + Math.cos(a) * (Z.r - 2.0), 0.33, Z.z + Math.sin(a) * (Z.r - 2.0), '#ffd23f', 0, -a, 0); }
+    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const g = cv.getContext('2d'); g.fillStyle = '#10303a'; g.fillRect(0, 0, 256, 256); drawInfinity(g, 128, 120, 92, 14); g.fillStyle = '#fff'; g.font = 'bold 40px Arial Black, Arial'; g.textAlign = 'center'; g.fillText('SELL', 128, 232);
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; const pl = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), new THREE.MeshBasicMaterial({ map: t, toneMapped: false, transparent: true, depthWrite: false })); pl.rotation.x = -Math.PI / 2; pl.position.set(Z.x, 0.36, Z.z); world.group.add(pl); }
+  }
   // ---- the STUNT PARK: boost pads, a lit tunnel, a start gate and the parking grid for the four white cars
   { const P = PARK, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), solid = (x0, z0, x1, z1, h) => { world.addSolid(x0, 0, z0, x1, h, z1, { name: 'prop' }); roads.boxes.push({ x0, x1, z0, z1, h }); };
     // speed boosters: dark pad + glowing chevrons pointing the way to drive
@@ -418,7 +481,8 @@ export function buildGta(world, th, info, seed) {
   // ---- traffic: real cars (merged, cheap) circling the avenues; they are solid for you and for people on foot
   const traffic = [], tl = info.trafficList = [], tcol = ['#c9c9cf', '#1f3a5f', '#9a2b2b', '#e8e2d0', '#2d5a3d', '#6a6f78', '#d9b34a', '#4a2b5e', '#2b2b30'], tids = [11, 12, 13, 14, 16, 18];
   TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: id === 12 ? 1.98 : 2.3, hw: 0.95 }; tl.push(st); traffic.push({ L, k, m, st }); } });
-  world.updaters.push((t) => { for (const c of traffic) { const p = trafficPos(c.L, c.k, t), st = c.st; st.x = p.x; st.z = p.z; st.yaw = p.yaw; st.vx = p.vx; st.vz = p.vz; c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; } });
+  const tai = info.tai = new TrafficAI(traffic), dctx = { me: null, carSt: null, cars: [], aim: null };
+  world.updaters.push((t) => { tai.update(t, info.trafficCtx || dctx); });
 }
 
 const FOL = ['#3e6b34', '#4a7c3a', '#56893f', '#3a5f2f', '#668f45', '#4f7a36'];
