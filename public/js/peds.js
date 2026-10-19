@@ -13,10 +13,11 @@ const LOOKS = [
 ];
 const rng = (seed) => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
 const SHOW = 46, SHOW2 = SHOW * SHOW;
+const ST = ['walk', 'cower', 'flee', 'fight', 'fly', 'lie', 'gone'];
 
 export class Peds {
   constructor(scene, count = 14) {
-    this.scene = scene; this.list = [];
+    this.scene = scene; this.list = []; this.puppet = false; this.others = []; this.snapAt = 0; this.snapMap = new Map();
     const R = rng(777), G = GT.GRID;
     for (let i = 0; i < count; i++) {
       const axis = i % 2, g = G[Math.floor(R() * G.length)], side = R() < 0.5 ? -1 : 1, lo = -232, hi = 232, span = hi - lo;
@@ -32,7 +33,9 @@ export class Peds {
   update(dt, t, camPos, vehicles, me, onHit, ctx = {}) {
     for (const p of this.list) {
       let speed = 0, gesture = null;
-      if (p.st === 'walk') {
+      const pup = this.puppet && !(p.hold > 0); if (p.hold > 0) p.hold -= dt;
+      if (pup) { const r = this.puppetStep(p, dt, t); speed = r.speed; gesture = r.gesture; if (p.dead) continue; }
+      else if (p.st === 'walk') {
         this.pose(p, t - (p.shift || 0));
         if (!p.temp) for (const c of vehicles) { const sp = Math.abs(c.speed); if (sp < 9 || c.y > 1) continue; const dx = p.x - c.x, dz = p.z - c.z; if (dx * dx + dz * dz < 36 && (dx * c.vx + dz * c.vz) / (Math.hypot(dx, dz) * sp + 1e-3) > -0.2 && Math.random() < dt * 3 * (sp / 15)) { this.scare(p, c.x, c.z); break; } }   // a car racing past scares him
         if (me && ctx.sit && p.fear > 0.55) { const mx = me.x - p.x, mz = me.z - p.z; if (mx * mx + mz * mz < 36) this.scare(p, me.x, me.z); }   // somebody sitting down and acting odd right next to him
@@ -42,9 +45,11 @@ export class Peds {
         p.timer -= dt; speed = 5.4; p.x += p.dx * speed * dt; p.z += p.dz * speed * dt; p.yaw = Math.atan2(p.dx, p.dz);
         if (p.timer <= 0) { p.st = 'gone'; p.wait = 0; }
       } else if (p.st === 'fight') {
-        if (!me) { p.st = 'flee'; p.dx = Math.sin(p.yaw + Math.PI); p.dz = Math.cos(p.yaw + Math.PI); p.timer = 3; }
+        let tg = me, other = false;
+        if (this.others.length) { let bd = me ? (me.x - p.x) * (me.x - p.x) + (me.z - p.z) * (me.z - p.z) : 1e9; for (const o of this.others) { const d2 = (o.x - p.x) * (o.x - p.x) + (o.z - p.z) * (o.z - p.z); if (d2 < bd) { bd = d2; tg = o; other = true; } } }
+        if (!tg) { p.st = 'flee'; p.dx = Math.sin(p.yaw + Math.PI); p.dz = Math.cos(p.yaw + Math.PI); p.timer = 3; }
         else {
-          const mx = me.x - p.x, mz = me.z - p.z, d = Math.hypot(mx, mz) || 1;
+          const mx = tg.x - p.x, mz = tg.z - p.z, d = Math.hypot(mx, mz) || 1;
           p.yaw = Math.atan2(mx, mz);
           if (d > 16) { p.st = 'gone'; p.wait = 0; }
           else if (d > 1.25 && p.punchT === 0) { speed = 3.6; p.x += mx / d * speed * dt; p.z += mz / d * speed * dt; }
@@ -52,7 +57,7 @@ export class Peds {
           if (p.punchT === 0 && d < 1.7 && p.atk <= 0) { p.punchT = 0.001; p.pend = true; p.atk = 1.4 + Math.random() * 0.6; this.alarm(p.x, p.z, 11, p); }
           if (p.punchT > 0) {
             p.punchT += dt / 0.45;
-            if (p.pend && p.punchT >= 0.42) { p.pend = false; if (d < 2 && ctx.hitMe) ctx.hitMe(p); }
+            if (p.pend && p.punchT >= 0.42) { p.pend = false; if (d < 2) { if (other) { if (ctx.hitOther) ctx.hitOther(p, tg); } else if (ctx.hitMe) ctx.hitMe(p); } }
             if (p.punchT >= 1) p.punchT = 0;
           }
         }
@@ -66,11 +71,11 @@ export class Peds {
       if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
       if (!p.actor) { p.actor = new HeroActor(p.i, p.look); this.scene.add(p.actor.group); }
       const a = p.actor; a.group.visible = true;
-      if (p.st === 'walk') {      // people stop while you stand right next to them
+      if (p.st === 'walk' && !pup) {      // people stop while you stand right next to them
         if (me) { const mx = me.x - p.x, mz = me.z - p.z; speed = mx * mx + mz * mz < 1.3 ? 0 : p.sp; } else speed = p.sp;
         if (speed === 0) p.shift = (p.shift || 0) + dt;   // he really stands still (no gliding): his place on the path is frozen while he waits
       }
-      if (p.st === 'walk' || p.st === 'flee' || p.st === 'cower' || p.st === 'fight') for (const c of vehicles) {  // a car that hits one throws him
+      if (!pup && (p.st === 'walk' || p.st === 'flee' || p.st === 'cower' || p.st === 'fight')) for (const c of vehicles) {  // a car that hits one throws him
         if (Math.abs(c.speed) < 2.5 || c.y > 1) continue;
         const rx = p.x - c.x, rz = p.z - c.z, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), al = rx * fx + rz * fz, ac = -rx * fz + rz * fx;
         if (Math.abs(al) < (c.hl || 2.2) + 0.35 && Math.abs(ac) < (c.hw || 1) + 0.35) {
@@ -119,7 +124,7 @@ export class Peds {
   }
   // the kick lands: a lying person slides a little and is shaken, a cowering one is knocked flat
   kick(p, fx, fz, onHit) {
-    p.hp -= 1;
+    p.hp -= 1; if (this.puppet) p.hold = 0.6;
     if (p.st === 'lie') { p.vx = fx * 3.2; p.vz = fz * 3.2; p.wait = Math.max(0, p.wait - 1.5); }
     else { p.st = 'fly'; p.vx = fx * 2.4; p.vz = fz * 2.4; p.vy = 2.0; p.lie = 0; p.punchT = 0; }
     this.alarm(p.x, p.z, 12, p);
@@ -135,7 +140,7 @@ export class Peds {
       if (d2 < bd) { bd = d2; best = p; }
     }
     if (!best) return false;
-    best.hp -= dmg;
+    best.hp -= dmg; if (this.puppet) best.hold = 0.6;
     if (best.hp <= 0) { best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0; best.punchT = 0; }
     else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; }
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
@@ -154,7 +159,7 @@ export class Peds {
     }
     this.alarm(ox, oz, 32, best, true);
     if (!best) return null;
-    best.hp -= dmg; const dead = best.hp <= 0;
+    best.hp -= dmg; if (this.puppet) best.hold = 0.6; const dead = best.hp <= 0;
     if (dead) { best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
     else if (best.st !== 'lie') { if (best.brave && Math.random() < 0.35) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; } else { best.st = 'flee'; best.timer = 6; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); } }
     if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
@@ -168,5 +173,35 @@ export class Peds {
   }
   // horn / a car racing past: the timid people near it jump and run (only these AI people: other players are never affected)
   startle(x, z, r) { for (const p of this.list) { if (p.st !== 'walk' || p.temp) continue; const dx = p.x - x, dz = p.z - z; if (dx * dx + dz * dz < r * r && (p.brave ? Math.random() < 0.12 : Math.random() < 0.7)) this.scare(p, x, z); } }
+
+  // ---- shared city: the room host simulates the people and streams them; everybody else only shows them (puppets).
+  // An entry: [index, state, x, z, yaw, y, lie, shift, hp, punch, look*2 + brave]
+  snapshot() {
+    const r = (v) => Math.round(v * 100) / 100, out = [];
+    for (const p of this.list) { if (p.dead) continue; const s = ST.indexOf(p.st); out.push([p.i, s < 0 ? 6 : s, r(p.x), r(p.z), r(p.yaw), r(p.y), r(p.lie), r(p.shift || 0), r(p.hp), r(p.punchT || 0), (p.look ? LOOKS.indexOf(p.look) : 0) * 2 + (p.brave ? 1 : 0)]); }
+    return out;
+  }
+  applySnap(d) {
+    const now = performance.now(); this.snapAt = now;
+    for (const e of d) {
+      let p = this.byIndex(e[0]);
+      if (!p) { if (e[0] < 100) continue; p = this.adopt(e[2], e[3], e[4], !!(e[10] & 1), ST[e[1]] || 'walk', e[10] >> 1); p.i = e[0]; }
+      p.net = e; p.netAt = now;
+    }
+  }
+  byIndex(i) { for (const p of this.list) if (p.i === i) return p; return null; }
+  puppetStep(p, dt, t) {
+    const e = p.net, now = performance.now(); let speed = 0, gesture = null;
+    if (!e || now - p.netAt > 1500) { if (p.temp) { p.dead = true; return { speed, gesture }; } if (p.st !== 'walk' && p.st !== 'gone') { p.st = 'walk'; p.lie = 0; p.y = 0; p.punchT = 0; } if (p.st === 'walk') this.pose(p, t - (p.shift || 0)); return { speed: p.st === 'walk' ? p.sp : 0, gesture }; }
+    const was = p.st; p.st = ST[e[1]] || 'walk'; p.shift = e[7]; p.hp = e[8]; p.punchT = e[9]; p.y += (e[5] - p.y) * Math.min(1, dt * 14); p.lie += (e[6] - p.lie) * Math.min(1, dt * 14);
+    if (p.st === 'walk') { this.pose(p, t - p.shift); if (p.shift !== p._sh) { p._sh = p.shift; p._still = 0.4; } p._still = (p._still || 0) - dt; speed = p._still > 0 ? 0 : p.sp; }
+    else {
+      const k = 1 - Math.exp(-14 * dt), ox = p.x, oz = p.z; if (was === 'walk' || Math.hypot(e[2] - p.x, e[3] - p.z) > 6) { p.x = e[2]; p.z = e[3]; } else { p.x += (e[2] - p.x) * k; p.z += (e[3] - p.z) * k; }
+      let dy = e[4] - p.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); p.yaw += dy * k;
+      speed = Math.min(6, Math.hypot(p.x - ox, p.z - oz) / Math.max(dt, 1e-3)); if (p.st === 'cower') { gesture = 'scared'; speed = 0; }
+      if (p.st === 'fly' || p.st === 'lie') speed = 0;
+    }
+    return { speed, gesture };
+  }
   dispose() { for (const p of this.list) if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.length = 0; }
 }

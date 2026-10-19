@@ -3,18 +3,21 @@
 const KEY = 'pgta_save_v1';
 
 export const WEAPONS = {
-  bat:    { name: 'BASEBALL BAT', price: 150,  melee: true, dmg: 2,   reach: 2.3, desc: 'Two hits drop most people.' },
-  pistol: { name: 'PISTOL',       price: 600,  mag: 12, ammoPack: 24, ammoPrice: 80,  dmg: 1.2, rate: 0.28, range: 45, spread: 0.035, auto: false, desc: 'Accurate, 12 rounds a magazine.' },
-  ak:     { name: 'AK-47',        price: 2500, mag: 30, ammoPack: 60, ammoPrice: 220, dmg: 1.6, rate: 0.1,  range: 70, spread: 0.07,  auto: true,  desc: 'Full auto. Loud. Expensive.' },
+  bat:    { name: 'BASEBALL BAT', price: 35,   melee: true, dmg: 2,   reach: 2.3, desc: 'Two hits drop most people.' },
+  pistol: { name: 'PISTOL',       price: 625,  mag: 12, ammoPack: 24, ammoPrice: 8,   dmg: 1.2, rate: 0.28, range: 45, spread: 0.035, auto: false, desc: 'Accurate, 12 rounds a magazine.' },
+  ak:     { name: 'AK-47',        price: 1420, mag: 30, ammoPack: 60, ammoPrice: 40,  dmg: 1.6, rate: 0.1,  range: 70, spread: 0.07,  auto: true,  desc: 'Full auto. Loud. Expensive.' },
 };
 export const WEAPON_ORDER = ['bat', 'pistol', 'ak'];
 
-export const MISSION_PAY = { stunt: 1500, thief: 2500 };
-export const PAY = { hit: 10, down: 40, kill: 80, jackBonus: 0 };
+// Real US prices (2026): Louisville Slugger ash bat about $34, Glock 19 Gen5 about $626, Zastava ZPAP M70 (AK-47) about $1,420, 9mm about $0.33 and 7.62x39 about $0.67 a round.
+// Pay is small on purpose: the game will have many missions, so a pistol takes a few of them and an AK-47 a good evening.
+export const MISSION_PAY = { stunt: 150, thief: 250 };
+export const MISSION_PAY_DEFAULT = 120;
+export const PAY = { hit: 2, down: 8, kill: 15, jackBonus: 0 };
 
 // what INTELLIMUM AUTOS pays for a stolen car (traffic cars are ids 11..18); the paint and condition count
-export const CAR_VALUE = { 11: 1400, 12: 1900, 13: 1700, 14: 2600, 15: 1500, 16: 3200, 17: 1800, 18: 2400 };
-export const carPrice = (id, hp) => Math.round((CAR_VALUE[id] || 1500) * (0.35 + 0.65 * Math.max(0, Math.min(100, hp === undefined ? 100 : hp)) / 100) / 10) * 10;
+export const CAR_VALUE = { 11: 350, 12: 480, 13: 420, 14: 650, 15: 380, 16: 800, 17: 450, 18: 600 };
+export const carPrice = (id, hp) => Math.round((CAR_VALUE[id] || 400) * (0.35 + 0.65 * Math.max(0, Math.min(100, hp === undefined ? 100 : hp)) / 100) / 10) * 10;
 
 const fresh = () => ({ money: 400, owned: {}, ammo: {}, mag: {} });
 let mem = null;

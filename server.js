@@ -40,7 +40,7 @@ const GRACE_MS = 8000; // others can still finish after the first player crosses
 const send = (ws, o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
 // Snapshot-type messages are superseded by the next one, so a client with a clogged socket (slow phone / bad wifi) simply skips
 // them instead of building a growing queue (that queue was the "everything lags and players freeze" bug).
-const LOSSY = new Set(['s', 'an', 'q']);
+const LOSSY = new Set(['s', 'an', 'q', 'tf', 'pd']);
 function bcast(room, o, exceptId) {
   const s = JSON.stringify(o), lossy = LOSSY.has(o.t);
   for (const p of room.players.values()) {
@@ -288,6 +288,33 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'bat', from: p.id, nx: m.nx, nz: m.nz, p: m.p === 2 ? 2 : m.p === 0.5 ? 0.5 : 1, ax: num(m.ax, -400, 400) ? m.ax : undefined, az: num(m.az, -2000, 400) ? m.az : undefined });
         break;
       }
+      // ---- shared city world: ONE player (the room host) runs the pedestrians and the traffic and streams them to everybody else;
+      // the others send what they do to them (punch, shot, horn, carjack) to the host as events. The server only relays.
+      case 'tf': case 'pd': { // host -> everybody: traffic / pedestrian state
+        if (!room || room.phase !== 'race' || room.hostId !== p.id || !Array.isArray(m.d) || m.d.length > 90) return;
+        bcast(room, { t: m.t, d: m.d, h: Array.isArray(m.h) ? m.h.slice(0, 4) : undefined }, p.id);
+        break;
+      }
+      case 'ev': { // guest -> host: an action on the shared world
+        if (!room || room.phase !== 'race' || room.hostId === p.id || typeof m.k !== 'string' || m.k.length > 8) return;
+        const h = room.players.get(room.hostId); if (!h || !h.ws) return;
+        const t = Date.now(); if (t - (p.lastEv || 0) < 20) return; p.lastEv = t;
+        send(h.ws, { ...m, t: 'ev', from: p.id });
+        break;
+      }
+      case 'fx': { // a shot (tracer + sound) for everybody
+        if (!room || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastFx || 0) < 60) return; p.lastFx = t;
+        if (!num(m.x, -700, 700) || !num(m.y, -5, 300) || !num(m.z, -2000, 700) || !num(m.dx, -1.01, 1.01) || !num(m.dz, -1.01, 1.01) || !num(m.l, 0, 120)) return;
+        bcast(room, { t: 'fx', id: p.id, x: m.x, y: m.y, z: m.z, dx: m.dx, dz: m.dz, l: m.l, w: m.w & 3 }, p.id);
+        break;
+      }
+      case 'ph': { // host -> a player: an AI pedestrian punched him
+        if (!room || room.phase !== 'race' || room.hostId !== p.id) return;
+        const q = room.players.get(m.to); if (!q || !q.ws || !num(m.nx, -1.01, 1.01) || !num(m.nz, -1.01, 1.01)) return;
+        send(q.ws, { t: 'ph', nx: m.nx, nz: m.nz });
+        break;
+      }
       case 's': { // position snapshot
         if (!room || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now();
@@ -295,7 +322,7 @@ wss.on('connection', (ws, req) => {
         p.lastS = t;
         if (!num(m.x, -700, 700) || !num(m.y, -200, 300) || !num(m.z, -2000, 700) || !num(m.r, -10, 10)) return;
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r; p.a = m.a | 0;
-        bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
+        bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, w: m.w & 15, vm: num(m.vm, 0, 60) ? m.vm | 0 : 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];
         if (room.phase === 'race' && !p.finished && m.z < meta.finishZ && m.y > meta.finishY - 3 && Math.abs(m.x) < 16) {
           p.finished = true;

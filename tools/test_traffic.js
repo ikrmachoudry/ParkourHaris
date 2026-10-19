@@ -42,7 +42,7 @@ ctx.honks = 0;
 
 // 6. economy: buying, ammo, shooting, reloading, selling
 { localStorage._ = {}; const w = new Wallet(); ok(w.money === 400, 'start cash $400');
-  ok(w.buy('bat') && w.money === 250, 'bat costs $150'); ok(!w.buy('pistol') && !w.owns('pistol') && w.money === 250, 'cannot buy a pistol you cannot afford'); w.add(5000); ok(w.buy('pistol') && w.mag('pistol') === 12 && w.reserve('pistol') === 24, 'pistol comes with a magazine and spare ammo');
+  ok(w.buy('bat') && w.money === 365, 'bat costs $35 (real price)'); ok(!w.buy('pistol') && !w.owns('pistol') && w.money === 365, 'cannot buy a pistol you cannot afford'); w.add(5000); ok(w.buy('pistol') && w.mag('pistol') === 12 && w.reserve('pistol') === 24, 'pistol comes with a magazine and spare ammo');
   for (let i = 0; i < 12; i++) w.shoot('pistol'); ok(!w.shoot('pistol'), 'empty magazine cannot fire'); ok(w.reload('pistol') && w.mag('pistol') === 12 && w.reserve('pistol') === 12, 'reload moves spare ammo into the magazine');
   ok(w.buyAmmo('pistol') && w.reserve('pistol') === 36, 'ammo pack'); ok(w.buy('ak') && w.cycle().join() === ',bat,pistol,ak', 'AK-47 bought, cycle order');
   const w2 = new Wallet(); ok(w2.money === w.money && w2.owns('ak'), 'cash and weapons are saved');
