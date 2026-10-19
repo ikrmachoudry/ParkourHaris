@@ -143,7 +143,7 @@ export function buildHeroChar(opts = {}) {
   for (const s of [1, -1]) {
     const nm = s > 0 ? 'L' : 'R', ch = makeChain(legPts(s), ['hips', 'upperleg.' + nm, 'lowerleg.' + nm, 'foot.' + nm], [0, 0.08, 0.06, 0.04]);
     const rs = [];
-    const lys = []; for (let y = 0.105; y <= 1.04; y += 0.0467) lys.push(y); lys.push(0.1146, 0.1154); lys.sort((a, b) => a - b);
+    const lys = []; for (let y = 0.105; y <= hemY - 0.012; y += 0.0467) lys.push(y); lys.push(hemY - 0.012);   // the legs end just inside the shirt hem, so no pants poke through it in a zigzag lys.push(0.1146, 0.1154); lys.sort((a, b) => a - b);
     for (const y of lys) { const [rx, rz] = interp(legTab, y); rs.push(ringAt(0.088 * s + (y > 0.8 ? -0.004 * s : 0), y, y > 0.5 ? 0.0 : 0.004, rx, rz * 1.0, rz * 1.03, 14)); }
     const full = o.pants !== undefined;
     B.loft(rs, (p) => ch.w(p), (i, j, p) => (p.y < 0.115 ? skin : pants), false, false);
@@ -161,7 +161,7 @@ export function buildHeroChar(opts = {}) {
     for (let i = 0; i < heelToe.length - 1; i++) for (let j = 0; j < 12; j++) { const j2 = (j + 1) % 12; B.idx.push(base[i][j], base[i + 1][j], base[i][j2], base[i][j2], base[i + 1][j], base[i + 1][j2]); }
     for (const [ri, up] of [[0, false], [heelToe.length - 1, true]]) { const r = heelToe[ri], c = V(0.088 * s, 0.05, r[0].z); const cv = B.vert(c, shoes, fch.w(c)); for (let j = 0; j < 12; j++) { const a = base[ri][j], b = base[ri][(j + 1) % 12]; if (up) B.idx.push(a, b, cv); else B.idx.push(a, cv, b); } }
     // sole
-    B.geo(new THREE.BoxGeometry(0.1, 0.014, 0.3), M4(0.088 * s, 0.007, 0.065), 'foot.' + nm, mulc(shoes, 0.45));
+    B.geo(new THREE.BoxGeometry(0.088, 0.012, 0.272), M4(0.088 * s, 0.006, 0.066), 'foot.' + nm, mulc(shoes, 0.45));
     void full;
   }
   const armTab = [[0.915, 0.029, 0.024], [1.00, 0.034, 0.029], [1.08, 0.044, 0.037], [1.15, 0.048, 0.040], [1.20, 0.050, 0.043], [1.28, 0.053, 0.048], [1.37, 0.057, 0.055], [1.43, 0.060, 0.060], [1.47, 0.052, 0.054]];
@@ -248,6 +248,14 @@ export function buildHeroChar(opts = {}) {
   BONES.forEach((b, i) => { const wp = V(...b[2]); if (b[1]) { const p = BONES.find((q) => q[0] === b[1]); bones[i].position.copy(wp).sub(V(...p[2])); bones[BI[b[1]]].add(bones[i]); } else bones[i].position.copy(wp); });
   const geom = B.build();
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.0, envMapIntensity: 0.7 });
+  // cheap surface detail (no textures to download): a fine cloth/skin grain in the colour and the normal, soft shading in the creases, and a faint warm rim so skin and cloth look lit from inside rather than painted
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'varying vec3 vHp;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvHp = position;');
+    sh.fragmentShader = 'varying vec3 vHp;\nfloat hh(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }\nfloat vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(hh(i), hh(i + vec3(1,0,0)), f.x), mix(hh(i + vec3(0,1,0)), hh(i + vec3(1,1,0)), f.x), f.y), mix(mix(hh(i + vec3(0,0,1)), hh(i + vec3(1,0,1)), f.x), mix(hh(i + vec3(0,1,1)), hh(i + vec3(1,1,1)), f.x), f.y), f.z); }\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\n float gr = vn(vHp * 150.0) * 0.6 + vn(vHp * 40.0) * 0.4; diffuseColor.rgb *= 0.86 + 0.28 * gr;')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n { vec3 e = vec3(0.012, 0.0, 0.0); float c0 = vn(vHp * 110.0); vec3 g3 = vec3(vn(vHp * 110.0 + e.xyy) - c0, vn(vHp * 110.0 + e.yxy) - c0, vn(vHp * 110.0 + e.yyx) - c0); normal = normalize(normal + 0.3 * g3); }')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n { float fr = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 2.5); totalEmissiveRadiance += diffuseColor.rgb * fr * 0.22; }');
+  };
   const mesh = new THREE.SkinnedMesh(geom, mat);
   const skel = new THREE.Skeleton(bones); mesh.add(bones[0]); mesh.bind(skel);
   mesh.castShadow = true; mesh.frustumCulled = false;
