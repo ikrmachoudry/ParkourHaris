@@ -137,6 +137,9 @@ export class GlbActor extends HeroActor {
     // driver world rotations (rest = identity)
     const G = rt.G || (rt.G = {}); const PAR = rt.PAR || (rt.PAR = { spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', 'upperarm.L': 'chest', 'forearm.L': 'upperarm.L', 'hand.L': 'forearm.L', 'upperarm.R': 'chest', 'forearm.R': 'upperarm.R', 'hand.R': 'forearm.R', 'upperleg.L': 'hips', 'lowerleg.L': 'upperleg.L', 'foot.L': 'lowerleg.L', 'upperleg.R': 'hips', 'lowerleg.R': 'upperleg.R', 'foot.R': 'lowerleg.R' });
     for (const k of NEED) { const q = G[k] || (G[k] = new THREE.Quaternion()); q.copy(b[k].quaternion); if (PAR[k]) q.premultiply(G[PAR[k]]); }
+    // running leans the whole upper body forward a little (the mocap is upright; a real sprinter leans ~10 degrees), walking just slightly
+    { const lean = this.pose === 'run' ? 0.2 : this.pose === 'walk' || this.pose === 'crouchwalk' ? 0.05 : 0; this.lean = (this.lean || 0) + (lean - (this.lean || 0)) * Math.min(1, dt * 8);
+      if (this.lean > 0.002) { _q.setFromAxisAngle(_v.set(1, 0, 0), this.lean); for (const n of ['spine', 'chest', 'neck', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) G[n].premultiply(_q); _q.setFromAxisAngle(_v.set(1, 0, 0), this.lean * 0.4); G.head.premultiply(_q); } }
     // walking / running: relaxed, less deeply bent elbows (arms hang and swing loosely beside the body) - other poses (aim, punch...) stay untouched
     if (this.pose === 'run' || this.pose === 'walk' || this.pose === 'crouchwalk') for (const sd of ['L', 'R']) G['forearm.' + sd].slerp(G['upperarm.' + sd], 0.4), G['hand.' + sd].slerp(G['upperarm.' + sd], 0.3);
     // the wider MakeHuman shoulders need the hanging arms a bit further out (otherwise hands cross the belly): swing sideways of the body like a real person

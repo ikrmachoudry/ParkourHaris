@@ -73,13 +73,15 @@ def rot(v, o, ax, ang):
     return o + d * c + np.cross(k, d) * s_ + np.outer(d @ k, k) * (1 - c)
 Vf = V.copy()
 # relaxed open hand (fingers softly curled), like a person jogging - not a fist
-CURL = {2: (0.30, 0.38, 0.30), 3: (0.34, 0.42, 0.32), 4: (0.40, 0.48, 0.36), 5: (0.46, 0.54, 0.40), 1: (0.0, 0.0, 0.0)}
+CURL = {2: (0.30, 0.38, 0.30), 3: (0.34, 0.42, 0.32), 4: (0.40, 0.48, 0.36), 5: (0.46, 0.54, 0.40), 1: (0.75, 0.5, 0.3)}
 for sd in 'LR':
     nrm_ = np.array([-1.0, 0, 0]) if sd == 'L' else np.array([1.0, 0, 0])
     for n in range(1, 6):
         js = [bpos(f'finger{n}-{k}.{sd}', 'head') for k in (1, 2, 3)]
         d = bpos(f'finger{n}-3.{sd}', 'tail') - js[0]; d /= np.linalg.norm(d)
         nn = nrm_ - d * (d @ nrm_); ax = np.cross(d, nn)
+        if n == 1:   # thumb: fold toward the palm / index finger root instead of across the palm
+            tv = bpos(f'finger3-1.{sd}', 'head') - js[0]; tv = tv - d * (d @ tv); ax = np.cross(d, tv)
         ws = [np.zeros(len(V)) for _ in range(3)]
         for k in range(3):
             for i, w in W.get(f'finger{n}-{k + 1}.{sd}', []): ws[k][i] += w
@@ -158,6 +160,18 @@ for _ in range(5):
         np.add.at(acc, a, infl[b]); np.add.at(cnt, a, 1); np.add.at(acc, b, infl[a]); np.add.at(cnt, b, 1)
     infl = 0.5 * infl + 0.5 * acc / np.maximum(cnt, 1)
 P0 = P0 + nrm * infl[:, None]
+# loose clothing hides the body's chest / glute bumps: relax the cloth surface (Laplacian) so a hoodie and jeans look baggy, not skin-tight
+def relax(mask, it, k):
+    m = mask.copy(); nb_ = [[] for _ in range(len(P0))]
+    for tr_ in T0:
+        for q in range(3): nb_[tr_[q]] += [tr_[(q + 1) % 3], tr_[(q + 2) % 3]]
+    ids = np.nonzero(m)[0]
+    for _ in range(it):
+        newp = P0.copy()
+        for i in ids: newp[i] = (1 - k) * P0[i] + k * P0[nb_[i]].mean(0)
+        P0[:] = newp
+relax(isShirt & (arms < 0.5) & (y < 6.0), 10, 0.6)
+relax(isPants & (y > -1.0), 8, 0.5)
 
 # ---------- eyes ----------
 ep, et, en = [], [], []
