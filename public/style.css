@@ -550,10 +550,16 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #wheel .ws small { font-size: calc(var(--ws) * .19); margin-top: -4px; }
 #wheel .hub { width: calc(var(--ws) * .8); height: calc(var(--ws) * .8); margin: calc(var(--ws) * -.4) 0 0 calc(var(--ws) * -.4); background: rgba(0,0,0,.4); border-color: #ffd23f; font-size: calc(var(--ws) * .13); pointer-events: none; }
 
-/* v55: quick switches = a slim row of see-through round icon buttons (like iPhone Control Center), lit when ON */
-#quick { position: absolute; left: max(2vw, env(safe-area-inset-left)); bottom: max(3vh, 10px); display: flex; gap: 14px; z-index: 2; background: none; box-shadow: none; padding: 0; width: auto; }
-#quick .qrow { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; background: none; border: 0; padding: 0; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; font: 700 10px system-ui, -apple-system, sans-serif; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-#quick .qi { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 19px; color: #fff; background: rgba(20,24,40,.28); border: 1.5px solid rgba(255,255,255,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); transition: background .2s, border-color .2s; opacity: .85; }
-#quick .qrow.on .qi { background: color-mix(in srgb, var(--c) 78%, transparent); border-color: rgba(255,255,255,.9); opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--c) 70%, transparent); }
-#quick .qrow span { line-height: 1.1; opacity: .9; }
-#quick .sw { display: none; }
+/* v58: game switches live in Settings, iPhone list style */
+#s-settings .panel { max-height: 92vh; overflow-y: auto; }
+#quick { margin: 10px 0 4px; background: rgba(28,28,30,.94); border-radius: 14px; overflow: hidden; }
+#quick .qrow { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; color: #fff; font: 500 16px system-ui, -apple-system, sans-serif; padding: 7px 14px; position: relative; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#quick .qrow + .qrow::before { content: ''; position: absolute; left: 56px; right: 0; top: 0; height: 1px; background: rgba(255,255,255,.14); }
+#quick .qi { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-style: normal; font-size: 17px; color: #fff; background: var(--c); }
+#quick .qrow span { flex: 1; line-height: 1.15; }
+#quick .qrow small { display: block; font-size: 11.5px; font-weight: 400; color: rgba(255,255,255,.55); }
+#quick .sw { flex: none; width: 50px; height: 30px; border-radius: 15px; background: #3a3a3c; position: relative; transition: background .2s; }
+#quick .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.4); transition: transform .2s; }
+#quick .qrow.on .sw { background: #34c759; }
+#quick .qrow.on .sw::after { transform: translateX(20px); }
+@media (max-height: 480px) { #quick .qrow { padding: 4px 12px; } #quick .qrow small { display: none; } #quick .qi { width: 26px; height: 26px; font-size: 15px; } #quick .sw { width: 44px; height: 26px; } #quick .sw::after { width: 22px; height: 22px; } #quick .qrow.on .sw::after { transform: translateX(18px); } }
