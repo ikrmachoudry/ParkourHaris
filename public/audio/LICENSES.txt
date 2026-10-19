@@ -1,0 +1,9 @@
+The files in /cc0/ are licensed as CC0 1.0 Universal (CC0 1.0) Public Domain Dedication. 
+
+Learn more: 
+
+https://creativecommons.org/publicdomain/zero/1.0/
+https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+To the extent possible under law, Team Forbidden has waived all copyright and related or neighboring rights.
+All audio in this folder is CC0 1.0 (public domain), taken from the CC0-Public-Domain-Sounds collection (Warfork CC0 assets by Team Forbidden for jump/death/pain voices and the menu track 'Fireworks'; CC0 SFX packs for gunshots, screams, hits; Micro Pack - Organic Wooshes for the swings).

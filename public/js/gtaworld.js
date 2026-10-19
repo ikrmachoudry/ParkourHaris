@@ -1,4 +1,5 @@
 // HARIS CITY: builds the 3D city (terrain, roads, buildings, trees, lamps, traffic) and its collision into the World.
+import { bodyHalf } from './hitbox.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
@@ -249,6 +250,7 @@ export function buildGta(world, th, info, seed) {
     wm.add(Bx(S.w + 0.2, 1.3, S.d + 0.2), S.x, S.h - 1.0, S.z, '#e8b020');
     const fz = S.z - S.d / 2 - 0.12;
     for (let i = -1; i <= 1; i++) { wm.add(Bx(8.2, 5, 0.3), S.x + i * 11, 2.6, fz, '#e07a1a'); for (let k = 0; k < 6; k++) wm.add(Bx(8.2, 0.08, 0.34), S.x + i * 11, 0.7 + k * 0.8, fz - 0.02, '#a8530c'); wm.add(Bx(8.8, 0.35, 0.4), S.x + i * 11, 5.3, fz, '#2b2f38'); }
+    for (let i = -1; i <= 1; i++) world.addSolid(S.x + i * 11 - 4.4, 0, fz - 0.17, S.x + i * 11 + 4.4, 5.4, fz + 0.23, { name: 'prop' });   // the shutters
     wm.add(Bx(4.5, 2.2, 0.2), S.x - 15, 3.4, fz, '#9fd0f0'); wm.add(Bx(4.5, 2.2, 0.2), S.x + 15, 3.4, fz, '#9fd0f0');
     const sg = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: signTexture('AUTO REPAIR', '#173a8a', '#ffd23f'), toneMapped: false }));
     sg.position.set(S.x, S.h + 3.2, S.z - S.d / 2 - 0.4); sg.rotation.y = Math.PI; world.group.add(sg);
@@ -335,6 +337,7 @@ export function buildGta(world, th, info, seed) {
       wm.add(Bx(S.w + 0.8, 0.8, S.d + 0.8), S.x, S.h - 0.5, S.z, '#f1ead8');
       for (let i = -2; i <= 2; i += 1) wm.add(Bx(1.8, 6.5, 0.3), S.x + i * 6.2, 7.2, fz - 0.14, '#2f4a66');     // tall dark windows between the columns
       wm.add(Bx(6.4, 5.2, 0.3), S.x, 3.8, fz - 0.16, '#6b5320'); wm.add(Bx(5.2, 4.4, 0.34), S.x, 3.6, fz - 0.2, '#c9a227');   // the vault door
+      world.addSolid(S.x - 3.2, 0, fz - 0.31, S.x + 3.2, 6.4, fz - 0.01, { name: 'prop' });   // vault door
       world.glow.add(Bx(4.4, 0.18, 0.1), S.x, 6.2, fz - 0.42, '#ffe08a');
       for (let i = -3; i <= 3; i++) { const cx = S.x + i * 4.6; wm.add(new THREE.CylinderGeometry(0.62, 0.7, 10.6, 14), cx, 6.5, fz - 2.6, '#f4efe2'); wm.add(Bx(1.7, 0.45, 1.7), cx, 11.95, fz - 2.6, '#d9d2c0'); wm.add(Bx(1.6, 0.4, 1.6), cx, 1.4, fz - 2.6, '#d9d2c0'); solidProp(cx, fz - 2.6, 0.7, 11); }
       wm.add(Bx(33.6, 1.1, 6.2), S.x, 12.7, fz - 2.8, '#f1ead8'); wm.add(Bx(34.2, 0.5, 6.6), S.x, 13.5, fz - 2.8, '#4a4f5e');
@@ -351,6 +354,7 @@ export function buildGta(world, th, info, seed) {
       wm.add(Bx(S.w + 1.4, 0.8, S.d + 1.4), S.x, S.h + 0.4, S.z, '#3b4254');
       for (const i of [-3, -2, 2, 3]) wm.add(Bx(3.4, 2.6, 0.24), S.x + i * 4.6, 5.4, fz + 0.1, '#9fd0f0');
       wm.add(Bx(6.4, 4.0, 0.3), S.x, 2.3, fz + 0.12, '#9fd0f0'); wm.add(Bx(0.3, 4.0, 0.36), S.x, 2.3, fz + 0.14, '#1f3f8a');   // glass double door
+      world.addSolid(S.x - 3.2, 0, fz - 0.03, S.x + 3.2, 4.3, fz + 0.3, { name: 'prop' });   // glass double door
       wm.add(Bx(10, 0.5, 3.4), S.x, 4.8, fz + 1.7, '#1f3f8a'); solidProp(S.x - 4.6, fz + 3.1, 0.2, 4.8); solidProp(S.x + 4.6, fz + 3.1, 0.2, 4.8);
       wm.add(Bx(14.6, 3.6, 0.3), S.x, 14.2, fz - 0.4, '#1f3f8a');
       const sg = sign('POLICE', '#1f3f8a', '#ffffff', 14, 3.2); sg.position.set(S.x, 14.2, fz - 0.22); world.group.add(sg);
@@ -412,6 +416,7 @@ export function buildGta(world, th, info, seed) {
     wm.add(Bx(S.w, S.h, S.d), S.x, S.h / 2, S.z, '#e9edf2'); wm.add(Bx(S.w + 1, 0.5, S.d + 1), S.x, S.h + 0.25, S.z, '#0f1a33');
     wm.add(Bx(S.w - 2, 3.6, 0.3), S.x, 2.2, fz + 0.08, '#8fd8ee'); wm.add(Bx(S.w - 1.6, 0.4, 0.45), S.x, 4.2, fz + 0.1, '#0f1a33');   // the glass front
     for (let i = -3; i <= 3; i++) wm.add(Bx(0.25, 3.8, 0.4), S.x + i * 4.2, 2.1, fz + 0.1, '#0f1a33');
+    world.addSolid(S.x - (S.w - 2) / 2, 0, fz - 0.07, S.x + (S.w - 2) / 2, 4.4, fz + 0.33, { name: 'prop' });   // the glass front / mullions stick out of the wall: solid so nobody stands inside them
     for (const px of [-17.5, 17.5]) { wm.add(Bx(0.9, 9, 0.9), S.x + px, 4.5, 24.5, '#0f1a33'); }                      // sign pylons
     const lg = new THREE.Mesh(new THREE.PlaneGeometry(34.6, 8.65), new THREE.MeshBasicMaterial({ map: intellimumTexture(), toneMapped: false })); lg.position.set(S.x, 9.2 - 0.0, 24.45); lg.rotation.y = Math.PI; world.group.add(lg);
     { const lg2 = lg.clone(); lg2.position.z = 24.55; lg2.rotation.y = 0; world.group.add(lg2); }
@@ -485,7 +490,7 @@ export function buildGta(world, th, info, seed) {
   }
   // ---- traffic: real cars (merged, cheap) circling the avenues; they are solid for you and for people on foot
   const traffic = [], tl = info.trafficList = [], tcol = ['#c9c9cf', '#1f3a5f', '#9a2b2b', '#e8e2d0', '#2d5a3d', '#6a6f78', '#d9b34a', '#4a2b5e', '#2b2b30'], tids = [11, 12, 13, 14, 16, 18];
-  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), bb = new THREE.Box3().setFromObject(m), st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: (bb.max.z - bb.min.z) / 2 - 0.1, hw: (bb.max.x - bb.min.x) / 2 - 0.1 }; /* the solid box is the real size of the model (it used to be smaller: the car body went through you) */ tl.push(st); traffic.push({ L, k, m, st }); } });
+  TRAFFIC.forEach((L, li) => { for (let k = 0; k < L.n; k++) { const i = li * 5 + k, id = tids[i % tids.length], m = buildTrafficMesh(id, id === 14 ? null : tcol[i % tcol.length]); m.rotation.order = 'YXZ'; world.group.add(m); const p = trafficPos(L, k, 0), bh = bodyHalf(m) || { hl: 2.4, hw: 1.05 }, st = { id, x: p.x, y: 0, z: p.z, yaw: p.yaw, vx: p.vx, vz: p.vz, speed: L.sp, driver: 1000 + i, parked: false, heavy: true, hl: bh.hl - 0.03, hw: bh.hw - 0.03 }; /* the solid box is the real size of the body (the flat shadow plane does not count) */ tl.push(st); traffic.push({ L, k, m, st }); } });
   const tai = info.tai = new TrafficAI(traffic), dctx = { me: null, carSt: null, cars: [], aim: null };
   world.updaters.push((t) => { tai.update(t, info.trafficCtx || dctx); });
 }

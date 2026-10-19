@@ -7,6 +7,7 @@ export function initAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  setTimeout(loadBank, 0);
   master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ctx.destination);
   sfxG = ctx.createGain(); sfxG.gain.value = 0.7; sfxG.connect(master);
   musG = ctx.createGain(); musG.gain.value = 0.22; musG.connect(master);
@@ -39,23 +40,56 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 }
 
 const rnd = (a, b) => a + Math.random() * (b - a);
+
+// ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
+const SAMPLES = ['pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain'];
+const bank = {};
+let bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
+function decode(url, cb) {
+  try {
+    fetch(url).then((r) => r.arrayBuffer()).then((ab) => new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); })).then(cb).catch(() => { /* keep the synth fallback */ });
+  } catch (e) { /* noop */ }
+}
+function loadBank() {
+  if (bankStarted || !ctx) return; bankStarted = true;
+  for (const n of SAMPLES) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; });
+}
+// play a recorded sample. pan -1..1 (a far-away sound is quieter and duller)
+export function play(name, vol = 1, rate = 1, delay = 0, pan = 0) {
+  const b = bank[name]; if (!ctx || !b) return false;
+  const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+  const g = ctx.createGain(); g.gain.value = vol; let n = g;
+  s.connect(g);
+  if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); n = p; }
+  n.connect(sfxG); s.start(ctx.currentTime + delay); return true;
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+// a gunshot: a little pitch variation so that full-auto does not sound like one looped file
+const shotS = (name, vol, rate) => play(name, vol, rate * rnd(0.94, 1.06));
+export const voice = {
+  scream(vol = 0.8) { return play(pick(['scream1', 'scream2']), vol, rnd(0.92, 1.3)); },
+  death(vol = 0.9) { return play('death', vol, rnd(0.9, 1.1)); },
+  pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
+};
+
 export const sfx = {
   click() { tone('triangle', 520, 780, 0.09, 0.25); },
   roar(big = 1) { tone('sawtooth', big ? 180 : 260, big ? 60 : 110, 0.5, 0.22); tone('square', big ? 120 : 200, 50, 0.4, 0.12, 0.03); noise(0.4, 0.14, 'lowpass', 800, 200); },
   tame() { tone('triangle', 520, 780, 0.12, 0.25); tone('triangle', 660, 990, 0.12, 0.25, 0.1); tone('triangle', 880, 1320, 0.2, 0.25, 0.2); },
   select() { tone('triangle', 660, 990, 0.12, 0.28); tone('sine', 990, 1320, 0.1, 0.18, 0.06); },
   back() { tone('triangle', 520, 330, 0.12, 0.22); },
-  jump() { tone('sine', 280, 640, 0.17, 0.3); tone('triangle', 420, 880, 0.12, 0.08, 0.02); },
+  jump() { if (!play(pick(['jump1', 'jump2']), 0.85, rnd(0.95, 1.05))) tone('sine', 280, 640, 0.17, 0.3); },
   land(s = 10) { const v = Math.min(0.5, 0.12 + s * 0.012); tone('sine', 140, 60, 0.12, v); noise(0.09, v * 0.7, 'lowpass', 900, 200); },
   step() { noise(0.045, 0.07, 'bandpass', rnd(500, 800), 300, 0, 2); },
   dive() { noise(0.3, 0.22, 'bandpass', 500, 2200, 0, 1.5); tone('sine', 300, 520, 0.2, 0.15); },
   bounce() { tone('sine', 180, 920, 0.3, 0.38); tone('triangle', 360, 1400, 0.22, 0.12, 0.03); },
   pickup() { tone('triangle', 520, 1040, 0.18, 0.3); tone('sine', 780, 1560, 0.24, 0.2, 0.07); tone('sine', 1170, 2340, 0.2, 0.12, 0.14); },
-  swing() { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); },
+  swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); } },
   cash() { tone('triangle', 988, 1480, 0.08, 0.22); tone('triangle', 1480, 1976, 0.14, 0.18, 0.07); },
   empty() { tone('square', 1400, 1000, 0.025, 0.1); },
-  shot() { tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
-  bonk() { tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
+  shot(pan = 0, vol = 1) { if (shotS('pistol', 0.9 * vol, 1)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
+  akShot(pan = 0, vol = 1) { if (shotS('ak', 1 * vol, 0.9)) return; sfx.shot(); },
+  bonk() { if (play(pick(['hit1', 'hit2']), 0.95, rnd(0.92, 1.08))) return; tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
   hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
   door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
   honk() { tone('square', 392, 392, 0.34, 0.2); tone('square', 494, 494, 0.34, 0.2); },
@@ -111,7 +145,24 @@ function musicKick(t) {
   o.connect(g); g.connect(musG); o.start(t); o.stop(t + 0.2);
 }
 
+function menuPlay() {
+  if (!ctx || !menuWant || !menuBuf || menuSrc) return;
+  menuSrc = ctx.createBufferSource(); menuSrc.buffer = menuBuf; menuSrc.loop = true;
+  menuG = ctx.createGain(); menuG.gain.setValueAtTime(0.0001, ctx.currentTime); menuG.gain.linearRampToValueAtTime(1.5, ctx.currentTime + 1.5);
+  menuSrc.connect(menuG); menuG.connect(musG); menuSrc.start();
+}
+function menuStop() {
+  menuWant = false; if (!menuSrc) return;
+  const s = menuSrc, g = menuG; menuSrc = null; menuG = null;
+  try { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.15); s.stop(ctx.currentTime + 0.8); } catch (e) { /* noop */ }
+}
 export function startMusic(levelIdx) {
+  if (levelIdx === 99 && ctx) { // the main menu / lobby: a real (CC0) track instead of the synth loop
+    if (menuWant) return;
+    stopMusic(); menuWant = true;
+    if (menuBuf) menuPlay(); else decode('audio/menu.mp3', (b) => { menuBuf = b; menuPlay(); });
+    return;
+  }
   stopMusic();
   if (!ctx) return;
   const th = THEMES[levelIdx] || THEMES[THEMES.length - 1];
@@ -146,7 +197,7 @@ export function startMusic(levelIdx) {
   timer = setInterval(tick, 40);
   tick();
 }
-export function stopMusic() { if (timer) clearInterval(timer); timer = null; musicState = null; }
+export function stopMusic() { if (timer) clearInterval(timer); timer = null; musicState = null; menuStop(); }
 export function setMusicVolume(v) { if (musG) musG.gain.setTargetAtTime(v, ctx.currentTime, 0.1); }
 export function duckMusic(d) { if (musG) musG.gain.setTargetAtTime(d ? 0.08 : 0.22, ctx.currentTime, 0.2); }
 export const audioReady = () => !!ctx;

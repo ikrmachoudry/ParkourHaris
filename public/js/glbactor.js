@@ -20,7 +20,7 @@ let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
 const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 },
-  pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
+  pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
 // ---- which GLB bone plays which driver bone ----
@@ -193,6 +193,8 @@ export class GlbActor extends HeroActor {
         Wm[n] = Wm[n] || new THREE.Quaternion(); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr);
       });
       if (ce.lower) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.lower); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
+      if (ce.yaw) { _q.setFromAxisAngle(_v.set(0, 1, 0), ce.yaw); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
+      if (ce.wrist) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.wrist); Wm['hand.R'].premultiply(_q); }
       const mo = (rt.mOff = rt.mOff || new THREE.Vector3()); _v.fromArray(clip.hips, i0 * 3); mo.fromArray(clip.hips, i1 * 3); mo.lerp(_v, 1 - al);   // (lerp from i1 towards i0 by 1-al)
       mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); if (ce.air) mo.y *= 0.2;   // the game body already rises and falls
       src = Wm; srcKey = ce.c; off = mo;

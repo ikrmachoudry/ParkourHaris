@@ -42,7 +42,7 @@ export class Peds {
       } else if (p.st === 'cower') {
         p.timer -= dt; gesture = 'scared'; if (p.timer <= 0) { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }
       } else if (p.st === 'flee') {
-        p.timer -= dt; speed = 5.4; p.x += p.dx * speed * dt; p.z += p.dz * speed * dt; p.yaw = Math.atan2(p.dx, p.dz);
+        p.timer -= dt; speed = 5.4; { const w = this.step(p, p.dx * speed * dt, p.dz * speed * dt); if (w) { const sg = p.turn || (p.turn = Math.random() < 0.5 ? 1 : -1), a = 1.2 * sg * dt * 6, c = Math.cos(a), sn = Math.sin(a), nx = p.dx * c - p.dz * sn, nz = p.dx * sn + p.dz * c; p.dx = nx; p.dz = nz; } } p.yaw = Math.atan2(p.dx, p.dz);
         if (p.timer <= 0) { p.st = 'gone'; p.wait = 0; }
       } else if (p.st === 'fight') {
         let tg = me, other = false;
@@ -62,10 +62,10 @@ export class Peds {
           }
         }
       } else if (p.st === 'fly') {
-        p.vy -= 9.81 * dt; p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
+        p.vy -= 9.81 * dt; if (this.step(p, p.vx * dt, p.vz * dt) === 2) { p.vx = p.vz = 0; } p.y += p.vy * dt; p.vx *= Math.exp(-0.6 * dt); p.vz *= Math.exp(-0.6 * dt);
         if (p.y <= 0) { p.y = 0; p.vx *= 0.3; p.vz *= 0.3; if (Math.abs(p.vy) > 1.5) p.vy = -p.vy * 0.25; else { p.vy = 0; p.st = 'lie'; p.wait = 0; } }
         p.lie = Math.min(1, p.lie + dt * 4);
-      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { p.x += p.vx * dt; p.z += p.vz * dt; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
+      } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { if (this.step(p, p.vx * dt, p.vz * dt) === 2) p.vx = p.vz = 0; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > 5) { p.st = 'gone'; p.wait = 0; } }
       else if (p.st === 'gone') { if (p.temp) { p.dead = true; continue; } p.wait += dt; if (p.wait > 6) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
       const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
       if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
@@ -106,7 +106,15 @@ export class Peds {
       const dx = p.x - x, dz = p.z - z; if (dx * dx + dz * dz < r * r) this.scare(p, x, z);
     }
   }
+  // walls: moves a person by (dx,dz) unless a building / prop is in the way (slides along it); returns 0 = free, 1 = slid, 2 = stuck
+  step(p, dx, dz) {
+    const nx = p.x + dx, nz = p.z + dz, B = this.blocked; if (!B || !B(nx, nz)) { p.x = nx; p.z = nz; return 0; }
+    if (!B(nx, p.z)) { p.x = nx; return 1; } if (!B(p.x, nz)) { p.z = nz; return 1; } return 2;
+  }
+  // a voice for the audio layer: 'scream' (scared) or 'death'. Rate-limited per person.
+  voice(kind, p) { const n = performance.now(); if (!this.onVoice || n - (p.vAt || 0) < (kind === 'death' ? 800 : 3500)) return; p.vAt = n; this.onVoice(kind, p); }
   scare(p, x, z) {
+    this.voice('scream', p);
     const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz) || 1;
     p.dx = dx / d; p.dz = dz / d; p.yaw = Math.atan2(p.dx, p.dz);
     if (Math.random() < 0.5) { p.st = 'cower'; p.timer = 1.5 + Math.random() * 1.5; p.yaw = Math.atan2(-p.dx, -p.dz); } else { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }
@@ -142,7 +150,7 @@ export class Peds {
     }
     if (!best) return false;
     best.hp -= dmg; if (this.puppet) best.hold = 0.6;
-    if (best.hp <= 0) { best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0; best.punchT = 0; }
+    if (best.hp <= 0) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0; best.punchT = 0; }
     else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; }
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
     this.alarm(best.x, best.z, 12, best);
@@ -162,7 +170,7 @@ export class Peds {
     this.alarm(ox, oz, 32, best, true);
     if (!best) return null;
     best.hp -= dmg; if (this.puppet) best.hold = 0.6; const dead = best.hp <= 0;
-    if (dead) { best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
+    if (dead) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
     else if (best.st !== 'lie') { if (best.brave && Math.random() < 0.35) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; } else { best.st = 'flee'; best.timer = 6; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); } }
     this.lastHit = best; if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
   }
@@ -188,6 +196,7 @@ export class Peds {
     for (const e of d) {
       let p = this.byIndex(e[0]);
       if (!p) { if (e[0] < 100) continue; p = this.adopt(e[2], e[3], e[4], !!(e[10] & 1), ST[e[1]] || 'walk', e[10] >> 1); p.i = e[0]; }
+      if (p.net && p.net[1] !== e[1]) { if ((e[1] === 1 || e[1] === 2) && p.net[1] === 0) this.voice('scream', p); else if (e[1] === 4 && p.net[1] < 4) this.voice('death', p); }
       p.net = e; p.netAt = now;
     }
   }

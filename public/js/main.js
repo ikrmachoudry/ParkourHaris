@@ -18,6 +18,7 @@ import { Minimap } from './minimap.js';
 import { MissionClient } from './missionui.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
 import * as A from './audio.js';
+import { bodyHalf } from './hitbox.js';
 import { Net } from './net.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
@@ -252,7 +253,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.initCityEconomy(info, scene); this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); if (dd > 60) return; const v = Math.max(0.2, 1 - dd / 60); k === 'death' ? A.voice.death(0.9 * v) : A.voice.scream(0.85 * v); }; this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -262,7 +263,7 @@ class Race {
     }
     this.cars = []; this.rolling = []; this.repairT = 0; this.drive = null; this.paxMode = false; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
-      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); if (this.cars.length >= 12 && this.cars.length < 16 || this.cars.length >= 24) st0.topCap = 36.1; /* mission cars: 130 km/h */ st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
+      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); const bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); if (bh) { st0.hl = Math.max(st0.hl || 0, bh.hl - 0.03); st0.hw = Math.max(st0.hw || 0, bh.hw - 0.03); } if (this.cars.length >= 12 && this.cars.length < 16 || this.cars.length >= 24) st0.topCap = 36.1; /* mission cars: 130 km/h */ st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
       this.racerOk = false;
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
@@ -772,7 +773,7 @@ class Race {
     if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
-    this.batCd = 1.1; this.swingT = 0.001; this.batPending = true; A.sfx.swing();
+    this.batCd = 1.1; this.swingT = 0.001; this.batPending = true; A.sfx.swing(true);
     return true;
   }
   updateBat(dt, b) {
@@ -808,7 +809,7 @@ class Race {
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz) || 1;
-    if (knock(b, dx / d, dz / d, 7)) { b.vy = 2; b.stun = 0.4; this.crouch = false; A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); this.particles.emit(b.x, b.y + 1.2, b.z, 8, { color: '#ffffff', speed: 3, up: 2, life: 0.3, size: 0.25 }); }
+    if (knock(b, dx / d, dz / d, 7)) { b.vy = 2; b.stun = 0.4; this.crouch = false; A.sfx.bonk(); A.voice.pain(0.7); this.shake = Math.max(this.shake || 0, 0.2); this.particles.emit(b.x, b.y + 1.2, b.z, 8, { color: '#ffffff', speed: 3, up: 2, life: 0.3, size: 0.25 }); }
   }
   // ================= CITY ECONOMY: money, weapons, the weapon store, traffic jacking, selling cars =================
   initCityEconomy(info, scene) {
@@ -841,7 +842,7 @@ class Race {
   remoteCar(r) {   // a stolen traffic car another player is driving: build its model once
     const id = r.vm || 11; if (!r.vcar || r.vcar.st.id !== id) {
       if (r.vcar) this.scene.remove(r.vcar.mesh);
-      const mesh = buildCarMesh(id, IS_TOUCH); mesh.rotation.order = 'YXZ'; this.scene.add(mesh); const st = newCar(id, r.x, r.z, r.yaw); st.local = true; r.vcar = { st, mesh, local: true, remote: true };
+      const mesh = buildCarMesh(id, IS_TOUCH), bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; this.scene.add(mesh); const st = newCar(id, r.x, r.z, r.yaw); if (bh) { st.hl = Math.max(st.hl || 0, bh.hl - 0.03); st.hw = Math.max(st.hw || 0, bh.hw - 0.03); } st.local = true; r.vcar = { st, mesh, local: true, remote: true };
     } return r.vcar;
   }
   ghost(r) { const B = this.busy; return !!(B && B.size && B.has(this.localId) !== B.has(r.id)); }   // somebody in a mission while I am not (or the other way round): he is not in my instance
@@ -879,7 +880,7 @@ class Race {
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (!q) return; const len = Math.min(60, m.l || 30);
     q.t = 0.07; q.m.visible = true; q.m.position.set(m.x + m.dx * len / 2, m.y, m.z + m.dz * len / 2); q.m.rotation.set(0, Math.atan2(m.dx, m.dz), 0); q.m.scale.set(1, 1, len);
     this.particles.emit(m.x, m.y, m.z, 3, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 });
-    if (Math.hypot(m.x - this.camera.position.x, m.z - this.camera.position.z) < 70) A.sfx.shot();
+    { const dd = Math.hypot(m.x - this.camera.position.x, m.z - this.camera.position.z); if (dd < 90) { const v = Math.max(0.15, 1 - dd / 90); m.w === 3 ? A.sfx.akShot(0, v) : A.sfx.shot(0, v); } }
   }
   onPedHit(m) {   // an AI pedestrian the host is fighting punched me
     const b = this.me.body; if (b.hitCd > 0 || this.drive) return; if (knock(b, m.nx, m.nz, 7)) { b.vy = 2; b.stun = 0.4; this.crouch = false; A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); }
@@ -932,8 +933,8 @@ class Race {
     }
     if (j.empty) this.evt({ k: 'tk', c: this.tai.cars.indexOf(c), e: 1 });
     // the traffic car becomes a real, drivable (and sellable) car at the same place
-    const id = st.id, mesh = buildCarMesh(id, IS_TOUCH); mesh.rotation.order = 'YXZ'; mesh.position.set(st.x, 0, st.z); mesh.rotation.y = st.yaw; this.scene.add(mesh);
-    const st2 = newCar(id, st.x, st.z, st.yaw); st2.y = 0; st2.local = true; st2.stolen = true; st2.driver = -1; st2.parked = true;
+    const id = st.id, mesh = buildCarMesh(id, IS_TOUCH), bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; mesh.position.set(st.x, 0, st.z); mesh.rotation.y = st.yaw; this.scene.add(mesh);
+    const st2 = newCar(id, st.x, st.z, st.yaw); st2.y = 0; if (bh) { st2.hl = Math.max(st2.hl || 0, bh.hl - 0.03); st2.hw = Math.max(st2.hw || 0, bh.hw - 0.03); } st2.local = true; st2.stolen = true; st2.driver = -1; st2.parked = true;
     const car = { st: st2, mesh, local: true }; this.cars.push(car); this.tai.take(c);
     this.toggleCar();
   }
@@ -965,7 +966,7 @@ class Race {
     let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds) { let bd = 0.2; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
-    const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + 1.25;
+    const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
@@ -973,7 +974,7 @@ class Race {
     // tracer + muzzle flash + bang
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
     this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'ak' ? 0.07 : 0.05);
-    A.sfx.shot();
+    w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
     if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt }); }
     return true;
   }
@@ -1019,7 +1020,7 @@ class Race {
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));
     if (!this.kickK) for (const r of this.remotes.values()) { if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue; const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz); if (d < 1.9 && d > 1e-3 && (dx * fx + dz * fz) / d > 0.3 && Math.abs(r.y - b.y) < 1.5 && (r.flags & (2 | 2097152))) { this.kickK = true; break; } }
-    this.punchCd = this.kickK ? 0.7 : 0.72; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(); return true;
+    this.punchCd = this.kickK ? 0.7 : 0.72; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(this.weapon === 'bat' && !this.kickK); return true;
   }
   updatePunch(dt, b) {
     if (this.punchCd > 0) this.punchCd -= dt;

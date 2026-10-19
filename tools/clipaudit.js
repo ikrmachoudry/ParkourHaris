@@ -17,16 +17,18 @@ const { buildLevel } = await import('../public/js/levels.js');
 const S = await import('../public/js/scenery.js');
 const { world, info } = buildLevel(0, false, null, 1);
 const scene = new THREE.Scene(); scene.add(world.group); S.buildScenery(scene, info.key, info, world);
+const TOL = +process.env.TOL || 0.12;   // a piece that sticks out of a solid by less than this is hidden by the player's own body (capsule R 0.3, visual half-thickness about 0.2)
 const solids = world.solids.filter((s) => s.name !== 'block');
 const bad = new Map();
 for (const r of recs) {
+  if (r.type === 'ExtrudeGeometry') continue;   // stunt ramps are ground height (rampH), not solids
   const h = r.y1 - r.y0, dx = r.x1 - r.x0, dz = r.z1 - r.z0;
   if (!(r.y1 > 0.55 && r.y0 < 1.7 && h >= 0.3 && dx >= 0.12 && dz >= 0.12 && dx < 90 && dz < 90)) continue;
   if (/Plane|Ring|Circle|Sphere|Torus|Cone/.test(r.type) && h < 0.6) continue;
   const lo = Math.max(r.y0, 0.3), hi = Math.min(r.y1, 1.7);
-  const near = solids.filter((s) => s.x0 < r.x1 + 0.02 && s.x1 > r.x0 - 0.02 && s.z0 < r.z1 + 0.02 && s.z1 > r.z0 - 0.02 && s.y0 < hi && s.y1 > lo);
+  const near = solids.filter((s) => s.x0 < r.x1 + TOL && s.x1 > r.x0 - TOL && s.z0 < r.z1 + TOL && s.z1 > r.z0 - TOL && s.y0 < hi && s.y1 > lo);
   const st = Math.max(0.1, Math.min(0.25, Math.min(dx, dz) / 6)); let n = 0, miss = 0;
-  for (let x = r.x0 + st / 2; x < r.x1; x += st) for (let z = r.z0 + st / 2; z < r.z1; z += st) { n++; if (!near.some((s) => x >= s.x0 - 0.02 && x <= s.x1 + 0.02 && z >= s.z0 - 0.02 && z <= s.z1 + 0.02)) miss++; }
+  for (let x = r.x0 + st / 2; x < r.x1; x += st) for (let z = r.z0 + st / 2; z < r.z1; z += st) { n++; if (!near.some((s) => x >= s.x0 - TOL && x <= s.x1 + TOL && z >= s.z0 - TOL && z <= s.z1 + TOL)) miss++; }
   const area = miss * st * st;
   if (n && (miss / n > 0.3 || area > 0.7)) { const k = r.src; const e = bad.get(k) || { n: 0, ex: r, area: 0 }; e.n++; e.area += area; bad.set(k, e); }
 }
