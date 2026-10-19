@@ -20,6 +20,7 @@ export const CITY_VEH = [
   { id: 21, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', paint: '#f97316', mass: 210, kW: 42, top: 30, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 540, latG: 0.95, dLock: 0.42, dK: 40 },
   { id: 22, name: 'Getaway', style: 'sedan', paint: '#14151a', mass: 1450, kW: 120, top: 36, mu: 1.0, drive: 'rwd', cda: 0.66, cyl: 6, pitch: 0.85, hornHz: 400 },   // the thief's black car (scripted, nobody drives it)
   { id: 23, name: 'Auto Rickshaw', style: 'rick', rick: true, paint: '#1f9d55', mass: 520, kW: 9, top: 65 / 3.6, mu: 0.9, drive: 'rwd', cda: 0.95, cyl: 1, pitch: 1.7, hornHz: 640 },   // three-wheeler: reads 62 km/h flat out (top is the fade-out target, a bit above)
+  { id: 24, name: 'Yellow Coupe', style: 'coupe', paint: '#facc15', mass: 1450, kW: 190, top: 40.3, mu: 1.1, drive: 'rwd', cda: 0.62, cyl: 6, pitch: 0.9, hornHz: 450 },   // reads 144 km/h flat out
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
