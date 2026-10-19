@@ -163,8 +163,10 @@ function intellimumTexture() {
   const bg = g.createLinearGradient(0, 0, 1024, 0); bg.addColorStop(0, '#0b1530'); bg.addColorStop(1, '#101c3f'); g.fillStyle = bg; g.fillRect(0, 0, 1024, 256);
   g.strokeStyle = '#22d3ee'; g.lineWidth = 6; g.strokeRect(8, 8, 1008, 240);
   drawInfinity(g, 150, 128, 105, 22);
-  g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.textBaseline = 'middle'; let fs = 108; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; while (g.measureText('INTELLIMUM').width > 700 && fs > 40) { fs -= 4; g.font = 'bold ' + fs + 'px Arial Black, Arial, sans-serif'; }
-  g.fillText('INTELLIMUM', 285, 100); g.fillStyle = '#22d3ee'; g.font = 'bold 74px Arial Black, Arial, sans-serif'; g.letterSpacing = '14px'; g.fillText('AUTOS', 290, 185);
+  // one line: INTELLIMUM (white) AUTOS (cyan), as large as fits next to the logo
+  g.textAlign = 'left'; g.textBaseline = 'middle'; const F = (n) => 'bold ' + n + 'px Arial Black, Arial, sans-serif';
+  let fs = 120; g.font = F(fs); while (g.measureText('INTELLIMUM AUTOS').width > 700 && fs > 30) { fs -= 2; g.font = F(fs); }
+  const w1 = g.measureText('INTELLIMUM ').width; g.fillStyle = '#ffffff'; g.fillText('INTELLIMUM', 290, 132); g.fillStyle = '#22d3ee'; g.fillText('AUTOS', 290 + w1, 132);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 export function buildGta(world, th, info, seed) {
@@ -418,8 +420,14 @@ export function buildGta(world, th, info, seed) {
     for (let i = -3; i <= 3; i++) wm.add(Bx(0.25, 3.8, 0.4), S.x + i * 4.2, 2.1, fz + 0.1, '#0f1a33');
     world.addSolid(S.x - (S.w - 2) / 2, 0, fz - 0.07, S.x + (S.w - 2) / 2, 4.4, fz + 0.33, { name: 'prop' });   // the glass front / mullions stick out of the wall: solid so nobody stands inside them
     for (const px of [-17.5, 17.5]) { wm.add(Bx(0.9, 9, 0.9), S.x + px, 4.5, 24.5, '#0f1a33'); }                      // sign pylons
-    const lg = new THREE.Mesh(new THREE.PlaneGeometry(34.6, 8.65), new THREE.MeshBasicMaterial({ map: intellimumTexture(), toneMapped: false })); lg.position.set(S.x, 9.2 - 0.0, 24.45); lg.rotation.y = Math.PI; world.group.add(lg);
-    { const lg2 = lg.clone(); lg2.position.z = 24.55; lg2.rotation.y = 0; world.group.add(lg2); }
+    // the name boards: every board has a face towards the lot (+z, rotation 0) and one towards the showroom (rotation PI), both reading left to right
+    const nameBoard = (w, h, x, y, z) => { const tex = intellimumTexture(), mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); f.position.set(x, y, z + 0.07); world.group.add(f);
+      const k = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); k.position.set(x, y, z - 0.07); k.rotation.y = Math.PI; world.group.add(k);
+      world.addSolid(x - w / 2, y - h / 2, z - 0.1, x + w / 2, y + h / 2, z + 0.1, { name: 'prop' }); };
+    nameBoard(34.6, 8.65, S.x, 9.2, 24.5);                                                                   // the pylon sign over the lot
+    { const rz = S.z + 0.5; for (const px of [-8, 8]) wm.add(Bx(0.5, 8.4, 0.5), S.x + px, S.h + 0.5 + 4.2, rz, '#0f1a33');   // the roof sign: INTELLIMUM AUTOS on top of the showroom
+      nameBoard(26, 6.5, S.x, S.h + 0.5 + 8.4 + 3.25, rz); world.glow.add(Bx(26, 0.12, 0.12), S.x, S.h + 0.5 + 8.4 + 6.56, rz, '#22d3ee'); }
     world.glow.add(Bx(34, 0.12, 0.12), S.x, 13.6, 24.5, '#22d3ee');
     for (const [dx, id, c] of AUTOS_SHOW) {                                                                     // display cars on plinths
       wm.add(Bx(2.3, 0.35, 5), S.x + dx, 0.38, 22.8, '#cfd6df'); const m = buildTrafficMesh(id, c); m.position.set(S.x + dx, 0.55, 22.8); m.rotation.y = Math.PI * (dx < 0 ? 0.88 : 1.12); world.group.add(m); }
