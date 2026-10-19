@@ -481,3 +481,13 @@ body.touch #c-lights { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap
 .vols label { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 12px; font-family: inherit; font-weight: 900; letter-spacing: 1px; color: #fff; }
 .vols input[type=range] { width: 100%; height: 26px; accent-color: #ffd23f; cursor: pointer; touch-action: pan-y; }
 @media (max-height: 520px) { .vols { gap: 4px; margin: 2px 0 6px; } .vols label { grid-template-columns: 110px 1fr; font-size: 12px; } .vols input[type=range] { height: 18px; } }
+
+/* how to play: four groups, scrolls on small screens */
+#s-help .panel { max-width: 920px; width: min(94vw, 920px); max-height: 94vh; overflow-y: auto; }
+.helpgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; text-align: left; }
+.helpgrid h3 { margin: 6px 0 4px; color: #ffd23f; font-size: 15px; letter-spacing: 2px; }
+.helpgrid .help { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; font-size: 14px; line-height: 1.35; }
+#s-help .note { font-size: 13px; text-align: left; }
+@media (max-width: 700px) { .helpgrid { grid-template-columns: 1fr; } }
+/* help + settings sit above the title menu and dim it, so no button shows through */
+#s-help, #s-settings { z-index: 40; background: rgba(8, 12, 40, .55); align-items: center; justify-content: center; }

@@ -87,7 +87,7 @@ export const sfx = {
   tame() { tone('triangle', 520, 780, 0.12, 0.25); tone('triangle', 660, 990, 0.12, 0.25, 0.1); tone('triangle', 880, 1320, 0.2, 0.25, 0.2); },
   select() { tone('triangle', 660, 990, 0.12, 0.28); tone('sine', 990, 1320, 0.1, 0.18, 0.06); },
   back() { tone('triangle', 520, 330, 0.12, 0.22); },
-  jump() { if (!play(pick(['jump1', 'jump2']), 0.85, rnd(0.95, 1.05))) tone('sine', 280, 640, 0.17, 0.3); },
+  jump() { /* no jump sound */ },
   land(s = 10) { const v = Math.min(0.5, 0.12 + s * 0.012); tone('sine', 140, 60, 0.12, v); noise(0.09, v * 0.7, 'lowpass', 900, 200); },
   step() { noise(0.045, 0.07, 'bandpass', rnd(500, 800), 300, 0, 2); },
   dive() { noise(0.3, 0.22, 'bandpass', 500, 2200, 0, 1.5); tone('sine', 300, 520, 0.2, 0.15); },

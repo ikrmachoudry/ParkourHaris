@@ -443,7 +443,7 @@ class Race {
   events(b) {
     let landed = false;
     for (const e of b.events) {
-      if (e === 'jump') { A.sfx.jump(); this.particles.emit(b.x, b.y + 0.05, b.z, 5, { color: '#ffffff', speed: 1.5, up: 1, life: 0.35, size: 0.25, gravity: 2 }); }
+      if (e === 'jump') { this.particles.emit(b.x, b.y + 0.05, b.z, 5, { color: '#ffffff', speed: 1.5, up: 1, life: 0.35, size: 0.25, gravity: 2 }); }
       else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
       else if (e === 'bounce') { A.sfx.bounce(); landed = true; this.particles.emit(b.x, b.y + 0.1, b.z, 18, { rainbow: true, speed: 3, up: 2, life: 0.6, size: 0.3 }); }
       else if (e === 'dive') A.sfx.dive();
@@ -451,7 +451,7 @@ class Race {
         A.sfx.splash();
         const pool = b.swim > 0 && b.waterSurf, v = VIS[this.meta.key]; const col = pool ? '#ffffff' : v.water === 'lava' ? '#ff9a2a' : v.water === 'grid' ? '#d11cff' : '#bfeaff';
         this.particles.emit(b.x, (pool ? b.waterSurf : this.world.waterY) + 0.2, b.z, pool ? 34 : 40, { color: col, speed: 4, up: pool ? 6 : 9, life: 0.9, size: 0.45, gravity: 16, spread: 0.6 });
-      } else if (e === 'stroke') { A.sfx.jump(); this.particles.emit(b.x, b.waterSurf + 0.1, b.z, 10, { color: '#ffffff', speed: 2, up: 3, life: 0.6, size: 0.3, gravity: 10 }); } else if (e === 'fell') this.onFell();
+      } else if (e === 'stroke') { this.particles.emit(b.x, b.waterSurf + 0.1, b.z, 10, { color: '#ffffff', speed: 2, up: 3, life: 0.6, size: 0.3, gravity: 10 }); } else if (e === 'fell') this.onFell();
     }
     return landed;
   }
@@ -582,7 +582,7 @@ class Race {
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q);
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if (c.mesh.userData.hero) {
       const hero = c.mesh.userData.hero;
