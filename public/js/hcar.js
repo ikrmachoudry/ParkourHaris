@@ -437,6 +437,15 @@ export function buildHeroCar(opts = {}) {
   seat.push(xf(cleanGeo(rbox(0.5, 0.04, 1.0, 0.01, 1), [0.16, 0.16, 0.17]), sp.bootX ?? -1.88, 0.56, 0));
   for (const g of seat) g.translate(0, fy, 0);
   // roof extras: police light bar / plain taxi lamp (no text)
+  if (opts.extra === 'spoiler') {   // racing wing on the boot lid: a purple blade on two struts with black end plates
+    const x0 = sp.L / 2 - 0.16, wy = sp.prof[sp.prof.length - 2][1] + 0.27, wsp = sp.w * 1.7;
+    const wing = cleanGeo(rbox(0.4, 0.045, wsp, 0.02, 1), [1, 1, 1]); xf(wing, -x0, wy, 0);
+    group.add(new THREE.Mesh(merge([wing]), mats.paint));
+    const parts = [];
+    for (const z of [-0.42, 0.42]) { const st = cleanGeo(rbox(0.1, wy - 0.84, 0.06, 0.01, 1), [0.05, 0.05, 0.06]); xf(st, -x0, 0.84 + (wy - 0.84) / 2, z); parts.push(st); }
+    for (const z of [-wsp / 2, wsp / 2]) { const pl = cleanGeo(rbox(0.5, 0.2, 0.035, 0.01, 1), [0.05, 0.05, 0.06]); xf(pl, -x0, wy + 0.04, z); parts.push(pl); }
+    group.add(new THREE.Mesh(merge(parts), mats.trim));
+  }
   const lamps = [];
   if (opts.extra === 'police' || opts.extra === 'taxi') {
     const roofY = sp.prof.reduce((m, p) => Math.max(m, p[1]), 0), rx = -0.05;
