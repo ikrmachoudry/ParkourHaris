@@ -140,9 +140,15 @@ export class GlbActor extends HeroActor {
     // the wider MakeHuman shoulders need the hanging arms a bit further out (otherwise hands cross the belly): swing sideways of the body like a real person
     for (const sd of ['L', 'R']) {
       const up = G['upperarm.' + sd]; _v2.set(0, -1, 0).applyQuaternion(up);
-      const f = Math.max(0, -_v2.y) * (this.opts.armOut == null ? 0.22 : this.opts.armOut);
+      const f = Math.max(0, -_v2.y) * (this.opts.armOut == null ? 0.16 : this.opts.armOut);
       _q.setFromAxisAngle(_v.set(0, 0, 1), sd === 'L' ? f : -f);
       for (const n of ['upperarm.', 'forearm.', 'hand.']) G[n + sd].premultiply(_q);
+      // forearm pointing forward (running: elbows bent ~90deg): keep it beside the body, parallel to the walking direction, never across the belly
+      _v2.set(0, -1, 0).applyQuaternion(G['forearm.' + sd]);
+      const yaw = Math.max(0, _v2.z) * (this.opts.foreOut == null ? 0.75 : this.opts.foreOut);
+      _q.setFromAxisAngle(_v.set(0, 1, 0), sd === 'L' ? yaw : -yaw);
+      G['forearm.' + sd].premultiply(_q); G['hand.' + sd].premultiply(_q);
+      { _v2.set(0, -1, 0).applyQuaternion(G['hand.' + sd]); const hf = Math.max(0, -_v2.y) * 0.3; G['hand.' + sd].premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), sd === 'L' ? hf : -hf)); }
     }
     // walk the GLB skeleton parents-first
     const walk = (bone, pw) => {
