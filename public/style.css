@@ -439,8 +439,11 @@ body.touch.city-mode .carbtn { width: var(--pad-size); height: var(--pad-size); 
 #car-pad button { position: absolute; border-radius: 50%; display: grid; place-items: center; padding: 0; -webkit-tap-highlight-color: transparent; }
 #car-pad button svg { width: 52%; height: 52%; pointer-events: none; }
 body.driving.touch #car-pad { display: block; }
-#c-left, #c-right { bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); }
-#c-left { left: var(--pad-x); } #c-right { left: calc(var(--pad-x) + var(--pad-size) + var(--pad-gap)); }
+#c-left, #c-right { bottom: var(--pad-y); width: calc(var(--pad-big) * 1.3); height: calc(var(--pad-big) * 1.3); }
+#c-left { left: var(--pad-x); } #c-right { left: calc(var(--pad-x) + var(--pad-big) * 1.3 + var(--pad-gap)); }
+body.touch #car-pad #c-left, body.touch #car-pad #c-right { background: rgba(112,112,112,.3) !important; }
+body.touch #car-pad #c-left:active, body.touch #car-pad #c-left.on, body.touch #car-pad #c-right:active, body.touch #car-pad #c-right.on { background: rgba(170,170,170,.5) !important; }
+#c-left svg, #c-right svg { width: 46%; height: 46%; opacity: .85; }
 #c-gas { right: var(--pad-x); bottom: var(--pad-y); width: var(--pad-big); height: var(--pad-big); }
 #c-brake { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-gap)); bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); }
 #c-hb { right: var(--pad-x); bottom: calc(var(--pad-y) + var(--pad-big) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); }

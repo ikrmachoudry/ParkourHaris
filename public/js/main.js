@@ -1922,6 +1922,9 @@ window.__ph = { app, Remote, stepBody, newBody, startSingle: (l) => startSingle(
   const RAD = 56;
   let joyId = null, camId = null, ox = 0, oy = 0, lx = 0, ly = 0;
   const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
+  const joyReset = () => { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; knob.style.transform = 'translate(-50%, -50%)'; };   /* knob back to the middle every time it is let go */
+  window.addEventListener('blur', joyReset); document.addEventListener('visibilitychange', () => { if (document.hidden) joyReset(); });
+  setInterval(() => { if (joyId !== null && document.body.classList.contains('driving')) joyReset(); }, 200);
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
@@ -1945,9 +1948,10 @@ window.__ph = { app, Remote, stepBody, newBody, startSingle: (l) => startSingle(
   }, { passive: false });
   const end = (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; }
+      if (t.identifier === joyId) joyReset();
       if (t.identifier === camId) camId = null;
     }
+    if (joyId !== null && !find(e.touches, joyId)) joyReset();   /* safety: the finger is gone, so the stick must be centred */
   };
   zone.addEventListener('touchend', end); zone.addEventListener('touchcancel', end);
   const btn = (id, down, up) => {
