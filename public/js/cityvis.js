@@ -9,6 +9,7 @@ import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
 import { buildTruck, TRUCK } from './htruck.js';
 import { buildBus, BUS } from './hbus.js';
+import { buildF1, F1 } from './hf1.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const camPos = new THREE.Vector3(1e6, 0, 0);
@@ -56,7 +57,7 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
-const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
+const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR], f1: [buildF1, F1, 0.5, 0.85, 0] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
   const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];
   const full = bakedOnly ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });

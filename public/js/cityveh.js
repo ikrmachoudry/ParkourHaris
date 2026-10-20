@@ -25,13 +25,14 @@ export const CITY_VEH = [
   { id: 26, name: 'Tractor', style: 'tractor', model: 'tractor', paint: '#c8262c', mass: 3400, kW: 55, top: 21 / 3.6 * 1.015, mu: 0.8, drive: 'rwd', cda: 2.2, cyl: 4, pitch: 0.55, hornHz: 300 },   // farm tractor: reads 21 km/h flat out
   { id: 27, name: 'Truck', style: 'truck', model: 'truck', paint: '#1f5fbf', mass: 7500, kW: 160, top: 105 / 3.6 * 1.0335, mu: 0.85, drive: 'rwd', cda: 4.6, cyl: 6, pitch: 0.5, hornHz: 240 },   // cargo truck: reads 105 km/h flat out
   { id: 28, name: 'Bus', style: 'bus', model: 'bus', paint: '#1a7f4b', mass: 11000, kW: 480, top: 165 / 3.6 * 1.031, mu: 0.85, drive: 'rwd', cda: 6.2, cyl: 6, pitch: 0.42, hornHz: 200 },   // city bus: reads 165 km/h flat out
+  { id: 29, name: 'F1 Car', style: 'f1', model: 'f1', paint: '#d71920', mass: 800, kW: 520, top: 190 / 3.6 * 1.0107, mu: 1.6, drive: 'rwd', cda: 0.95, cyl: 8, pitch: 1.5, hornHz: 520, dLock: 0.45, dK: 90 },   // Formula 1 car: reads 190 km/h flat out
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
 // geometry the physics needs (metres) from the body style
 const STYLE_GEO = {
   sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
-  rick: { L: 2.75, w: 1.3, wb: 1.9 }, tractor: { L: 3.7, w: 2.0, wb: 2.0 }, truck: { L: 7.6, w: 2.5, wb: 4.3 }, bus: { L: 11.5, w: 2.6, wb: 6.2 }, bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
+  rick: { L: 2.75, w: 1.3, wb: 1.9 }, tractor: { L: 3.7, w: 2.0, wb: 2.0 }, truck: { L: 7.6, w: 2.5, wb: 4.3 }, bus: { L: 11.5, w: 2.6, wb: 6.2 }, f1: { L: 5.2, w: 2.0, wb: 3.4 }, bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
 };
 
 export function newCityState(c, spec) { // add the dynamic fields to a plain car state (see car.js newCar)

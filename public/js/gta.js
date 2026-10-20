@@ -250,7 +250,8 @@ export function gtaCars() {
     (() => { const h = HOMES[0], p = homeW(h, 0.9, 8.0); return { id: 27, x: p.x, z: p.z, yaw: h.yaw + Math.PI / 2 }; })(),   // Haris's cargo truck (105 km/h), parked along the avenue side of the yard; 32 vehicles now = every slot of the 5-bit net vehicle id (indices 0..31) is used
     (() => { const h = HOMES[2], p = homeW(h, 2.2, 7.6); return { id: 26, x: p.x, z: p.z, yaw: h.yaw }; })(),   // Hanbal's tractor (21 km/h)
     (() => { const h = HOMES[3], p = homeW(h, 1.8, 6.6); return { id: 23, x: p.x, z: p.z, yaw: h.yaw }; })(),
-    ...[89, 98].map((z) => ({ id: 28, x: PARK.cxW + 62, z, yaw: Math.PI / 2 }))];   // two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
+    ...[89, 98].map((z) => ({ id: 28, x: PARK.cxW + 62, z, yaw: Math.PI / 2 })),
+    { id: 29, x: PARK.cxW + 44, z: 93.5, yaw: Math.PI / 2 }];   // the F1 car (190 km/h) on its pad in the infield; two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.
