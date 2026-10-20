@@ -518,7 +518,7 @@ export function buildGta(world, th, info, seed) {
     // crash barriers round the whole pad (concrete blocks, red / white)
     for (const [x0, z0, x1, z1] of P.walls) { solid(x0, z0, x1, z1, P.wallH); const horiz = x1 - x0 > z1 - z0, L = horiz ? x1 - x0 : z1 - z0, n = Math.round(L / 6);
       for (let i = 0; i < n; i++) { const a = i / n * L, b = (i + 1) / n * L, c0 = i % 2 ? '#d62828' : '#f1f1f1'; if (horiz) wm.add(Bx(b - a, P.wallH, z1 - z0), x0 + (a + b) / 2, P.wallH / 2, (z0 + z1) / 2, c0); else wm.add(Bx(x1 - x0, P.wallH, b - a), (x0 + x1) / 2, P.wallH / 2, z0 + (a + b) / 2, c0); } }
-    wm.add(Bx(9, 0.05, 7), P.cxW + 44, 0.07, 93.5, '#6b1f24');   // the F1 pad
+    wm.add(Bx(9, 0.05, 7), P.cxW + 44, 0.07, 93.5, '#6b1f24');   // the racing car's pad
     wm.add(Bx(15, 0.05, 20), P.cxW + 62, 0.07, 93.5, '#3b3f4a');   // the bus bay in the infield
     // the parking grid in the infield
     { const Sp = P.spawn; wm.add(Bx(9, 0.05, 4 * Sp.step + 1), Sp.x, 0.07, Sp.z + 1.5 * Sp.step, '#3b3f4a');

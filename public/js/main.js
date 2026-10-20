@@ -478,7 +478,7 @@ class Race {
 
   // ================= swimming pool fx + cars =================
   // seats in a vehicle (driver included): bike 2, rickshaw 2, truck 2, tractor 1, every car 4
-  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' || m === 'f1' ? 1 : m ? 2 : 4; }
+  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m ? 2 : 4; }
   seatModel(g, car, pax, pseat = 0) {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.bike) {   // a motorbike: the rider straddles it and leans with it (about the road line)
