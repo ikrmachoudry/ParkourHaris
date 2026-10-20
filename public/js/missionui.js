@@ -93,7 +93,7 @@ export class MissionClient {
     else if (m.t === 'm_end') {
       this.hold = false; this.freeze = false; this.showFin(false);
       if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
-      else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 6500); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
+      else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 7500, true); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
     } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
   onGo(m) {
@@ -151,7 +151,7 @@ export class MissionClient {
     };
     this.ss.armTruck(); put(R.cars[TRUCK_IDX], START.truck.x, START.truck.z, START.truck.yaw);
     const carFor = (seat) => 12 + (seat === 1 || n === 1 ? 0 : seat - 1);   // sniper 12, first blocker 13, second blocker 14
-    m.members.forEach((q) => { const r = snipeRole(q.seat, n); if (r !== 'truck') { const k = carFor(q.seat), sp = START.cars[k - 12]; put(R.cars[k], sp.x, sp.z, START.carYaw); } });
+    m.members.forEach((q) => { const r = snipeRole(q.seat, n); if (r !== 'truck') { const k = carFor(q.seat), sp = START.cars[k - 12]; put(R.cars[k], sp.x, sp.z, sp.yaw !== undefined ? sp.yaw : START.carYaw); } });
     const c = this.role === 'truck' ? R.cars[TRUCK_IDX] : R.cars[carFor(this.seat)], b = R.me.body;
     if (c) { b.x = c.st.x; b.z = c.st.z; b.y = c.st.y + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = c.st.yaw; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = c.st.yaw + Math.PI;
       R.drive = c; R.paxMode = false; c.st.driver = R.localId; c.st.parked = false; document.body.classList.add('driving'); document.body.classList.remove('near-car'); R.engineOn && R.engineOn(c); }
@@ -292,7 +292,7 @@ export class MissionClient {
     if (st) { st.disabled = !ready; st.textContent = ready ? 'START MISSION' + (this.lobby.in.length > 1 ? ' (' + this.lobby.in.length + ' PLAYERS)' : ' (SOLO)') : 'STEP ON THE PAD'; }
   }
   big(txt, ms, col) { const e = $('m-big'); if (!e) return; e.textContent = txt; e.style.color = col || '#fff'; e.classList.remove('pop'); void e.offsetWidth; if (txt) e.classList.add('pop'); clearTimeout(this.bigT); if (ms && txt) this.bigT = setTimeout(() => { e.textContent = ''; }, ms); }
-  sub(txt, ms) { const e = $('m-sub'); if (!e) return; e.textContent = txt; clearTimeout(this.subT); if (ms && txt) this.subT = setTimeout(() => { e.textContent = ''; }, ms); }
+  sub(txt, ms, big) { const e = $('m-sub'); if (!e) return; if (big) { e.style.setProperty('font-size', 'clamp(20px,3.2vw,38px)', 'important'); e.style.setProperty('font-weight', '800', 'important'); e.style.setProperty('opacity', '1', 'important'); } else { e.style.removeProperty('font-size'); e.style.removeProperty('font-weight'); e.style.removeProperty('opacity'); } e.textContent = txt; clearTimeout(this.subT); if (ms && txt) this.subT = setTimeout(() => { e.textContent = ''; }, ms); }
   chips(all) {
     const e = $('m-chips'); if (!e) return;
     e.innerHTML = this.phase === 'idle' ? '' : this.members.map((q) => `<span style="border-color:${this.colorOf(q.id)}">${all || this.res[q.id] ? '&#10003;' : '&middot;'}</span>`).join('');

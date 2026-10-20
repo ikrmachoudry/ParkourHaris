@@ -28,7 +28,7 @@ export const SNIPE = {
   bypass: [[120, 240], [150, 282], [150, 468], [60, 468]],                 // from the city (the x = 120 avenue) round the east end of the ridge to the far mouth
   hill: [[150, 326, 0], [138, 340, 4], [126, 352, 9], [106, 358, 14], [92, 346, 17], [98, 334, 18], [108, 334, 18]],   // [x, z, road height]: the sniper's road
   pad: { x: 108, z: 334, y: 18, r: 9 },                                    // the circled sniping area
-  bail: { z: 300 },                                                        // the red line: the truck driver pulls out here
+  bail: { z: 250 },                                                        // the red line: the truck driver pulls out here
   lane: 63.25,                                                             // the south-bound lane of the new road (left-hand traffic)
 };
 function nearPoly(x, z, pts) {   // distance to a polyline and the road height there (pts: [x, z] or [x, z, y])

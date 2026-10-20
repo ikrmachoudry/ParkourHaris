@@ -15,11 +15,11 @@ const hyp = Math.hypot, STEP = 1.5;
 export const TRUCK_IDX = 29;                       // the cargo truck (gtaCars index) that becomes the tanker
 export const SNIPE_BRIEF_MS = 3500;
 export const LANE_S = SNIPE.lane, LANE_E = 56.75;  // south-bound lane of the new road, east-bound lane of the z = 60 avenue
-export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x: 20, z: LANE_E, yaw: Math.PI / 2 }, cars: [{ x: 6, z: LANE_E }, { x: -3, z: LANE_E }, { x: -12, z: LANE_E }], carYaw: Math.PI / 2 };
+export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x: 20, z: LANE_E, yaw: Math.PI / 2 }, cars: [{ x: 150, z: 292, yaw: 0 }, { x: 150, z: 392, yaw: 0 }, { x: 150, z: 376, yaw: 0 }], carYaw: Math.PI / 2 };   // the sniper and the blockers start ALREADY on the bypass road (half way), so they are in position long before the tanker
 export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of the bank door, to the driver's door
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
-const BAIL_MIN = 286, LATE_Z = 392;
+const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = 392, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17;
 const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
@@ -57,7 +57,7 @@ export function snipeAt(R, s) {
 export function snipePaths(role, seat) {
   const R = snipeRoute(), tr = []; for (let i = 0; i < R.n; i += 8) if (R.pts[i].s <= R.sTun1 + 4) tr.push([R.pts[i].x, R.pts[i].z]);
   const H = SNIPE.hill, B = SNIPE.bypass, E = LANE_E;
-  const toBypass = [[10, E], [123, E], [123, 240], [B[1][0], B[1][1]]];
+  const toBypass = [[B[1][0], 282]];
   if (role === 'truck') return { lines: [{ pts: tr, color: '#ffd23f' }], marks: [{ x: LANE_S, z: SNIPE.bail.z, r: 8, color: '#ff3b30', glyph: '✖' }] };
   if (role === 'sniper') return { lines: [{ pts: [...toBypass, [H[0][0], H[0][1]], ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
   const z = ZONES[Math.max(0, Math.min(1, blockerNo(seat)))];
@@ -95,7 +95,7 @@ export class SnipeDirector {
   ready() {
     if (this.rdy || this.T > WAIT_MAX) return true;
     const sp = this.getP(this.sniperId), pd = SNIPE.pad;
-    if (sp && hyp(sp.x - pd.x, sp.z - pd.z) > pd.r + 16) return false;
+    if (sp && hyp(sp.x - pd.x, sp.z - pd.z) > pd.r + 6) return false;
     for (let i = 0; i < this.blockers.length; i++) { const P = this.getP(this.blockers[i]); if (P && !this.zoneFilled(i) && !(P.z > 282 && P.x > 112)) return false; }
     this.rdy = true; return true;
   }
@@ -184,11 +184,11 @@ export class SnipeDirector {
       const th = this.car, ahead = th.v + 0.45 * (gap - 32);
       tk.v += clamp(clamp(ahead, 0, 18) - tk.v, -9 * dt, 5 * dt); tk.v = Math.max(0, tk.v);
       const along = tk.sTk = Math.min(R.total, tk.sTk + tk.v * dt), q = snipeAt(R, along); tk.x = q.x; tk.z = q.z; tk.yaw = q.yaw;
-      if (tk.z >= SNIPE.bail.z && q.x > LANE_S - 1) { tk.v = clamp(tk.v, 9, 14); this.bail(true); }
+      if (tk.z >= SNIPE.bail.z && q.x > LANE_S - 1) { tk.v = clamp(tk.v, 5.5, ROLL_V); this.bail(true); }
       return;
     }
     if (tk.mode === 2) {   // rolling on: straight along the road, the lane holds it
-      tk.v = Math.max(tk.v, Math.min(tk.v + 2 * dt, 11)); tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0;
+      tk.v = Math.max(Math.min(tk.v, ROLL_V), Math.min(tk.v + 2 * dt, ROLL_V)); tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0;
       if (tk.z >= SNIPE.tun.z0 - 2 && !this.truckDown) { tk.mode = 5; this.say('missed'); this.later = this.T + 3; }
       return;
     }
@@ -202,7 +202,7 @@ export class SnipeDirector {
   }
   // the driver is out: the tanker rolls on without him
   bail(ai) {
-    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 9, 15); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
+    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 5.5, ROLL_V); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
   }
   // the sniper's bullet reached the tank: only counts after the driver is out and before the tanker is inside the tunnel
   hit(id, dmg) {
