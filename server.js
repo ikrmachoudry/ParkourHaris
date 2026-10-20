@@ -310,6 +310,13 @@ wss.on('connection', (ws, req) => {
         send(h.ws, { ...m, t: 'ev', from: p.id });
         break;
       }
+      case 'pc': { // a player's police (cars + officers on foot): shown to everybody else as harmless ghosts
+        if (!room || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastPc || 0) < 70) return; p.lastPc = t;
+        const cl = (arr, n, k) => (Array.isArray(arr) ? arr.slice(0, n).filter(Array.isArray).map((e) => e.slice(0, k).map((v) => (typeof v === 'number' && isFinite(v) ? v : 0))) : []);
+        bcast(room, { t: 'pc', id: p.id, c: cl(m.c, 8, 5), f: cl(m.f, 10, 6) }, p.id);
+        break;
+      }
       case 'fx': { // a shot (tracer + sound) for everybody
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastFx || 0) < 60) return; p.lastFx = t;

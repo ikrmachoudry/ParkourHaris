@@ -21,6 +21,7 @@ const SIREN_SAFE = 45;                                   // metres beyond the se
 const HEAT = [3, 12, 26, 45, 70];                        // heat needed for 1..5 stars
 const CARS = [0, 1, 2, 3, 3, 4], FOOT = [0, 1, 2, 3, 4, 5];  // patrol cars / officers on foot per star level
 const CRIME = { shot: 0.3, hit: 0.7, kill: 2.2, run: 1.0, jack: 2.4, car: 1.3, copHit: 2.4, copKill: 4.2, crash: 0.5 };
+let NID = 1;
 const COP_LOOK = { role: 'cop', skinTone: '#c68e63', hair: '#15100c' };
 
 // is the straight line a -> b blocked by a building?
@@ -84,7 +85,7 @@ export class Wanted {
     if (!best) return;
     const mesh = buildTrafficMesh(15); mesh.rotation.order = 'YXZ'; this.group.add(mesh);
     const horiz = Math.random() < 0.5, c = { mesh, hero: mesh.userData.hero, gx: best[0], gz: best[1], dx: horiz ? (best[0] < px ? 1 : -1) : 0, dz: horiz ? 0 : (best[1] < pz ? 1 : -1), v: 8, wheel: 0, parked: false, st: { id: 15, x: best[0], z: best[1], y: 0, yaw: 0, vx: 0, vz: 0, speed: 0, hl: 2.3, hw: 1.0, driver: 1, heavy: true }, stuck: 0, out: false, age: 0 };
-    c.x = best[0] + (c.dz ? -c.dz : 0) * LANE * 0; c.z = best[1]; c.lastG = null; this.cars.push(c);
+    c.x = best[0] + (c.dz ? -c.dz : 0) * LANE * 0; c.z = best[1]; c.lastG = null; c.nid = NID++; this.cars.push(c);
   }
   stepCar(c, dt, tx, tz, px, pz) {
     const st = c.st;
@@ -123,7 +124,7 @@ export class Wanted {
   // ---- officers on foot
   spawnFoot(x, z) {
     const actor = new HeroActor(0, COP_LOOK); this.group.add(actor.group);
-    this.foot.push({ actor, x, z, yaw: 0, hp: 4, down: 0, dead: false, t: 0, shootT: rnd(0.8, 1.6), speed: 0, aim: false, bornAt: performance.now() });
+    this.foot.push({ nid: NID++, actor, x, z, yaw: 0, hp: 4, down: 0, dead: false, t: 0, shootT: rnd(0.8, 1.6), speed: 0, aim: false, bornAt: performance.now() });
   }
   stepFoot(o, dt, px, pz, onFoot, car) {
     const R = this.R;

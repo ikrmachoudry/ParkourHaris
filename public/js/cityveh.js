@@ -76,13 +76,14 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
   const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
+  const slope = Math.max(-0.85, Math.min(0.85, (c.gx || 0) * fx + (c.gz || 0) * fz)), cosT = 1 / Math.sqrt(1 + slope * slope);   /* real gravity along the hill: m g sin(angle). A weak engine slows down and a very steep slope stops it (and rolls it back) */
   let Fx = 0;
-  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp(((c.topCap || spec.top) - u) / 2.2, 0, 1); }   // c.topCap: a lower limit set by the game (the mission cars: 130 km/h, 120 during the stunt run)   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
+  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * cosT * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp(((c.topCap || spec.top) - u) / 2.2, 0, 1); }   // c.topCap: a lower limit set by the game (the mission cars: 130 km/h, 120 during the stunt run)   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
   const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
-  const slope = Math.max(-0.3, Math.min(0.3, (c.gx || 0) * fx + (c.gz || 0) * fz));   /* capped: a steep bank slows you but never stops a car dead */ const Fslope = m * G * slope / Math.sqrt(1 + slope * slope);
+  const Fslope = m * G * slope * cosT;
   const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
   // ---- normal loads with weight transfer (filtered longitudinal acceleration)
   const axF = c.ax;

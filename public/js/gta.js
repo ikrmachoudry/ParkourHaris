@@ -53,7 +53,7 @@ const HP = Math.PI / 2;
 // MISSIONS: the Mission Lobby building (walk onto the pad inside) and the STUNT JUMP course on the coast highway: 4 white super cars wait on the start
 // line, two ramps follow, and the finish line is near the lookout.  Ramps are part of the ground height, so cars fly off them.
 export const LOBBY = { x: 90, z: -20, w: 16, d: 11, pad: { x: 90, z: -21 }, color: '#a855f7' };   // door faces +z (the south avenue); the pad is the ring inside
-export const STUNT = { name: 'STUNT JUMP', startX: 272, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[310, 0, HP0(), 20, 2.6, 12], [392, 0, HP0(), 20, 2.6, 12]], finishX: 452, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
+export const STUNT = { name: 'STUNT JUMP', startX: 272, lanes: [-4.5, -1.5, 1.5, 4.5], yaw: HP0(), ramps: [[310, 0, HP0(), 20, 3.6, 12], [392, 0, HP0(), 20, 3.6, 12]], finishX: 452, minSpeed: 24, minAir: 0.55, timeLimit: 55 };
 // MISSION 2 - THIEF CHASE: the CITY BANK (south side of the z = 60 avenue, door faces north) and the POLICE STATION (north side of the z = -60 avenue, door faces south).
 // Both are just buildings (nobody can go in). Two 4-door police cars wait in front of the station; for the mission they are moved to the bank.
 export const BANK = { x: 30, z: 95, w: 34, d: 20, h: 15 };
@@ -90,7 +90,7 @@ function HP0() { return Math.PI / 2; }
 export const PARK = {
   x0: 305, x1: 455, z0: 52, z1: 128,                         // the flat pad
   cxW: 338, cxE: 422, cz: 92, R: 20, hw: 10.5, zT: 72, zB: 112,   // oval: end centres, turn radius (centre line), road half-width, the two straights
-  ramps: [[360, 72, HP0(), 20, 2.0, 14], [374, 112, -HP0(), 18, 1.3, 14]],
+  ramps: [[360, 72, HP0(), 20, 3.1, 14], [374, 112, -HP0(), 18, 2.0, 14]],
   boosts: [{ x: 348, z: 72, rx: 7, rz: 7, dir: 1 }, { x: 418, z: 112, rx: 7, rz: 7, dir: -1 }],
   tunnel: { x0: 382, x1: 408, z: 112, half: 9, h: 6.5 },
   spawn: { x: 360, z: 86.6, step: 3.2, yaw: HP0() },

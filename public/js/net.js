@@ -4,7 +4,7 @@ export class Net {
     this.ws = null; this.h = {}; this.offset = 0; this.rtt = 0; this.best = Infinity; this.connected = false; this.id = null; this.samples = 0;
   }
   now() { return Date.now() + this.offset; }
-  stamp() { const t = Math.round(Date.now() + this.offset); this.lastStamp = Math.max(t, (this.lastStamp || 0) + 1); return this.lastStamp; } // packet time: never runs backwards, so a clock re-sync can't make fresh packets look old
+  stamp() { const t = Math.round(performance.timeOrigin + performance.now()); this.lastStamp = Math.max(t, (this.lastStamp || 0) + 1); return this.lastStamp; } // packet time for smoothing: this machine's own steady clock (never the synced one, whose corrections used to make a far-away player's packets look old and freeze him); receivers measure the offset themselves
   on(type, fn) { this.h[type] = fn; }
   connect() {
     return new Promise((resolve, reject) => {
