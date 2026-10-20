@@ -569,3 +569,10 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #scope i { position: absolute; left: 50%; top: 50%; width: 56vmin; height: 1px; margin-left: -28vmin; background: rgba(0,0,0,.75); }
 #scope b { position: absolute; left: 50%; top: 50%; width: 1px; height: 56vmin; margin-top: -28vmin; background: rgba(0,0,0,.75); }
 body.scoped #scope { display: block; }
+
+/* in-game MENU button (city mode has no top bar): under the fullscreen button, phones and laptops */
+#b-gm { display: none; position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 52px); right: max(8px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: rgba(20,14,50,.55); color: #fff; font-size: 22px; line-height: 1; z-index: 60; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+#b-gm:active { transform: scale(.92); }
+body.in-race.city-mode #b-gm { display: block; }
+body.m-open #b-gm { display: none !important; }
+body.standalone #b-gm { top: max(8px, env(safe-area-inset-top)); }

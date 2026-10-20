@@ -1779,6 +1779,7 @@ function closePause() {
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
+$('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 $('p-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
 $('p-gfx').onclick = () => { Q.low = !Q.low; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); };
