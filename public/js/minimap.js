@@ -1,5 +1,6 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
+import { PORT } from './port.js';
 import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS, SNIPE } from './gta.js';
 
 const W = 1100, O = 550;   // 1 px = 1 m, world -550..550
@@ -24,6 +25,9 @@ function drawStatic() {
   { const pp = parkPath(); pp.push(pp[0]); road(pp, PARK.hw * 2); road([[240, 60], [318, 60], [PARK.cxW, PARK.zT - 1]], w); }   // the Stunt Park oval + its road
   { road(SNIPE.road, w); road(SNIPE.bypass, w); road(SNIPE.hill.map((q) => [q[0], q[1]]), w); g.fillStyle = '#4a4f59'; g.beginPath(); g.arc(O + SNIPE.pad.x, O + SNIPE.pad.z, SNIPE.pad.r, 0, 7); g.fill(); g.fillStyle = '#6b6f78'; g.fillRect(O + SNIPE.road[0][0] - 9, O + SNIPE.tun.z0, 18, SNIPE.tun.z1 - SNIPE.tun.z0); }   // the tunnel road, the bypass and the sniper's hill
   road([[GT.HWY.ax, 0], [GT.HWY.bx, 0]], w); g.fillStyle = '#4a4f59'; g.beginPath(); g.arc(O + GT.HWY.bx, O, 14, 0, 7); g.fill();
+  { const Y = PORT.yard; road(PORT.road, w); g.fillStyle = '#7b8089'; g.fillRect(O + Y.x0, O + Y.z0, Y.x1 - Y.x0, Y.z1 - Y.z0);   // Haris Port: the paved yard, the piers and the lighthouse
+    g.fillStyle = '#b98a56'; for (const pr of PORT.piers) g.fillRect(O + pr.x - pr.w / 2, O + PORT.pierZ0, pr.w, PORT.pierZ1 - PORT.pierZ0);
+    g.fillStyle = '#e8e4da'; g.fillRect(O + PORT.light.x - 4, O + PORT.light.z - 4, 8, 8); g.fillStyle = '#c4231f'; g.fillRect(O + PORT.light.x - 2, O + PORT.light.z - 2, 4, 4); }
   // landmarks' footprints
   for (const h of HOMES) { g.fillStyle = h.color; g.fillRect(O + h.x - 6, O + h.z - 4.3 - 3 * Math.cos(h.yaw), 12, 8.6); }
   g.fillStyle = LOBBY.color; g.fillRect(O + LOBBY.x - LOBBY.w / 2, O + LOBBY.z - LOBBY.d / 2, LOBBY.w, LOBBY.d);   // the Mission Lobby
@@ -65,7 +69,7 @@ export class Minimap {
     if (this.nav && this.nav.pts) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.lineJoin = 'round'; g.lineCap = 'round'; for (const [col, wd] of [['#ffffff', Math.max(4, S / 28)], ['#2f8cff', Math.max(2.6, S / 46)]]) { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); this.nav.pts.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); } g.restore(); }   // the blue way to the pin you tapped on the big map
     const r = Math.max(8, S / 14);
     if (this.nav) icon(this.nav.x, this.nav.z, '#2f8cff', '\u{1F4CD}', r * 0.9);
-    icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85);
+    icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85); icon(-170, 470, '#0e7490', '\u2693', r);
     for (const m of marks || []) icon(m.x, m.z, m.color, m.glyph, r * 0.95);   // mission targets (the thief, the police station)
     let near = null, nd = 1e9;
     for (const h of HOMES) { icon(h.x, h.z, h.color, '\u{1F3E0}', r * 0.85); const d = Math.hypot(h.x - view.x, h.z - view.z); if (d < nd) { nd = d; near = h; } }
@@ -77,6 +81,7 @@ export class Minimap {
     if (Math.hypot(REPAIR.x - view.x, REPAIR.z - view.z) < 60) label('REPAIR', REPAIR.x, REPAIR.z, '#ffd23f');
     if (Math.hypot(LOBBY.x - view.x, LOBBY.z - view.z) < 70) label('MISSIONS', LOBBY.x, LOBBY.z, '#d9b8ff');
     if (Math.hypot(380 - view.x, 92 - view.z) < 90) label('STUNT PARK', 380, 92, '#8dffb0');
+    if (Math.hypot(-170 - view.x, 470 - view.z) < 110) label('HARIS PORT', -170, 470, '#7ff0ff');
     for (const o of others || []) { const [px, py] = toScr(o.x, o.z); if (Math.hypot(px - S / 2, py - S / 2) > S / 2 - 4) continue; g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 100); g.beginPath(); g.arc(px, py, S / 40, 0, 7); g.fill(); g.stroke(); }
     if (wi) {   // police: the search circle (pulses blue / red) and the officers (flashing blue / red dots)
       const f = wi.phase;
@@ -115,7 +120,7 @@ export class Minimap {
     if (this.nav && this.nav.pts) { g.lineJoin = 'round'; g.lineCap = 'round'; for (const [col, wd] of [['#ffffff', Math.max(6, S / 85)], ['#2f8cff', Math.max(3.6, S / 140)]]) { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); this.nav.pts.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); } }
     const r = Math.max(9, S / 40);
     badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f'); badge(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r, 'MISSION LOBBY', '#d9b8ff'); badge(380, 92, '#22c55e', '\u{1F3CE}', r, 'STUNT PARK', '#8dffb0'); badge(347, 95, '#d71920', '\u{1F3C1}', r * 0.55, 'RACING CARS', '#ff9a9a', -1); badge(400, 93.5, '#1a7f4b', '\u{1F68C}', r * 0.55, 'BUSES', '#9dffc4', 1); badge(STUNT.startX + 60, 0, '#ffd23f', '\u{1F3C1}', r * 0.7, 'STUNT JUMP', '#5ef0ff');
-    badge(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.8, 'CITY BANK', '#ffe08a', 1); badge(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.8, 'POLICE', '#bcd2ff', 1);
+    badge(-170, 470, '#0e7490', '\u2693', r, 'HARIS PORT', '#7ff0ff'); badge(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.8, 'CITY BANK', '#ffe08a', 1); badge(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.8, 'POLICE', '#bcd2ff', 1);
     for (const m of marks || []) badge(m.x, m.z, m.color, m.glyph, r * 0.9);
     if (this.nav) badge(this.nav.x, this.nav.z, '#2f8cff', '\u{1F4CD}', r * 0.95, 'ROUTE', '#9cc8ff');
     for (const h of HOMES) badge(h.x, h.z, h.color, '\u{1F3E0}', r * 0.8, h.name.toUpperCase(), '#fff', h.x < -90 ? -1 : 1);

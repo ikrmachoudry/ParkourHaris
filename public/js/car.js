@@ -157,7 +157,7 @@ export function stepCar(c, dt, inp, track, others, tm = 0) {
 
 // OPEN WORLD driving (Haris City): the ground is track.terrain(x,z); the car follows it, flies off ramps and crests, lands with a thump,
 // bounces off buildings (track.boxes), the map edge and the sea.
-const TD_SEA = -0.8, TD_EDGE = 505;
+const TD_SEA = -0.8, TD_EDGE = 538;
 function terrainDrive(c, dt, track, fx, fz, max) {
   const T = track.terrain; let ev = '';
   // buildings: nose and tail circles against the boxes (only while the car is lower than the roof)

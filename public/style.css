@@ -603,3 +603,8 @@ body.scoped #scope-zoom { display: flex; }
 #m-big { margin-top: 8vh; font-size: clamp(18px, 3.4vmin, 28px) !important; font-weight: 700; letter-spacing: .5px; text-shadow: 0 1px 3px rgba(0,0,0,.8) !important; -webkit-text-stroke: 0 !important; }
 #m-sub { font-size: clamp(11px, 1.9vmin, 14px) !important; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9) !important; opacity: .92; }
 #toast-global { font-size: 14px !important; padding: 7px 14px !important; }
+
+/* the big map: a normal visible cursor (the game hides it while the mouse is captured) */
+body.big-map, body.big-map #bigmap-wrap, body.big-map #bigmap { cursor: grab !important; }
+body.big-map #bigmap-wrap:active, body.big-map #bigmap:active { cursor: grabbing !important; }
+body.big-map #bigmap-x, body.big-map #bigmap-zoom button { cursor: pointer !important; }

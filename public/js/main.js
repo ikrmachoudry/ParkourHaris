@@ -907,7 +907,9 @@ class Race {
     this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
   /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
   toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
-    if (this.bigMapOpen && !was) { if (!this.multi && !this.paused) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
+    if (this.bigMapOpen && !was) { this.mapLocked = document.pointerLockElement === canvas; try { document.exitPointerLock(); } catch {}   // laptop: give the mouse back (visible cursor, trackpad pinch works)
+ if (!this.multi && !this.paused) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
+    if (!this.bigMapOpen && was && this.mapLocked && !IS_TOUCH && !this.menuOpen) { this.mapLocked = false; setTimeout(() => tryLock(), 60); }
     if (!this.bigMapOpen && was && this.mapPause) { this.mapPause = false; if (this.paused && !this.menuOpen) { this.t0 += performance.now() - this.pauseAt; this.paused = false; } } }
   /* tap a spot on the map: a blue line along the real roads from here to there (shown on the road, the small map and the big map); tap the pin again to remove it */
   setWaypoint(x, z) { if (!this.meta.city) return; if (this.nav && Math.hypot(this.nav.x - x, this.nav.z - z) < 14 / Math.max(1, (this.minimap && this.minimap.bz ? this.minimap.bz.z : 1))) { this.clearWaypoint(); return; }
@@ -1768,9 +1770,9 @@ function exitLock() { if (document.pointerLockElement) document.exitPointerLock(
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (locked) hadLock = true;
-  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !document.body.classList.contains('m-open')) openPause(); // Esc releases the mouse -> show the menu
+  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !race.bigMapOpen && !document.body.classList.contains('m-open')) openPause(); // Esc releases the mouse -> show the menu
   if (!locked) hadLock = false;
-  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !locked && !document.body.classList.contains('m-open'));
+  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !race.bigMapOpen && !locked && !document.body.classList.contains('m-open'));
 });
 let hadLock = false;
 let dragging = false;
