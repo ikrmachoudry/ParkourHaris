@@ -535,6 +535,8 @@ export function buildGta(world, th, info, seed) {
     for (const [x, z, horiz] of [[g + o, t, false], [t, g + o, true]]) { if (x > 12 && x < 48 && Math.abs(z) > 66 && Math.abs(z) < 72) continue;   // keep the forecourts of the bank and the police station clear
       if (lamp) lampPost(x, z, side, horiz); else plant(x, 0.2, z, 0.8 + R() * 0.3); }
   }
+  // ---- grass tufts (they sway in the wind), flowers and bushes on every lawn: parks, house gardens, the summit meadow
+  scatterGrass(world, R);
   // ---- forest on the hills and the mountain
   for (let i = 0, n = 0; i < 4000 && n < 520; i++) {
     const x = (R() - 0.5) * 1000, z = (R() - 0.5) * 1000, h = gtaH(x, z); if (h < 1.2 || h > 30 || Math.max(Math.abs(x), Math.abs(z)) < 300) continue;
@@ -567,20 +569,81 @@ export function buildGta(world, th, info, seed) {
   world.updaters.push((t) => { tai.update(t, info.trafficCtx || dctx); });
 }
 
+
+// ---- grass: every tuft is a handful of thin blades (7 triangles) drawn in ONE mesh; a small vertex shader sways the tips with the wind (weather.js feeds the uniforms)
+function scatterGrass(world, R) {
+  const pos = [], nor = [], col = [], sway = [], gc = new THREE.Color(), bush = world.main;
+  const DARK = ['#2f5a22', '#35622a', '#2b4f20'], LIGHT = ['#8fbf4a', '#7fb040', '#a3c957', '#6fa238'];
+  const tuft = (x, y, z, sc) => {
+    const nb = LOWQ ? 5 : 7, dk = DARK[Math.floor(R() * 3)], lt = LIGHT[Math.floor(R() * 4)];
+    for (let b = 0; b < nb; b++) {
+      const a = R() * 6.283, d = R() * 0.14 * sc, bx = x + Math.cos(a) * d, bz = z + Math.sin(a) * d, h = (0.26 + R() * 0.3) * sc, w = 0.035 * sc, ba = R() * 6.283, bend = (0.06 + R() * 0.12) * sc, wa = ba + Math.PI / 2;
+      const v = [[bx - Math.cos(wa) * w, y, bz - Math.sin(wa) * w, 0, dk], [bx + Math.cos(wa) * w, y, bz + Math.sin(wa) * w, 0, dk], [bx + Math.cos(ba) * bend, y + h, bz + Math.sin(ba) * bend, 1, lt]];
+      for (const q of v) { pos.push(q[0], q[1], q[2]); nor.push(0, 1, 0); gc.set(q[4]); col.push(gc.r, gc.g, gc.b); sway.push(q[3]); }
+    }
+  };
+  const flower = (x, y, z) => { const c = ['#ffd23f', '#ff6b9d', '#ffffff', '#c77dff', '#ff9a3c'][Math.floor(R() * 5)]; bush.add(new THREE.OctahedronGeometry(0.07 + R() * 0.04, 0), x, y + 0.32 + R() * 0.12, z, c); };
+  const bushAt = (x, y, z, r, flow) => { const c = FOL[Math.floor(R() * FOL.length)]; world.addSolid(x - r * 1.05, y, z - r * 1.05, x + r * 1.05, y + r * 0.85, z + r * 1.05, { name: 'prop' }); for (let k = 0; k < (LOWQ ? 2 : 3); k++) { const ox = (R() - 0.5) * r * 0.6, oz = (R() - 0.5) * r * 0.6; const g = new THREE.IcosahedronGeometry(1, LOWQ ? 0 : 1); bush.add(g, x + ox, y + r * 0.28, z + oz, c, 0, R() * 6, 0, r * (0.7 + R() * 0.3), r * 0.55, r * (0.7 + R() * 0.3)); } if (flow) for (let k = 0; k < 4; k++) flower(x + (R() - 0.5) * r * 1.2, y + r * 0.3, z + (R() - 0.5) * r * 1.2); };
+  const dens = LOWQ ? 0.5 : 1;
+  // parks (42 m squares around a fountain)
+  for (const [px, pz] of PARKS) {
+    for (let i = 0, n = Math.floor(240 * dens); i < n; i++) { const x = px + (R() - 0.5) * 40, z = pz + (R() - 0.5) * 40; if (Math.hypot(x - px, z - pz) < 4.4) continue; tuft(x, 0.2, z, 0.8 + R() * 0.7); if (R() < 0.05) flower(x, 0.2, z); }
+    for (let i = 0; i < 9; i++) { const x = px + (R() - 0.5) * 38, z = pz + (R() - 0.5) * 38; if (Math.hypot(x - px, z - pz) < 7) continue; bushAt(x, 0.2, z, 0.8 + R() * 0.5, true); }
+  }
+  // house gardens: the front lawn (not the driveway / footpath / porch) and the back garden
+  for (const h of HOMES) {
+    for (let i = 0, n = Math.floor(70 * dens); i < n; i++) { const lx = (R() - 0.5) * 18.4, lz = 2.2 + R() * 7.2; if ((lx > -5.9 && lx < -0.7) || (lx > 2.5 && lx < 4.3) || (lx > 0.8 && lz < 4)) continue; const p = homeW(h, lx, lz); tuft(p.x, 0.22, p.z, 0.8 + R() * 0.5); if (R() < 0.06) flower(p.x, 0.22, p.z); }
+    for (let i = 0, n = Math.floor(40 * dens); i < n; i++) { const lx = (R() - 0.5) * 18, lz = -9.2 + R() * 2; const p = homeW(h, lx, lz); tuft(p.x, 0.22, p.z, 0.8 + R() * 0.5); }
+    for (const [lx, lz] of [[-8.6, 3], [8.6, 3], [-8.6, 8.3], [8.8, 8.8]]) { const p = homeW(h, lx, lz); bushAt(p.x, 0.22, p.z, 0.8 + R() * 0.3, R() < 0.6); }
+  }
+  // the summit meadow
+  { const M = GT.MT, y = mtC(M.Rt); for (let i = 0, n = Math.floor(260 * dens); i < n; i++) { const a = R() * 6.283, r = 2.5 + R() * 13.5; tuft(M.cx + Math.cos(a) * r, y, M.cz + Math.sin(a) * r, 0.9 + R() * 0.6); if (R() < 0.04) flower(M.cx + Math.cos(a) * r, y, M.cz + Math.sin(a) * r); } }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('sway', new THREE.Float32BufferAttribute(sway, 1));
+  const wu = world.windU = { time: { value: 0 }, wind: { value: new THREE.Vector2() } };
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = wu.time; sh.uniforms.uWind = wu.wind;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float sway; uniform float uTime; uniform vec2 uWind;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float sp = length(uWind); float sw = sway * (0.45 + 0.35 * sp);
+        transformed.x += sw * (sin(uTime * 2.1 + position.x * 0.9 + position.z * 0.6) * 0.045 + uWind.x * 0.05);
+        transformed.z += sw * (cos(uTime * 1.7 + position.z * 0.8 + position.x * 0.5) * 0.045 + uWind.y * 0.05);`);
+  };
+  const m = new THREE.Mesh(g, mat); m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; world.group.add(m);
+}
+
 const FOL = ['#3e6b34', '#4a7c3a', '#56893f', '#3a5f2f', '#668f45', '#4f7a36'];
+const LOWQ = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;   // phones / tablets get lighter vegetation
+const _lc = new THREE.Color(), _dc = new THREE.Color();
+// one leaf clump: a small faceted ball, lighter on top and darker underneath so the crown has depth
+function clump(batch, x, y, z, r, base, R, top) {
+  const g = new THREE.IcosahedronGeometry(1, LOWQ ? 0 : 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const k = 0.86 + R() * 0.28; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.82, p.getZ(i) * k); }   // lumpy, a little flattened
+  _lc.set(base).offsetHSL((R() - 0.5) * 0.03, (R() - 0.5) * 0.08, (top - 0.5) * 0.16 + (R() - 0.5) * 0.04);
+  batch.add(g, x, y, z, '#' + _lc.getHexString(), 0, R() * 6.28, 0, r, r, r);
+}
 function tree(batch, x, y, z, s, R, pine = false) {
   const c = FOL[Math.floor(R() * FOL.length)], c2 = FOL[Math.floor(R() * FOL.length)];
-  if (pine) { // distant forest: dark pines
-    batch.add(new THREE.CylinderGeometry(0.2 * s, 0.3 * s, 1.8 * s, 5), x, y + 0.9 * s, z, '#5a4331');
-    batch.add(new THREE.ConeGeometry(1.5 * s, 3.2 * s, 7), x, y + 3.0 * s, z, '#2f5d34'); batch.add(new THREE.ConeGeometry(1.1 * s, 2.5 * s, 7), x, y + 4.5 * s, z, '#2f5d34');
+  if (pine) { // distant forest: dark pines with layered skirts
+    batch.add(new THREE.CylinderGeometry(0.2 * s, 0.3 * s, 1.8 * s, 6), x, y + 0.9 * s, z, '#5a4331');
+    const tiers = LOWQ ? 3 : 5;
+    for (let k = 0; k < tiers; k++) { const f = k / (tiers - 1); batch.add(new THREE.ConeGeometry((1.7 - f * 1.0) * s, (2.0 - f * 0.5) * s, LOWQ ? 7 : 9), x, y + (2.0 + f * 3.4) * s, z, f > 0.6 ? '#356b39' : '#2a5430', 0, R() * 6, 0); }
     return;
   }
-  // broad-leaf street tree: a tapering trunk and a lumpy crown made of a few overlapping blobs
-  batch.add(new THREE.CylinderGeometry(0.2 * s, 0.32 * s, 2.4 * s, 7), x, y + 1.2 * s, z, '#5d4a3a');
-  batch.add(new THREE.CylinderGeometry(0.1 * s, 0.17 * s, 1.5 * s, 6), x + 0.35 * s, y + 2.7 * s, z, '#5d4a3a', 0, 0, -0.55);
-  batch.add(new THREE.CylinderGeometry(0.1 * s, 0.17 * s, 1.5 * s, 6), x - 0.3 * s, y + 2.8 * s, z + 0.1 * s, '#5d4a3a', 0, 0, 0.5);
-  const blob = new THREE.IcosahedronGeometry(1, 1);
-  batch.add(blob, x, y + 3.6 * s, z, c, 0, R() * 6, 0, 2.2 * s, 1.55 * s, 2.2 * s);
-  batch.add(blob, x + (R() - 0.5) * 1.6 * s, y + 4.3 * s, z + (R() - 0.5) * 1.6 * s, c2, 0, R() * 6, 0, 1.5 * s, 1.2 * s, 1.5 * s);
-  batch.add(blob, x + (R() - 0.5) * 2.2 * s, y + 3.1 * s, z + (R() - 0.5) * 2.2 * s, c, 0, R() * 6, 0, 1.3 * s, 1.0 * s, 1.3 * s);
+  // broad-leaf street tree: a flared, tapering trunk with branches reaching into a crown made of many faceted leaf clumps
+  const bark = '#5d4a3a', bark2 = '#4a3a2e';
+  batch.add(new THREE.CylinderGeometry(0.17 * s, 0.33 * s, 3.4 * s, 8), x, y + 1.7 * s, z, bark);
+  batch.add(new THREE.CylinderGeometry(0.33 * s, 0.5 * s, 0.2 * s, 8), x, y + 0.1 * s, z, bark2);   // root flare (low: it stays below walking height)
+  const nb = LOWQ ? 3 : 5;
+  for (let k = 0; k < nb; k++) { const a = k / nb * 6.283 + R(), tilt = 0.5 + R() * 0.35, L = (1.5 + R() * 0.6) * s;
+    const g = new THREE.CylinderGeometry(0.06 * s, 0.14 * s, L, 5); g.translate(0, L / 2, 0);   // base at the origin so it can be tilted about its foot
+    batch.add(g, x, y + 3.0 * s, z, bark, Math.sin(a) * tilt, 0, -Math.cos(a) * tilt); }
+  const cy = y + 4.7 * s, ra = 2.15 * s, rb = 1.4 * s, n = LOWQ ? 14 : 26;
+  for (let k = 0; k < n; k++) {   // clumps spread over the surface of an ellipsoid (golden spiral) plus a few in the middle
+    const f = (k + 0.5) / n, phi = Math.acos(1 - 2 * f * 0.92 - 0.04), th = k * 2.39996 + R() * 0.3, inner = k % 4 === 3 ? 0.55 : 1;
+    const px = Math.sin(phi) * Math.cos(th) * ra * inner, py = Math.cos(phi) * rb * inner, pz = Math.sin(phi) * Math.sin(th) * ra * inner;
+    clump(batch, x + px, cy + py, z + pz, (0.78 + R() * 0.4) * s, k % 3 ? c : c2, R, (py / rb + 1) / 2);
+  }
+  clump(batch, x, cy, z, 1.15 * s, c, R, 0.45);
 }

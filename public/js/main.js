@@ -14,6 +14,7 @@ import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
 import { DayNight } from './daynight.js';
+import { Weather } from './weather.js';
 import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
@@ -282,7 +283,7 @@ class Race {
     sun.castShadow = Q.shadows; sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
     const sc = sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 5; sc.far = 220; sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
     scene.add(sun, sun.target);
-    this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.dn.update(0); }
+    this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
     this.particles = new Particles(600); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 160 : 320, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
@@ -1382,6 +1383,7 @@ class Race {
     const t = this.camTarget;
     this.sun.position.set(t.x + this.sunDir.x, t.y + this.sunDir.y, t.z + this.sunDir.z); this.sun.target.position.copy(t);
     if (this.dn) {
+      if (this.weather) this.weather.update(this.lastDt || 0.016, this.camera.position);
       this.dn.update(this.lastDt || 0.016);
       const mo = this.dn.moon, md = this.moonDir; if (md) { mo.position.set(t.x + md.x, t.y + md.y, t.z + md.z); mo.target.position.copy(t); }
       if (this.dn.night !== this.nightOn) { this.nightOn = this.dn.night; this.lightsOn = this.nightOn; if (this.drive && !this.paxMode) this.applyLights(this.drive); }   // headlights come on at dusk, off at dawn (L still toggles them)
@@ -1427,7 +1429,7 @@ class Race {
     if (this.mission) { this.mission.destroy(); this.mission = null; }
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
-    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
+    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }

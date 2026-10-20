@@ -1,9 +1,9 @@
 // Day / night cycle for Haris City: sun and moon travel across the sky, the sky / fog / water / light colours follow a table of key hours,
 // stars and a moon come out, windows and lamp pools light up. The clock comes from the wall clock, so every player in a room sees the same time.
-// One game hour = one real minute (a full day = 24 real minutes). Change DAY_MINUTES to make the day longer or shorter.
+// A full day = DAY_MINUTES real minutes (40: a game hour is about 1.7 minutes), so the light changes slowly. Change DAY_MINUTES to make the day longer or shorter.
 import * as THREE from 'three';
 
-export const DAY_MINUTES = 24;
+export const DAY_MINUTES = 40;
 export const gameHour = (now = Date.now()) => ((now / 60000) * (24 / DAY_MINUTES)) % 24;
 
 const C = (s) => new THREE.Color(s);
@@ -39,7 +39,7 @@ export class DayNight {
     Object.assign(this, ctx);
     this.moon = new THREE.DirectionalLight('#8fa4e0', 0); this.moon.castShadow = false; this.scene.add(this.moon, this.moon.target);
     this.fixed = null; this.hour = 12; this.night = false; this.nightK = 0; this.sinA = 1; this.tick = 0;
-    this.sunDir = new THREE.Vector3(); this.moonDir = new THREE.Vector3(); this.tmp = new THREE.Color(); this.tmp2 = new THREE.Color(); this.cloudNight = C('#1b2238');
+    this.sunDir = new THREE.Vector3(); this.moonDir = new THREE.Vector3(); this.tmp = new THREE.Color(); this.tmp2 = new THREE.Color(); this.cloudNight = C('#1b2238'); this.cloudRain = C('#59606c'); this.fogNear0 = this.scene.fog.near; this.fogFar0 = this.scene.fog.far;
     this.waterA = C(this.vis.waterA); this.waterB = C(this.vis.waterB);
     this.mats = this.world.nightMats || [];
     // light pools under the street lamps: one merged additive mesh
@@ -84,8 +84,19 @@ export class DayNight {
     const lum = 0.16 + 0.84 * smooth(-0.2, 0.35, sinA);
     if (this.water) { const u = this.water.material.uniforms; u.cA.value.copy(this.waterA).multiplyScalar(lum); u.cB.value.copy(this.waterB).multiplyScalar(lum); u.fogC.value.copy(fog); }
     for (const p of this.pools || []) { const u = p.wm.material.uniforms; u.fogC.value.copy(fog); u.skyTop.value.copy(top); u.skyHor.value.copy(sky.horizon.value); }
+    // rain: the sky goes overcast and grey, the light and the view distance shrink
+    const rn = this.race && this.race.weather ? this.race.weather.rain : 0;
+    if (rn > 0.005) {
+      const lumD = smooth(-0.1, 0.35, sinA), gv = 0.12 + 0.5 * lumD, grey = this.tmp.setRGB(gv * 0.94, gv * 0.98, gv * 1.05), k2 = Math.min(1, rn * 1.1);
+      sky.top.value.lerp(grey, k2 * 0.75); sky.horizon.value.lerp(this.tmp2.setRGB(gv * 1.08, gv * 1.1, gv * 1.12), k2 * 0.8); sky.bottom.value.lerp(grey, k2 * 0.7);
+      fog.lerp(grey, k2 * 0.7); this.scene.fog.color.copy(fog); if (this.scene.background && this.scene.background.isColor) this.scene.background.copy(fog);
+      this.sun.intensity *= 1 - 0.7 * k2; this.moon.intensity *= 1 - 0.5 * k2; this.hemi.intensity *= 1 - 0.18 * k2; this.scene.environmentIntensity *= 1 - 0.4 * k2;
+      sky.sunColor.value.multiplyScalar(1 - k2); sky.night.value *= 1 - 0.85 * k2;
+      this.scene.fog.far = this.fogFar0 * (1 - 0.5 * k2); this.scene.fog.near = this.fogNear0 * (1 - 0.6 * k2);
+      if (this.water) this.water.material.uniforms.fogC.value.copy(fog);
+    } else { this.scene.fog.far = this.fogFar0; this.scene.fog.near = this.fogNear0; }
     // clouds: white by day, pink-ish at sunrise / sunset, dark blue-grey at night
-    const cm = this.scene.userData.cloudMat; if (cm) { cm.color.set('#ffffff').lerp(sky.horizon.value, 0.55 * (1 - sunUp)).lerp(this.cloudNight, this.nightK * 0.92); }
+    const cm = this.scene.userData.cloudMat; if (cm) { cm.color.set('#ffffff').lerp(sky.horizon.value, 0.55 * (1 - sunUp)).lerp(this.cloudNight, this.nightK * 0.92).lerp(this.cloudRain, Math.min(1, rn * 1.2) * (0.35 + 0.65 * smooth(-0.1, 0.3, sinA))); }
     // lit windows + lamp pools
     for (const m of this.mats) m.emissiveIntensity = 0.95 * dark;
     if (this.pool) { this.pool.visible = dark > 0.02; this.pool.material.opacity = 0.5 * dark; }

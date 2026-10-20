@@ -350,6 +350,19 @@ export function sirenFar(v) {
   if (!sirenF) sirenF = makeSiren(780, 0.0002);
   sirenF.g.gain.setTargetAtTime(Math.max(0.0002, 0.17 * v), ctx.currentTime, 0.12);
 }
+// rain: soft filtered noise (a hiss with a lower patter), glides in and out; v = 0..1
+let rainN = null;
+export function rainSet(v) {
+  if (!ctx || !noiseBuf) return;
+  if (v < 0.02) { if (rainN) { const R = rainN; rainN = null; try { R.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.5); setTimeout(() => { try { R.a.stop(); R.b.stop(); } catch { /* noop */ } }, 2500); } catch { /* noop */ } } return; }
+  if (!rainN) {
+    const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(sfxG);
+    const mk = (type, f, q, vol) => { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.playbackRate.value = 0.9 + Math.random() * 0.2; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const gg = ctx.createGain(); gg.gain.value = vol; s.connect(fl); fl.connect(gg); gg.connect(g); s.start(); return s; };
+    const a = mk('highpass', 1400, 0.5, 0.55), b = mk('bandpass', 700, 0.6, 0.45);
+    rainN = { g, a, b };
+  }
+  rainN.g.gain.setTargetAtTime(0.0002 + 0.11 * v, ctx.currentTime, 0.4);
+}
 export function sirenTickAll() { sirenTick(sirenP); sirenTick(sirenF); }
 
 // tyre squeal: a continuous band of noise whose loudness follows how hard the tyres are sliding
