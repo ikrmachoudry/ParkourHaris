@@ -26,8 +26,8 @@ export const SNIPE = {
   tun: { x: 60, z0: 414, z1: 452, half: 8, h: 6.8 },                       // the tunnel (inner half width, inner height)
   ridge: { z: 433, sz: 31, x0: -70, x1: 130, h: 22 },                      // the ridge the tunnel goes through
   bypass: [[120, 240], [150, 282], [150, 468], [60, 468]],                 // from the city (the x = 120 avenue) round the east end of the ridge to the far mouth
-  hill: [[150, 326, 0], [138, 340, 4], [126, 352, 9], [106, 358, 14], [92, 346, 17], [98, 334, 18], [108, 334, 18]],   // [x, z, road height]: the sniper's road
-  pad: { x: 108, z: 334, y: 18, r: 9 },                                    // the circled sniping area
+  hill: [[150, 326, 0], [158, 340, 4], [167, 352, 9], [181, 358, 14], [191, 346, 17], [186, 334, 18], [180, 334, 18]],   // [x, z, road height]: the sniper's road
+  pad: { x: 180, z: 334, y: 18, r: 9 },                                    // the circled sniping area
   bail: { z: 250 },                                                        // the red line: the truck driver pulls out here
   lane: 63.25,                                                             // the south-bound lane of the new road (left-hand traffic)
 };

@@ -19,7 +19,7 @@ export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x
 export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of the bank door, to the driver's door
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
-const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = 392, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
+const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17;
 const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
@@ -174,7 +174,8 @@ export class SnipeDirector {
     if (tk.mode === 0) {   // a player drives it: we only watch (and notice when he jumps out)
       const P = this.driverP();
       if (P) { tk.acc += dt; if (P.z !== tk.lz) { tk.vm += ((P.z - tk.lz) / Math.max(tk.acc, 0.03) - tk.vm) * 0.5; tk.acc = 0; } tk.x = P.x; tk.z = P.z; tk.lz = P.z; tk.gone = 0; tk.yaw = 0;
-        if (tk.z > LATE_Z && !this.stopped) return this.end(false, 'late', this.truckId); }
+        if (tk.z >= BAIL_MIN && this.stage === 'chase') tk.linger = (tk.linger || 0) + dt;   // still sitting in it at the red line: the tanker blows up with him inside
+        if ((tk.z > LATE_Z || tk.linger > 22) && !this.stopped) { this.onEv('killdriver', { x: +tk.x.toFixed(1), z: +tk.z.toFixed(1) }); return this.end(false, 'late', this.truckId); } }
       else { tk.gone += dt; if (tk.gone > (tk.z >= BAIL_MIN ? 0.5 : 2.5) && this.stage === 'chase') { if (tk.z < BAIL_MIN || tk.z > 1000) return this.end(false, 'early', this.truckId); this.bail(false); } }
       return;
     }

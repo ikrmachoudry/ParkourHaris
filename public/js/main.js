@@ -606,6 +606,7 @@ class Race {
           if (near && Math.random() < 0.25) this.particles.emit(st.x + (Math.random() - 0.5) * 2, st.y + 0.9, st.z + (Math.random() - 0.5) * 2, 1, { color: '#8fd3ff', speed: 1.2, up: 1.6, life: 0.6, size: 0.12, gravity: 2 });
           if (st.garT >= 30) { st.garT = 0; st.hp = 100; hero.repair(); A.sfx.pickup(); this.particles.emit(st.x, st.y + 1, st.z, 40, { rainbow: true, speed: 4, up: 4, life: 0.8, size: 0.25 }); }
         } else st.garT = 0; }
+      if ((st.wreck || (st.hp !== undefined && st.hp <= 0)) && st.driver === -1 && !st.air) { const k = Math.exp(-4 * dt); st.yr = (st.yr || 0) * k; st.vx *= k; st.vz *= k; st.speed = (st.speed || 0) * k; st.steer = 0; if (st.pitch) st.pitch *= k; if (st.roll) st.roll *= k; }   // a dead car just stops where it is: it never keeps spinning or tumbling on the road
       if (st.hp !== undefined && st.hp <= 0 && !st.wreck) {
         st.burnT = (st.burnT || 0) + dt;
         if (st.burnT > 6) {   // burnt out (the driver, if still inside, is thrown out by the blast)
@@ -1177,7 +1178,7 @@ class Race {
       else if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && this.mission.ss.snap.k[4] < 2 && (this.toastT || 0) < performance.now()) { this.toastT = performance.now() + 2500; this.toast('HOLD FIRE - the driver is still in the tanker. Shoot after he jumps out!'); }
       if (best) { len = bd; const st = best.c.st, code = hitCode(st, ox + fx * bd, oz + fz * bd, hAt(bd)); hcode = code;
         this.crime('car', st.x, st.z);
-        if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else addHit(st, code);
+        if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else { addHit(st, code); if (st.hp !== undefined && !st.wreck && !(this.mission && this.mission.mission === 'snipe' && best.c === this.mission.ss.truck)) st.hp = Math.max(0, st.hp - Math.max(6, (W.dmg || 1) * 9)); }   // bullets wear a car down: cracks -> white smoke -> black smoke -> flames -> burnt-out black wreck
         this.carHitFx(code, ox + fx * bd, oz + fz * bd); }
     }
     this.crime('shot', b.x, b.z);
@@ -1407,7 +1408,7 @@ class Race {
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
+    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);

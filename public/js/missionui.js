@@ -53,7 +53,7 @@ export class MissionClient {
     switch (m.why) {
       case 'slow': return n + ' WAS TOO SLOW - THE TANKER NEVER REACHED THE RED LINE';
       case 'early': return n + ' JUMPED OUT OF THE TANKER TOO EARLY';
-      case 'late': return n + ' DID NOT JUMP OUT BEFORE THE TUNNEL';
+      case 'late': return n + ' DID NOT JUMP OUT OF THE TANKER AND WAS KILLED';
       case 'missed': return n + ' COULD NOT SHOOT THE TANKER BEFORE THE TUNNEL';
       case 'hill': return n + ' COULD NOT REACH THE HILL IN TIME';
       case 'escaped': return mem ? n + ' DID NOT REACH THE ROADBLOCK - THE THIEF ESCAPED' : 'NOBODY BLOCKED THE TUNNEL - THE THIEF ESCAPED';
@@ -172,6 +172,7 @@ export class MissionClient {
     else if (k === 'stopped') { if (role === 'blocker') this.freeze = true; }
     else if (k === 'regroup') { say('THE THIEF IS WAITING', role === 'truck' ? 'CATCH UP - IF THE TANKER IS STUCK IT IS PUT BACK ON THE ROAD' : 'THE THIEF WAITS FOR THE TANKER DRIVER', '#ffd23f', 1800); }
     else if (k === 'regroup_end') { say('', 'THE THIEF IS MOVING AGAIN'); }
+    else if (k === 'killdriver') { this.freeze = true; const R = this.race; if (this.ss.explode) this.ss.explode([+m.x, +m.z]); if (role === 'truck') { R.hurtFx && R.hurtFx(1); this.big('YOU WERE KILLED', 6000, '#ff3030'); this.sub('YOU DID NOT JUMP OUT OF THE TANKER', 6000); } else say('THE TANKER DRIVER WAS KILLED', 'HE NEVER JUMPED OUT', '#ff5a5a', 4000); }
     else if (k === 'police') { this.freeze = true; say('THE POLICE ARE HERE', '', '#7fb2ff'); }
   }
   onEv(k, d, m) {
