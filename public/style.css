@@ -576,3 +576,11 @@ body.scoped #scope { display: block; }
 body.in-race.city-mode #b-gm { display: block; }
 body.m-open #b-gm { display: none !important; }
 body.standalone #b-gm { top: max(8px, env(safe-area-inset-top)); }
+
+/* big map: zoom buttons + gestures */
+#bigmap-wrap { touch-action: none; user-select: none; -webkit-user-select: none; }
+#bigmap { touch-action: none; }
+#bigmap-zoom { position: absolute; right: max(14px, 2vw); top: 50%; transform: translateY(-50%); display: grid; gap: 10px; z-index: 5; pointer-events: auto; }
+#bigmap-zoom button { width: 52px; height: 52px; border-radius: 50%; border: 3px solid #fff; background: rgba(20,14,50,.8); color: #fff; font-size: 30px; font-weight: 900; line-height: 1; cursor: pointer; touch-action: manipulation; padding: 0; }
+#bigmap-zoom button:active { transform: scale(.92); }
+#bigmap-tip { position: absolute; bottom: max(8px, 1.5vh); left: 0; right: 0; text-align: center; color: #fff; font: 700 13px system-ui, sans-serif; opacity: .8; text-shadow: 0 1px 2px #000; pointer-events: none; }

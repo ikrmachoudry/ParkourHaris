@@ -40,7 +40,7 @@ export class SnipeScene {
   // the target-painted tank goes onto the cargo truck for the mission
   armTruck() {
     const c = this.truck; if (!c || this.tank) return; this.tank = buildTank(); c.mesh.add(this.tank);
-    c.st.hl = Math.max(c.st.hl || 0, 3.9); c.st.hw = Math.max(c.st.hw || 0, 1.6);
+    c.st.hl = Math.max(c.st.hl || 0, 3.9); c.st.hw = Math.max(c.st.hw || 0, 1.6); c.st.pwr = 2.4;   // a lively engine for the mission: the tanker keeps up with the thief
   }
   apply(m) {
     const first = !this.snap; this.snap = m; this.at = performance.now();
@@ -48,13 +48,32 @@ export class SnipeScene {
     if (mode === 3 && this.lastMode !== 3) this.explode(k);
     this.lastMode = mode; void first;
   }
+  // the YELLOW LINE on the road: follows the player's own route (bank -> hill pad / tunnel end) so nobody has to keep looking at the map
+  showGuide(lines) {
+    this.hideGuide(); const g = new THREE.Group(), W = 0.6;
+    for (const ln of lines || []) {
+      const P = []; for (let i = 1; i < ln.pts.length; i++) { const a = ln.pts[i - 1], b = ln.pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 2.5)); for (let k = 0; k < n; k++) P.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); }
+      if (ln.pts.length) P.push(ln.pts[ln.pts.length - 1]); if (P.length < 2) continue;
+      const pos = [], idx = [];
+      for (let i = 0; i < P.length; i++) {
+        const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+        const y = this.ground(P[i][0], P[i][1]) + 0.14; pos.push(P[i][0] - dz * W, y, P[i][1] + dx * W, P[i][0] + dz * W, y, P[i][1] - dx * W);
+        if (i) { const q = i * 2; idx.push(q - 2, q - 1, q, q - 1, q + 1, q); }
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: ln.color || '#ffd23f', side: THREE.DoubleSide, toneMapped: false, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      m.renderOrder = 4; m.frustumCulled = false; g.add(m);
+    }
+    this.guide = g; this.R.scene.add(g);
+  }
+  hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
-    this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
+    this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
     if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; }
     const c = this.truck; if (c && this.tank) {
       c.mesh.remove(this.tank); this.tank = null; const st = c.st, hero = c.mesh.userData.hero;
       try { restoreCar(c.mesh); if (hero) hero.repair(); } catch { /* noop */ }
-      st.wreck = false; st.burnT = 0; st.wreckT = 0; st.hp = 100; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; st.pax = -1; st.mcar = false;
+      st.wreck = false; st.burnT = 0; st.wreckT = 0; st.hp = 100; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; st.pax = -1; st.mcar = false; delete st.pwr;
       if (st.home) { st.x = st.home.x; st.z = st.home.z; st.yaw = st.home.yaw; st.y = this.ground(st.x, st.z); }
     }
   }
@@ -142,7 +161,7 @@ export class SnipeScene {
   }
   dispose() {
     if (!this.built) return; const R = this.R;
-    R.scene.remove(this.car, this.actor.group); this.actor.dispose(); for (const p of [...this.pol, ...this.ai]) R.scene.remove(p.m);
+    this.hideGuide(); R.scene.remove(this.car, this.actor.group); this.actor.dispose(); for (const p of [...this.pol, ...this.ai]) R.scene.remove(p.m);
     this.car.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); this.built = false;
   }
 }

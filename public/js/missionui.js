@@ -120,7 +120,7 @@ export class MissionClient {
     if (c) {
       const pax = (this.seat & 1) === 1; b.x = c.st.x; b.z = c.st.z; b.y = c.st.y + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = c.st.yaw; b.hitCd = 0.5; R.crouch = false; R.camInit = false;
       R.drive = c; R.paxMode = pax; if (pax) c.st.pax = R.localId; else { c.st.driver = R.localId; c.st.parked = false; }
-      document.body.classList.add('driving'); document.body.classList.remove('near-car');
+      document.body.classList.add('driving'); document.body.classList.remove('near-car'); if (!pax && R.engineOn) R.engineOn(c);
     }
     this.big('THIEF CHASE', 2600, '#ff6b6b'); this.sub(this.seat & 1 ? 'YOU RIDE ALONG - YOUR PARTNER DRIVES' : 'YOU DRIVE - WATCH THE BANK', 7000); this.chips();
   }
@@ -141,8 +141,8 @@ export class MissionClient {
     m.members.forEach((q) => { const r = snipeRole(q.seat, n); if (r !== 'truck') { const k = carFor(q.seat), sp = START.cars[k - 12]; put(R.cars[k], sp.x, sp.z, START.carYaw); } });
     const c = this.role === 'truck' ? R.cars[TRUCK_IDX] : R.cars[carFor(this.seat)], b = R.me.body;
     if (c) { b.x = c.st.x; b.z = c.st.z; b.y = c.st.y + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = c.st.yaw; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = c.st.yaw + Math.PI;
-      R.drive = c; R.paxMode = false; c.st.driver = R.localId; c.st.parked = false; document.body.classList.add('driving'); document.body.classList.remove('near-car'); }
-    this.myCar = c;
+      R.drive = c; R.paxMode = false; c.st.driver = R.localId; c.st.parked = false; document.body.classList.add('driving'); document.body.classList.remove('near-car'); R.engineOn && R.engineOn(c); }
+    this.myCar = c; if (this.paths) this.ss.showGuide(this.paths.lines);
     if (this.role === 'sniper' && R.giveWeapon) R.giveWeapon('sniper', 'SNIPER RIFLE ISSUED');
     const T = { truck: ['YOU DRIVE THE TANKER', 'FOLLOW THE THIEF - WHEN YOU REACH THE RED LINE JUMP OUT (C) AND LET IT ROLL'], sniper: ['YOU ARE THE SNIPER', 'DRIVE ROUND THE HILL TO THE YELLOW CIRCLE - SHOOT THE TANK BEFORE THE TUNNEL'], blocker: ['YOU ARE A BLOCKER', 'RACE ROUND THE HILL AND PARK IN THE YELLOW CIRCLE AT THE FAR END OF THE TUNNEL'] }[this.role];
     this.big('SNIPE THE TRUCK', 2600, '#ff9f1a'); this.sub(T[0] + ' - ' + T[1], 8000); this.chips();
@@ -151,6 +151,7 @@ export class MissionClient {
     const role = this.role, say = (a, b, c, ms) => { this.big('', 1); this.sub('', 1); if (a) this.big(a, ms || 2000, c); if (b) this.sub(b, 4500); };
     if (k === 'shot') { this.race.thiefShot(m); return; }
     if (k === 'chase') { this.chased = true; if (role === 'truck') { this.hold = false; this.race.camInit = false; } say('THE THIEF IS RUNNING!', role === 'truck' ? 'FOLLOW HIM - HE WILL TRY TO BLOCK YOU' : role === 'sniper' ? 'GET UP THE HILL' : 'GET TO THE FAR SIDE OF THE TUNNEL', '#ff6b6b'); A.sfx.pickup(); }
+    else if (k === 'hold') { say('', role === 'truck' ? 'STAY BEHIND HIM - THE OTHERS ARE GETTING INTO POSITION' : role === 'sniper' ? 'THE THIEF IS WAITING - GET TO THE YELLOW CIRCLE' : 'THE THIEF IS WAITING - GET TO THE FAR SIDE OF THE TUNNEL'); }
     else if (k === 'bail') { if (role === 'truck') { this.freeze = true; } say('THE TANKER IS ROLLING!', role === 'sniper' ? 'SHOOT THE TANK BEFORE IT ENTERS THE TUNNEL' : 'THE DRIVER IS OUT - WATCH THE HILL', '#ffd23f'); }
     else if (k === 'boom') { if (role === 'sniper') this.freeze = true; say('BOOM!', 'THE TUNNEL ENTRANCE IS ON FIRE', '#ff9f1a', 2600); }
     else if (k === 'trap') { say('THE THIEF IS TRAPPED!', role === 'blocker' ? 'HOLD YOUR PLACE' : '', '#5ef0a0'); }

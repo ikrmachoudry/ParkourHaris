@@ -20,6 +20,7 @@ export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of 
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
 const BAIL_MIN = 286, LATE_Z = 392;
+const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17;
 
 // role of the player with this seat in a mission of n players
@@ -43,7 +44,7 @@ export function snipeRoute() {
   for (let i = 0; i < n; i++) { const j = Math.min(n - 1, i + 3), k = Math.max(0, i - 3); let dy = yaw[j] - yaw[k]; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; const kappa = Math.abs(dy) / Math.max(1, pts[j].s - pts[k].s); vlim[i] = Math.max(7, Math.min(40, Math.sqrt(5 / Math.max(kappa, 1e-4)))); }
   for (let i = n - 2; i >= 0; i--) vlim[i] = Math.min(vlim[i], Math.sqrt(vlim[i + 1] * vlim[i + 1] + 2 * 8 * STEP));
   const sAt = (zz) => { for (let i = 0; i < n; i++) if (pts[i].x > LANE_S - 1 && pts[i].z >= zz) return pts[i].s; return tot; };
-  _R = { pts, yaw, vlim, n, total: tot, sBail: sAt(SNIPE.bail.z), sTun0: sAt(SNIPE.tun.z0), sTun1: sAt(SNIPE.tun.z1), sStop: sAt(THIEF_STOP_Z), sCheck: sAt(THIEF_STOP_Z - 9) };
+  _R = { pts, yaw, vlim, n, total: tot, sBail: sAt(SNIPE.bail.z), sTun0: sAt(SNIPE.tun.z0), sTun1: sAt(SNIPE.tun.z1), sStop: sAt(THIEF_STOP_Z), sCheck: sAt(THIEF_STOP_Z - 9), sGate: sAt(SNIPE.bail.z - GATE_BEFORE) };
   return _R;
 }
 export function snipeAt(R, s) {
@@ -56,7 +57,7 @@ export function snipePaths(role, seat) {
   const R = snipeRoute(), tr = []; for (let i = 0; i < R.n; i += 8) if (R.pts[i].s <= R.sTun1 + 4) tr.push([R.pts[i].x, R.pts[i].z]);
   const H = SNIPE.hill, B = SNIPE.bypass, E = LANE_E;
   const toBypass = [[10, E], [123, E], [123, 240], [B[1][0], B[1][1]]];
-  if (role === 'truck') return { lines: [{ pts: tr, color: '#ff3b30' }], marks: [{ x: LANE_S, z: SNIPE.bail.z, r: 8, color: '#ff3b30', glyph: '✖' }] };
+  if (role === 'truck') return { lines: [{ pts: tr, color: '#ffd23f' }], marks: [{ x: LANE_S, z: SNIPE.bail.z, r: 8, color: '#ff3b30', glyph: '✖' }] };
   if (role === 'sniper') return { lines: [{ pts: [...toBypass, [H[0][0], H[0][1]], ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
   const z = ZONES[Math.max(0, Math.min(1, blockerNo(seat)))];
   return { lines: [{ pts: [...toBypass, [B[2][0], B[2][1]], [B[3][0] + 14, B[3][1]], [z.x, z.z]], color: '#ffd23f' }], marks: [{ x: z.x, z: z.z, r: z.r, color: '#ffd23f', glyph: '◎' }] };
@@ -73,7 +74,7 @@ export class SnipeDirector {
     this.stage = 'rob'; this.T = 0; this.st = 0; this.ended = false; this.seed = 4242; this.fireT = 4;
     this.car = { x: t.x, z: t.z, yaw: t.yaw, v: 0, drv: 0 }; this.s = t.x - k.x; this.v = 0; this.off = 0; this.th = { x: WALK[0][0], z: WALK[0][1], yaw: Math.PI, sp: 0, pose: 'idle', mode: 'foot' };
     this.tk = { x: k.x, z: k.z, yaw: k.yaw, v: 0, mode: 1, vm: 0, lz: k.z, acc: 0, sTk: 0, ai: true, gone: -3, boomT: 0 };
-    this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0;
+    this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0; this.rdy = false;
   }
   start(members) {
     this.members = [...members]; this.reset(); const n = this.members.length;
@@ -86,21 +87,29 @@ export class SnipeDirector {
   // the truck driver's position (null when he is not sitting in the truck)
   driverP() { if (this.truckId < 0) return null; const P = this.getP(this.truckId); return P && (P.a & 256) && (((P.a >> 9) & 15) | (((P.a >> 24) & 1) << 4)) === TRUCK_IDX ? P : null; }
   nearP() { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - this.car.x, P.z - this.car.z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }
+  // everybody in position? (the sniper near the pad, each blocker well on his way or in his place) - the thief waits for them at the gate, so nobody is left behind
+  ready() {
+    if (this.rdy || this.T > WAIT_MAX) return true;
+    const sp = this.getP(this.sniperId), pd = SNIPE.pad;
+    if (sp && hyp(sp.x - pd.x, sp.z - pd.z) > pd.r + 16) return false;
+    for (let i = 0; i < this.blockers.length; i++) { const P = this.getP(this.blockers[i]); if (P && !this.zoneFilled(i) && !(P.z > 282 && P.x > 112)) return false; }
+    this.rdy = true; return true;
+  }
   // is this blocker standing in his place?
   zoneFilled(i) { const id = this.blockers[i]; if (id === undefined) return true; const P = this.getP(id), Z = ZONES[i]; return !!P && hyp(P.x - Z.x, P.z - Z.z) < Z.r + 2.5; }
   blockade() { return ZONES.every((z, i) => this.zoneFilled(i)); }
   tick(dt) {
     if (this.ended) return;
     this.T += dt; this.st += dt;
-    if (this.T > 200) return this.end(false, 'time');
+    if (this.T > 320) return this.end(false, 'time');
     const c = this.car, th = this.th, R = this.R, tk = this.tk;
     const nr = this.nearP(); this.dmin = nr.d;
     // ---- the thief
     if (this.stage === 'rob') {
-      const t0 = 1.5, d = Math.max(0, this.T - t0) * 6;
+      const t0 = 0.8, d = Math.max(0, this.T - t0) * WALK_V;
       let acc = 0, pos = null; for (let i = 1; i < WALK.length; i++) { const L = hyp(WALK[i][0] - WALK[i - 1][0], WALK[i][1] - WALK[i - 1][1]); if (d <= acc + L) { const u = (d - acc) / L; pos = { x: lerp(WALK[i - 1][0], WALK[i][0], u), z: lerp(WALK[i - 1][1], WALK[i][1], u), yaw: Math.atan2(WALK[i][0] - WALK[i - 1][0], WALK[i][1] - WALK[i - 1][1]) }; break; } acc += L; }
       if (pos) { th.x = pos.x; th.z = pos.z; th.yaw = pos.yaw; th.sp = this.T > t0 ? 6 : 0; th.pose = this.T > t0 ? 'run' : 'idle'; th.mode = 'foot'; }
-      else { th.sp = 0; th.mode = 'car'; th.pose = 'sit'; c.drv = 1; const tt = this.T - t0 - acc / 6; if (tt > 0.9) { this.stage = 'chase'; this.st = 0; this.say('chase'); } }
+      else { th.sp = 0; th.mode = 'car'; th.pose = 'sit'; c.drv = 1; const tt = this.T - t0 - acc / WALK_V; if (tt > 0.9) { this.stage = 'chase'; this.st = 0; this.say('chase'); } }
     }
     if (this.stage === 'chase') this.driveThief(dt, nr);
     // ---- the tanker
@@ -116,11 +125,13 @@ export class SnipeDirector {
     // how close is the tanker behind him?
     const gap = tk.mode === 0 || tk.mode === 1 ? hyp(tk.x - c.x, tk.z - c.z) : 999;
     const k = tk.mode === 2 || tk.mode === 3 || tk.mode === 4 ? 0.85 : gap < 22 ? 1.3 : gap < 60 ? 1 : gap < 110 ? 0.72 : gap < 170 ? 0.45 : 0.3;
-    let cruise = 16.5 * k * Math.min(1, 0.4 + this.st / 4), here = snipeAt(R, this.s);
+    let cruise = CRUISE * k * Math.min(1, 0.4 + this.st / 4), here = snipeAt(R, this.s);
     if (this.s >= R.sCheck && !this.decided) { this.decided = true; this.trapped = this.blockade(); if (this.trapped) this.say('trap'); else this.say('slip'); }
-    const stopS = this.decided && this.trapped ? R.sStop : R.total, rem = stopS - this.s, stopV = Math.sqrt(2 * 7 * Math.max(0, rem)) + 0.5;
+    const stopS = this.decided && this.trapped ? R.sStop : R.total, rem = stopS - this.s;
+    const wait = !this.ready(), lim = wait ? Math.min(stopS, R.sGate) : stopS, stopV = Math.sqrt(2 * 7 * Math.max(0, lim - this.s)) + 0.5;
+    if (wait && this.s > R.sGate - 12 && !this.said.hold) this.say('hold');
     const target = Math.min(cruise, here.vlim, this.decided && !this.trapped ? 19 : 99, stopV);
-    this.v += clamp(target - this.v, -12 * dt, 6 * dt); this.v = Math.max(0, this.v); this.s = Math.min(stopS, this.s + this.v * dt);
+    this.v += clamp(target - this.v, -12 * dt, 6 * dt); this.v = Math.max(0, this.v); this.s = Math.min(wait ? Math.min(stopS, R.sGate) : stopS, this.s + this.v * dt);
     const q = snipeAt(R, this.s);
     // he swerves in front of the tanker to block it (never in the tunnel mouth, where he drives straight)
     let want = 0; const inTun = this.s > R.sTun0 - 8;
@@ -153,13 +164,13 @@ export class SnipeDirector {
       const gap = hyp(tk.x - this.car.x, tk.z - this.car.z);
       if (this.stage === 'rob') { tk.v = 0; return; }
       const th = this.car, ahead = th.v + 0.45 * (gap - 32);
-      tk.v += clamp(clamp(ahead, 0, 24) - tk.v, -9 * dt, 5 * dt); tk.v = Math.max(0, tk.v);
+      tk.v += clamp(clamp(ahead, 0, 18) - tk.v, -9 * dt, 5 * dt); tk.v = Math.max(0, tk.v);
       const along = tk.sTk = Math.min(R.total, tk.sTk + tk.v * dt), q = snipeAt(R, along); tk.x = q.x; tk.z = q.z; tk.yaw = q.yaw;
-      if (tk.z >= SNIPE.bail.z && q.x > LANE_S - 1) { tk.v = clamp(tk.v, 14, 24); this.bail(true); }
+      if (tk.z >= SNIPE.bail.z && q.x > LANE_S - 1) { tk.v = clamp(tk.v, 9, 14); this.bail(true); }
       return;
     }
     if (tk.mode === 2) {   // rolling on: straight along the road, the lane holds it
-      tk.v = Math.max(tk.v, Math.min(tk.v + 4 * dt, 15)); tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0;
+      tk.v = Math.max(tk.v, Math.min(tk.v + 2 * dt, 11)); tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0;
       if (tk.z >= SNIPE.tun.z0 - 2 && !this.truckDown) { tk.mode = 5; this.say('missed'); this.later = this.T + 1.8; }
       return;
     }
@@ -168,7 +179,7 @@ export class SnipeDirector {
   }
   // the driver is out: the tanker rolls on without him
   bail(ai) {
-    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 14, 24); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
+    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 9, 15); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
   }
   // the sniper's bullet reached the tank: only counts after the driver is out and before the tanker is inside the tunnel
   hit(id, dmg) {

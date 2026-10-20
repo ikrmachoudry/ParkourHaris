@@ -72,7 +72,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
   // ---- longitudinal force
   const hp0 = c.hp === undefined ? 100 : c.hp;
-  const P = spec.kW * 1300 * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
+  const P = spec.kW * 1300 * (c.pwr || 1) * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
   const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);

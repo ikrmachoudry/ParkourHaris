@@ -17,7 +17,7 @@ function play(n, opt = {}) {
   const ids = [...Array(n).keys()].map((i) => 100 + i); D.start(ids);
   const truckId = n >= 2 ? ids[0] : -1, sniperId = n >= 2 ? ids[1] : ids[0];
   const spd = opt.blockSpeed || 26, dt = 0.1; let hitAt = null, bailed = false;
-  for (let t = 0; t < 240 && !res; t += dt) {
+  for (let t = 0; t < 330 && !res; t += dt) {
     const tk = D.tk;
     // the tanker's driver chases the thief 30 m behind and jumps out at the red line (opt.early / opt.never change that)
     if (truckId >= 0) {
@@ -34,13 +34,20 @@ function play(n, opt = {}) {
   }
   return { res, evs, D };
 }
+// everybody must be in position: the thief waits at the gate for a sniper who is still far away, then goes on when he arrives
+{ const P = { 1: { x: 130, y: 0, z: 100, a: 0 } }; let res = null; const evs = []; const D = new SnipeDirector({ getP: (id) => P[id] || null, onEv: (k) => evs.push(k), onEnd: (o, w) => { res = { o, w }; } }); D.start([1]);
+  for (let i = 0; i < 900; i++) D.tick(0.1);   // 90 s with the sniper still on the avenue
+  ok(!res && D.s <= R.sGate + 0.01 && D.s > R.sGate - 12 && evs.includes('hold'), 'the thief waits at the gate for a sniper who is still driving (s ' + D.s.toFixed(0) + ' / ' + R.sGate.toFixed(0) + ')');
+  P[1] = { x: SNIPE.pad.x, y: 18, z: SNIPE.pad.z, a: 0 }; for (let i = 0; i < 80; i++) D.tick(0.1); ok(D.s > R.sGate + 10, 'he drives on once the sniper is at the pad'); }
+{ const P = { 1: { x: 130, y: 0, z: 100, a: 0 } }; const D = new SnipeDirector({ getP: (id) => P[id] || null, onEv() {}, onEnd() {} }); D.start([1]); for (let i = 0; i < 1800; i++) D.tick(0.1); ok(D.s > R.sGate + 10 || D.ended, 'the wait is limited (does not hang forever)'); }
 const names = (r) => r.evs.map((e) => e[0]).join(',');
 for (const n of [1, 2, 3, 4]) {
   const r = play(n); ok(r.res && r.res.ok, n + ' players: mission passed (' + (r.res && (r.res.why || 'ok')) + ' at ' + (r.res && r.res.T.toFixed(0)) + ' s)');
   if (n === 4) console.log('  events', names(r), 'bail z', r.D.tk.bailZ && r.D.tk.bailZ.toFixed(0));
 }
 { const r = play(2, { noShot: true }); ok(r.res && !r.res.ok && r.res.why === 'missed', 'tanker not shot -> fails (missed): ' + JSON.stringify(r.res)); }
-{ const r = play(3, { late: 40 }); ok(r.res && !r.res.ok && r.res.why === 'escaped', 'blocker late -> the thief escapes: ' + JSON.stringify(r.res)); }
+{ const r = play(3, { late: 40 }); ok(r.res && r.res.ok, 'blocker 40 s late: the thief waits for him and the mission still passes: ' + JSON.stringify(r.res)); }
+{ const r = play(3, { late: 200 }); ok(r.res && !r.res.ok && r.res.why === 'escaped', 'blocker hopelessly late (the wait runs out) -> the thief escapes: ' + JSON.stringify(r.res)); }
 { const r = play(2, { early: true }); ok(r.res && !r.res.ok && r.res.why === 'early', 'driver jumps out too early -> fails: ' + JSON.stringify(r.res)); }
 { const r = play(2, { never: true }); ok(r.res && !r.res.ok && r.res.why === 'late', 'driver never jumps out -> fails (late): ' + JSON.stringify(r.res)); }
 { const r = play(1); const e = names(r); ok(/chase.*bail.*boom.*trap|chase.*trap.*bail.*boom|chase.*bail.*trap.*boom/.test(e) || /boom/.test(e), 'solo events: ' + e); }

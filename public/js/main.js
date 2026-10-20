@@ -565,6 +565,8 @@ class Race {
     }
   }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
+  // a mission puts the player straight behind the wheel: start the engine sound (and the lights) the same way getting into the car does
+  engineOn(c) { try { if (this.lightsOn) this.applyLights(c); A.engineStop(); A.carEngineStop(); if (c.mesh.userData.hero) { A.engineCrank(); A.carEngineStart(cityVeh(c.st.id)); } else A.engineStart(); } catch (e) { console.warn(e); } }
   // DAMAGE FX (GTA V style), by health: <62 thin white fumes from under the hood, <35 heavy dark smoke, <15 black smoke + flames licking out of the engine bay, 0 = inferno.
   // The smoke swells as it rises and is dragged back by the car's own speed; flames / embers are additive so they glow.
   carFx(st, dt, near) {
@@ -875,7 +877,7 @@ class Race {
     }
   }
   restoreMission(mesh) { restoreCar(mesh); }
-  toggleMap(on) { if (!this.meta.city) return; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; document.body.classList.toggle('big-map', this.bigMapOpen); }
+  toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen); }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
   equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
@@ -1803,11 +1805,29 @@ $('p-full').onclick = () => {
     } catch { /* not supported */ }
   });
 }
-{ const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'); let closedAt = 0, openedAt = 0;
-  if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; if (race && !race.over) { race.toggleMap(true); openedAt = performance.now(); } });
-  const close = (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return;   // the tail of the opening tap must not close it again
-    if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };   // tap anywhere on the map or on the X (pointer + touch down events: every phone browser; never 'click', which is the tail of the tap that opened the map)
-  for (const el of [bw, bx]) if (el) for (const ev of ['pointerdown', 'touchstart']) el.addEventListener(ev, close, { passive: false }); }
+{ const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
+  const open = () => { if (race && !race.over) { race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
+  const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
+  if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; open(); });
+  if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
+  // the big map: drag = move, two fingers = pinch zoom, wheel / trackpad pinch = zoom, + - buttons; a plain tap closes it
+  const ptrs = new Map(); let moved = 0, downAt = 0, multi = false, d0 = 0, z0 = 1;
+  const local = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const two = () => { const a = [...ptrs.values()]; return a.length > 1 ? [Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), (a[0].x + a[1].x) / 2, (a[0].y + a[1].y) / 2] : null; };
+  if (bw) {
+    bw.addEventListener('pointerdown', (e) => { if (e.target === bx || e.target.closest('#bigmap-zoom')) return; e.preventDefault(); try { bw.setPointerCapture(e.pointerId); } catch {}
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 1) { moved = 0; downAt = performance.now(); multi = false; } else { multi = true; const t = two(); d0 = t[0]; z0 = race && race.minimap.bz ? race.minimap.bz.z : 1; } });
+    bw.addEventListener('pointermove', (e) => { const p = ptrs.get(e.pointerId); if (!p || !race) return; const mmap = race.minimap; e.preventDefault();
+      const before = two(), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+      if (ptrs.size === 1) mmap.bigPan(dx, dy);
+      else if (before) { const t = two(), r = cv.getBoundingClientRect(); const want = z0 * t[0] / Math.max(10, d0), cur = mmap.bz.z; mmap.bigZoom(want / cur, t[1] - r.left, t[2] - r.top); mmap.bigPan(dx / 2, dy / 2); } });
+    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250) close(); };
+    bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); });
+    bw.addEventListener('wheel', (e) => { if (!race || !race.bigMapOpen) return; e.preventDefault(); const [x, y] = local(e); race.minimap.bigZoom(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0018)), x, y); }, { passive: false });
+    for (const ev of ['gesturestart', 'gesturechange']) bw.addEventListener(ev, (e) => e.preventDefault(), { passive: false });   // iOS Safari: no page zoom while pinching the map
+  }
+  const zb = (id, f) => { const el = $(id); if (el) el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.minimap.bigZoom(f, race.minimap.bS / 2, race.minimap.bS / 2); }); };
+  zb('bz-in', 1.5); zb('bz-out', 1 / 1.5); }
 $('p-retry').onclick = () => { A.sfx.click(); const l = app.level; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; startSingle(l); };
 $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); leaveToTitle(); };
 

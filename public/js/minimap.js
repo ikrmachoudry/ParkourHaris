@@ -90,11 +90,18 @@ export class Minimap {
     const na = Math.atan2(-s * -1, c * 0) ; void na;
     { const [nx, ny] = toScr(view.x, view.z - 1000); const dx = nx - S / 2, dy = ny - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 22; g.fillStyle = '#d62828'; g.beginPath(); g.arc(S / 2 + dx / d * nr, S / 2 + dy / d * nr, S / 28, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(S / 22) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', S / 2 + dx / d * nr, S / 2 + dy / d * nr + 1); }
   }
+  bigOpen() { if (this.bz) this.bz.set = false; }
+  // zoom about the screen point (px, py) of the big map canvas by the factor f; pan by a screen-pixel drag
+  bigZoom(f, px, py) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k0 = S / 1020 * bz.z, wx = bz.cx + (px - S / 2) / k0, wz = bz.cz + (py - S / 2) / k0; bz.z = Math.min(9, Math.max(1, bz.z * f)); const k1 = S / 1020 * bz.z; bz.cx = wx - (px - S / 2) / k1; bz.cz = wz - (py - S / 2) / k1; }
+  bigPan(dx, dy) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k = S / 1020 * bz.z; bz.cx -= dx / k; bz.cz -= dy / k; }
   // the whole island, north up: tap/click the small map (or press M / Tab) to open, again (or Esc) to close
   drawBig(cv, me, others, marks, route, wi) {
     if (!this.map) this.map = drawStatic();
-    const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.86); if (cv.width !== S) cv.width = cv.height = S;
-    const g = cv.getContext('2d'), k = S / 1020, ox = S / 2, oy = S / 2;   // show the whole island (-510..510)
+    const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.95); if (cv.width !== S) cv.width = cv.height = S;
+    // zoom + pan (pinch, mouse wheel / trackpad pinch, + - buttons, drag): opens zoomed in on the player, whole island = zoom 1
+    const bz = this.bz || (this.bz = { z: 2.2, cx: 0, cz: 0, set: false }); if (!bz.set) { bz.set = true; bz.z = 2.2; bz.cx = me.x; bz.cz = me.z; }
+    bz.z = Math.min(9, Math.max(1, bz.z)); const lim = 510 * (1 - 1 / bz.z) + 40; bz.cx = Math.max(-lim, Math.min(lim, bz.cx)); bz.cz = Math.max(-lim, Math.min(lim, bz.cz)); this.bS = S;
+    const g = cv.getContext('2d'), k = S / 1020 * bz.z, ox = S / 2 - bz.cx * k, oy = S / 2 - bz.cz * k;
     g.clearRect(0, 0, S, S); g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
     g.save(); g.translate(ox, oy); g.scale(k, k); g.drawImage(this.map, -O, -O); g.restore();
     const P = (x, z) => [ox + x * k, oy + z * k];
