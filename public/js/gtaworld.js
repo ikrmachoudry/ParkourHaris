@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
+import { buildPort } from './portworld.js';
 import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, snipeClear } from './gta.js';
 
 const col = new THREE.Color();
@@ -214,7 +215,7 @@ function intellimumTexture() {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 export function buildGta(world, th, info, seed) {
-  world.waterY = GT.SEA; world.killY = -2.6;
+  world.waterY = GT.SEA; world.killY = -2.6; world.seaSwim = true;
   world.terrain = gtaH;
   const roads = gtaRoads(); info.track = roads; info.cars = gtaCars();
   // the city blocks (pavements, lots, driveways, garages) sit 0.2 m above the avenues: cars must ride on that too, or their tyres sink into the ground (a short ramp over the kerb)
@@ -523,6 +524,7 @@ export function buildGta(world, th, info, seed) {
     { const Sp = P.spawn; wm.add(Bx(9, 0.05, 4 * Sp.step + 1), Sp.x, 0.07, Sp.z + 1.5 * Sp.step, '#3b3f4a');
       for (let k = 0; k <= 4; k++) wm.add(Bx(6.4, 0.02, 0.12), Sp.x, 0.11, Sp.z + (k - 0.5) * Sp.step, '#ffd23f'); }
   }
+  buildPort(world, wm, roads, R);
   // ---- parks: fountain + trees + benches
   for (const [px, pz] of PARKS) {
     wm.add(new THREE.CylinderGeometry(2.6, 2.8, 1.0, 14), px, 0.7, pz, '#b8c2cc'); wm.add(new THREE.CylinderGeometry(2.0, 2.0, 0.2, 14), px, 1.22, pz, '#5ec8f0'); wm.add(new THREE.CylinderGeometry(0.3, 0.4, 2.4, 8), px, 2.2, pz, '#b8c2cc'); world.glow.add(new THREE.SphereGeometry(0.7, 8, 6), px, 3.6, pz, '#bff0ff');

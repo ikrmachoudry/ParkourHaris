@@ -25,13 +25,19 @@ export const CITY_VEH = [
   { id: 26, name: 'Tractor', style: 'tractor', model: 'tractor', paint: '#c8262c', mass: 3400, kW: 55, top: 21 / 3.6 * 1.015, mu: 0.8, drive: 'rwd', cda: 2.2, cyl: 4, pitch: 0.55, hornHz: 300 },   // farm tractor: reads 21 km/h flat out
   { id: 27, name: 'Truck', style: 'truck', model: 'truck', paint: '#1f5fbf', mass: 7500, kW: 160, top: 105 / 3.6 * 1.0335, mu: 0.85, drive: 'rwd', cda: 4.6, cyl: 6, pitch: 0.5, hornHz: 240 },   // cargo truck: reads 105 km/h flat out
   { id: 28, name: 'Bus', style: 'bus', model: 'bus', paint: '#1a7f4b', mass: 11000, kW: 480, top: 165 / 3.6 * 1.031, mu: 0.85, drive: 'rwd', cda: 6.2, cyl: 6, pitch: 0.42, hornHz: 200 },   // city bus: reads 165 km/h flat out
-  { id: 29, name: 'Racing Car', style: 'sports', extra: 'spoiler', paint: '#e11d2e', mass: 1250, kW: 520, top: 190 / 3.6 * 1.0053, mu: 1.35, drive: 'rwd', cda: 0.55, cyl: 8, pitch: 1.05, hornHz: 500 },   // street racer with a big spoiler: reads 190 km/h flat out
+  { id: 29, name: 'Racing Car', style: 'sports', extra: 'spoiler', paint: '#e11d2e', mass: 1250, kW: 520, top: 190 / 3.6 * 1.0053, mu: 1.35, drive: 'rwd', cda: 0.55, cyl: 8, pitch: 1.05, hornHz: 500 },
+  // ---- boats for the water world (see boat.js): top = top speed in m/s (HUD km/h = top * 3.6), acc / dec = m/s2, turn = rudder yaw rate (rad/s), agil = how fast it answers, keel = sideways grip,
+  // draft = how much water it needs, rideH / lift = height on the water at rest / at speed, trim = bow-up angle at speed
+  { id: 30, name: 'Speedboat', style: 'speedboat', hull: 'speedboat', model: 'speedboat', boat: true, paint: '#f4f6f8', mass: 2300, kW: 600, top: 138 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 8, pitch: 1.1, hornHz: 520, acc: 11, dec: 15, turn: 1.15, agil: 3.2, keel: 1.5, draft: 0.5, rideH: 0.12, lift: 0.1, trim: 0.11 },
+  { id: 31, name: 'Fishing Boat', style: 'fishboat', hull: 'fishboat', model: 'fishboat', boat: true, paint: '#2457a6', mass: 9000, kW: 160, top: 52 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 6, pitch: 0.55, hornHz: 260, acc: 2.8, dec: 5, turn: 0.52, agil: 1.7, keel: 3.0, draft: 0.9, rideH: 0.2, lift: 0, trim: 0.025 },
+  { id: 32, name: 'Yacht', style: 'yacht', hull: 'yacht', model: 'yacht', boat: true, paint: '#ffffff', mass: 38000, kW: 900, top: 70 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 12, pitch: 0.4, hornHz: 180, acc: 3.4, dec: 6, turn: 0.4, agil: 1.3, keel: 3.6, draft: 1.2, rideH: 0.25, lift: 0.05, trim: 0.035 }   //// street racer with a big spoiler: reads 190 km/h flat out
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
 // geometry the physics needs (metres) from the body style
-const STYLE_GEO = {
+export const STYLE_GEO = {
   sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
+  speedboat: { L: 8.6, w: 2.5, wb: 6 }, fishboat: { L: 11.5, w: 3.6, wb: 8 }, yacht: { L: 19, w: 5.2, wb: 13 },
   rick: { L: 2.75, w: 1.3, wb: 1.9 }, tractor: { L: 3.7, w: 2.0, wb: 2.0 }, truck: { L: 7.6, w: 2.5, wb: 4.3 }, bus: { L: 11.5, w: 2.6, wb: 6.2 }, bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
 };
 
@@ -178,11 +184,10 @@ function impulse(c, nx, nz, rx, rz, m, Iz, e) {
 
 const ALL = (t) => { if (!t.props) return t.boxes || []; return t._all || (t._all = [...(t.boxes || []), ...t.props]); };
 const TD_SEA = -0.8, TD_EDGE = 505;
-function terrain(c, dt, track, spec, geo) {
-  const T = track.terrain; let ev = '';
+// buildings, piers and every other solid box: every circle of the car against every nearby box (only while the car is lower than the roof) - cars AND boats
+export function bumpBoxes(c, track, spec, geo) {
+  let ev = '';
   const m = spec.mass, Iz = m * Math.pow(0.48 * (geo.wb || 2.7), 2);
-  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
-  // buildings: every circle against every nearby box (only while the car is lower than the roof)
   for (let pass = 0; pass < 2; pass++) for (const ci of circles(c, geo)) {
     for (const b of ALL(track)) {
       if (c.y > b.h - 0.4 || ci.x < b.x0 - 2 || ci.x > b.x1 + 2 || ci.z < b.z0 - 2 || ci.z > b.z1 + 2) continue;
@@ -194,6 +199,11 @@ function terrain(c, dt, track, spec, geo) {
       if (hit > 0) { hurt(c, hit, ci.x - c.x, ci.z - c.z); c.vx *= 0.985; c.vz *= 0.985; if (hit > 4) { ev = hit > 11 ? 'crash' : 'bump'; c.crash = Math.max(c.crash || 0, hit); } }
     }
   }
+  return ev;
+}
+function terrain(c, dt, track, spec, geo) {
+  const T = track.terrain; let ev = bumpBoxes(c, track, spec, geo);
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   // the island edge and the sea
   const E = track.edge || TD_EDGE; if (Math.abs(c.x) > E) { c.x = Math.sign(c.x) * E; c.vx *= -0.3; } if (Math.abs(c.z) > E) { c.z = Math.sign(c.z) * E; c.vz *= -0.3; }
   if (T(c.x + fx * 2.5, c.z + fz * 2.5) < TD_SEA && T(c.x, c.z) < TD_SEA + 0.6) { c.vx *= -0.35; c.vz *= -0.35; c.x += c.vx * dt * 3; c.z += c.vz * dt * 3; ev = ev || 'bump'; c.bump = 8; }

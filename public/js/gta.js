@@ -1,5 +1,6 @@
 // HARIS CITY (GTA-style open world): the pure layout - terrain height function, road network, buildings. No three.js here,
 // so tests (and later the server) can use it too.  World: x east, z south, y up.  Sea level is y = -1.2.
+import { PORT, portFlat, portRoadD } from './port.js';
 export const GT = {
   HALF: 540,                       // the terrain covers -540..540 in x and z
   CITY: 240,                       // the avenues run from -240 to 240 (8 x 8 blocks)
@@ -69,6 +70,10 @@ export function gtaBase(x, z) {
   { // the Stunt Park is one big flat pad (the hills and the noise are levelled out, blending back into the land over ~14 m)
     const P = PARK, dx = Math.max(P.x0 - x, 0, x - P.x1), dz = Math.max(P.z0 - z, 0, z - P.z1), d = Math.hypot(dx, dz);
     if (d < 22) h = mix(h, 0, 1 - sm(8, 22, d));
+  }
+  { // Haris Port: the yard is levelled flat and a road bed runs down to it from the ring highway
+    const f = portFlat(x, z); if (f > 0) h = mix(h, 0, f);
+    if (z > 235 && z < 500) h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 15, portRoadD(x, z)));
   }
   { // Snipe the Truck: the ridge, the tunnel cutting, the bypass and the sniper hill road (all flat across the road, blending into the land)
     const S = SNIPE, R = S.ridge;
@@ -188,6 +193,7 @@ export function gtaRoads() {
     for (let i = 0; i + 1 < S.hill.length; i++) segs.push({ ax: S.hill[i][0], az: S.hill[i][1], bx: S.hill[i + 1][0], bz: S.hill[i + 1][1], hw, y0: S.hill[i][2], y1: S.hill[i + 1][2], g: 'snipe-hill' });
     plazas.push({ x: S.pad.x, z: S.pad.z, r: S.pad.r + 1, y: S.pad.y, g: 'snipe-pad' });
   }
+  segs.push({ ax: PORT.road[0][0], az: PORT.road[0][1], bx: PORT.road[1][0], bz: PORT.road[1][1], hw, y0: 0, g: 'port-road' });   // down to Haris Port
   return { segs, plazas, boosts: PARK.boosts.map((b) => ({ ...b })) };
 }
 
@@ -251,7 +257,8 @@ export function gtaCars() {
     (() => { const h = HOMES[2], p = homeW(h, 2.2, 7.6); return { id: 26, x: p.x, z: p.z, yaw: h.yaw }; })(),   // Hanbal's tractor (21 km/h)
     (() => { const h = HOMES[3], p = homeW(h, 1.8, 6.6); return { id: 23, x: p.x, z: p.z, yaw: h.yaw }; })(),
     ...[89, 98].map((z) => ({ id: 28, x: PARK.cxW + 62, z, yaw: Math.PI / 2 })),
-    { id: 29, x: PARK.spawn.x - 13, z: 95, yaw: PARK.spawn.yaw }];   // the red racing car (190 km/h) right beside the two purple racers in the infield; two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
+    { id: 29, x: PARK.spawn.x - 13, z: 95, yaw: PARK.spawn.yaw },
+    ...PORT.berths.map((b) => ({ id: b.hull === 'speedboat' ? 30 : b.hull === 'fishboat' ? 31 : 32, x: b.x, z: b.z, yaw: b.yaw, y: GT.SEA + (b.hull === 'speedboat' ? 0.12 : b.hull === 'fishboat' ? 0.2 : 0.25) }))];   // the three boats moored at Haris Port (water world)   // the red racing car (190 km/h) right beside the two purple racers in the infield; two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.

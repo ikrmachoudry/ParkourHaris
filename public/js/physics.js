@@ -34,6 +34,10 @@ export function stepBody(w, b, dt, inp) {
   for (const pl of w.pools) {
     if (b.x > pl.x0 && b.x < pl.x1 && b.z > pl.z0 && b.z < pl.z1) { const d = pl.surf - b.y; if (d > 0.12) { sw = Math.min(1, d / 0.9); surf = pl.surf; } break; }
   }
+  if (!sw && w.seaSwim && w.terrain) { // the open sea: deeper than your knees and you swim (the same floating as a pool)
+    const th = w.terrain(b.x, b.z), d = w.waterY - b.y;
+    if (th < w.waterY - 0.15 && d > 0.45) { sw = Math.min(1, d / 0.5); surf = w.waterY; }
+  }
   if (sw > 0.3 && b.swim <= 0.3) { b.events.push('splash'); b.waterSurf = surf; }
   b.swim = sw;
 
@@ -131,7 +135,7 @@ export function stepBody(w, b, dt, inp) {
   if (w.terrain && !b.grounded && b.vy <= 0) { const th = w.terrain(b.x, b.z); if (b.y < th - 0.02 && b.y > th - 8 && th > w.waterY) { b.y = th; b.vy = 0; b.grounded = true; b.ground = null; } }
   // ---- water / void
   if (b.y < w.waterY - 0.2 && !b.inWater) { b.inWater = true; b.events.push('splash'); }
-  if (b.y < w.killY) b.events.push('fell');
+  if (b.y < w.killY && !(w.seaSwim && b.swim > 0.1)) b.events.push('fell');
   return b;
 }
 

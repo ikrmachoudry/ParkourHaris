@@ -9,6 +9,7 @@ import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
 import { buildTruck, TRUCK } from './htruck.js';
 import { buildBus, BUS } from './hbus.js';
+import { buildBoat, BOATS } from './hboat.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const camPos = new THREE.Vector3(1e6, 0, 0);
@@ -56,7 +57,8 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
-const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
+const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR],
+  speedboat: [(o) => buildBoat({ ...o, hull: 'speedboat' }), BOATS.speedboat, BOATS.speedboat.seatTop - 0.15, 1, BOATS.speedboat.seatR], fishboat: [(o) => buildBoat({ ...o, hull: 'fishboat' }), BOATS.fishboat, BOATS.fishboat.seatTop - 0.15, 1, BOATS.fishboat.seatR], yacht: [(o) => buildBoat({ ...o, hull: 'yacht' }), BOATS.yacht, BOATS.yacht.seatTop - 0.15, 1, BOATS.yacht.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
   const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];
   const full = bakedOnly ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
@@ -64,7 +66,7 @@ function buildRickMesh(spec, lo, bakedOnly) {
   const g = new THREE.Group(), rot = new THREE.Group();
   rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(RICK.L * 1.25, RICK.w * 2.6), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
+  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; sh.visible = !spec.boat; g.add(sh);
   g.userData = {
     hero: full || bk, spec, baked, bakedOnly, full: full ? full.group : baked, wheels: [], pivots: [], seat: { z: RICK.seatX, y: 0.8 },
     seatF: RICK.seatX, seatR, seatY, seatS, lamp: null,

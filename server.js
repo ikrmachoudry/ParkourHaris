@@ -109,7 +109,7 @@ function endRound(room, reason) {
 function startRound(room) {
   const meta = LEVEL_META[room.level];
   room.phase = 'countdown';
-  room.t0 = Date.now() + COUNTDOWN_MS;
+  room.t0 = Date.now() + (meta.city ? 0 : COUNTDOWN_MS);   // the open-world city has no 3-2-1: you simply start
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
@@ -120,7 +120,7 @@ function startRound(room) {
     order: [...room.players.values()].map((p) => p.id),
   });
   clearTimers(room);
-  room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, COUNTDOWN_MS));
+  room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
 }
 
 function removePlayer(p) {
@@ -277,7 +277,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now();
         if (t - (p.lastCar || 0) < 250) return;
-        if (!num(m.c, 0, 63) || !num(m.x, -600, 600) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
+        if (!num(m.c, 0, 63) || !num(m.x, -2000, 2000) || !num(m.z, -2000, 2000) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
         const cy = num(m.y, -5, 120) ? m.y : 0;
         room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
@@ -320,7 +320,7 @@ wss.on('connection', (ws, req) => {
       case 'fx': { // a shot (tracer + sound) for everybody
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastFx || 0) < 60) return; p.lastFx = t;
-        if (!num(m.x, -700, 700) || !num(m.y, -5, 300) || !num(m.z, -2000, 700) || !num(m.dx, -1.01, 1.01) || !num(m.dz, -1.01, 1.01) || !num(m.l, 0, 120)) return;
+        if (!num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.dx, -1.01, 1.01) || !num(m.dz, -1.01, 1.01) || !num(m.l, 0, 120)) return;
         bcast(room, { t: 'fx', id: p.id, x: m.x, y: m.y, z: m.z, dx: m.dx, dz: m.dz, l: m.l, w: m.w & 3 }, p.id);
         break;
       }
@@ -335,7 +335,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now();
         if (t - p.lastS < 12) return;
         p.lastS = t;
-        if (!num(m.x, -700, 700) || !num(m.y, -200, 300) || !num(m.z, -2000, 700) || !num(m.r, -10, 10)) return;
+        if (!num(m.x, -2000, 2000) || !num(m.y, -200, 300) || !num(m.z, -2000, 2000) || !num(m.r, -10, 10)) return;
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r; p.a = m.a | 0;
         bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, w: m.w & 31, vm: num(m.vm, 0, 60) ? m.vm | 0 : 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];

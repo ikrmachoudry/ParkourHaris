@@ -27,6 +27,7 @@ export class HeroActor {
     let name = 'idle', t = this.t;
     const sp = st.speed || 0;
     if (st.seated) name = st.bike ? 'ride' : st.pax ? 'pax' : 'sit';
+    else if (st.swim) name = 'swim';
     else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }

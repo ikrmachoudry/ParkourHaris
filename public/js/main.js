@@ -9,7 +9,7 @@ import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { makeHero } from './glbactor.js';
-import { cityVeh } from './cityveh.js';
+import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
@@ -215,14 +215,16 @@ class Remote {
     if (Date.now() - this.rxAt > 700) { this.flags &= ~(2 | 4 | 16); this.speed = 0; } // their packets stopped (slow / hidden window): stand them up instead of freezing them lying down
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
-    g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
+    const WR0 = race && race.world, sw0 = !!(WR0 && WR0.terrain && WR0.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR0.waterY + 0.1 && WR0.terrain(this.x, this.z) < WR0.waterY - 0.3);
+    g.position.set(this.x, this.y - (sw0 ? 0.4 : 0), this.z); g.rotation.y = this.yaw;
     // a lost packet must never leave somebody lying down forever on my screen: stun is at most ~3.4 s long (a car knock-down: fly, roll, lie, get up)
     if (this.flags & 2) this.stunT = (this.stunT || 0) + dt; else this.stunT = 0;
     if (this.stunT > 3.4) this.flags &= ~2;
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
-    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) ? null : wnameOf(this.w), aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
+    const WR = race && race.world, swimming = !!(WR && WR.terrain && WR.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR.waterY + 0.1 && WR.terrain(this.x, this.z) < WR.waterY - 0.3);
+    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) ? null : wnameOf(this.w), aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -353,9 +355,9 @@ class Race {
     // ---- countdown display
     if (lt < 0) {
       const n = Math.ceil(-lt);
-      if (n !== this.lastCount && n <= 3) { this.lastCount = n; this.count(String(n)); A.sfx.tick(); }
+      if (n !== this.lastCount && n <= 3 && !this.meta.city) { this.lastCount = n; this.count(String(n)); A.sfx.tick(); }
     } else if (this.phase === 'countdown') {
-      this.phase = 'race'; this.count('GO!'); A.sfx.go(); this.lastCount = 0;
+      this.phase = 'race'; if (!this.meta.city) { this.count('GO!'); A.sfx.go(); } this.lastCount = 0;
       if (this.multi) setTimeout(() => { if (race === this && !this.over) this.toast(IS_TOUCH ? 'Tap BAT to bonk rivals!' : 'Press B or click to swing the BAT!'); }, 1400);
       if (this.cars.length) setTimeout(() => { if (race === this && !this.over && !this.drive) this.toast('\uD83D\uDE97 Follow the CAR STATION signs to drive!'); }, this.multi ? 4200 : 1600);
     }
@@ -425,8 +427,8 @@ class Race {
     const m = this.me.model, g = m.group;
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
-    else { g.position.set(b.x, b.y, b.z); g.rotation.y = b.yaw; g.rotation.x = swimK * 0.55 * clamp(Math.hypot(b.vx, b.vz) / 3, 0.25, 1); g.scale.setScalar(1); }
-    m.update(dt, { seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive ? null : this.weapon, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
+    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive ? null : this.weapon, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -500,15 +502,16 @@ class Race {
   }
   // a patrol car that the police are driving can be stolen like any car (GTA V): one of the city's police cars is moved there and you get in it
   stealCop(cc) {
-    const c = this.cars.find((q) => q.st.id === 15 && !q.st.wreck && q.st.driver === -1 && q !== this.drive) || this.cars.find((q) => q.mesh.userData.hero && q.st.driver === -1 && !q.st.wreck && q !== this.drive); if (!c) return false;
+    const c = this.cars.find((q) => q.st.id === 15 && !q.st.wreck && q.st.driver === -1 && q !== this.drive) || this.cars.find((q) => q.mesh.userData.hero && !(cityVeh(q.st.id) || {}).boat && q.st.driver === -1 && !q.st.wreck && q !== this.drive); if (!c) return false;
     const s = c.st; s.x = cc.x; s.z = cc.z; s.y = this.info.track.terrain ? this.info.track.terrain(cc.x, cc.z) : 0; s.yaw = cc.yaw || 0; s.vx = s.vz = s.speed = 0; s.hp = 100; s.parked = true; s.driver = -1; s.wreck = false; s.dmg = undefined;
     if (c.mesh.userData.hero) c.mesh.userData.hero.repair();
     this.wanted.takeCar(cc); this.crime('jack', s.x, s.z); this.toggleCar(); return true;
   }
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
-    if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
-    let best = null, bd = 4.6;
-    for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 0.8 : 0); if (d < bd) { bd = d; best = c; } }
+    if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain)) return null;
+    const swimming = b.swim > 0.3; let best = null, bd = 4.6;
+    for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3.5) continue; const cv = cityVeh(c.st.id), boat = !!(cv && cv.boat); if (swimming && !boat) continue;
+      let d; if (boat) { const L = (STYLE_GEO[cv.style].L / 2) * 0.8, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), t = Math.max(-L, Math.min(L, (b.x - c.st.x) * fx + (b.z - c.st.z) * fz)); d = Math.hypot(b.x - (c.st.x + fx * t), b.z - (c.st.z + fz * t)) - STYLE_GEO[cv.style].w * 0.3; } else d = Math.hypot(b.x - c.st.x, b.z - c.st.z); d += taken ? 0.8 : 0; if (d < bd) { bd = d; best = c; } }
     return best;
   }
   spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
@@ -531,14 +534,23 @@ class Race {
     const b = this.me.body;
     if (this.drive) { // get out
       const c = this.drive, st = c.st;
-      const pax = this.paxMode, bail = !force && Math.abs(st.speed) > 5.5, vx0 = st.vx, vz0 = st.vz, sp0 = Math.abs(st.speed);
+      const boatV = cityVeh(st.id).boat, pax = this.paxMode, bail = !force && !boatV && Math.abs(st.speed) > 5.5, vx0 = st.vx, vz0 = st.vz, sp0 = Math.abs(st.speed);
       if (!force && st.y > 1.2 && !this.world.terrain) { return; }
       const hero = !!c.mesh.userData.hero, lx = Math.cos(st.yaw) * (hero ? -1 : 1), lz = -Math.sin(st.yaw) * (hero ? -1 : 1);
       let ox = st.x + lx * 2.4, oz = st.z + lz * 2.4;
       if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
-      respawn(b, ox, this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05, oz, st.yaw); b.hitCd = 0.3;
+      let oy = this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05;
+      if (boatV) {   // off a boat: onto the pier / quay if there is one beside it, otherwise into the water
+        const bg = STYLE_GEO[cityVeh(st.id).style], fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), rx = -fz, rz = fx, bxs = (this.info.track && this.info.track.boxes) || [];
+        let found = null;
+        for (const sd of [1, -1]) for (const dd of [bg.w / 2 + 1.2, bg.w / 2 + 2.4]) for (const al of [0, 2, -2, 4, -4]) { if (found) break;
+          const px = st.x + rx * sd * dd + fx * al, pz = st.z + rz * sd * dd + fz * al; if (bxs.some((q) => px > q.x0 && px < q.x1 && pz > q.z0 && pz < q.z1 && q.h > 0.2 && q.h < 0.5)) found = [px, 0.35, pz]; }
+        if (found) { ox = found[0]; oz = found[2]; oy = found[1]; } else { const dd = bg.w / 2 + 1.4; ox = st.x + rx * dd; oz = st.z + rz * dd; oy = (this.world.waterY === undefined ? -1.2 : this.world.waterY) - 0.5; }
+      }
+      respawn(b, ox, oy, oz, st.yaw); b.hitCd = 0.3;
       if (pax) { /* a passenger leaving never touches the car: the driver keeps driving */ }
       else if (bail) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }          // jumped out of a moving car: it keeps rolling
+      else if (boatV && !force && Math.abs(st.speed) > 2) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }
       else if (!force) { st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; }
       this.drive = null; this.paxMode = false; this.paxSeat = 0;
       if (bail) try {   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
@@ -600,6 +612,11 @@ class Race {
       if (!st.home) st.home = { x: st.x, z: st.z, yaw: st.yaw };
       const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70;
       this.carFx(st, dt, near);
+      if (near && st.id >= 30 && st.id <= 32 && Math.abs(st.speed) > 1.5) {   // boat wake: foam at the stern and a bow spray
+        const bg = STYLE_GEO[cityVeh(st.id).style], fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), k = Math.min(1, Math.abs(st.speed) / 14); st.wkA = (st.wkA || 0) + dt * (10 + 30 * k);
+        while (st.wkA >= 1) { st.wkA -= 1; const w = this.world.waterY === undefined ? -1.2 : this.world.waterY, sd = Math.random() - 0.5;
+          this.particles.emit(st.x - fx * bg.L * 0.45 + fz * sd * bg.w * 0.7, w + 0.1, st.z - fz * bg.L * 0.45 - fx * sd * bg.w * 0.7, 1, { color: '#e8f4ff', speed: 1.6 + 2 * k, up: 1.2 + 1.5 * k, life: 0.7, size: 0.45 + 0.4 * k });
+          if (k > 0.3) for (const s2 of [-1, 1]) this.particles.emit(st.x + fx * bg.L * 0.3 - fz * s2 * bg.w * 0.4, w + 0.2, st.z + fz * bg.L * 0.3 + fx * s2 * bg.w * 0.4, 1, { color: '#ffffff', speed: 1.8 + 3 * k, up: 2 + 2 * k, life: 0.5, size: 0.3 + 0.3 * k }); } }
       { const hz = st.hp !== undefined && st.hp > 0 && st.hp < 100 && !st.wreck && Math.abs(st.speed) < 3 ? homeZone(st.x, st.z) : null;   // parked in a garage: fixed after 30 s
         if (hz && hz.zone === 'garage') {
           st.garT = (st.garT || 0) + dt;
@@ -1594,7 +1611,7 @@ function startSingle(levelIdx) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + 3600, seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
