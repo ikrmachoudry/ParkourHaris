@@ -858,7 +858,8 @@ export class World {
     }
     if (this.terrain) { // smooth hills (Haris City): the ground height is a function; solids / ramps on top of it win ties
       const top = this.terrain(b.x, b.z);
-      if (top <= lim && top > bestTop && (b.y <= top + 1e-4 || b.y <= top + snap)) { best = TERRAIN_SURF; bestTop = top; }
+      // a steep hill rises faster than a step (and a slow frame moves further): allow a big step up so the walker is carried up the slope and never falls through it
+      if (top <= prevY + 1.5 && top > bestTop && (b.y <= top + 1e-4 || b.y <= top + snap)) { best = TERRAIN_SURF; bestTop = top; }
     }
     return best ? { s: best, top: bestTop } : null;
   }

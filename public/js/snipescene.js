@@ -33,6 +33,7 @@ export class SnipeScene {
     this.car.visible = false; this.actor.group.visible = false; R.scene.add(this.car, this.actor.group);
     this.pol = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
     this.ai = [0, 1].map((i) => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); const z = ZONES[i]; return { m, x: z.x + (i ? 0.7 : -0.7), z: z.z, yaw: Math.PI, i }; });
+    this.pur = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
     this.built = true;
   }
   ground(x, z) { const t = this.R.info.track; return t && t.terrain ? t.terrain(x, z) : 0; }
@@ -69,7 +70,8 @@ export class SnipeScene {
   hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
     this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
-    if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; }
+    if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
+    try { A.sirenMission(0); } catch { /* noop */ }
     const c = this.truck; if (c && this.tank) {
       c.mesh.remove(this.tank); this.tank = null; const st = c.st, hero = c.mesh.userData.hero;
       try { restoreCar(c.mesh); if (hero) hero.repair(); } catch { /* noop */ }
@@ -90,9 +92,9 @@ export class SnipeScene {
     const x = k[0], z = k[1], y = this.ground(x, z) + 1.8, cp = R.camera.position, d = Math.hypot(x - cp.x, z - cp.z), vol = Math.max(0.35, 1 - d / 300), q = R.isTouch ? 0.6 : 1;
     try { A.sfx.boom(vol); } catch { /* noop */ }
     R.shake = Math.max(R.shake || 0, clamp(1.1 - d / 160, 0.1, 1.1));
-    for (let i = 0; i < 150 * q; i++) R.fxP.emit(x + (Math.random() - 0.5) * 3, y + Math.random() * 1.5, z + (Math.random() - 0.5) * 6, 1, { color: Math.random() < 0.5 ? '#ffd23f' : '#ff5a12', alpha: 1, size: 3.5 + Math.random() * 3, speed: 9, up: 6 + Math.random() * 7, life: 1.1 + Math.random() * 1.0, gravity: -1.2, spread: 3.5 });
-    for (let i = 0; i < 46 * q; i++) R.particles.emit(x + (Math.random() - 0.5) * 4, y + 0.5, z + (Math.random() - 0.5) * 6, 1, { color: Math.random() < 0.7 ? '#141414' : '#3b3733', alpha: 0.9, size: 2.4, grow: 7, speed: 5, up: 8 + Math.random() * 4, life: 5 + Math.random() * 3, gravity: -0.5, spread: 3 });
-    for (let i = 0; i < 40 * q; i++) R.fxP.emit(x, y, z, 1, { color: '#ffb347', alpha: 1, size: 0.18, speed: 11, up: 12, life: 1.4, gravity: 12, spread: 1.2 });   // sparks and burning drops
+    for (let i = 0; i < 320 * q; i++) R.fxP.emit(x + (Math.random() - 0.5) * 4, y + Math.random() * 2.5, z + (Math.random() - 0.5) * 8, 1, { color: Math.random() < 0.4 ? '#ffe27a' : Math.random() < 0.6 ? '#ff7a18' : '#ff4a0a', alpha: 1, size: 4.5 + Math.random() * 5, speed: 12, up: 8 + Math.random() * 11, life: 1.4 + Math.random() * 1.6, gravity: -1.6, spread: 4.5 });
+    for (let i = 0; i < 120 * q; i++) R.particles.emit(x + (Math.random() - 0.5) * 6, y + 0.5, z + (Math.random() - 0.5) * 8, 1, { color: Math.random() < 0.7 ? '#101010' : '#35322e', alpha: 0.92, size: 3.6, grow: 10, speed: 6, up: 9 + Math.random() * 7, life: 8 + Math.random() * 6, gravity: -0.6, spread: 4 });
+    for (let i = 0; i < 90 * q; i++) R.fxP.emit(x, y, z, 1, { color: '#ffb347', alpha: 1, size: 0.25, speed: 14, up: 15, life: 1.8, gravity: 12, spread: 1.6 });   // sparks and burning drops
     if (c) { const st = c.st; st.hp = 0; st.burnT = 0; st.wreck = false; st.driver = -1; }
     if (this.tank) { this.tank.userData.tg.visible = false; this.tank.userData.barrel.material = new THREE.MeshStandardMaterial({ color: '#1a1816', roughness: 0.9, metalness: 0.1 }); for (const b of this.tank.userData.bands) b.material = new THREE.MeshStandardMaterial({ color: '#2a1512', roughness: 0.9 }); }
   }
@@ -100,7 +102,7 @@ export class SnipeScene {
   seat(g, x, y, z, yaw, ud, f, r) { const sy = Math.sin(yaw), cy = Math.cos(yaw); g.position.set(x + sy * f - cy * r, y + ud.seatY, z + cy * f + sy * r); g.rotation.set(0, yaw, 0); g.scale.setScalar(ud.seatS || 1); }
   update(dt) {
     this.t += dt; const s = this.snap, R = this.R;
-    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; } return; }
+    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; } try { A.sirenMission(0); } catch { /* noop */ } return; }
     if (!this.built) this.build();
     this.armTruck();
     const age = Math.min(0.3, (performance.now() - this.at) / 1000), f = 1 - Math.exp(-15 * dt);
@@ -138,10 +140,10 @@ export class SnipeScene {
       if (km === 3 || km === 4) {
         const st = c.st, q = R.isTouch ? 0.5 : 1, since = this.t - this.boomAt;
         if (since < 75) {
-          this.fireA = (this.fireA || 0) + dt * (since < 25 ? 26 : 12) * q;
+          this.fireA = (this.fireA || 0) + dt * (since < 25 ? 60 : 28) * q;
           while (this.fireA >= 1) { this.fireA -= 1; const rx = st.x + (Math.random() - 0.5) * 3.2, rz = st.z + (Math.random() - 0.5) * 5, ry = st.y + 1.2;
-            R.fxP.emit(rx, ry, rz, 1, { color: Math.random() < 0.45 ? '#ffd23f' : '#ff6a12', alpha: 0.9, size: since < 25 ? 2.4 : 1.4, speed: 0.6, up: 3.2, life: 0.7, gravity: -2.6, spread: 1.4 });
-            R.particles.emit(rx, ry + 0.8, rz, 1, { color: Math.random() < 0.75 ? '#121212' : '#34312e', alpha: 0.85, size: 2.0, grow: 6, speed: 0.5, up: 5, life: 6, gravity: -0.5, spread: 1.0 }); }
+            R.fxP.emit(rx, ry, rz, 1, { color: Math.random() < 0.45 ? '#ffd23f' : '#ff6a12', alpha: 0.9, size: since < 25 ? 3.6 : 2.2, speed: 0.8, up: 4.2, life: 0.9, gravity: -2.8, spread: 1.8 });
+            R.particles.emit(rx, ry + 0.8, rz, 1, { color: Math.random() < 0.75 ? '#121212' : '#34312e', alpha: 0.88, size: 2.8, grow: 9, speed: 0.6, up: 7, life: 9, gravity: -0.6, spread: 1.4 }); }
         }
       }
     }
@@ -150,6 +152,12 @@ export class SnipeScene {
     s.pl.forEach((e, i) => { const p = this.pol[i]; if (!p) return; const pxx = e[0] + Math.sin(e[2]) * e[3] * age, pzz = e[1] + Math.cos(e[2]) * e[3] * age; if (!p.m.visible) place(p, pxx, pzz, e[2]); else { p.x += (pxx - p.x) * f; p.z += (pzz - p.z) * f; place(p, p.x, p.z, angLerp(p.yaw, e[2], f)); } });
     if (!s.pl.length) for (const p of this.pol) p.m.visible = false;
     this.ai.forEach((p) => { if (p.i < (s.n | 0)) p.m.visible = false; else place(p, p.x, p.z, p.yaw); });   // police cars fill the blockers' places that no player has
+    // the police who chase the thief from the bank (always behind the tanker)
+    (s.q || []).forEach((e, i) => { const p = this.pur[i]; if (!p) return; const pxx = e[0] + Math.sin(e[2]) * e[3] * age, pzz = e[1] + Math.cos(e[2]) * e[3] * age; if (!p.m.visible) place(p, pxx, pzz, e[2]); else { p.x += (pxx - p.x) * f; p.z += (pzz - p.z) * f; place(p, p.x, p.z, angLerp(p.yaw, e[2], f)); } });
+    if (!(s.q && s.q.length)) for (const p of this.pur) p.m.visible = false;
+    { // sirens: louder the nearer the nearest police car is (heard for the whole chase, and while they arrive for the arrest)
+      let dm = 1e9; const cp = R.camera.position; for (const p of [...this.pur, ...this.pol]) if (p.m.visible) dm = Math.min(dm, Math.hypot(p.x - cp.x, p.z - cp.z));
+      try { A.sirenMission(dm < 1e8 ? Math.max(0, 1 - dm / 260) : 0); } catch { /* noop */ } }
   }
   // the cut-scene when the police arrive (null = the normal camera)
   shot(dt) {
@@ -161,7 +169,7 @@ export class SnipeScene {
   }
   dispose() {
     if (!this.built) return; const R = this.R;
-    this.hideGuide(); R.scene.remove(this.car, this.actor.group); this.actor.dispose(); for (const p of [...this.pol, ...this.ai]) R.scene.remove(p.m);
+    this.hideGuide(); try { A.sirenMission(0); } catch { /* noop */ } R.scene.remove(this.car, this.actor.group); this.actor.dispose(); for (const p of [...this.pol, ...this.ai, ...this.pur]) R.scene.remove(p.m);
     this.car.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); this.built = false;
   }
 }

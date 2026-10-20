@@ -127,6 +127,8 @@ export function stepBody(w, b, dt, inp) {
     if (c) { b.y = c.y0 - P.H; b.vy = Math.min(0, b.vy * 0.2); }
   }
 
+  // ---- never fall THROUGH a hill: if the body ended up just under the ground surface, put it back on top
+  if (w.terrain && !b.grounded && b.vy <= 0) { const th = w.terrain(b.x, b.z); if (b.y < th - 0.02 && b.y > th - 8 && th > w.waterY) { b.y = th; b.vy = 0; b.grounded = true; b.ground = null; } }
   // ---- water / void
   if (b.y < w.waterY - 0.2 && !b.inWater) { b.inWater = true; b.events.push('splash'); }
   if (b.y < w.killY) b.events.push('fell');

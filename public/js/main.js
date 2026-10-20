@@ -101,6 +101,7 @@ const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24);
 const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (it exists only in that player's game; the model id travels in 'vm')
 const WNAME = [null, 'bat', 'pistol', 'ak'];
 const wnameOf = (w) => ((w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
+const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in degrees): wide -> very tight
 const isGun = (w) => w === 'pistol' || w === 'ak' || w === 'sniper';
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
@@ -214,9 +215,9 @@ class Remote {
     this.vy = s.length > 1 ? (b.y - a.y) / Math.max(0.02, (b.ts - a.ts) / 1000) : 0;
     const g = this.model.group;
     g.position.set(this.x, this.y, this.z); g.rotation.y = this.yaw;
-    // a lost packet must never leave somebody lying down forever on my screen: stun is at most ~1.2 s long
+    // a lost packet must never leave somebody lying down forever on my screen: stun is at most ~3.4 s long (a car knock-down: fly, roll, lie, get up)
     if (this.flags & 2) this.stunT = (this.stunT || 0) + dt; else this.stunT = 0;
-    if (this.stunT > 1.2) this.flags &= ~2;
+    if (this.stunT > 3.4) this.flags &= ~2;
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
@@ -266,7 +267,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); if (dd > 60) return; const v = Math.max(0.2, 1 - dd / 60); k === 'death' ? A.voice.death(0.9 * v) : A.voice.scream(0.85 * v); }; this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 26 || nw - (this._scrT || 0) < 6000) return; this._scrT = nw; A.voice.scream(0.5 * Math.max(0.3, 1 - dd / 26)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -289,8 +290,8 @@ class Race {
     scene.add(sun, sun.target);
     this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
-    this.particles = new Particles(600); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
-    this.fxP = new Particles(IS_TOUCH ? 160 : 320, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
+    this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
+    this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
     this.ambient = new Ambient(this.meta.key, 320); scene.add(this.ambient.points);
 
     // players
@@ -336,7 +337,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? 0.22 : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.15, 1.2); this.lookT = 1.6;
+    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.15, 1.2); this.lookT = 1.6;
   }
 
   update(dt) {
@@ -382,7 +383,7 @@ class Race {
 
     // a bonk can never keep you down: stun is always <1 s, even while driving (stepBody is not run then) or after a long frame
     if (this.drive && b.stun > 0) b.stun = Math.max(0, b.stun - dt);
-    if (b.stun > 0) { this.stunReal = (this.stunReal || 0) + dt; if (this.stunReal > 1.25) { b.stun = 0; b.immune = 0.6; this.stunReal = 0; } } else this.stunReal = 0;
+    if (b.stun > 0) { this.stunReal = (this.stunReal || 0) + dt; if (this.stunReal > 3.4) { b.stun = 0; b.immune = 0.8; this.stunReal = 0; } } else this.stunReal = 0;
     const steps = Math.max(1, Math.ceil(dt / (1 / 90))), sdt = dt / steps;
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
@@ -397,6 +398,8 @@ class Race {
       stepBody(w, b, sdt, inp);
       inp.jumpPressed = false; inp.divePressed = false;
       if (b.events.length) { landed = this.events(b) || landed; b.events.length = 0; }
+    // remember the last safe spot on the ground (city): if you ever fall out of the world (a hill, a cliff, a gap) you are put back there, not sent home
+    if (this.meta.city && b.grounded && !this.drive && !(b.swim > 0.3) && b.stun <= 0 && this.world.terrain && b.y >= this.world.terrain(b.x, b.z) - 0.3 && b.y > this.world.waterY + 0.4) { const nT = performance.now(); if (nT - (this.safeAt || 0) > 400) { this.safeAt = nT; (this.safeHist = this.safeHist || []).push({ x: b.x, y: b.y, z: b.z }); if (this.safeHist.length > 6) this.safeHist.shift(); } }
     }
     }
     // hazards (once per frame)
@@ -538,7 +541,7 @@ class Race {
       this.drive = null; this.paxMode = false; this.paxSeat = 0;
       if (bail) try {   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
         const l = Math.hypot(vx0, vz0) || 1; b.hitCd = 0; b.immune = 0;
-        if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(24, sp0 * 0.8))) { b.vy = 3.5 + Math.min(4, sp0 * 0.1); b.stun = Math.min(1.15, 0.7 + sp0 * 0.01); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
+        if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(12, 3 + sp0 * 0.32))) { b.vy = 2.6 + Math.min(2.4, sp0 * 0.07); b.stun = Math.min(2.8, 1.5 + sp0 * 0.045); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
       } catch (e) { console.warn(e); }
       if (this.lightsOn && this.beam) { this.lightsOn = false; this.applyLights(c); this.lightsOn = true; }
       document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); A.sirenStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
@@ -712,7 +715,7 @@ class Race {
       if (Math.abs(lz) >= hl || Math.abs(lx) >= hw) continue;
       if (Math.abs(st.speed) > 4 && b.hitCd <= 0) { // a moving car hits you: thrown aside
         const sg = Math.sign(st.speed) || 1; let nx = fx * sg, nz = fz * sg; nx += -fz * Math.sign(lx || 1) * 0.5; nz += fx * Math.sign(lx || 1) * 0.5; const l = Math.hypot(nx, nz) || 1;
-        if (knock(b, nx / l, nz / l, Math.min(22, 4 + Math.abs(st.speed) * 0.85))) { b.vy = 5 + Math.min(4, Math.abs(st.speed) * 0.12); b.stun = Math.min(1.15, 0.7 + Math.abs(st.speed) * 0.012); A.crashSfx(Math.min(10, 4 + Math.abs(st.speed) * 0.2)); this.shake = Math.max(this.shake || 0, 0.3); this.particles.emit(b.x, b.y + 0.8, b.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); continue; }
+        if (knock(b, nx / l, nz / l, Math.min(22, 4 + Math.abs(st.speed) * 0.85))) { b.vy = 5 + Math.min(4, Math.abs(st.speed) * 0.12); b.stun = Math.min(3.2, 1.8 + Math.abs(st.speed) * 0.05); b.immune = 0; A.crashSfx(Math.min(10, 4 + Math.abs(st.speed) * 0.2)); this.shake = Math.max(this.shake || 0, 0.3); this.particles.emit(b.x, b.y + 0.8, b.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); continue; }
       }
       const pz = hl - Math.abs(lz), px = hw - Math.abs(lx);
       if (pz < px) { const k = Math.sign(lz || 1) * pz; b.x += fx * k; b.z += fz * k; } else { const k = Math.sign(lx || 1) * px; b.x += -fz * k; b.z += fx * k; }
@@ -774,6 +777,9 @@ class Race {
 
   onFell() {
     const b = this.me.body;
+    if (this.meta.city && this.safeHist && this.safeHist.length) {   // GTA-style: back to where you were standing a couple of seconds ago, no flash, no trip home
+      const q = this.safeHist[Math.max(0, this.safeHist.length - 4)]; respawn(b, q.x, q.y + 0.1, q.z, b.yaw); b.hitCd = 0.5; this.camInit = false; this.toast('Back on solid ground'); return;
+    }
     const cp = this.cpCur;
     const slotOff = (this.slot - 1) * 1.6;
     let x, y, z, yw = Math.PI;
@@ -904,9 +910,11 @@ class Race {
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ }
   }
   cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
-  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat') return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
+  zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, SCOPE_FOV.length - 1); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
+  aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
+  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && (this.aiming || this.aimT > 0); }
-  syncAct() { const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
+  syncAct() { { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
     { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
@@ -1096,7 +1104,7 @@ class Race {
     if (hit) { this.hurtFx(0.3); this.shake = Math.max(this.shake || 0, 0.18); }
   }
   pointCamera(yaw) { this.camYaw = yaw; this.camInit = false; }
-  hurtFx(k) { this.hurt = Math.min(1, Math.max(this.hurt || 0, 0.15) * 0.5 + Math.max(0.12, k) * 0.8 + (this.hurt || 0) * 0.3); A.voice && A.voice.pain && A.voice.pain(); }
+  hurtFx(k) { this.hurt = Math.min(1, Math.max(this.hurt || 0, 0.15) * 0.5 + Math.max(0.12, k) * 0.8 + (this.hurt || 0) * 0.3); if (k >= 0.25 && A.voice && A.voice.pain && performance.now() - (this._painAt || 0) > 4000) { this._painAt = performance.now(); A.voice.pain(0.45); } }
   hurtTick(dt) { const el = $('hurt'); if (!el) return; if (this.hurt > 0.01) { this.hurt = Math.max(0, this.hurt - dt * 0.45); el.style.opacity = String(Math.min(0.85, this.hurt * 0.85)); } else if (el.style.opacity !== '0') { this.hurt = 0; el.style.opacity = '0'; } }
   // the sounds and sparks of a hit on a car: glass, tyre or body (code from cardamage.hitCode)
   carHitFx(code, x, z) {
@@ -1143,7 +1151,8 @@ class Race {
       let best = null, bd = len;
       if (this.tai) for (const c of this.tai.cars) { if (c.mode === 'gone' || !c.vis) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: true }; } }
       for (const c of this.cars) { if (c === this.drive || !c.st.hl) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: false }; } }
-      if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && this.mission.ss.snap.k[4] === 2) { this.mission.send({ t: 'm_hit', dmg: W.dmg }); }   // a bullet anywhere on the rolling tanker
+      if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && (this.mission.ss.snap.k[4] === 2 || this.mission.ss.snap.k[4] === 5)) { this.mission.send({ t: 'm_hit', dmg: W.dmg }); }   // a bullet anywhere on the rolling tanker
+      else if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && this.mission.ss.snap.k[4] < 2 && (this.toastT || 0) < performance.now()) { this.toastT = performance.now() + 2500; this.toast('HOLD FIRE - the driver is still in the tanker. Shoot after he jumps out!'); }
       if (best) { len = bd; const st = best.c.st, code = hitCode(st, ox + fx * bd, oz + fz * bd, hAt(bd)); hcode = code;
         this.crime('car', st.x, st.z);
         if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else addHit(st, code);
@@ -1376,8 +1385,8 @@ class Race {
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over; this.scoped = scoped;   // sniper scope: narrow view, dark rim and crosshair
-      this.camera.fov = lerp(this.camera.fov, scoped ? 13 : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
+    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
+      this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
@@ -1725,8 +1734,13 @@ document.addEventListener('pointerlockchange', () => {
 });
 let hadLock = false;
 let dragging = false;
-canvas.addEventListener('mousedown', (e) => { dragging = true; if (race && !race.over) { if (e.button === 0 && race.hunt && document.pointerLockElement === canvas && !race.menuOpen) race.fireHeld = true; else if (e.button === 0 && race.multi && document.pointerLockElement === canvas && !race.menuOpen) race.swing(); else tryLock(); } });
-window.addEventListener('mouseup', () => { dragging = false; if (race) race.fireHeld = false; });
+canvas.addEventListener('mousedown', (e) => { dragging = true; if (race && !race.over) {
+  if (race.meta.city && !race.hunt && document.pointerLockElement === canvas && !race.menuOpen) { if (e.button === 0) { race.fireHeld = true; race.punch(); } else if (e.button === 2) race.aimHold(true); return; }   // laptop: LEFT click fires (or punches), hold RIGHT click to aim
+  if (e.button === 0 && race.hunt && document.pointerLockElement === canvas && !race.menuOpen) race.fireHeld = true; else if (e.button === 0 && race.multi && document.pointerLockElement === canvas && !race.menuOpen) race.swing(); else tryLock(); } });
+window.addEventListener('mouseup', (e) => { dragging = false; if (race) { if (e.button === 2) race.aimHold(false); else race.fireHeld = false; } });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+window.addEventListener('wheel', (e) => { if (race && race.scoped && !race.menuOpen) { e.preventDefault(); race.zoomScope(e.deltaY < 0 ? 1 : -1); } }, { passive: false });   // scroll (or trackpad pinch) while scoped = zoom in / out
+for (const [id, d] of [['sz-in', 1], ['sz-out', -1]]) { const el = $(id); if (el) el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.zoomScope(d); }); }
 window.addEventListener('mousemove', (e) => { if (race && !race.over && (document.pointerLockElement === canvas || dragging)) race.look(e.movementX, e.movementY); });
 $('click-hint').addEventListener('click', tryLock);
 window.addEventListener('keydown', (e) => {
@@ -1741,7 +1755,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
@@ -1897,7 +1911,7 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
-window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls
@@ -1911,9 +1925,9 @@ window.__ph = { app, Remote, startSingle: (l) => startSingle(l), keys, press, to
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
-      if (t.clientX < window.innerWidth * 0.5 && joyId === null && !document.body.classList.contains('driving')) {
+      if (t.clientX < window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) && joyId === null && !document.body.classList.contains('driving')) {   // the joystick lives in the LEFT third only (left fifth while scoped): the rest of the screen only turns the camera
         joyId = t.identifier; ox = t.clientX; oy = t.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
-      } else if (camId === null && (t.clientX >= window.innerWidth * 0.5 || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
+      } else if (camId === null && (t.clientX >= window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
     }
   }, { passive: false });
   zone.addEventListener('touchmove', (e) => {

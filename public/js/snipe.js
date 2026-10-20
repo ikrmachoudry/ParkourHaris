@@ -22,6 +22,7 @@ const THIEF_STOP_Z = 449;                           // he brakes to a halt here 
 const BAIL_MIN = 286, LATE_Z = 392;
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17;
+const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
 
 // role of the player with this seat in a mission of n players
 export function snipeRole(seat, n) { if (n <= 1) return 'sniper'; return seat === 0 ? 'truck' : seat === 1 ? 'sniper' : 'blocker'; }
@@ -75,6 +76,7 @@ export class SnipeDirector {
     this.car = { x: t.x, z: t.z, yaw: t.yaw, v: 0, drv: 0 }; this.s = t.x - k.x; this.v = 0; this.off = 0; this.th = { x: WALK[0][0], z: WALK[0][1], yaw: Math.PI, sp: 0, pose: 'idle', mode: 'foot' };
     this.tk = { x: k.x, z: k.z, yaw: k.yaw, v: 0, mode: 1, vm: 0, lz: k.z, acc: 0, sTk: 0, ai: true, gone: -3, boomT: 0 };
     this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0; this.rdy = false;
+    this.pur = [{ s: -46, v: 0, x: -26, z: LANE_E, yaw: Math.PI / 2 }, { s: -59, v: 0, x: -39, z: LANE_E, yaw: Math.PI / 2 }];   // the police cars that chase him from the bank, always staying BEHIND the tanker
   }
   start(members) {
     this.members = [...members]; this.reset(); const n = this.members.length;
@@ -111,13 +113,26 @@ export class SnipeDirector {
       if (pos) { th.x = pos.x; th.z = pos.z; th.yaw = pos.yaw; th.sp = this.T > t0 ? 6 : 0; th.pose = this.T > t0 ? 'run' : 'idle'; th.mode = 'foot'; }
       else { th.sp = 0; th.mode = 'car'; th.pose = 'sit'; c.drv = 1; const tt = this.T - t0 - acc / WALK_V; if (tt > 0.9) { this.stage = 'chase'; this.st = 0; this.say('chase'); } }
     }
-    if (this.stage === 'chase') this.driveThief(dt, nr);
+    if (this.stage === 'chase') { this.driveThief(dt, nr); this.drivePursuit(dt); }
     // ---- the tanker
     this.driveTruck(dt);
     if (this.ended) return;
     // ---- the end of the chase
     if (this.stage === 'chase' && this.stopped && this.truckDown) { this.stage = 'arrest'; this.st = 0; this.ar = 0; this.say('police'); this.onEv('arrest'); }
     if (this.stage === 'arrest') this.arrest(dt);
+  }
+  // where is the route position s (before the start it runs straight back along the avenue)?
+  routeXY(s) { if (s < 0) return { x: START.truck.x + s, z: LANE_E, yaw: Math.PI / 2 }; return snipeAt(this.R, s); }
+  sOf(x, z) { const R = this.R; let bi = 0, bd = 1e9; for (let i = 0; i < R.n; i += 2) { const d = (R.pts[i].x - x) ** 2 + (R.pts[i].z - z) ** 2; if (d < bd) { bd = d; bi = i; } } return R.pts[bi].s; }
+  // the police follow the tanker at a respectful distance (never in front of anybody) and pull up on the shoulder at the red line
+  drivePursuit(dt) {
+    const tk = this.tk, R = this.R; if (!this.pur) return;
+    const sTk = tk.mode === 0 ? (this.driverP() ? this.sOf(tk.x, tk.z) : tk.sTk) : tk.mode === 1 ? tk.sTk : 1e9;
+    this.pur.forEach((p, i) => {
+      const want = Math.min(this.s - 56 - i * 13, sTk - 16 - i * 13, R.sBail - 20 - i * 12), err = want - p.s, tv = clamp(this.v + 0.9 * err, 0, 24);
+      p.v += clamp(tv - p.v, -10 * dt, 6 * dt); p.v = Math.max(0, p.v); p.s += p.v * dt;
+      const q = this.routeXY(p.s); p.x = q.x + (i ? 1.8 : 0) * (p.s > 20 ? 1 : 0); p.z = q.z; p.yaw = q.yaw;
+    });
   }
   driveThief(dt, nr) {
     const c = this.car, th = this.th, R = this.R, tk = this.tk;
@@ -171,10 +186,15 @@ export class SnipeDirector {
     }
     if (tk.mode === 2) {   // rolling on: straight along the road, the lane holds it
       tk.v = Math.max(tk.v, Math.min(tk.v + 2 * dt, 11)); tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0;
-      if (tk.z >= SNIPE.tun.z0 - 2 && !this.truckDown) { tk.mode = 5; this.say('missed'); this.later = this.T + 1.8; }
+      if (tk.z >= SNIPE.tun.z0 - 2 && !this.truckDown) { tk.mode = 5; this.say('missed'); this.later = this.T + 3; }
       return;
     }
-    if (tk.mode === 3) { tk.boomT += dt; tk.v = Math.max(0, tk.v - 22 * dt); tk.z += tk.v * dt; if (tk.boomT > 2.4) tk.mode = 4; return; }
+    if (tk.mode === 3 || tk.mode === 4) {   // shot: it burns but ROLLS ON into the tunnel and comes to rest inside
+      tk.boomT += dt; if (tk.boomT > 2.4) tk.mode = 4;
+      const rem = Math.max(0, WRECK_Z - tk.z), vb = Math.sqrt(2 * 3 * rem);
+      tk.v = rem > 0.6 ? Math.max(Math.min(tk.v, vb), Math.min(tk.v, 5)) : Math.max(0, tk.v - 8 * dt); if (rem > 0.6 && tk.v < 1.5 && rem > 4) tk.v = 1.5;
+      tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0; return;
+    }
     if (tk.mode === 5) { tk.v = Math.max(0, tk.v - 7 * dt); tk.z += tk.v * dt; if (this.later && this.T > this.later) return this.end(false, 'missed'); }
   }
   // the driver is out: the tanker rolls on without him
@@ -184,7 +204,7 @@ export class SnipeDirector {
   // the sniper's bullet reached the tank: only counts after the driver is out and before the tanker is inside the tunnel
   hit(id, dmg) {
     void dmg;
-    if (this.ended || id !== this.sniperId || this.tk.mode !== 2 || this.stage === 'rob') return false;
+    if (this.ended || id !== this.sniperId || (this.tk.mode !== 2 && this.tk.mode !== 5) || this.stage === 'rob') return false;
     this.tk.mode = 3; this.tk.boomT = 0; this.truckDown = true; this.onEv('boom', { x: +this.tk.x.toFixed(1), z: +this.tk.z.toFixed(1) }); return true;
   }
   // the police arrive, the thief is taken away
@@ -208,7 +228,7 @@ export class SnipeDirector {
   snap() {
     const c = this.car, th = this.th, tk = this.tk, f = (v) => +v.toFixed(2);
     return { st: this.stage, T: +this.T.toFixed(1), c: [f(c.x), f(c.z), +c.yaw.toFixed(3), f(c.v), c.drv], p: [f(th.x), f(th.z), +th.yaw.toFixed(3), f(th.sp), th.pose, th.mode],
-      k: [f(tk.x), f(tk.z), +tk.yaw.toFixed(3), f(tk.v), tk.mode, +tk.boomT.toFixed(1)], pl: this.pol.map((p) => [f(p.x), f(p.z), +p.yaw.toFixed(3), f(p.v)]), ar: +this.ar.toFixed(1), d: Math.round(this.dmin), n: this.blockers.length };
+      k: [f(tk.x), f(tk.z), +tk.yaw.toFixed(3), f(tk.v), tk.mode, +tk.boomT.toFixed(1)], pl: this.pol.map((p) => [f(p.x), f(p.z), +p.yaw.toFixed(3), f(p.v)]), q: this.stage === 'arrest' || this.stage === 'done' || !this.pur ? [] : this.pur.map((p) => [f(p.x), f(p.z), +p.yaw.toFixed(3), f(p.v)]), ar: +this.ar.toFixed(1), d: Math.round(this.dmin), n: this.blockers.length };
   }
 }
 export { SNIPE, BANK, GT };

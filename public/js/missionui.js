@@ -153,7 +153,7 @@ export class MissionClient {
     if (k === 'chase') { this.chased = true; if (role === 'truck') { this.hold = false; this.race.camInit = false; } say('THE THIEF IS RUNNING!', role === 'truck' ? 'FOLLOW HIM - HE WILL TRY TO BLOCK YOU' : role === 'sniper' ? 'GET UP THE HILL' : 'GET TO THE FAR SIDE OF THE TUNNEL', '#ff6b6b'); A.sfx.pickup(); }
     else if (k === 'hold') { say('', role === 'truck' ? 'STAY BEHIND HIM - THE OTHERS ARE GETTING INTO POSITION' : role === 'sniper' ? 'THE THIEF IS WAITING - GET TO THE YELLOW CIRCLE' : 'THE THIEF IS WAITING - GET TO THE FAR SIDE OF THE TUNNEL'); }
     else if (k === 'bail') { if (role === 'truck') { this.freeze = true; } say('THE TANKER IS ROLLING!', role === 'sniper' ? 'SHOOT THE TANK BEFORE IT ENTERS THE TUNNEL' : 'THE DRIVER IS OUT - WATCH THE HILL', '#ffd23f'); }
-    else if (k === 'boom') { if (role === 'sniper') this.freeze = true; say('BOOM!', 'THE TUNNEL ENTRANCE IS ON FIRE', '#ff9f1a', 2600); }
+    else if (k === 'boom') { if (role === 'sniper') { this.freeze = true; const R = this.race; R.aiming = false; R.scopeLvl = 0; R.aimT = 0; R.syncAct && R.syncAct(); } /* the scope comes down so the whole fire is in view */ say('BOOM!', 'THE TUNNEL ENTRANCE IS ON FIRE', '#ff9f1a', 2600); }
     else if (k === 'trap') { say('THE THIEF IS TRAPPED!', role === 'blocker' ? 'HOLD YOUR PLACE' : '', '#5ef0a0'); }
     else if (k === 'slip') { say('HE IS GETTING AWAY!', role === 'blocker' ? 'GET TO THE FAR END OF THE TUNNEL!' : '', '#ff5a5a'); }
     else if (k === 'stopped') { if (role === 'blocker') this.freeze = true; }

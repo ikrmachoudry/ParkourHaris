@@ -12,7 +12,7 @@ export const WEAPON_ORDER = ['bat', 'pistol', 'ak', 'sniper'];
 
 // Real US prices (2026): Louisville Slugger ash bat about $34, Glock 19 Gen5 about $626, Zastava ZPAP M70 (AK-47) about $1,420, 9mm about $0.33 and 7.62x39 about $0.67 a round.
 // Pay is small on purpose: the game will have many missions, so a pistol takes a few of them and an AK-47 a good evening.
-export const MISSION_PAY = { stunt: 150, thief: 250, snipe: 400 };
+export const MISSION_PAY = { stunt: 150, thief: 250, snipe: 4000 };
 export const MISSION_PAY_DEFAULT = 120;
 export const PAY = { hit: 2, down: 8, kill: 15, jackBonus: 0 };
 

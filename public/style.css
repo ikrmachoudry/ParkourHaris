@@ -584,3 +584,19 @@ body.standalone #b-gm { top: max(8px, env(safe-area-inset-top)); }
 #bigmap-zoom button { width: 52px; height: 52px; border-radius: 50%; border: 3px solid #fff; background: rgba(20,14,50,.8); color: #fff; font-size: 30px; font-weight: 900; line-height: 1; cursor: pointer; touch-action: manipulation; padding: 0; }
 #bigmap-zoom button:active { transform: scale(.92); }
 #bigmap-tip { position: absolute; bottom: max(8px, 1.5vh); left: 0; right: 0; text-align: center; color: #fff; font: 700 13px system-ui, sans-serif; opacity: .8; text-shadow: 0 1px 2px #000; pointer-events: none; }
+
+/* aim button: shows when you are aiming (PUBG / GTA mobile style), brighter while a gun is equipped */
+#a-aim.on { background: radial-gradient(circle at 35% 30%, #ffe08a, #f59e0b 72%) !important; border-color: #fff !important; box-shadow: 0 0 0 3px rgba(255,210,80,.55), 0 0 16px rgba(255,190,40,.8); }
+#a-aim.gunned { opacity: 1; }
+body.touch #a-aim::after { content: 'AIM'; position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 900 10px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+
+/* sniper zoom control (appears only while the scope is up): + / - buttons, level label; the wheel, trackpad pinch and the + - keys do the same */
+#scope-zoom { display: none; position: fixed; left: max(14px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); z-index: 60; flex-direction: column; align-items: center; gap: 8px; }
+body.scoped #scope-zoom { display: flex; }
+#scope-zoom button { width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(20,14,50,.6); color: #fff; font-size: 26px; font-weight: 700; line-height: 1; padding: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+#scope-zoom button:active { transform: scale(.92); }
+#sz-lvl { color: #fff; font: 700 13px system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
+/* mission banners: small and calm (no giant bold text over the game) */
+#m-big { margin-top: 8vh; font-size: clamp(18px, 3.4vmin, 28px) !important; font-weight: 700; letter-spacing: .5px; text-shadow: 0 1px 3px rgba(0,0,0,.8) !important; -webkit-text-stroke: 0 !important; }
+#m-sub { font-size: clamp(11px, 1.9vmin, 14px) !important; font-weight: 600; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9) !important; opacity: .92; }
+#toast-global { font-size: 14px !important; padding: 7px 14px !important; }

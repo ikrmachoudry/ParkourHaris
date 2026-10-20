@@ -152,7 +152,7 @@ export class GlbActor extends HeroActor {
     super.update(dt, st);
     if (!this.ready) return;
     const rt = this.rt, b = this.ch.bones;
-    this.shell.rotation.x = this.ch.group.rotation.x;   // knocked flat
+    this.shell.rotation.x = this.ch.group.rotation.x; this.shell.rotation.y = this.ch.group.rotation.y;   // knocked flat (and rolling)
     // driver world rotations (rest = identity)
     const G = rt.G || (rt.G = {}); const PAR = rt.PAR || (rt.PAR = { spine: 'hips', chest: 'spine', neck: 'chest', head: 'neck', 'upperarm.L': 'chest', 'forearm.L': 'upperarm.L', 'hand.L': 'forearm.L', 'upperarm.R': 'chest', 'forearm.R': 'upperarm.R', 'hand.R': 'forearm.R', 'upperleg.L': 'hips', 'lowerleg.L': 'upperleg.L', 'foot.L': 'lowerleg.L', 'upperleg.R': 'hips', 'lowerleg.R': 'upperleg.R', 'foot.R': 'lowerleg.R' });
     for (const k of NEED) { const q = G[k] || (G[k] = new THREE.Quaternion()); q.copy(b[k].quaternion); if (PAR[k]) q.premultiply(G[PAR[k]]); }

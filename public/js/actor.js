@@ -52,8 +52,16 @@ export class HeroActor {
       _q.copy(b.quaternion); p.q.slerp(_q, k); b.quaternion.copy(p.q);
       p.p.lerp(b.position, k); b.position.copy(p.p);
     }
-    { const tg = st.stun > 0.3 ? 1 : 0; this.lie = (this.lie || 0) + (tg - (this.lie || 0)) * Math.min(1, dt * (tg ? 12 : 7));   // knocked flat, then gets back up
-      if (this.lie > 0.004 || tg) { this.ch.group.rotation.x = -1.4 * this.lie; this.hadLie = true; } else if (this.hadLie) { this.ch.group.rotation.x = 0; this.hadLie = false; } }
+    { // knocked down, GTA V style: thrown (head over heels in the air), rolls along the ground, lies there, then gets back up
+      const g = this.ch.group, stunned = st.stun > 0, air = stunned && !st.grounded, sp2 = st.speed || 0;
+      const tg = st.stun > 0.75 ? 1 : 0; this.lie = (this.lie || 0) + (tg - (this.lie || 0)) * Math.min(1, dt * (tg ? 9 : 3.2));   // lies flat quickly, gets up slowly
+      const tgtX = -1.4 * this.lie, TAU = Math.PI * 2;
+      if (air) this.ang = Math.max(-5.4, (this.ang || 0) - dt * 8);
+      else { let d = (this.ang || 0) - tgtX; d -= Math.round(d / TAU) * TAU; this.ang = tgtX + d; this.ang += (tgtX - this.ang) * Math.min(1, dt * 10); }
+      if (stunned && !air && sp2 > 1.2) this.roll = (this.roll || 0) + dt * sp2 * 0.8;                  // rolling over on the ground while he slides
+      else { const r = this.roll || 0; this.roll = r + (Math.round(r / TAU) * TAU - r) * Math.min(1, dt * 6); if (!stunned && this.lie < 0.05) this.roll = 0; }
+      if (Math.abs(this.ang) > 0.004 || Math.abs(this.roll || 0) > 0.004 || stunned) { g.rotation.x = this.ang; g.rotation.y = this.roll || 0; this.hadLie = true; }
+      else if (this.hadLie) { g.rotation.x = 0; g.rotation.y = 0; this.ang = 0; this.roll = 0; this.hadLie = false; } }
     this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax';
   }
   dispose() {
