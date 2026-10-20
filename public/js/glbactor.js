@@ -21,6 +21,7 @@ const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) =>
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
 const CLIP_FOR = { walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
+const _aimD = new THREE.Vector3(), _aimT = new THREE.Vector3(), _aimQ = new THREE.Quaternion(), _aimE = new THREE.Quaternion(), _aimI = new THREE.Quaternion(), AIM_BONES = ['spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R'];
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
 // ---- which GLB bone plays which driver bone ----
@@ -203,6 +204,17 @@ export class GlbActor extends HeroActor {
     this.mixT = (this.mixT == null ? 1 : this.mixT) + dt; const mk = Math.min(1, this.mixT / 0.18), ms = mk * mk * (3 - 2 * mk);
     for (const n of NEED) { Wout[n] = Wout[n] || new THREE.Quaternion(); if (ms < 1 && rt.fromW) Wout[n].copy(rt.fromW[n]).slerp(src[n], ms); else Wout[n].copy(src[n]); }
     rt.curOff = (rt.curOff || new THREE.Vector3()); if (ms < 1 && rt.fromOff) rt.curOff.copy(rt.fromOff).lerp(off, ms); else rt.curOff.copy(off);
+    // ---- AIM: while a gun is raised, swing the upper body (a small feedback loop on the real barrel direction) until the barrel points exactly where the shots go: st.aimElev = elevation in radians (+ up), straight ahead sideways
+    { const W = this.ch.wmesh && st.weapon && this.ch.wmesh[st.weapon], on = !!(W && /Aim$/.test(this.pose || '') && this.ch.gun.visible);
+      const aq = this.aimQ || (this.aimQ = new THREE.Quaternion()), tgt = on ? 1 : 0; this.aimK = (this.aimK || 0) + (tgt - (this.aimK || 0)) * Math.min(1, dt * 10);
+      if (on) {
+        W.updateWorldMatrix(true, false); const d = _aimD.set(0, 0, 1).applyQuaternion(W.getWorldQuaternion(_aimQ)); this.group.updateWorldMatrix(true, false);
+        d.applyQuaternion(this.group.getWorldQuaternion(_aimQ).invert()); const e = st.aimElev || 0, ce = Math.cos(e);
+        _aimT.set(0, Math.sin(e), ce); _aimE.setFromUnitVectors(d.normalize(), _aimT); _aimI.identity().slerp(_aimE, 0.55); aq.premultiply(_aimI);
+        this.aimErr = d.angleTo(_aimT);
+      } else aq.slerp(_aimI.identity(), Math.min(1, dt * 8));
+      if (this.aimK > 0.01) { _aimE.identity().slerp(aq, this.aimK); for (const n of AIM_BONES) Wout[n].premultiply(_aimE); }
+    }
     // walk the GLB skeleton parents-first
     const walk = (bone, pw) => {
       let w;

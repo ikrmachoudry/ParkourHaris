@@ -75,7 +75,7 @@ export class SnipeDirector {
     this.stage = 'rob'; this.T = 0; this.st = 0; this.ended = false; this.seed = 4242; this.fireT = 4;
     this.car = { x: t.x, z: t.z, yaw: t.yaw, v: 0, drv: 0 }; this.s = t.x - k.x; this.v = 0; this.off = 0; this.th = { x: WALK[0][0], z: WALK[0][1], yaw: Math.PI, sp: 0, pose: 'idle', mode: 'foot' };
     this.tk = { x: k.x, z: k.z, yaw: k.yaw, v: 0, mode: 1, vm: 0, lz: k.z, acc: 0, sTk: 0, ai: true, gone: -3, boomT: 0 };
-    this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0; this.rdy = false;
+    this.regT = 0; this.lagSaid = 0; this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0; this.rdy = false;
     this.pur = [{ s: -46, v: 0, x: -26, z: LANE_E, yaw: Math.PI / 2 }, { s: -59, v: 0, x: -39, z: LANE_E, yaw: Math.PI / 2 }];   // the police cars that chase him from the bank, always staying BEHIND the tanker
   }
   start(members) {
@@ -85,7 +85,9 @@ export class SnipeDirector {
   }
   rnd() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
   say(k, extra) { if (this.said[k]) return; this.said[k] = 1; this.onEv(k, extra); }
-  end(ok, why) { if (this.ended) return; this.ended = true; this.stage = ok ? 'done' : 'fail'; this.onEnd(ok, why); }
+  end(ok, why, who) { if (this.ended) return; this.ended = true; this.stage = ok ? 'done' : 'fail'; this.onEnd(ok, why, who); }
+  // is the sniper up on the hill (near his yellow circle)?
+  sniperUp() { const sp = this.getP(this.sniperId), pd = SNIPE.pad; return !!sp && hyp(sp.x - pd.x, sp.z - pd.z) < pd.r + 16; }
   // the truck driver's position (null when he is not sitting in the truck)
   driverP() { if (this.truckId < 0) return null; const P = this.getP(this.truckId); return P && (P.a & 256) && (((P.a >> 9) & 15) | (((P.a >> 24) & 1) << 4) | (((P.a >> 29) & 1) << 5)) === TRUCK_IDX ? P : null; }
   nearP() { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - this.car.x, P.z - this.car.z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }
@@ -103,7 +105,7 @@ export class SnipeDirector {
   tick(dt) {
     if (this.ended) return;
     this.T += dt; this.st += dt;
-    if (this.T > 320) return this.end(false, 'time');
+    if (this.T > 320) { if (this.truckId >= 0 && this.tk.mode === 0 && this.tk.z < BAIL_MIN) return this.end(false, 'slow', this.truckId); if (!this.sniperUp()) return this.end(false, 'hill', this.sniperId); return this.end(false, 'time', 0); }
     const c = this.car, th = this.th, R = this.R, tk = this.tk;
     const nr = this.nearP(); this.dmin = nr.d;
     // ---- the thief
@@ -143,9 +145,10 @@ export class SnipeDirector {
     let cruise = CRUISE * k * Math.min(1, 0.4 + this.st / 4), here = snipeAt(R, this.s);
     if (this.s >= R.sCheck && !this.decided) { this.decided = true; this.trapped = this.blockade(); if (this.trapped) this.say('trap'); else this.say('slip'); }
     const stopS = this.decided && this.trapped ? R.sStop : R.total, rem = stopS - this.s;
+    const lag = tk.mode === 0 && this.s < R.sGate - 20 && gap > 95 && this.regT < 100; if (lag) { this.regT += dt; if (!this.lagSaid) { this.lagSaid = 1; this.onEv('regroup'); } } else if (this.lagSaid && gap < 60) { this.lagSaid = 0; this.onEv('regroup_end'); }
     const wait = !this.ready(), lim = wait ? Math.min(stopS, R.sGate) : stopS, stopV = Math.sqrt(2 * 7 * Math.max(0, lim - this.s)) + 0.5;
     if (wait && this.s > R.sGate - 12 && !this.said.hold) this.say('hold');
-    const target = Math.min(cruise, here.vlim, this.decided && !this.trapped ? 19 : 99, stopV);
+    const target = Math.min(cruise, here.vlim, this.decided && !this.trapped ? 19 : 99, stopV, lag ? 0 : 99);
     this.v += clamp(target - this.v, -12 * dt, 6 * dt); this.v = Math.max(0, this.v); this.s = Math.min(wait ? Math.min(stopS, R.sGate) : stopS, this.s + this.v * dt);
     const q = snipeAt(R, this.s);
     // he swerves in front of the tanker to block it (never in the tunnel mouth, where he drives straight)
@@ -163,7 +166,7 @@ export class SnipeDirector {
         this.onEv('shot', { i: this.truckId, h: this.rnd() < pHit ? 1 : 0, x: +o.x.toFixed(1), z: +o.z.toFixed(1) }); }
     }
     if (rem < 0.35 && this.v < 3 && this.decided && this.trapped) { this.v = 0; c.v = 0; this.stopped = true; this.say('stopped'); }
-    if (this.decided && !this.trapped && this.s >= R.total - 1) return this.end(false, 'escaped');
+    if (this.decided && !this.trapped && this.s >= R.total - 1) { if (this.truckId >= 0 && tk.mode === 0 && tk.z < BAIL_MIN) return this.end(false, 'slow', this.truckId); let w = 0; for (let i = 0; i < this.blockers.length; i++) if (!this.zoneFilled(i)) { w = this.blockers[i]; break; } return this.end(false, 'escaped', w); }
     void nr;
   }
   driveTruck(dt) {
@@ -171,8 +174,8 @@ export class SnipeDirector {
     if (tk.mode === 0) {   // a player drives it: we only watch (and notice when he jumps out)
       const P = this.driverP();
       if (P) { tk.acc += dt; if (P.z !== tk.lz) { tk.vm += ((P.z - tk.lz) / Math.max(tk.acc, 0.03) - tk.vm) * 0.5; tk.acc = 0; } tk.x = P.x; tk.z = P.z; tk.lz = P.z; tk.gone = 0; tk.yaw = 0;
-        if (tk.z > LATE_Z && !this.stopped) return this.end(false, 'late'); }
-      else { tk.gone += dt; if (tk.gone > (tk.z >= BAIL_MIN ? 0.5 : 2.5) && this.stage === 'chase') { if (tk.z < BAIL_MIN || tk.z > 1000) return this.end(false, 'early'); this.bail(false); } }
+        if (tk.z > LATE_Z && !this.stopped) return this.end(false, 'late', this.truckId); }
+      else { tk.gone += dt; if (tk.gone > (tk.z >= BAIL_MIN ? 0.5 : 2.5) && this.stage === 'chase') { if (tk.z < BAIL_MIN || tk.z > 1000) return this.end(false, 'early', this.truckId); this.bail(false); } }
       return;
     }
     if (tk.mode === 1) {   // the AI drives it: stays behind the thief
@@ -195,7 +198,7 @@ export class SnipeDirector {
       tk.v = rem > 0.6 ? Math.max(Math.min(tk.v, vb), Math.min(tk.v, 5)) : Math.max(0, tk.v - 8 * dt); if (rem > 0.6 && tk.v < 1.5 && rem > 4) tk.v = 1.5;
       tk.x += clamp(LANE_S - tk.x, -3 * dt, 3 * dt); tk.z += tk.v * dt; tk.yaw = 0; return;
     }
-    if (tk.mode === 5) { tk.v = Math.max(0, tk.v - 7 * dt); tk.z += tk.v * dt; if (this.later && this.T > this.later) return this.end(false, 'missed'); }
+    if (tk.mode === 5) { tk.v = Math.max(0, tk.v - 7 * dt); tk.z += tk.v * dt; if (this.later && this.T > this.later) return this.end(false, this.sniperUp() ? 'missed' : 'hill', this.sniperId); }
   }
   // the driver is out: the tanker rolls on without him
   bail(ai) {

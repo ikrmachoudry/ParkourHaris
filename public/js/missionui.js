@@ -4,7 +4,7 @@ import * as A from './audio.js';
 import { STUNT, LOBBY, PARK, CHASE, BANK, POLICE } from './gta.js';
 import { ThiefScene } from './thiefscene.js';
 import { SnipeScene } from './snipescene.js';
-import { TRUCK_IDX, START, ZONES, snipeRole, snipePaths } from './snipe.js';
+import { TRUCK_IDX, START, ZONES, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
 import { MissionHub } from './mission.js';
 import { MISSION_PAY, MISSION_PAY_DEFAULT } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
@@ -46,7 +46,20 @@ export class MissionClient {
     return { x: st ? st.x : b.x, y: st ? st.y : b.y, z: st ? st.z : b.z, a: d ? (R.paxMode ? PAXF : 256) | IDX_BITS(R.cars.indexOf(d)) : 0 };
   }
   get car() { return this.race.cars[12 + this.seat]; }
-  nameOf(id) { const p = this.race.players.find((q) => q.id === id); return p ? p.name : '?'; }
+  nameOf(id) { if (id === this.race.localId && this.race.me && this.race.me.name) return this.race.me.name; const p = this.race.players.find((q) => q.id === id); return p ? p.name : '?'; }
+  // why a SNIPE THE TRUCK run failed, naming the player who was responsible
+  snipeWhy(m) {
+    const mem = (this.members || []).some((q) => q.id === m.who) || m.who === this.race.localId, n = mem ? String(this.nameOf(m.who)).toUpperCase() : '';
+    switch (m.why) {
+      case 'slow': return n + ' WAS TOO SLOW - THE TANKER NEVER REACHED THE RED LINE';
+      case 'early': return n + ' JUMPED OUT OF THE TANKER TOO EARLY';
+      case 'late': return n + ' DID NOT JUMP OUT BEFORE THE TUNNEL';
+      case 'missed': return n + ' COULD NOT SHOOT THE TANKER BEFORE THE TUNNEL';
+      case 'hill': return n + ' COULD NOT REACH THE HILL IN TIME';
+      case 'escaped': return mem ? n + ' DID NOT REACH THE ROADBLOCK - THE THIEF ESCAPED' : 'NOBODY BLOCKED THE TUNNEL - THE THIEF ESCAPED';
+      default: return 'OUT OF TIME - THE THIEF GOT AWAY';
+    }
+  }
   colorOf(id) { const p = this.race.players.find((q) => q.id === id); return p ? CHARACTERS[p.char].color : '#fff'; }
 
   // ---- after you finish while others are still running: SPECTATE (camera follows a runner, press again for the next one) or KEEP PLAYING (free roam)
@@ -80,7 +93,7 @@ export class MissionClient {
     else if (m.t === 'm_end') {
       this.hold = false; this.freeze = false; this.showFin(false);
       if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
-      else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '') + ' - RESTARTING FOR EVERYBODY', 3800); A.sfx.bonk(); }
+      else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 6500); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
     } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
   onGo(m) {
@@ -157,6 +170,8 @@ export class MissionClient {
     else if (k === 'trap') { say('THE THIEF IS TRAPPED!', role === 'blocker' ? 'HOLD YOUR PLACE' : '', '#5ef0a0'); }
     else if (k === 'slip') { say('HE IS GETTING AWAY!', role === 'blocker' ? 'GET TO THE FAR END OF THE TUNNEL!' : '', '#ff5a5a'); }
     else if (k === 'stopped') { if (role === 'blocker') this.freeze = true; }
+    else if (k === 'regroup') { say('THE THIEF IS WAITING', role === 'truck' ? 'CATCH UP - IF THE TANKER IS STUCK IT IS PUT BACK ON THE ROAD' : 'THE THIEF WAITS FOR THE TANKER DRIVER', '#ffd23f', 1800); }
+    else if (k === 'regroup_end') { say('', 'THE THIEF IS MOVING AGAIN'); }
     else if (k === 'police') { this.freeze = true; say('THE POLICE ARE HERE', '', '#7fb2ff'); }
   }
   onEv(k, d, m) {
@@ -187,9 +202,35 @@ export class MissionClient {
   // the red line on the maps: the road he will take, from where he is now to the summit
   route() { if (this.mission === 'snipe' && (this.phase === 'run' || this.phase === 'brief')) return this.paths ? { lines: this.paths.lines } : null; return this.mission === 'thief' && (this.phase === 'run' || this.phase === 'brief') ? this.ts.routeAhead() : null; }
   // ---- per-frame
+  // ---- the standing instruction for each player (what to do right now) and the stuck-tanker rescue
+  todo() {
+    let e = $('m-todo'); if (!e) { e = document.createElement('div'); e.id = 'm-todo'; e.style.cssText = 'position:fixed;left:50%;top:58px;transform:translateX(-50%);max-width:78vw;z-index:30;pointer-events:none;text-align:center;font:700 14px/1.25 system-ui,sans-serif;color:#ffd23f;background:rgba(0,0,0,.6);border:1px solid rgba(255,210,63,.6);border-radius:10px;padding:6px 12px;text-shadow:0 1px 2px #000;display:none'; document.body.appendChild(e); }
+    const on = this.mission === 'snipe' && (this.phase === 'run' || this.phase === 'brief') && !this.finished && this.role;
+    if (!on) { if (e.style.display !== 'none') e.style.display = 'none'; return; }
+    const R = this.race, b = R.me.body, pd = SNIPE.pad, role = this.role, st = this.ss.stage;
+    const mem = (r) => { const q = (this.members || []).find((m) => snipeRole(m.seat, this.members.length) === r); return q && q.id !== R.localId ? String(this.nameOf(q.id)).toUpperCase() : ''; };
+    let t = '';
+    if (role === 'truck') { const sn = mem('sniper'); t = this.freeze ? 'THE TANKER IS ROLLING - WATCH' + (sn ? ' ' + sn : ' THE SNIPER') + ' SHOOT IT' : 'YOU ARE THE TRUCK DRIVER: FOLLOW THE THIEF (RED CAR) - JUMP OUT (C) AT THE RED LINE'; }
+    else if (role === 'sniper') { const up = Math.hypot(b.x - pd.x, b.z - pd.z) < pd.r + 2; t = this.freeze ? 'WATCH THE FIRE' : up ? 'YOU ARE THE SNIPER: SCOPE IN AND SHOOT THE TANK WHEN IT ROLLS - BEFORE THE TUNNEL' : 'YOU ARE THE SNIPER: DRIVE ROUND THE HILL TO THE YELLOW CIRCLE'; }
+    else { const z = ZONES[Math.max(0, Math.min(1, this.seat - 2))], at = Math.hypot(b.x - z.x, b.z - z.z) < z.r + 2.5; t = this.freeze ? 'HOLD YOUR PLACE' : at ? 'YOU ARE A BLOCKER: HOLD YOUR PLACE - BLOCK THE THIEF' : 'YOU ARE A BLOCKER: RACE ROUND THE HILL AND PARK IN THE YELLOW CIRCLE AT THE TUNNEL END'; }
+    void st; if (e.textContent !== t) e.textContent = t; if (e.style.display !== 'block') e.style.display = 'block';
+  }
+  // the tanker driver is stuck (wedged, flipped, wrecked): after a few seconds it goes back onto the road behind the thief
+  stuckCheck(dt) {
+    const R = this.race, c = this.myCar;
+    if (this.mission !== 'snipe' || this.role !== 'truck' || this.phase !== 'run' || !this.chased || this.freeze || !c || R.drive !== c || c.st.z > SNIPE.bail.z - 25) { this.stuckT = 0; return; }
+    this.stuckCd = Math.max(0, (this.stuckCd || 0) - dt); const st = c.st;
+    this.stuckT = Math.abs(st.speed || 0) < 1.2 || st.wreck || st.hp <= 0 ? (this.stuckT || 0) + dt : 0;
+    if (this.stuckT > 5 && this.stuckCd <= 0) {
+      const Rt = this.route || (this.route = snipeRoute()); let bi = 0, bd = 1e9; for (let i = 0; i < Rt.n; i += 2) { const d = (Rt.pts[i].x - st.x) ** 2 + (Rt.pts[i].z - st.z) ** 2; if (d < bd) { bd = d; bi = i; } }
+      const q = snipeAt(Rt, Math.max(0, Rt.pts[bi].s - 10)); st.x = q.x; st.z = q.z; st.yaw = q.yaw; st.speed = 0; st.vx = st.vz = st.vy = 0; st.yr = 0; st.pitch = 0; st.air = false; st.hp = 100; st.wreck = false; st.burnT = 0; st.wreckT = 0; st.steer = 0;
+      st.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(q.x, q.z) : 0; R.me.body.x = st.x; R.me.body.z = st.z; R.camInit = false; R.camYaw = q.yaw + Math.PI;
+      this.stuckT = 0; this.stuckCd = 10; this.big('BACK ON THE ROAD', 1800, '#ffd23f'); this.sub('THE THIEF WAITS FOR YOU - FOLLOW HIM', 4000);
+    }
+  }
   update(dt) {
     const R = this.race, b = R.me.body, P = LOBBY.pad;
-    this.ts.update(dt); this.ss.update(dt);
+    this.ts.update(dt); this.ss.update(dt); this.todo(); this.stuckCheck(dt);
     if (this.freeze && this.phase === 'run' && R.drive && !this.hold) this.hold = true;   // the scene is for watching: you can still look round, not drive off
     { const cap = this.mission === 'stunt' && (this.phase === 'brief' || this.phase === 'run') ? 33.3 : 36.1; for (const k of [12, 13, 14, 15, 24, 25]) { const c = R.cars[k]; if (c) c.st.topCap = cap; } }   // 130 km/h always, 120 km/h while the STUNT JUMP runs (same for everybody)
     if (this.phase === 'idle') {

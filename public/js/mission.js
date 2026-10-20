@@ -50,13 +50,13 @@ export class MissionHub {
   }
   // ---- SNIPE THE TRUCK: the same idea, another director
   startSnipe() {
-    this.dir = new SnipeDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
+    this.dir = new SnipeDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why, who) => this.thiefEnd(ok, why, who) });
     this.dir.start(this.members); let last = Date.now();
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_sn', ...this.dir.snap() }); } }, 100);
   }
-  thiefEnd(ok, why) {
+  thiefEnd(ok, why, who) {
     if (this.phase !== 'brief' && this.phase !== 'run') return;
-    if (!ok) { this.fail(0, String(why || 'lost').slice(0, 24)); return; }
+    if (!ok) { this.fail(who === undefined ? 0 : who, String(why || 'lost').slice(0, 24)); return; }
     this.clear(); this.phase = 'done'; this.emit({ t: 'm_end', pass: true, round: this.round });
     this.later(DONE_MS, () => { this.reset(); this.emit({ t: 'm_idle' }); });
   }

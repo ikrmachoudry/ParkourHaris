@@ -34,6 +34,13 @@ export class SnipeScene {
     this.pol = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
     this.ai = [0, 1].map((i) => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); const z = ZONES[i]; return { m, x: z.x + (i ? 0.7 : -0.7), z: z.z, yaw: Math.PI, i }; });
     this.pur = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
+    { // the red THIEF arrow floating over him, so everybody can see who and where he is
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const g = cv.getContext('2d');
+      g.font = '900 78px system-ui,Arial,sans-serif'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = '#000'; g.strokeText('THIEF', 128, 76); g.fillStyle = '#ff2a2a'; g.fillText('THIEF', 128, 76);
+      g.beginPath(); g.moveTo(128, 250); g.lineTo(52, 124); g.lineTo(104, 124); g.lineTo(104, 100); g.lineTo(152, 100); g.lineTo(152, 124); g.lineTo(204, 124); g.closePath(); g.lineWidth = 12; g.strokeStyle = '#000'; g.stroke(); g.fillStyle = '#ff2a2a'; g.fill();
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+      this.mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false })); this.mark.renderOrder = 20; this.mark.visible = false; this.mark.frustumCulled = false; R.scene.add(this.mark);
+    }
     this.built = true;
   }
   ground(x, z) { const t = this.R.info.track; return t && t.terrain ? t.terrain(x, z) : 0; }
@@ -70,7 +77,7 @@ export class SnipeScene {
   hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
     this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
-    if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
+    if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
     try { A.sirenMission(0); } catch { /* noop */ }
     const c = this.truck; if (c && this.tank) {
       c.mesh.remove(this.tank); this.tank = null; const st = c.st, hero = c.mesh.userData.hero;
@@ -102,7 +109,7 @@ export class SnipeScene {
   seat(g, x, y, z, yaw, ud, f, r) { const sy = Math.sin(yaw), cy = Math.cos(yaw); g.position.set(x + sy * f - cy * r, y + ud.seatY, z + cy * f + sy * r); g.rotation.set(0, yaw, 0); g.scale.setScalar(ud.seatS || 1); }
   update(dt) {
     this.t += dt; const s = this.snap, R = this.R;
-    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; } try { A.sirenMission(0); } catch { /* noop */ } return; }
+    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; } try { A.sirenMission(0); } catch { /* noop */ } return; }
     if (!this.built) this.build();
     this.armTruck();
     const age = Math.min(0.3, (performance.now() - this.at) / 1000), f = 1 - Math.exp(-15 * dt);
@@ -118,6 +125,7 @@ export class SnipeScene {
     animateCityMesh(car, { driver: drv ? 1 : 0, speed: cv, yaw: this.cyaw, steer: clamp(-yr * 2.7 / Math.max(3, cv), -1, 1), pitch, ownd: false }, dt);
     // the thief
     const g = this.actor.group; g.visible = true;
+    if (this.mark) { const foot = mode !== 'car' && mode !== 'rear', rr = mode === 'rear' ? this.pol[0] : null, mx = foot ? this.px : rr ? rr.x : this.cx, mz = foot ? this.pz : rr ? rr.z : this.cz, cp = R.camera.position, dist = Math.hypot(mx - cp.x, mz - cp.z), sc = clamp(dist * 0.09, 3.2, 20); this.mark.visible = true; this.mark.scale.set(sc, sc, 1); this.mark.position.set(mx, this.ground(mx, mz) + (foot ? 2.3 : 3.3) + sc * 0.5 + Math.sin(this.t * 4) * sc * 0.08, mz); }
     if (mode === 'car') { this.seat(g, this.cx, y, this.cz, this.cyaw, ud, ud.seatF, ud.seatR); this.actor.update(dt, { seated: true, speed: 0, grounded: true }); }
     else if (mode === 'rear') { const p = this.pol[0], u2 = p.m.userData; this.seat(g, p.x, p.m.position.y, p.z, p.yaw, u2, (u2.seatF || 0) - 1.0, 0); this.actor.update(dt, { seated: true, speed: 0, grounded: true }); }
     else { g.rotation.order = 'YXZ'; g.position.set(this.px, this.ground(this.px, this.pz), this.pz); g.rotation.set(0, this.pyaw, 0); g.scale.setScalar(1); this.actor.update(dt, { seated: false, speed: psp, grounded: true, weapon: undefined, aiming: false, crouch: false, gesture: pose === 'scared' ? 'scared' : undefined }); }
@@ -169,7 +177,7 @@ export class SnipeScene {
   }
   dispose() {
     if (!this.built) return; const R = this.R;
-    this.hideGuide(); try { A.sirenMission(0); } catch { /* noop */ } R.scene.remove(this.car, this.actor.group); this.actor.dispose(); for (const p of [...this.pol, ...this.ai, ...this.pur]) R.scene.remove(p.m);
+    this.hideGuide(); try { A.sirenMission(0); } catch { /* noop */ } R.scene.remove(this.car, this.actor.group); if (this.mark) R.scene.remove(this.mark); this.actor.dispose(); for (const p of [...this.pol, ...this.ai, ...this.pur]) R.scene.remove(p.m);
     this.car.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); this.built = false;
   }
 }
