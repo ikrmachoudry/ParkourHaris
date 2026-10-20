@@ -25,6 +25,7 @@ export const CITY_VEH = [
   { id: 26, name: 'Tractor', style: 'tractor', model: 'tractor', paint: '#c8262c', mass: 3400, kW: 55, top: 21 / 3.6 * 1.015, mu: 0.8, drive: 'rwd', cda: 2.2, cyl: 4, pitch: 0.55, hornHz: 300 },   // farm tractor: reads 21 km/h flat out
   { id: 27, name: 'Truck', style: 'truck', model: 'truck', paint: '#1f5fbf', mass: 7500, kW: 160, top: 105 / 3.6 * 1.0335, mu: 0.85, drive: 'rwd', cda: 4.6, cyl: 6, pitch: 0.5, hornHz: 240 },   // cargo truck: reads 105 km/h flat out
   { id: 28, name: 'Bus', style: 'bus', model: 'bus', paint: '#1a7f4b', mass: 11000, kW: 480, top: 165 / 3.6 * 1.031, mu: 0.85, drive: 'rwd', cda: 6.2, cyl: 6, pitch: 0.42, hornHz: 200 },   // city bus: reads 165 km/h flat out
+  { id: 29, name: 'Racing Car', style: 'sports', extra: 'spoiler', paint: '#e11d2e', mass: 1250, kW: 520, top: 190 / 3.6 * 1.0053, mu: 1.35, drive: 'rwd', cda: 0.55, cyl: 8, pitch: 1.05, hornHz: 500 },   // street racer with a big spoiler: reads 190 km/h flat out
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 

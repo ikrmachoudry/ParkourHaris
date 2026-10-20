@@ -268,7 +268,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const q = room.players.get(m.to);
         if (!q || q === p || !q.ws) return;
-        if (!Number.isInteger(m.c) || m.c < 0 || m.c > 31) return;
+        if (!Number.isInteger(m.c) || m.c < 0 || m.c > 63) return;
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 10) return;
         send(q.ws, { t: 'jack', from: p.id, c: m.c });
         break;
@@ -277,7 +277,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now();
         if (t - (p.lastCar || 0) < 250) return;
-        if (!num(m.c, 0, 31) || !num(m.x, -400, 400) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
+        if (!num(m.c, 0, 63) || !num(m.x, -600, 600) || !num(m.z, -2000, 400) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
         const cy = num(m.y, -5, 120) ? m.y : 0;
         room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
