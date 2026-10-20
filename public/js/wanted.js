@@ -17,6 +17,7 @@ import { OPT } from './opts.js';
 const GRID = GT.GRID, EDGE = GRID[GRID.length - 1], LANE = 2.7;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = (a, b) => a + Math.random() * (b - a);
+const SIREN_SAFE = 45;                                   // metres beyond the search circle where the patrol siren has faded out completely
 const HEAT = [3, 12, 26, 45, 70];                        // heat needed for 1..5 stars
 const CARS = [0, 1, 2, 3, 3, 4], FOOT = [0, 1, 2, 3, 4, 5];  // patrol cars / officers on foot per star level
 const CRIME = { shot: 0.3, hit: 0.7, kill: 2.2, run: 1.0, jack: 2.4, car: 1.3, copHit: 2.4, copKill: 4.2, crash: 0.5 };
@@ -189,7 +190,7 @@ export class Wanted {
     const R = this.R, onFoot = !car, speed = car ? Math.abs(car.speed) : Math.hypot(R.me.body.vx || 0, R.me.body.vz || 0);
     this.flashPhase += dt;
     if (this.bannerT > 0) { this.bannerT -= dt; if (this.bannerT <= 0) this.hideBanner(); }
-    if (this.stars === 0) { if (this.cars.length || this.foot.length) { this.cool += dt; this.clearAll(false, dt); } else this.cool = 0; this.hud(false); this.siren(px, pz); return; }
+    if (this.stars === 0) { if (this.cars.length || this.foot.length) { this.cool += dt; this.clearAll(false, dt); } else this.cool = 0; this.hud(false); this.siren(px, pz, dt); return; }
 
     // can anybody see me?
     this.sightT -= dt;
@@ -241,11 +242,19 @@ export class Wanted {
     else if (speed < 3.2) { for (const c of this.cars) if (Math.hypot(c.x - px, c.z - pz) < 5.2) { near = true; break; } if (!near) for (const o of this.foot) if (!o.dead && o.down <= 0 && Math.hypot(o.x - px, o.z - pz) < 3.2) { near = true; break; } }
     this.bust = near ? this.bust + dt / (onFoot ? 1.5 : 2.0) : Math.max(0, this.bust - dt * 0.9);
     if (this.bust >= 1) { if (OPT.invincible) this.bust = 0.99; else { this.busted(); return; } }
-    this.hud(true); this.siren(px, pz);
+    this.hud(true); this.siren(px, pz, dt);
   }
-  siren(px, pz) {
-    let d = 1e9; if (this.stars > 0) for (const c of this.cars) if (!c.parked || true) d = Math.min(d, Math.hypot(c.x - px, c.z - pz));
-    A.sirenFar(d < 190 ? clamp(1 - d / 190, 0, 1) ** 1.3 : 0);
+  // the patrol-car siren: only cop CARS make it (officers on foot are silent). It fades with the distance to the nearest patrol car, fades more when you
+  // reach the edge of the search circle, more again outside it, and is gone once you are SIREN_SAFE metres past the circle.
+  siren(px, pz, dt = 0.016) {
+    let d = 1e9; if (this.stars > 0) for (const c of this.cars) d = Math.min(d, Math.hypot(c.x - px, c.z - pz));
+    let v = d < 190 ? clamp(1 - d / 190, 0, 1) ** 1.3 : 0;
+    if (v > 0 && this.search) {
+      const dc = Math.hypot(px - this.search.x, pz - this.search.z), r = this.search.r;
+      v *= dc < r * 0.7 ? 1 : dc < r ? 1 - 0.45 * (dc - r * 0.7) / (r * 0.3) : 0.55 * Math.max(0, 1 - (dc - r) / SIREN_SAFE) ** 1.5;
+    }
+    this.sirV = (this.sirV || 0) + (v - (this.sirV || 0)) * Math.min(1, dt * 3);   // never an abrupt cut: the volume glides
+    A.sirenFar(this.sirV < 0.015 ? 0 : this.sirV);
   }
   removeCar(i) { const c = this.cars[i]; this.group.remove(c.mesh); c.mesh.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); }); this.cars.splice(i, 1); }
   clearAll(now, dt) {
@@ -258,7 +267,7 @@ export class Wanted {
     const R = this.R, W = R.wallet; this.bust = 0;
     let fine = 0; if (W) { fine = Math.min(W.money, Math.max(40, Math.round(W.money * 0.06 / 10) * 10)); if (fine) W.add(-fine, 'fine'); }
     this.showBanner('BUSTED', fine ? '-$' + fine : '');
-    A.sirenFar(0); this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.seen = false; this.unseenT = 99;
+    A.sirenFar(0); this.sirV = 0; this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.seen = false; this.unseenT = 99;
     this.clearAll(true);
     if (R.drive) R.toggleCar(true);
     const b = R.me.body, z = POLICE.zone; b.x = z.x; b.z = z.z + 5; b.y = 0.25; b.vx = b.vz = b.vy = 0; b.stun = 0; if (R.pointCamera) R.pointCamera(Math.PI);
@@ -285,6 +294,6 @@ export class Wanted {
     return { circle: this.search ? { x: this.search.x, z: this.search.z, r: this.search.r, searching } : null, cops: this.cars.map((c) => ({ x: c.x, z: c.z, car: true })).concat(this.foot.filter((o) => !o.dead).map((o) => ({ x: o.x, z: o.z }))), phase: Math.floor(this.flashPhase * 4) % 2 };
   }
   states() { return this.cars.filter((c) => !c.parked || true).map((c) => c.st); }
-  reset() { this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.bust = 0; this.seen = false; this.unseenT = 99; this.clearAll(true); this.hud(false); this.hideBanner(); A.sirenFar(0); }
+  reset() { this.heat = 0; this.stars = 0; this.search = null; this.evade = 0; this.bust = 0; this.seen = false; this.unseenT = 99; this.clearAll(true); this.hud(false); this.hideBanner(); A.sirenFar(0); this.sirV = 0; }
   dispose() { this.reset(); this.R.scene.remove(this.group); }
 }
