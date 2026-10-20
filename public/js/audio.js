@@ -97,6 +97,8 @@ export const sfx = {
   cash() { tone('triangle', 988, 1480, 0.08, 0.22); tone('triangle', 1480, 1976, 0.14, 0.18, 0.07); },
   empty() { tone('square', 1400, 1000, 0.025, 0.1); },
   shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
+  sniperShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
+  boom(vol = 1) { noise(1.8, 0.9 * vol, 'lowpass', 1200, 60, 0, 0.6); tone('sine', 95, 26, 1.4, 0.85 * vol); noise(0.45, 0.5 * vol, 'lowpass', 3200, 240); tone('triangle', 60, 28, 1.1, 0.4 * vol, 0.05); noise(2.6, 0.25 * vol, 'lowpass', 500, 80, 0.3, 0.5); },   // a tanker exploding
   akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
   glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
   metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },

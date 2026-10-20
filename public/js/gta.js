@@ -13,12 +13,38 @@ export const GT = {
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
 const TAU = Math.PI * 2;
-export const HILLS = [[370, -370, 70, 21], [395, 365, 62, 14], [-365, 375, 66, 16], [40, -460, 60, 11], [-40, 460, 55, 9], [-430, 20, 55, 14], [430, -230, 55, 12], [-30, 400, 50, 8]];
+export const HILLS = [[370, -370, 70, 21], [395, 365, 62, 14], [-365, 375, 66, 16], [40, -460, 60, 11], [-40, 460, 55, 9], [-430, 20, 55, 14], [430, -230, 55, 12], [-30, 400, 50, 8], [112, 346, 28, 26]];
 const noise = (x, z) => (Math.sin(x * 0.043 + 1.3) * Math.cos(z * 0.051 + 0.4) * 0.6 + Math.sin((x + z) * 0.09 + 2.0) * 0.3 + Math.sin(x * 0.17) * Math.sin(z * 0.15) * 0.1);
 
 export const mtC = (r) => { const M = GT.MT; return r >= M.R ? 0 : M.H * Math.pow(1 - Math.max(r, M.Rt) / M.R, 1.25); };
 export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th = M.th0 + u * M.T * TAU; return { x: M.cx + r * Math.cos(th), z: M.cz + r * Math.sin(th), r, y: mtC(r) }; };
 
+// SNIPE THE TRUCK: a new road runs south from the city (the x = 60 avenue) straight through a ridge by a concrete TUNNEL. A bypass loops round the east end of the ridge to the far mouth
+// (the blockers use it) and a hill road climbs to the sniper pad on the hill north-east of the tunnel (clear view of the road before the tunnel).
+export const SNIPE = {
+  road: [[60, 240], [60, 482]],                                            // the new road through the tunnel (x = 60, driving south)
+  tun: { x: 60, z0: 414, z1: 452, half: 8, h: 6.8 },                       // the tunnel (inner half width, inner height)
+  ridge: { z: 433, sz: 31, x0: -70, x1: 130, h: 22 },                      // the ridge the tunnel goes through
+  bypass: [[120, 240], [150, 282], [150, 468], [60, 468]],                 // from the city (the x = 120 avenue) round the east end of the ridge to the far mouth
+  hill: [[150, 326, 0], [138, 340, 4], [126, 352, 9], [106, 358, 14], [92, 346, 17], [98, 334, 18], [108, 334, 18]],   // [x, z, road height]: the sniper's road
+  pad: { x: 108, z: 334, y: 18, r: 9 },                                    // the circled sniping area
+  bail: { z: 300 },                                                        // the red line: the truck driver pulls out here
+  lane: 63.25,                                                             // the south-bound lane of the new road (left-hand traffic)
+};
+function nearPoly(x, z, pts) {   // distance to a polyline and the road height there (pts: [x, z] or [x, z, y])
+  let best = 1e9, by = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
+    const d = Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t); if (d < best) { best = d; by = (a[2] || 0) + ((b[2] || 0) - (a[2] || 0)) * t; }
+  }
+  return { d: best, y: by };
+}
+// true where nothing may grow or be built: round the Snipe roads, the pad and the sniper's view of the road before the tunnel
+export function snipeClear(x, z) {
+  const S = SNIPE; if (z < 280 || x < 20 || x > 300) return false;
+  if (x > 40 && x < 165 && z > 290 && z < 418) return true;
+  const hw = GT.HW + 6; return nearPoly(x, z, S.road).d < hw + 4 || nearPoly(x, z, S.bypass).d < hw || nearPoly(x, z, S.hill).d < hw || Math.hypot(x - S.pad.x, z - S.pad.z) < S.pad.r + 12;
+}
 // terrain height everywhere (flat 0 in the city, hills outside, a mountain with a carved road, a beach and the sea)
 export function gtaBase(x, z) {
   const M = GT.MT, dx = x - M.cx, dz = z - M.cz, r = Math.hypot(dx, dz), box = Math.max(Math.abs(x), Math.abs(z));
@@ -43,6 +69,16 @@ export function gtaBase(x, z) {
   { // the Stunt Park is one big flat pad (the hills and the noise are levelled out, blending back into the land over ~14 m)
     const P = PARK, dx = Math.max(P.x0 - x, 0, x - P.x1), dz = Math.max(P.z0 - z, 0, z - P.z1), d = Math.hypot(dx, dz);
     if (d < 22) h = mix(h, 0, 1 - sm(8, 22, d));
+  }
+  { // Snipe the Truck: the ridge, the tunnel cutting, the bypass and the sniper hill road (all flat across the road, blending into the land)
+    const S = SNIPE, R = S.ridge;
+    if (z > 225 && z < 500 && x > -90 && x < 300) {
+      const rz = (z - R.z) / R.sz; h += R.h * Math.exp(-rz * rz) * sm(R.x0 - 25, R.x0 + 35, x) * (1 - sm(R.x1 - 35, R.x1 + 25, x)) * sm(300, 330, box);
+      const a = nearPoly(x, z, S.road); if (z > 290) h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 15, a.d));
+      const b = nearPoly(x, z, S.bypass); h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 12, b.d));
+      const c = nearPoly(x, z, S.hill); h = mix(h, c.y, 1 - sm(GT.HW + 2.5, GT.HW + 11, c.d));
+      const P = S.pad, dp = Math.hypot(x - P.x, z - P.z); if (dp < P.r + 16) h = mix(h, P.y, 1 - sm(P.r, P.r + 16, dp));
+    }
   }
   return h;
 }
@@ -144,6 +180,13 @@ export function gtaRoads() {
   { // the Stunt Park: the oval circuit and the road that joins it to the city (the east end of the z = 60 avenue)
     const pts = parkPath(); for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; segs.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], hw: PARK.hw, y0: 0, g: 'stunt' }); }
     segs.push({ ax: 240, az: 60, bx: 318, bz: 60, hw, y0: 0, g: 'stunt-link' }); segs.push({ ax: 318, az: 60, bx: PARK.cxW, bz: PARK.zT - 1, hw, y0: 0, g: 'stunt-link' });
+  }
+  { // Snipe the Truck: the tunnel road, the bypass round the ridge and the sniper's hill road
+    const S = SNIPE;
+    for (let i = 0; i + 1 < S.road.length; i++) segs.push({ ax: S.road[i][0], az: S.road[i][1], bx: S.road[i + 1][0], bz: S.road[i + 1][1], hw, y0: 0, g: 'snipe-tun' });
+    for (let i = 0; i + 1 < S.bypass.length; i++) segs.push({ ax: S.bypass[i][0], az: S.bypass[i][1], bx: S.bypass[i + 1][0], bz: S.bypass[i + 1][1], hw, y0: 0, g: 'snipe-by' });
+    for (let i = 0; i + 1 < S.hill.length; i++) segs.push({ ax: S.hill[i][0], az: S.hill[i][1], bx: S.hill[i + 1][0], bz: S.hill[i + 1][1], hw, y0: S.hill[i][2], y1: S.hill[i + 1][2], g: 'snipe-hill' });
+    plazas.push({ x: S.pad.x, z: S.pad.z, r: S.pad.r + 1, y: S.pad.y, g: 'snipe-pad' });
   }
   return { segs, plazas, boosts: PARK.boosts.map((b) => ({ ...b })) };
 }

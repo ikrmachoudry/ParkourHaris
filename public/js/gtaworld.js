@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, snipeClear } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -543,6 +543,7 @@ export function buildGta(world, th, info, seed) {
     const gx = (gtaH(x + 2, z) - gtaH(x - 2, z)) / 4, gz = (gtaH(x, z + 2) - gtaH(x, z - 2)) / 4; if (Math.hypot(gx, gz) > 0.55) continue;
     if (Math.abs(z) < 24 && x > 230) continue; // keep the highway clear
     let onRoad = false; for (let u = 0; u <= 1; u += 0.02) { const p = mtRoad(u); if (Math.hypot(p.x - x, p.z - z) < 13) { onRoad = true; break; } } if (onRoad) continue;
+    if (snipeClear(x, z)) continue;
     plant(x, h, z, 1.2 + R() * 1.2, true); n++;
   }
   // ---- the summit meadow: big old trees and boulders to hide behind (SUMMIT.covers: the thief ambush uses the same list) plus a ring of ordinary trees
@@ -554,6 +555,25 @@ export function buildGta(world, th, info, seed) {
     for (let k = 0; k < 18; k++) { const a = R() * 6.28, rad = 3 + R() * 6; if (Math.abs(((a - arr) % 6.2832) + 6.2832) % 6.2832 < 0.7) continue; wm.add(new THREE.SphereGeometry(0.35 + R() * 0.3, 5, 4), M.cx + Math.cos(a) * rad, y + 0.15, M.cz + Math.sin(a) * rad, '#4f8f33'); } }   // bushes
   // ---- lookout + summit props
   { const M = GT.MT, y = mtC(M.Rt); wm.add(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), M.cx, y + 4.5, M.cz, '#ddd'); world.glow.add(new THREE.BoxGeometry(3.4, 1.8, 0.1), M.cx + 1.7, y + 8, M.cz, '#ff6b9d'); }
+  // ---- SNIPE THE TRUCK: the concrete tunnel through the ridge, the red bail-out line, the sniper's circled pad and a crash barrier round it
+  { const S = SNIPE, T = S.tun, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), L = T.z1 - T.z0, cz = (T.z0 + T.z1) / 2, top = 15.5, outer = 22;
+    const solid = (x0, z0, x1, z1, h, y0 = 0, box = true) => { world.addSolid(x0, y0, z0, x1, h, z1, { name: 'prop' }); if (box) roads.boxes.push({ x0, x1, z0, z1, h }); };
+    for (const sg of [-1, 1]) {   // the two rock walls beside the road (solid for cars) and the roof slab (solid for people and bullets only)
+      const xa = sg < 0 ? T.x - outer : T.x + T.half, xb = sg < 0 ? T.x - T.half : T.x + outer;
+      wm.add(Bx(xb - xa, top, L), (xa + xb) / 2, top / 2, cz, '#8a8478'); solid(sg < 0 ? xa : xa - 0.3, T.z0, sg < 0 ? xb + 0.3 : xb, T.z1, top);
+      wm.add(Bx(0.3, T.h, L - 0.4), T.x + sg * (T.half - 0.15), T.h / 2, cz, '#4a4f5a');   // the inner lining
+    }
+    wm.add(Bx(T.half * 2 + 0.6, top - T.h, L), T.x, T.h + (top - T.h) / 2, cz, '#8a8478'); solid(T.x - T.half, T.z0, T.x + T.half, T.z1, top, T.h, false);
+    wm.add(Bx(T.half * 2, 0.12, L), T.x, T.h - 0.06, cz, '#3a3e48');
+    for (let z = T.z0 + 3; z < T.z1; z += 5) world.glow.add(Bx(T.half * 1.3, 0.1, 0.5), T.x, T.h - 0.2, z, '#fff1b5');
+    for (let z = T.z0 + 3; z < T.z1; z += 5) for (const sg of [-1, 1]) world.glow.add(Bx(0.1, 0.12, 2.4), T.x + sg * (T.half - 0.35), 1.1, z, '#ffb347');
+    for (const zp of [T.z0, T.z1]) for (let i = 0; i < 8; i++) { const sl = T.half * 2 / 8; wm.add(Bx(sl, 0.9, 0.7), T.x - T.half + (i + 0.5) * sl, T.h - 0.45, zp + (zp === T.z0 ? -0.35 : 0.35), i % 2 ? '#111' : '#ffd23f'); }   // hazard-striped portals
+    // the red line across the road: the truck driver pulls out here
+    { const z = S.bail.z; world.glow.add(Bx(GT.HW * 2, 0.05, 1.4), S.road[0][0], 0.16, z, '#ff2a2a'); for (let k = -3; k <= 3; k++) world.glow.add(Bx(1.1, 0.06, 3.2), S.road[0][0] + k * 1.7, 0.17, z - 3.2, k % 2 ? '#ffffff' : '#ff2a2a'); }
+    // the sniper's pad: a glowing yellow ring, a low crash barrier on the open side
+    { const P = S.pad; world.glow.add(new THREE.RingGeometry(P.r - 1.0, P.r, 48), P.x, P.y + 0.16, P.z, '#ffd23f', -Math.PI / 2, 0, 0); world.glow.add(new THREE.RingGeometry(P.r - 4.2, P.r - 3.7, 48), P.x, P.y + 0.16, P.z, '#ffd23f', -Math.PI / 2, 0, 0);
+      wm.add(Bx(0.5, 0.2, 0.5), P.x, P.y + 0.05, P.z, '#ffd23f'); }
+  }
   // ---- stunt ramps (orange wedges with white stripes + glowing top edge)
   for (const [rx, rz, yaw, len, hg, w] of RAMPS) {
     const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(len, 0); sh.lineTo(len, hg); sh.lineTo(0, 0);

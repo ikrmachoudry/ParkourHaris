@@ -412,7 +412,7 @@ body.big-map #touch, body.m-open #touch, body.m-fin-open #touch { display: none 
 #m-spec { background: linear-gradient(#7dd3fc, #0284c7); color: #04243a; }
 #m-play { background: linear-gradient(#5ef09a, #16a34a); color: #062b12; }
 
-#m-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 4px; }
+#m-pick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 8px 0 4px; }
 .m-card #m-pick button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
 .m-card #m-pick button.on { background: linear-gradient(#7c5cff, #5a3cf0); color: #fff; border-color: #c9a8ff; }
 @media (max-height: 480px) { #s-title .menu { width: min(190px, 26vw); gap: 6px; top: 56px; bottom: auto; } #s-title .logo { padding-right: min(190px, 26vw); } #s-title .menu .btn.big { padding: 6px 8px; } #s-title .menu .row .btn { padding: 6px 6px; } }
@@ -563,3 +563,9 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #quick .qrow.on .sw { background: #34c759; }
 #quick .qrow.on .sw::after { transform: translateX(20px); }
 @media (max-height: 480px) { #quick .qrow { padding: 4px 12px; } #quick .qrow small { display: none; } #quick .qi { width: 26px; height: 26px; font-size: 15px; } #quick .sw { width: 44px; height: 26px; } #quick .sw::after { width: 22px; height: 22px; } #quick .qrow.on .sw::after { transform: translateX(18px); } }
+
+/* sniper scope: dark rim, thin crosshair and a centre dot while the sniper rifle is aimed */
+#scope { position: fixed; inset: 0; z-index: 2; pointer-events: none; display: none; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 28vmin, rgba(0,0,0,.92) 41vmin); }
+#scope i { position: absolute; left: 50%; top: 50%; width: 56vmin; height: 1px; margin-left: -28vmin; background: rgba(0,0,0,.75); }
+#scope b { position: absolute; left: 50%; top: 50%; width: 1px; height: 56vmin; margin-top: -28vmin; background: rgba(0,0,0,.75); }
+body.scoped #scope { display: block; }

@@ -106,6 +106,12 @@ export class ThiefDirector {
         const target = Math.min(cruise, here.vlim, stopV);
         this.v += clamp(target - this.v, -12 * dt, 7 * dt); this.v = Math.max(0, this.v); this.s = Math.min(endS, this.s + this.v * dt);
         const q = routeAt(R, this.s); c.x = q.x; c.z = q.z; c.yaw = q.yaw; c.v = this.v; c.drv = 1; th.mode = 'car'; th.pose = 'sit'; th.sp = 0;
+        // he leans out and shoots back at whoever is close behind him (not for the first seconds of each leg, and never from far away)
+        this.fireT = (this.fireT === undefined ? 4 : this.fireT) - dt;
+        if (this.fireT <= 0 && this.st > 5 && nr.P && nr.d < 52 && nr.d > 4) {
+          this.fireT = 1.2 + this.rnd2() * 1.3; const d = nr.d, drv = !!(nr.P.a & 256), pHit = (d < 14 ? 0.3 : d < 30 ? 0.18 : 0.08) * (drv ? 0.7 : 1), o = this.carPt(0.4, 0.6);
+          this.onEv('shot', { i: nr.id, h: this.rnd2() < pHit ? 1 : 0, x: +o.x.toFixed(1), z: +o.z.toFixed(1) });
+        }
         // lose him (nobody anywhere near for a long time) and the mission fails
         if (this.dmin > 230) { this.lost += dt; if (this.lost > 12) return this.end(false, 'lost'); } else this.lost = Math.max(0, this.lost - dt * 2);
         if (rem < 0.35 && this.v < 3) { this.s = endS; this.v = 0; c.v = 0; if (this.stage === 'drive1') this.go('waitA'); else this.go('summit'); }
@@ -138,6 +144,7 @@ export class ThiefDirector {
       default: break;
     }
   }
+  rnd2() { this.seed2 = ((this.seed2 === undefined ? 777 : this.seed2) * 1664525 + 1013904223) >>> 0; return this.seed2 / 4294967296; }   // a second stream for the shots from the car, so the summit ambush stays exactly as before
   rnd() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
   // the person on foot (or in a car) nearest to the thief
   nearestTo(x, z) { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - x, P.z - z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }

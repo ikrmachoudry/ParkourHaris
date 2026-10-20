@@ -281,12 +281,17 @@ export function buildHeroChar(opts = {}) {
     A(0.03, 0.12, 0.05, 0, -0.01, 0.0, dwood, -0.2); A(0.034, 0.17, 0.07, 0, -0.03, 0.2, gm2, 0.35); A(0.04, 0.09, 0.3, 0, 0.04, -0.26, dwood, 0.12);
     A(0.008, 0.035, 0.008, 0, 0.14, 0.52); A(0.01, 0.025, 0.012, 0, 0.14, 0.14);
     const br = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.2, 8), gm); br.rotation.x = Math.PI / 2; br.position.set(0, 0.075, 0.62); ak.add(br); }
-  bat.visible = ak.visible = false;
-  for (const o of [bat, ak]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
-  gun.add(bat, ak);
+  const sn = new THREE.Group(); { const A = (w, h, d, x, y, z, m = gm, rx = 0) => { const q = part(w, h, d, x, y, z, m, rx); sn.add(q); return q; };   // sniper rifle: long barrel, scope on top, wooden stock
+    A(0.04, 0.07, 0.4, 0, 0.07, 0.1, gm2); A(0.05, 0.09, 0.34, 0, 0.04, -0.3, dwood, 0.08); A(0.03, 0.12, 0.05, 0, -0.01, 0.0, dwood, -0.2); A(0.03, 0.12, 0.06, 0, -0.03, 0.22, gm2, 0.3);
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.62, 8), gm); br.rotation.x = Math.PI / 2; br.position.set(0, 0.085, 0.7); sn.add(br);
+    const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.3, 10), gm2); sc.rotation.x = Math.PI / 2; sc.position.set(0, 0.17, 0.1); sn.add(sc);
+    const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.05, 10), gm2); sl.rotation.x = Math.PI / 2; sl.position.set(0, 0.17, 0.27); sn.add(sl); A(0.012, 0.05, 0.02, 0, 0.12, 0.05, gm2); A(0.012, 0.05, 0.02, 0, 0.12, 0.2, gm2); }
+  bat.visible = ak.visible = sn.visible = false;
+  for (const o of [bat, ak, sn]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  gun.add(bat, ak, sn);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;
-  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak }, tris: Math.round(tris), outfit: o };
+  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn }, tris: Math.round(tris), outfit: o };
   ch.pose = (name, t = 0, k = 1) => poseChar(ch, name, t, k);
   return ch;
 }

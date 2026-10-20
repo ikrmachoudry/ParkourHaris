@@ -100,6 +100,8 @@ const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24);
 const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (it exists only in that player's game; the model id travels in 'vm')
 const WNAME = [null, 'bat', 'pistol', 'ak'];
+const wnameOf = (w) => ((w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
+const isGun = (w) => w === 'pistol' || w === 'ak' || w === 'sniper';
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
 const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4);
@@ -218,7 +220,7 @@ class Remote {
     const grounded = !!(this.flags & 1);
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
-    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) ? null : WNAME[this.w & 3], aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
+    this.model.update(dt, { speed: this.speed, grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) ? null : wnameOf(this.w), aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -231,7 +233,7 @@ function beamTexture() {
   const gr = g.createLinearGradient(0, 128, 0, 0); gr.addColorStop(0, 'rgba(255,244,200,.9)'); gr.addColorStop(1, 'rgba(255,244,200,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(24, 128); g.lineTo(40, 128); g.lineTo(64, 0); g.lineTo(0, 0); g.closePath(); g.fill();
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; _beamTex = t; return t;
 }
-const WEAPON_ICON = { fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
+const WEAPON_ICON = { sniper: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h22l3-2.4h3M9 20l-1 5h4l1-5M14 15.5h8M16 15.5v-2.6h4v2.6"/><circle cx="16" cy="7" r="3.2"/><path d="M16 2.5v9M11.5 7h9" stroke-width="1.4"/></svg>', fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
   bat: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"><g transform="rotate(42 16 16)"><path d="M14.7 27 L14.7 17.5 C14.7 14.5 12.2 12.5 12.2 9 L12.2 5.5 C12.2 1.8 19.8 1.8 19.8 5.5 L19.8 9 C19.8 12.5 17.3 14.5 17.3 17.5 L17.3 27 Z"/><ellipse cx="16" cy="28.3" rx="2.6" ry="1.5"/></g></svg>',
   pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
   ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
@@ -334,7 +336,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    this.camYaw -= dx * 0.0024; this.camPitch = clamp(this.camPitch + dy * 0.0021, -0.15, 1.2); this.lookT = 1.6;
+    const zk = this.scoped ? 0.22 : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.15, 1.2); this.lookT = 1.6;
   }
 
   update(dt) {
@@ -357,7 +359,7 @@ class Race {
     }
 
     // ---- input -> physics
-    const canMove = lt >= 0 && !this.over && !this.jack;
+    const canMove = lt >= 0 && !this.over && !this.jack && !(this.mission && this.mission.freeze);
     let fw = 0, rt = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp')) fw++; if (keys.has('KeyS') || keys.has('ArrowDown')) fw--;
     if (keys.has('KeyD') || keys.has('ArrowRight')) rt++; if (keys.has('KeyA') || keys.has('ArrowLeft')) rt--;
@@ -501,7 +503,7 @@ class Race {
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain) || b.swim > 0.3) return null;
     let best = null, bd = 4.6;
-    for (const c of this.cars) { if (c.st.wreck) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 0.8 : 0); if (d < bd) { bd = d; best = c; } }
+    for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3) continue; const d = Math.hypot(b.x - c.st.x, b.z - c.st.z) + (taken ? 0.8 : 0); if (d < bd) { bd = d; best = c; } }
     return best;
   }
   spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
@@ -694,7 +696,7 @@ class Race {
   }
   // the thief's getaway car is a real, heavy obstacle (mission 2): you bounce off it, and it knocks you down on foot
   // solid cars that are not in this.cars: the thief's getaway car and the police patrol cars
-  extraCars() { const r = []; const tc = this.thiefCar(); if (tc) r.push(tc); if (this.wanted) for (const s of this.wanted.states()) r.push(s); return r; }
+  extraCars() { const r = []; const tc = this.thiefCar(); if (tc) r.push(tc); if (this.mission && this.mission.mission === 'snipe') r.push(...this.mission.ss.solids()); if (this.wanted) for (const s of this.wanted.states()) r.push(s); return r; }
   thiefCar() { const ts = this.mission && this.mission.ts; return ts && ts.carSt || null; }
   // pedestrians vs cars: parked cars are solid, fast cars bonk you away
   softCars(b, canMove) {
@@ -885,10 +887,10 @@ class Race {
     // the wheel sits right beside the weapon button (2 x 2, tight), so the thumb barely moves
     let cx = window.innerWidth * 0.8, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
-    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47' };
-    ['fist', 'bat', 'pistol', 'ak'].forEach((k, i) => {
+    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER' };
+    ['fist', 'bat', 'pistol', 'ak', 'sniper'].forEach((k, i) => {
       const owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button'), col = i % 2, row = i >> 1, gap = 6;
-      let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row ? 1 : -1) * (ws / 2 + gap / 2);
+      let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row - 1) * (ws + gap);
       px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, px)); py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, py));
       s.className = 'ws' + (cur === k ? ' sel' : '') + (owned ? '' : ' lock'); s.style.left = Math.round(px) + 'px'; s.style.top = Math.round(py) + 'px';
       s.innerHTML = WEAPON_ICON[k] + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'LOCKED') + '</small>';
@@ -903,7 +905,7 @@ class Race {
   toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat') return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && (this.aiming || this.aimT > 0); }
   syncAct() { const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
-    { const pb = $('a-punch'); if (pb) { const gun = this.weapon === 'pistol' || this.weapon === 'ak'; if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
+    { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz) || 1;
@@ -934,7 +936,7 @@ class Race {
   // ================= SHARED CITY (multiplayer) =================
   // The room host simulates the pedestrians and the traffic and streams them (6 times a second); the other players show them as puppets and
   // send what they do to them (punch, shot, horn, carjack) to the host as 'ev' events. Weapons and stolen cars travel in the position snapshots.
-  weaponCode() { return (WNAME.indexOf(this.drive ? null : this.weapon) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0); }
+  weaponCode() { const wn = this.drive ? null : this.weapon; return (wn === 'sniper' ? 3 | 16 : WNAME.indexOf(wn) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0); }
   get simHost() { return !this.multi || !app.room || app.room.hostId === this.localId; }
   evt(o) { if (this.multi && !this.simHost) app.net.send({ t: 'ev', ...o }); }
   remoteCar(r) {   // a stolen traffic car another player is driving: build its model once
@@ -1005,10 +1007,10 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
+  crime(kind, x, z) { if (this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
-    const b = this.me.body, armed = this.weapon === 'pistol' || this.weapon === 'ak', empty = tj.mode === 'abandoned';
+    const b = this.me.body, armed = isGun(this.weapon), empty = tj.mode === 'abandoned';
     const dur = empty ? 0.2 : armed ? 0.55 : this.weapon === 'bat' ? 1.0 : 1.5;
     this.jack = { c: tj, t: 0, dur, empty }; b.vx = b.vz = 0; b.yaw = Math.atan2(tj.st.x - b.x, tj.st.z - b.z); this.crouch = false; this.syncAct();
     if (!empty) { this.tai.begin(tj); A.sfx.door(); this.evt({ k: 'tj', c: this.tai.cars.indexOf(tj) }); }
@@ -1061,11 +1063,16 @@ class Race {
   }
   // ---- THIEF CHASE on the summit: the thief's volleys and the police pistol
   policeGun() {
-    if (!this.wallet) return; const had = this.wallet.owns('pistol') || this.wallet.owns('ak'), g = this.wallet.gift('pistol');
+    if (!this.wallet) return; const had = this.wallet.owns('pistol') || this.wallet.owns('ak') || this.wallet.owns('sniper'), g = this.wallet.gift('pistol');
     if (!had) { this.weapon = 'pistol'; this.syncAct(); this.updateAmmoHud(); this.toast('POLICE PISTOL ISSUED'); } else if (g) { this.updateAmmoHud(); this.toast('AMMO TOPPED UP'); }
   }
+  // a mission hands you a weapon (the sniper rifle for SNIPE THE TRUCK): you keep it if you already own it, and it is equipped
+  giveWeapon(k, msg) {
+    if (!this.wallet) return; const had = this.wallet.owns(k), g = this.wallet.gift(k);
+    this.weapon = k; this.syncAct(); this.updateAmmoHud(); if (!had) this.toast(msg || 'WEAPON ISSUED'); else if (g) this.toast('AMMO TOPPED UP');
+  }
   thiefShot(m) {
-    const mi = this.mission, ts = mi && mi.ts; if (!ts || !m || !Number.isFinite(+m.x) || !Number.isFinite(+m.z) || !this.tracers) return;
+    const mi = this.mission, ts = mi && (mi.mission === 'snipe' ? mi.ss : mi.ts); if (!ts || !m || !Number.isFinite(+m.x) || !Number.isFinite(+m.z) || !this.tracers) return;
     const sx = +m.x, sz = +m.z, sy = (ts.ground ? ts.ground(sx, sz) : 0) + 1.4, mine = m.i === this.localId;
     let tx, ty, tz; if (mine) { const b = this.me.body; tx = b.x; ty = b.y + 1.1; tz = b.z; if (this.drive) { tx = this.drive.st.x; tz = this.drive.st.z; ty = this.drive.st.y + 0.9; } } else { const r = this.remotes && this.remotes.get(m.i); if (r) { tx = r.x; ty = (r.y || 0) + 1.1; tz = r.z; } else { const b = this.me.body; tx = b.x; ty = b.y + 1.1; tz = b.z; } }
     if (!m.h) { tx += (Math.random() - 0.5) * 3; tz += (Math.random() - 0.5) * 3; ty += (Math.random() - 0.5); }
@@ -1134,6 +1141,7 @@ class Race {
       let best = null, bd = len;
       if (this.tai) for (const c of this.tai.cars) { if (c.mode === 'gone' || !c.vis) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: true }; } }
       for (const c of this.cars) { if (c === this.drive || !c.st.hl) continue; const dd = test(c.st); if (dd >= 0 && dd < bd) { bd = dd; best = { c, tai: false }; } }
+      if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && this.mission.ss.snap.k[4] === 2) { this.mission.send({ t: 'm_hit', dmg: W.dmg }); }   // a bullet anywhere on the rolling tanker
       if (best) { len = bd; const st = best.c.st, code = hitCode(st, ox + fx * bd, oz + fz * bd, hAt(bd)); hcode = code;
         this.crime('car', st.x, st.z);
         if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else addHit(st, code);
@@ -1143,9 +1151,9 @@ class Race {
     if (this.wanted) { const wh = this.wanted.shoot(ox, oz, fx, fz, len, W.dmg); if (wh >= 0 && wh < len) len = Math.max(0.5, wh); }
     // tracer + muzzle flash + bang
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
-    this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'ak' ? 0.07 : 0.05);
-    w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
-    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
+    this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'sniper' ? 0.16 : w === 'ak' ? 0.07 : 0.05);
+    w === 'sniper' ? A.sfx.sniperShot() : w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
+    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' || w === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
   }
   // ---- the weapon store: step on the pad inside
@@ -1185,7 +1193,7 @@ class Race {
   // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
   punch() {
     if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
-    if (this.meta.city && (this.weapon === 'pistol' || this.weapon === 'ak')) return this.fire();
+    if (this.meta.city && isGun(this.weapon)) return this.fire();
     const b = this.me.body, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));
@@ -1366,7 +1374,9 @@ class Race {
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    this.camera.fov = lerp(this.camera.fov, (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * 4)); this.camera.updateProjectionMatrix();
+    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over; this.scoped = scoped;   // sniper scope: narrow view, dark rim and crosshair
+      this.camera.fov = lerp(this.camera.fov, scoped ? 13 : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
+      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
@@ -1622,7 +1632,7 @@ async function ensureNet() {
   net.on('m_busy', (m) => { if (race && race.multi) race.busy = new Set(m.ids || []); });
   net.on('ph', (m) => { if (race && race.multi) race.onPedHit(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
-  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
+  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_sn', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
   net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();

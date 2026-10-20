@@ -1,6 +1,6 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
-import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS } from './gta.js';
+import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS, SNIPE } from './gta.js';
 
 const W = 1100, O = 550;   // 1 px = 1 m, world -550..550
 function drawStatic() {
@@ -22,6 +22,7 @@ function drawStatic() {
   { const rp = ringPath(); rp.push(rp[0]); road(rp, RING_HW * 2); }
   { const pts = []; for (let i = 0; i <= 90; i++) { const p = mtRoad(i / 90); pts.push([p.x, p.z]); } road(pts, w); }
   { const pp = parkPath(); pp.push(pp[0]); road(pp, PARK.hw * 2); road([[240, 60], [318, 60], [PARK.cxW, PARK.zT - 1]], w); }   // the Stunt Park oval + its road
+  { road(SNIPE.road, w); road(SNIPE.bypass, w); road(SNIPE.hill.map((q) => [q[0], q[1]]), w); g.fillStyle = '#4a4f59'; g.beginPath(); g.arc(O + SNIPE.pad.x, O + SNIPE.pad.z, SNIPE.pad.r, 0, 7); g.fill(); g.fillStyle = '#6b6f78'; g.fillRect(O + SNIPE.road[0][0] - 9, O + SNIPE.tun.z0, 18, SNIPE.tun.z1 - SNIPE.tun.z0); }   // the tunnel road, the bypass and the sniper's hill
   road([[GT.HWY.ax, 0], [GT.HWY.bx, 0]], w); g.fillStyle = '#4a4f59'; g.beginPath(); g.arc(O + GT.HWY.bx, O, 14, 0, 7); g.fill();
   // landmarks' footprints
   for (const h of HOMES) { g.fillStyle = h.color; g.fillRect(O + h.x - 6, O + h.z - 4.3 - 3 * Math.cos(h.yaw), 12, 8.6); }
@@ -32,6 +33,9 @@ function drawStatic() {
   const S = REPAIR.shop; g.fillStyle = '#ffb02e'; g.fillRect(O + S.x - S.w / 2, O + S.z - S.d / 2, S.w, S.d);
   return cv;
 }
+
+// a mission route is either one red line (a list of points) or { lines: [{ pts, color }] }
+const routeLines = (r) => (!r ? [] : Array.isArray(r) ? (r.length > 1 ? [{ pts: r, color: 'rgba(230,30,30,.95)' }] : []) : (r.lines || []).filter((l) => l.pts && l.pts.length > 1));
 
 export class Minimap {
   constructor(canvas) {
@@ -55,7 +59,9 @@ export class Minimap {
       g.fillStyle = bg; g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, S / 90); g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.stroke();
       g.font = Math.round(r * 1.25) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
     };
-    if (route && route.length > 1) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.strokeStyle = 'rgba(230,30,30,.95)'; g.lineWidth = Math.max(2.5, S / 45); g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); route.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); g.restore(); }   // where the thief is heading
+    { const RL = routeLines(route); if (RL.length) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.lineWidth = Math.max(2.5, S / 45); g.lineJoin = 'round'; g.lineCap = 'round'; for (const L of RL) { g.strokeStyle = L.color; g.beginPath(); L.pts.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
+      for (const m of marks || []) if (m.ring) { const [cx, cy] = toScr(m.x, m.z), [ex] = toScr(m.x + m.ring, m.z); g.strokeStyle = m.color; g.lineWidth = Math.max(2, S / 60); g.beginPath(); g.arc(cx, cy, Math.max(4, Math.abs(ex - cx)), 0, 7); g.stroke(); }
+      g.restore(); } }   // where the thief is heading / the lines of the mission
     const r = Math.max(8, S / 14);
     icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85);
     for (const m of marks || []) icon(m.x, m.z, m.color, m.glyph, r * 0.95);   // mission targets (the thief, the police station)
@@ -95,7 +101,8 @@ export class Minimap {
     const badge = (x, z, bg, glyph, r, name, col, side = 0) => { const [px, py] = P(x, z); g.fillStyle = bg; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.stroke();
       g.font = Math.round(r * 1.2) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(glyph, px, py + 1);
       if (name) { const fs = Math.round(Math.max(11, S / 38)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = side < 0 ? 'right' : side > 0 ? 'left' : 'center'; const tx = px + side * (r + 4), ty = side ? py : py + r + fs * 0.7; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(name, tx, ty); g.fillStyle = col || '#fff'; g.fillText(name, tx, ty); } };
-    if (route && route.length > 1) { g.strokeStyle = 'rgba(230,30,30,.95)'; g.lineWidth = Math.max(3, S / 150); g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); route.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
+    { g.lineWidth = Math.max(3, S / 150); g.lineJoin = 'round'; g.lineCap = 'round'; for (const L of routeLines(route)) { g.strokeStyle = L.color; g.beginPath(); L.pts.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
+      for (const m of marks || []) if (m.ring) { const [cx, cy] = P(m.x, m.z); g.strokeStyle = m.color; g.lineWidth = Math.max(2.5, S / 120); g.beginPath(); g.arc(cx, cy, Math.max(5, m.ring * k), 0, 7); g.stroke(); } }
     const r = Math.max(9, S / 40);
     badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f'); badge(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r, 'MISSION LOBBY', '#d9b8ff'); badge(380, 92, '#22c55e', '\u{1F3CE}', r, 'STUNT PARK', '#8dffb0'); badge(STUNT.startX + 60, 0, '#ffd23f', '\u{1F3C1}', r * 0.7, 'STUNT JUMP', '#5ef0ff');
     badge(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.8, 'CITY BANK', '#ffe08a', 1); badge(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.8, 'POLICE', '#bcd2ff', 1);

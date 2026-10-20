@@ -37,7 +37,7 @@ export class HeroActor {
     if (w && (name === 'idle' || name === 'walk' || name === 'crouch' || name === 'crouchwalk')) {
       const mv = sp > 0.25;
       if (w === 'pistol') name = st.aiming ? 'pistolAim' : mv ? 'pistolWalk' : 'pistolIdle';
-      else if (w === 'ak') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
+      else if (w === 'ak' || w === 'sniper') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
     }
     if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.punch > 0 && !st.seated) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }
