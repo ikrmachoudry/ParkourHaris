@@ -13,7 +13,7 @@ import { GT, mtRoad, gtaH, BANK, POLICE, CHASE, SUMMIT } from './gta.js';
 
 const STEP = 1.5, PAX = 33554432;
 const hyp = Math.hypot;
-export const carIdxOf = (a) => ((a >> 9) & 15) | (((a >> 24) & 1) << 4);
+export const carIdxOf = (a) => ((a >> 9) & 15) | (((a >> 24) & 1) << 4) | (((a >> 29) & 1) << 5);
 
 // ---- the route: the city corners with rounded bends (so the car stays on the road), then the mountain spiral
 function fillet(c, rad) {

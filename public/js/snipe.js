@@ -87,7 +87,7 @@ export class SnipeDirector {
   say(k, extra) { if (this.said[k]) return; this.said[k] = 1; this.onEv(k, extra); }
   end(ok, why) { if (this.ended) return; this.ended = true; this.stage = ok ? 'done' : 'fail'; this.onEnd(ok, why); }
   // the truck driver's position (null when he is not sitting in the truck)
-  driverP() { if (this.truckId < 0) return null; const P = this.getP(this.truckId); return P && (P.a & 256) && (((P.a >> 9) & 15) | (((P.a >> 24) & 1) << 4)) === TRUCK_IDX ? P : null; }
+  driverP() { if (this.truckId < 0) return null; const P = this.getP(this.truckId); return P && (P.a & 256) && (((P.a >> 9) & 15) | (((P.a >> 24) & 1) << 4) | (((P.a >> 29) & 1) << 5)) === TRUCK_IDX ? P : null; }
   nearP() { let best = 1e9, bp = null, bid = -1; for (const id of this.members) { const P = this.getP(id); if (!P) continue; const d = hyp(P.x - this.car.x, P.z - this.car.z); if (d < best) { best = d; bp = P; bid = id; } } return { d: best, P: bp, id: bid }; }
   // everybody in position? (the sniper near the pad, each blocker well on his way or in his place) - the thief waits for them at the gate, so nobody is left behind
   ready() {

@@ -97,8 +97,8 @@ let race = null, stage = null, thumbs = [];
 const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 
 // ------------------------------------------------------------------ menu stage (3D scene behind menus)
-// vehicle index in the net flags: 4 bits at bit 9 + 1 more bit at bit 24 (32 vehicles)
-const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24);
+// vehicle index in the net flags: 4 bits at bit 9 + 1 more bit at bit 24 + 1 at bit 29 (64 vehicles)
+const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5) & 1) << 29);
 const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (it exists only in that player's game; the model id travels in 'vm')
 const WNAME = [null, 'bat', 'pistol', 'ak'];
 const wnameOf = (w) => ((w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
@@ -106,7 +106,7 @@ const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in
 const isGun = (w) => w === 'pistol' || w === 'ak' || w === 'sniper';
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
-const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4);
+const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4) | (((f >> 29) & 1) << 5);
 
 class Stage {
   constructor() {

@@ -11,7 +11,7 @@ import { CHARACTERS } from './levelmeta.js';
 
 const $ = (id) => document.getElementById(id);
 const REASON = { slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 'MISSED THE RAMP', crash: 'CAR WRECKED', time: 'OUT OF TIME', off: 'LEFT THE ROAD', car: 'LEFT THE CAR', order: 'WRONG RAMP', lost: 'YOU LOST HIM', escaped: 'HE ESCAPED OVER THE HILL', missed: 'THE TANKER GOT INTO THE TUNNEL', early: 'YOU JUMPED OUT BEFORE THE RED LINE', late: 'YOU DID NOT JUMP OUT BEFORE THE TUNNEL' };
-const IDX_BITS = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24), PAXF = 33554432;
+const IDX_BITS = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5) & 1) << 29), PAXF = 33554432;
 const DESC = {
   stunt: 'Everybody gets the same white super car on the coast highway. Hit BOTH ramps at full speed and fly. If anybody fails, everybody restarts.',
   thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris. At the top he hides behind the trees and rocks with a pistol and shoots at you: get out, take cover, and shoot him down when he pops out. You get a police pistol if you have none.',
