@@ -1,4 +1,4 @@
-// Weather for Haris City: a wandering wind (gusts), leaves that blow along the ground, and now and then a mild rain.
+// Weather for Haris City: a wandering wind (gusts), leaves that blow along the ground, and a weather that changes every 10 - 13 minutes (clear, drizzle, rain, storm).
 // The rain schedule is a pure function of the wall clock, so every player in a room has the same weather at the same moment.
 import * as THREE from 'three';
 import * as A from './audio.js';
@@ -7,14 +7,20 @@ import { GT } from './gta.js';
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hash = (n) => { const s = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
 
-const SLOT_MS = 7 * 60000;   // the clock is cut into 7-minute slots; about 4 in 10 slots have a shower in them
+// THE WEATHER CHANGES EVERY 10 - 13 MINUTES of real time: clear sky, drizzle, rain or a storm. It is a pure function of the wall clock (segment lengths and kinds come from a hash),
+// so every player in a room has the same weather at the same moment; the change fades in over 45 seconds. Two segments in a row are never the same.
+const LEVELS = [0, 0.4, 0.75, 1];   // clear, drizzle, rain, storm
+const EPOCH = Date.UTC(2026, 0, 1), minMs = 60000;
+let seg = null;   // the segment that is running now: { i, start, end, kind, prev }
+function segFrom(i, start, prev) { const len = (10 + 3 * hash(i * 1.37 + 0.5)) * minMs, h = hash(i * 2.11 + 9.3); let kind = h < 0.34 ? 0 : h < 0.55 ? 1 : h < 0.8 ? 2 : 3; if (kind === prev) kind = (kind + 1 + Math.floor(hash(i + 4.4) * 2)) % 4; return { i, start, end: start + len, kind, prev }; }
+function segAt(now) {
+  if (!seg || now < seg.start) { seg = segFrom(0, EPOCH, 0); }   // (re)start from the anchor; it walks forward from there
+  while (now >= seg.end) seg = segFrom(seg.i + 1, seg.end, seg.kind);
+  return seg;
+}
 export function rainAt(now = Date.now()) {
-  const k = Math.floor(now / SLOT_MS), h = hash(k);
-  if (h > 0.4) return 0;
-  const dur = 90 + 120 * hash(k + 11.7), start = hash(k + 5.3) * (SLOT_MS / 1000 - dur - 60) + 20, peak = 0.45 + 0.4 * hash(k + 3.1);   // 1.5 - 3.5 minutes, mild to moderate
-  const t = (now - k * SLOT_MS) / 1000 - start;
-  if (t < 0 || t > dur) return 0;
-  return peak * smooth(0, 28, t) * smooth(dur, dur - 28, t);
+  const sg = segAt(now), t = (now - sg.start) / 1000, k = smooth(0, 45, t);
+  return LEVELS[sg.prev] + (LEVELS[sg.kind] - LEVELS[sg.prev]) * k;
 }
 
 const LEAF_COLORS = ['#c9a227', '#b5651d', '#8a3b12', '#6b8e23', '#9a6b2f', '#d2691e', '#7a8b2a', '#a14a1a'];
