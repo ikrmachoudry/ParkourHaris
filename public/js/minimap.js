@@ -62,7 +62,9 @@ export class Minimap {
     { const RL = routeLines(route); if (RL.length) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.lineWidth = Math.max(2.5, S / 45); g.lineJoin = 'round'; g.lineCap = 'round'; for (const L of RL) { g.strokeStyle = L.color; g.beginPath(); L.pts.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
       for (const m of marks || []) if (m.ring) { const [cx, cy] = toScr(m.x, m.z), [ex] = toScr(m.x + m.ring, m.z); g.strokeStyle = m.color; g.lineWidth = Math.max(2, S / 60); g.beginPath(); g.arc(cx, cy, Math.max(4, Math.abs(ex - cx)), 0, 7); g.stroke(); }
       g.restore(); } }   // where the thief is heading / the lines of the mission
+    if (this.nav && this.nav.pts) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.lineJoin = 'round'; g.lineCap = 'round'; for (const [col, wd] of [['#ffffff', Math.max(4, S / 28)], ['#2f8cff', Math.max(2.6, S / 46)]]) { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); this.nav.pts.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); } g.restore(); }   // the blue way to the pin you tapped on the big map
     const r = Math.max(8, S / 14);
+    if (this.nav) icon(this.nav.x, this.nav.z, '#2f8cff', '\u{1F4CD}', r * 0.9);
     icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85);
     for (const m of marks || []) icon(m.x, m.z, m.color, m.glyph, r * 0.95);   // mission targets (the thief, the police station)
     let near = null, nd = 1e9;
@@ -110,10 +112,12 @@ export class Minimap {
       if (name) { const fs = Math.round(Math.max(11, S / 38)); g.font = '900 ' + fs + 'px Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = side < 0 ? 'right' : side > 0 ? 'left' : 'center'; const tx = px + side * (r + 4), ty = side ? py : py + r + fs * 0.7; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(name, tx, ty); g.fillStyle = col || '#fff'; g.fillText(name, tx, ty); } };
     { g.lineWidth = Math.max(3, S / 150); g.lineJoin = 'round'; g.lineCap = 'round'; for (const L of routeLines(route)) { g.strokeStyle = L.color; g.beginPath(); L.pts.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); }
       for (const m of marks || []) if (m.ring) { const [cx, cy] = P(m.x, m.z); g.strokeStyle = m.color; g.lineWidth = Math.max(2.5, S / 120); g.beginPath(); g.arc(cx, cy, Math.max(5, m.ring * k), 0, 7); g.stroke(); } }
+    if (this.nav && this.nav.pts) { g.lineJoin = 'round'; g.lineCap = 'round'; for (const [col, wd] of [['#ffffff', Math.max(6, S / 85)], ['#2f8cff', Math.max(3.6, S / 140)]]) { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); this.nav.pts.forEach((q, i) => { const [qx, qy] = P(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); } }
     const r = Math.max(9, S / 40);
     badge(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r, 'REPAIR SHOP', '#ffd23f'); badge(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r, 'MISSION LOBBY', '#d9b8ff'); badge(380, 92, '#22c55e', '\u{1F3CE}', r, 'STUNT PARK', '#8dffb0'); badge(STUNT.startX + 60, 0, '#ffd23f', '\u{1F3C1}', r * 0.7, 'STUNT JUMP', '#5ef0ff');
     badge(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.8, 'CITY BANK', '#ffe08a', 1); badge(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.8, 'POLICE', '#bcd2ff', 1);
     for (const m of marks || []) badge(m.x, m.z, m.color, m.glyph, r * 0.9);
+    if (this.nav) badge(this.nav.x, this.nav.z, '#2f8cff', '\u{1F4CD}', r * 0.95, 'ROUTE', '#9cc8ff');
     for (const h of HOMES) badge(h.x, h.z, h.color, '\u{1F3E0}', r * 0.8, h.name.toUpperCase(), '#fff', h.x < -90 ? -1 : 1);
     for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#ff5f5f'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, r * 0.55, 0, 7); g.fill(); g.stroke(); }
     if (wi) {

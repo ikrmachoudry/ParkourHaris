@@ -20,6 +20,7 @@ import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
+import { findRoute } from './nav.js';
 import { Minimap } from './minimap.js';
 import { MissionClient } from './missionui.js';
 import { VIS, ensureFont, harisTexture, arrowTexture, makeSky, makeWater, buildScenery, Particles, Ambient } from './scenery.js';
@@ -360,7 +361,7 @@ class Race {
     }
 
     // ---- input -> physics
-    const canMove = lt >= 0 && !this.over && !this.jack && !(this.mission && this.mission.freeze);
+    const canMove = lt >= 0 && !this.over && !this.jack && !(this.mission && this.mission.freeze) && !this.bigMapOpen;
     let fw = 0, rt = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp')) fw++; if (keys.has('KeyS') || keys.has('ArrowDown')) fw--;
     if (keys.has('KeyD') || keys.has('ArrowRight')) rt++; if (keys.has('KeyA') || keys.has('ArrowLeft')) rt--;
@@ -440,10 +441,11 @@ class Race {
     }
 
     this.updateCars(dt, canMove);
+    if (this.nav && !this.over) { this.nav.t += dt; if (this.nav.t > 1.2) this.navUpdate(); }
 
 
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
-      if (this.bigMapOpen) this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo());
+      if (this.bigMapOpen) this.drawBigMap();
       this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
     if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
@@ -883,7 +885,27 @@ class Race {
     }
   }
   restoreMission(mesh) { restoreCar(mesh); }
-  toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen); }
+  drawBigMap() { if (!this.minimap) return; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
+    this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
+  /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
+  toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
+    if (this.bigMapOpen && !was) { if (!this.multi && !this.paused) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
+    if (!this.bigMapOpen && was && this.mapPause) { this.mapPause = false; if (this.paused && !this.menuOpen) { this.t0 += performance.now() - this.pauseAt; this.paused = false; } } }
+  /* tap a spot on the map: a blue line along the real roads from here to there (shown on the road, the small map and the big map); tap the pin again to remove it */
+  setWaypoint(x, z) { if (!this.meta.city) return; if (this.nav && Math.hypot(this.nav.x - x, this.nav.z - z) < 14 / Math.max(1, (this.minimap && this.minimap.bz ? this.minimap.bz.z : 1))) { this.clearWaypoint(); return; }
+    this.nav = { x, z, pts: null, t: 0 }; if (!this.navUpdate()) { this.nav = null; this.toast('NO ROAD GOES THERE'); } else A.sfx.click(); }
+  clearWaypoint() { this.nav = null; if (this.minimap) this.minimap.nav = null; this.navHide(); }
+  navHide() { if (!this.navMesh) return; this.scene.remove(this.navMesh); this.navMesh.geometry.dispose(); this.navMesh.material.dispose(); this.navMesh = null; }
+  navUpdate() {
+    const n = this.nav; if (!n) return false; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
+    if (Math.hypot(n.x - px, n.z - pz) < 12) { this.clearWaypoint(); this.toast('YOU HAVE ARRIVED'); return true; }
+    const pts = findRoute(px, pz, n.x, n.z); if (!pts) return false; n.pts = pts; n.t = 0; if (this.minimap) this.minimap.nav = { x: n.x, z: n.z, pts };
+    /* the blue ribbon on the road: the first 320 m of the way */
+    const P = []; let acc = 0; for (let i = 1; i < pts.length && acc < 320; i++) { const a = pts[i - 1], b = pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(1, Math.ceil(L / 2.5)); for (let j = 0; j < k; j++) P.push([a[0] + (b[0] - a[0]) * j / k, a[1] + (b[1] - a[1]) * j / k]); acc += L; } P.push(pts[Math.min(pts.length - 1, pts.length - 1)]);
+    this.navHide(); if (P.length < 2) return true; const ter = this.info.track && this.info.track.terrain ? this.info.track.terrain : () => 0, W = 0.75, pos = [], idx = [];
+    for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; const y = ter(P[i][0], P[i][1]) + 0.2; pos.push(P[i][0] - dz * W, y, P[i][1] + dx * W, P[i][0] + dz * W, y, P[i][1] - dx * W); if (i) { const q = i * 2; idx.push(q - 2, q - 1, q, q - 1, q + 1, q); } }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#2f8cff', side: THREE.DoubleSide, toneMapped: false, transparent: true, opacity: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })); m.renderOrder = 5; m.frustumCulled = false; this.scene.add(m); this.navMesh = m; return true; }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
   equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
@@ -1775,8 +1797,9 @@ function syncPause() {
 }
 function openPause() {
   if (!race || race.over || race.menuOpen) return;
+  if (race.bigMapOpen) race.toggleMap(false);
   race.menuOpen = true;
-  if (!race.multi) { race.paused = true; race.pauseAt = performance.now(); }
+  if (!race.multi && !race.paused) { race.paused = true; race.pauseAt = performance.now(); }
   exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0;
   $('p-title').textContent = race.multi ? 'Menu' : 'Paused';
   $('p-info').textContent = race.meta.name + (race.multi ? '  \u2022  race goes on!' : '');
@@ -1820,7 +1843,7 @@ $('p-full').onclick = () => {
   });
 }
 { const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
-  const open = () => { if (race && !race.over) { race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
+  const open = () => { if (race && !race.over) { keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
   if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; open(); });
   if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
@@ -1835,7 +1858,7 @@ $('p-full').onclick = () => {
       const before = two(), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
       if (ptrs.size === 1) mmap.bigPan(dx, dy);
       else if (before) { const t = two(), r = cv.getBoundingClientRect(); const want = z0 * t[0] / Math.max(10, d0), cur = mmap.bz.z; mmap.bigZoom(want / cur, t[1] - r.left, t[2] - r.top); mmap.bigPan(dx / 2, dy / 2); } });
-    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250) close(); };
+    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250 && race && race.bigMapOpen) { const mp = race.minimap, bz = mp.bz, [lx, ly] = local(e); if (bz && mp.bS) { const k = mp.bS / 1020 * bz.z; race.setWaypoint(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } } };
     bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); });
     bw.addEventListener('wheel', (e) => { if (!race || !race.bigMapOpen) return; e.preventDefault(); const [x, y] = local(e); race.minimap.bigZoom(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0018)), x, y); }, { passive: false });
     for (const ev of ['gesturestart', 'gesturechange']) bw.addEventListener(ev, (e) => e.preventDefault(), { passive: false });   // iOS Safari: no page zoom while pinching the map
@@ -1905,7 +1928,7 @@ async function boot() {
     requestAnimationFrame(loop);
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
-    if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); race.render(); }
+    if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); race.render(); }
     else { stage.update(dt); renderer.render(stage.scene, stage.camera); }
   };
   requestAnimationFrame(loop);
