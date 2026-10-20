@@ -612,7 +612,7 @@ class Race {
         if (st.burnT > 6) {   // burnt out (the driver, if still inside, is thrown out by the blast)
           st.wreck = true; st.wreckT = 0; charCar(c.mesh); hero.hurtLook(0);
           this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); A.sfx.land(34);
-          if (this.drive === c) { this.toggleCar(true); const b = this.me.body; b.hitCd = 0; b.immune = 0; if (knock(b, Math.sin(st.yaw + 2), Math.cos(st.yaw + 2), 16)) { b.vy = 6; b.stun = 1.1; A.crashSfx(10); this.shake = 0.8; } }
+          if (this.drive === c) { this.toggleCar(true); const b = this.me.body; b.hitCd = 0; b.immune = 0; if (knock(b, Math.sin(st.yaw + 2), Math.cos(st.yaw + 2), 16)) { b.vy = 6; b.stun = 2.4; A.crashSfx(10); this.shake = 0.8; } }
         }
       } else if (st.wreck) {
         st.wreckT += dt; if (near && st.wreckT < 25 && Math.random() < 0.3) this.particles.emit(st.x, st.y + 1.0, st.z, 1, { color: '#2b2b2b', speed: 0.3, up: 1.8, life: 1.6, size: 1.0, gravity: -0.7, spread: 0.8 });
@@ -671,7 +671,7 @@ class Race {
         this.shake = Math.max(this.shake || 0, Math.min(1, 0.12 + (st.crash || 0) * 0.04));
         { const bike = !!c.mesh.userData.bike, cr = st.crash || 0;   // GTA V: no health bar - a crash only tints the screen red for a moment (a rider is more exposed than a driver in a car)
           if (cr > 4) this.hurtFx(Math.min(1, (cr - 3) / (bike ? 14 : 24)) * (bike ? 1 : 0.6));
-          if (bike && cr > 13 && !this.paxMode) { this.toggleCar(true); const rb = this.me.body; rb.hitCd = 0; rb.immune = 0; if (knock(rb, Math.sin(st.yaw), Math.cos(st.yaw), Math.min(14, 5 + cr * 0.5))) { rb.vy = 3.5 + Math.min(3, cr * 0.15); rb.stun = 0.9; this.hurtFx(1); } } }   // a hard hit throws the biker over the handlebars
+          if (bike && cr > 13 && !this.paxMode) { this.toggleCar(true); const rb = this.me.body; rb.hitCd = 0; rb.immune = 0; if (knock(rb, Math.sin(st.yaw), Math.cos(st.yaw), Math.min(14, 5 + cr * 0.5))) { rb.vy = 3.5 + Math.min(3, cr * 0.15); rb.stun = 2.4; this.hurtFx(1); } } }   // a hard hit throws the biker over the handlebars
         st.crash = 0; }
     } else {
     if (ev === 'bump') { A.sfx.land(18); this.particles.emit(st.x, 0.8, st.z, 12, { color: '#ffd23f', speed: 4, up: 3, life: 0.4, size: 0.25 }); this.shake = Math.max(this.shake || 0, 0.25); }
@@ -1274,7 +1274,7 @@ class Race {
     if (b.shield > 0) { this.toast('SHIELD BLOCKED!'); A.sfx.pickup(); return; }
     if (m.p === 0.5) { if (knock(b, m.nx, m.nz, 9)) { b.vy = 3; b.stun = 0.45; this.crouch = false; A.sfx.bonk(); } return; }
     const big = m.p === 2;
-    if (knock(b, m.nx, m.nz, big ? 22 : 15)) { b.vy = big ? 11 : 9; b.stun = big ? 1.0 : 0.75; this.bonked(big ? 'MEGA BONK!' : 'BONKED!', who, b); }
+    if (knock(b, m.nx, m.nz, big ? 22 : 15)) { b.vy = big ? 11 : 9; b.stun = big ? 2.0 : 1.6; this.bonked(big ? 'MEGA BONK!' : 'BONKED!', who, b); }
   }
 
   // ---- power-up boxes (personal pick-ups, respawn after 9 s)

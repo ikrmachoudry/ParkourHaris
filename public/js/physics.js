@@ -138,7 +138,7 @@ export function stepBody(w, b, dt, inp) {
 export function knock(b, nx, nz, pow) {
   if (b.hitCd > 0 || b.shield > 0) return false;
   b.vx = nx * pow; b.vz = nz * pow; b.vy = Math.max(b.vy, 6.5);
-  b.grounded = false; b.ground = null; b.noSnap = 0.25; b.stun = 0.95; b.dive = 0; b.hitCd = 0.5;
+  b.grounded = false; b.ground = null; b.noSnap = 0.25; b.stun = 2.2; b.dive = 0; b.hitCd = 0.5;
   b.events.push('hit');
   return true;
 }

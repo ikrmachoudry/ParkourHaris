@@ -60,8 +60,8 @@ export class HeroActor {
       else { let d = (this.ang || 0) - tgtX; d -= Math.round(d / TAU) * TAU; this.ang = tgtX + d; this.ang += (tgtX - this.ang) * Math.min(1, dt * 10); }
       if (stunned && !air && sp2 > 1.2) this.roll = (this.roll || 0) + dt * sp2 * 0.8;                  // rolling over on the ground while he slides
       else { const r = this.roll || 0; this.roll = r + (Math.round(r / TAU) * TAU - r) * Math.min(1, dt * 6); if (!stunned && this.lie < 0.05) this.roll = 0; }
-      if (Math.abs(this.ang) > 0.004 || Math.abs(this.roll || 0) > 0.004 || stunned) { g.rotation.x = this.ang; g.rotation.y = this.roll || 0; this.hadLie = true; }
-      else if (this.hadLie) { g.rotation.x = 0; g.rotation.y = 0; this.ang = 0; this.roll = 0; this.hadLie = false; } }
+      if (Math.abs(this.ang) > 0.004 || Math.abs(this.roll || 0) > 0.004 || stunned) { g.rotation.x = this.ang; g.rotation.y = this.roll || 0; this.hadLie = true; this.liftY = 0.26 * Math.min(1, Math.abs(this.ang) / 1.4); g.position.y = this.liftY; }   // lying flat: lifted a hand's width so the body rests ON the road, not in it
+      else if (this.hadLie) { g.rotation.x = 0; g.rotation.y = 0; g.position.y = 0; this.liftY = 0; this.ang = 0; this.roll = 0; this.hadLie = false; } }
     this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax';
   }
   dispose() {
