@@ -21,11 +21,13 @@ export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
 const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
-const ARREST_LEN = 17;
+const ARREST_LEN = 17, AI_SHOT_Z = SNIPE.tun.z0 - 30;
 const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
 
 // role of the player with this seat in a mission of n players
-export function snipeRole(seat, n) { if (n <= 1) return 'sniper'; return seat === 0 ? 'truck' : seat === 1 ? 'sniper' : 'blocker'; }
+let SOLO = 'sniper';   // a solo player chooses: 'sniper' (the AI drives the tanker) or 'truck' (the AI sniper shoots)
+export const setSoloRole = (r) => { SOLO = r === 'truck' ? 'truck' : 'sniper'; };
+export function snipeRole(seat, n) { if (n <= 1) return SOLO; return seat === 0 ? 'truck' : seat === 1 ? 'sniper' : 'blocker'; }
 export const blockerNo = (seat) => seat - 2;       // 0 or 1
 
 // ---- the thief's road: east along the avenue, a rounded turn onto the new road, south through the tunnel to its end
@@ -78,9 +80,10 @@ export class SnipeDirector {
     this.regT = 0; this.lagSaid = 0; this.stopped = false; this.truckDown = false; this.pol = []; this.ar = 0; this.dmin = 0; this.said = {}; this.blockedAt = 0; this.rdy = false;
     this.pur = [{ s: -46, v: 0, x: -26, z: LANE_E, yaw: Math.PI / 2 }, { s: -59, v: 0, x: -39, z: LANE_E, yaw: Math.PI / 2 }];   // the police cars that chase him from the bank, always staying BEHIND the tanker
   }
-  start(members) {
+  start(members, solo) {
     this.members = [...members]; this.reset(); const n = this.members.length;
     this.truckId = n >= 2 ? this.members[0] : -1; this.sniperId = n >= 2 ? this.members[1] : this.members[0]; this.blockers = this.members.slice(2, 4);
+    if (n === 1 && solo === 'truck') { this.truckId = this.members[0]; this.sniperId = -1; this.blockers = []; }   // solo truck driver: the AI sniper waits on the hill
     this.tk.ai = this.truckId < 0; this.tk.mode = this.tk.ai ? 1 : 0;
   }
   rnd() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
@@ -119,6 +122,7 @@ export class SnipeDirector {
     // ---- the tanker
     this.driveTruck(dt);
     if (this.ended) return;
+    if (this.sniperId < 0 && tk.mode === 2 && this.stage !== 'rob' && tk.z >= AI_SHOT_Z) this.hit(-1, 1);   // the AI sniper fires just before the tunnel
     // ---- the end of the chase
     if (this.stage === 'chase' && this.stopped && this.truckDown) { this.stage = 'arrest'; this.st = 0; this.ar = 0; this.say('police'); this.onEv('arrest'); }
     if (this.stage === 'arrest') this.arrest(dt);

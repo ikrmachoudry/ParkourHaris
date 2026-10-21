@@ -29,15 +29,15 @@ export class MissionHub {
     this.mission = mission; this.emit(this.lobbyMsg(all));
   }
   // anybody on the pad can start; the mission is for the players standing on the pad, everybody else keeps playing in the open city
-  start(id, all) {
+  start(id, all, role) {
     if (this.phase !== 'idle' || !this.inLobby.has(id)) return false;
     const who = all.filter((i) => this.inLobby.has(i)); if (!who.length) return false;
-    this.members = who; this.round = 0; this.go(); return true;
+    this.members = who; this.solo = role === 'truck' ? 'truck' : 'sniper'; this.round = 0; this.go(); return true;
   }
   go() {
     this.clear(); this.phase = 'brief'; this.round++; this.res = new Map();
     const thief = this.mission === 'thief', snipe = this.mission === 'snipe', ms = thief ? THIEF_BRIEF_MS : snipe ? SNIPE_BRIEF_MS : BRIEF_MS;
-    this.emit({ t: 'm_go', mission: this.mission, round: this.round, members: this.members.map((id, seat) => ({ id, seat })), briefMs: ms });
+    this.emit({ t: 'm_go', mission: this.mission, round: this.round, members: this.members.map((id, seat) => ({ id, seat })), briefMs: ms, solo: this.solo || 'sniper' });
     const r = this.round;
     this.later(ms, () => { if (this.phase === 'brief' && this.round === r) { this.phase = 'run'; this.emit({ t: 'm_run', round: r }); } });
     if (thief) this.startThief(); else if (snipe) this.startSnipe();
@@ -51,7 +51,7 @@ export class MissionHub {
   // ---- SNIPE THE TRUCK: the same idea, another director
   startSnipe() {
     this.dir = new SnipeDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why, who) => this.thiefEnd(ok, why, who) });
-    this.dir.start(this.members); let last = Date.now();
+    this.dir.start(this.members, this.solo); let last = Date.now();
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_sn', ...this.dir.snap() }); } }, 100);
   }
   thiefEnd(ok, why, who) {

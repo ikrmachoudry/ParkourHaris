@@ -615,3 +615,9 @@ body.big-map #bigmap-x, body.big-map #bigmap-zoom button { cursor: pointer !impo
 #tsel button.on, #hsel button.on { background: #34c759; border-color: #34c759; color: #06240f; }
 #hsel { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .sethead { font: 800 12px system-ui, sans-serif; letter-spacing: .08em; color: rgba(255,255,255,.6); text-align: left; margin: 4px 2px -4px; }
+
+#m-role { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: 8px; margin: 4px 0 6px; }
+#m-role.hidden { display: none; }
+#m-role span { font: 800 12px system-ui, sans-serif; letter-spacing: .08em; color: rgba(255,255,255,.65); }
+.m-card #m-role button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
+.m-card #m-role button.on { background: linear-gradient(#34c759, #1f9d45); color: #fff; border-color: #9af0b4; }

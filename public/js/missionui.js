@@ -4,7 +4,7 @@ import * as A from './audio.js';
 import { STUNT, LOBBY, PARK, CHASE, BANK, POLICE } from './gta.js';
 import { ThiefScene } from './thiefscene.js';
 import { SnipeScene } from './snipescene.js';
-import { TRUCK_IDX, START, ZONES, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
+import { TRUCK_IDX, START, ZONES, setSoloRole, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
 import { MissionHub } from './mission.js';
 import { MISSION_PAY, MISSION_PAY_DEFAULT } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
@@ -25,6 +25,8 @@ export class MissionClient {
     this.round = 0; this.members = []; this.res = {}; this.seat = 0; this.briefEnd = 0; this.lastN = 0; this.carIdx = -1; this.finished = false; this.bannerT = 0;
     this.ts = new ThiefScene(race); this.ss = new SnipeScene(race); this.role = ''; this.freeze = false; this.chased = false; this.paths = null;
     if (!race.multi) { this.hub = new MissionHub((m) => setTimeout(() => this.onMsg(m), 0), { getP: () => this.localP() }); this.all = [race.localId]; }
+    try { this.soloRole = localStorage.getItem('ph_snipe_role') === 'truck' ? 'truck' : 'sniper'; } catch { this.soloRole = 'sniper'; }
+    for (const b of document.querySelectorAll('#m-role button')) b.onclick = () => { this.soloRole = b.dataset.r; try { localStorage.setItem('ph_snipe_role', this.soloRole); } catch {} this.renderPanel(); };
     for (const b of document.querySelectorAll('#m-pick button')) b.onclick = () => { this.send({ t: 'm_pick', mission: b.dataset.m }); };
     this.spectating = false; this.specId = -1;
     const st = $('m-start'), cl = $('m-close'), sp = $('m-spec'), pl = $('m-play');
@@ -37,9 +39,9 @@ export class MissionClient {
   send(m) {
     if (this.race.multi) { this.sendNet(m); return; }
     const id = this.race.localId, h = this.hub;
-    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1);
+    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1);
   }
-  pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start' }); if (this.relock) this.relock(); } }
+  pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
   localP() {
     const R = this.race, b = R.me.body, d = R.drive, st = d && d.st;
@@ -140,7 +142,7 @@ export class MissionClient {
   // ---- SNIPE THE TRUCK: the tanker for the driver, a white super car for everybody else, all on the start line at the bank
   onGoSnipe(m) {
     const R = this.race, n = m.members.length; this.mission = 'snipe'; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false;
-    const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.role = snipeRole(this.seat, n); this.briefEnd = performance.now() + (m.briefMs || 3500); this.lastN = 0;
+    setSoloRole(m.solo); const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.role = snipeRole(this.seat, n); this.briefEnd = performance.now() + (m.briefMs || 3500); this.lastN = 0;
     this.paths = snipePaths(this.role, this.seat);
     this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
@@ -286,7 +288,8 @@ export class MissionClient {
   renderPanel() {
     const el = $('m-players'); if (!el) return;
     { const mi = this.mission || 'stunt', t = document.querySelector('#m-ui .m-title'), d = document.querySelector('#m-ui .m-desc'); if (t) t.textContent = TITLE[mi]; if (d) d.textContent = DESC[mi];
-      for (const b of document.querySelectorAll('#m-pick button')) b.classList.toggle('on', b.dataset.m === mi); }
+      for (const b of document.querySelectorAll('#m-pick button')) b.classList.toggle('on', b.dataset.m === mi);
+      { const rl = $('m-role'); if (rl) { rl.classList.toggle('hidden', !(mi === 'snipe' && this.lobby.in.length <= 1)); for (const b of rl.querySelectorAll('button')) b.classList.toggle('on', b.dataset.r === (this.soloRole || 'sniper')); } } }
     const all = this.race.multi ? this.race.players : [{ id: this.race.localId, name: this.race.me.name, char: this.race.me.char }];
     el.innerHTML = all.map((p) => `<div class="m-p ${this.lobby.in.includes(p.id) ? 'in' : ''}"><i style="background:${CHARACTERS[p.char].color}"></i><b>${String(p.name).replace(/[<>&]/g, '')}</b><span>${this.lobby.in.includes(p.id) ? 'READY' : 'WAITING'}</span></div>`).join('');
     const ready = this.lobby.in.includes(this.race.localId), st = $('m-start');

@@ -14,8 +14,8 @@ ok(snipePaths('truck', 0).lines[0].pts.length > 20 && snipePaths('sniper', 1).ma
 function play(n, opt = {}) {
   const evs = [], P = {}; let res = null;
   const D = new SnipeDirector({ getP: (id) => P[id] || null, onEv: (k, x) => evs.push([k, x, +D.T.toFixed(1)]), onEnd: (okk, why) => { res = { ok: okk, why, T: D.T }; } });
-  const ids = [...Array(n).keys()].map((i) => 100 + i); D.start(ids);
-  const truckId = n >= 2 ? ids[0] : -1, sniperId = n >= 2 ? ids[1] : ids[0];
+  const ids = [...Array(n).keys()].map((i) => 100 + i); D.start(ids, opt.solo);
+  const truckId = n >= 2 || opt.solo === 'truck' ? ids[0] : -1, sniperId = opt.solo === 'truck' ? -1 : n >= 2 ? ids[1] : ids[0];
   const spd = opt.blockSpeed || 26, dt = 0.1; let hitAt = null, bailed = false;
   for (let t = 0; t < 330 && !res; t += dt) {
     const tk = D.tk;
@@ -25,8 +25,8 @@ function play(n, opt = {}) {
         if (out) { bailed = true; delete P[truckId]; P[truckId] = { x: q.x + 3, y: 0, z: q.z, a: 0 }; } else if (D.T > 1) P[truckId] = { x: q.x, y: 0, z: q.z, a: 256 | ((TRUCK_IDX & 15) << 9) | (((TRUCK_IDX >> 4) & 1) << 24) }; }
     }
     // the sniper waits on the pad and shoots a second after the tanker is rolling on its own
-    P[sniperId] = { x: SNIPE.pad.x, y: 18, z: SNIPE.pad.z, a: 0 };
-    if (!opt.noShot && D.tk.mode === 2 && hitAt === null) hitAt = D.T + (opt.shotDelay || 1.5);
+    if (sniperId >= 0) P[sniperId] = { x: SNIPE.pad.x, y: 18, z: SNIPE.pad.z, a: 0 };
+    if (sniperId >= 0 && !opt.noShot && D.tk.mode === 2 && hitAt === null) hitAt = D.T + (opt.shotDelay || 1.5);
     if (hitAt !== null && D.T >= hitAt && D.tk.mode === 2) { const r = D.hit(sniperId, 1); if (r) hitAt = 1e9; }
     // the blockers need `arrive` seconds to get there
     ids.slice(2).forEach((id, i) => { P[id] = D.T > (opt.arrive || 24) + (opt.late || 0) ? { x: ZONES[i].x, y: 0, z: ZONES[i].z, a: 256 } : { x: 130, y: 0, z: 100, a: 256 }; });
@@ -54,6 +54,8 @@ for (const n of [1, 2, 3, 4]) {
 { const r = play(2, { early: true }); ok(r.res && !r.res.ok && r.res.why === 'early', 'driver jumps out too early -> fails: ' + JSON.stringify(r.res)); }
 { const r = play(2, { never: true }); ok(r.res && !r.res.ok && r.res.why === 'late', 'driver never jumps out -> fails (late): ' + JSON.stringify(r.res)); }
 { const r = play(1); const e = names(r); ok(/chase.*bail.*boom.*trap|chase.*trap.*bail.*boom|chase.*bail.*trap.*boom/.test(e) || /boom/.test(e), 'solo events: ' + e); }
+{ const r = play(1, { solo: 'truck' }); ok(r.res && r.res.ok && /boom/.test(names(r)), 'solo TRUCK DRIVER: the AI sniper shoots and the mission passes: ' + JSON.stringify(r.res)); }
+{ const r = play(1, { solo: 'truck', never: true }); ok(r.res && !r.res.ok && r.res.why === 'late', 'solo truck driver who never jumps out fails (late): ' + JSON.stringify(r.res)); }
 { const r = play(2, { shotDelay: 40 }); ok(r.res && !r.res.ok, 'sniper far too slow fails: ' + JSON.stringify(r.res)); }
 // the explosion only counts after the driver is out
 { const D = new SnipeDirector({ getP: () => null, onEv() {}, onEnd() {} }); D.start([1, 2]); for (let i = 0; i < 100; i++) D.tick(0.1); ok(D.hit(2, 1) === false, 'no hit before the driver is out'); }
