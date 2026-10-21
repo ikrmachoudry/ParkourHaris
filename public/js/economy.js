@@ -8,7 +8,9 @@ export const WEAPONS = {
   ak:     { name: 'AK-47',        price: 1400, mag: 30, ammoPack: 60, ammoPrice: 40,  dmg: 1.6, rate: 0.1,  range: 70, spread: 0.07,  auto: true,  desc: 'Full auto. Loud. Expensive.' },
   sniper: { name: 'SNIPER RIFLE', price: 1400, mag: 5,  ammoPack: 10, ammoPrice: 60,  dmg: 6.0, rate: 1.4,  range: 420, spread: 0.002, auto: false, scope: true, desc: 'Hold AIM to look through the scope. One slow, very powerful shot; reaches across the whole hill.' },
 };
-export const WEAPON_ORDER = ['bat', 'pistol', 'ak', 'sniper'];
+// the grenade is a throwable: you buy them one at a time ($15 each) and carry a stack (wallet.nades); one is used up per throw
+WEAPONS.grenade = { name: 'GRENADE', price: 15, grenade: true, melee: true, dmg: 4, radius: 7, fuse: 2.6, desc: 'Pull, throw, run: it goes off 2.6 s after it leaves your hand. Buy as many as you need.' };
+export const WEAPON_ORDER = ['bat', 'pistol', 'ak', 'sniper', 'grenade'];
 
 // Real US prices (2026): Louisville Slugger ash bat about $34, Glock 19 Gen5 about $626, Zastava ZPAP M70 (AK-47) about $1,420, 9mm about $0.33 and 7.62x39 about $0.67 a round.
 // Pay is small on purpose: the game will have many missions, so a pistol takes a few of them and an AK-47 a good evening.
@@ -20,7 +22,7 @@ export const PAY = { hit: 2, down: 8, kill: 15, jackBonus: 0 };
 export const CAR_VALUE = { 11: 350, 12: 480, 13: 420, 14: 650, 15: 380, 16: 800, 17: 450, 18: 600 };
 export const carPrice = (id, hp) => Math.round((CAR_VALUE[id] || 400) * (0.35 + 0.65 * Math.max(0, Math.min(100, hp === undefined ? 100 : hp)) / 100) / 10) * 10;
 
-const fresh = () => ({ money: 400, owned: {}, ammo: {}, mag: {} });
+const fresh = () => ({ money: 400, owned: {}, ammo: {}, mag: {}, nades: 0 });
 let mem = null;
 function load() {
   if (mem) return mem;
@@ -35,16 +37,19 @@ export class Wallet {
   add(n, why) { n = Math.round(n); if (!n) return; this.s.money = Math.max(0, this.s.money + n); save(); if (this.on) this.on(n, why); }
   canPay(n) { return this.s.money >= n; }
   spend(n) { if (this.s.money < n) return false; this.s.money -= n; save(); if (this.on) this.on(-n, 'buy'); return true; }
-  owns(w) { return !!this.s.owned[w]; }
-  buy(w) { const W = WEAPONS[w]; if (!W || this.owns(w) || !this.spend(W.price)) return false; this.s.owned[w] = true; if (!W.melee) { this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; } save(); return true; }
-  buyAmmo(w) { const W = WEAPONS[w]; if (!W || W.melee || !this.owns(w) || !this.spend(W.ammoPrice)) return false; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; }
+  owns(w) { return w === 'grenade' ? this.nades > 0 : !!this.s.owned[w]; }
+  get nades() { return this.s.nades | 0; }
+  useNade() { if (this.nades <= 0) return false; this.s.nades--; save(); return true; }
+  buy(w) { const W = WEAPONS[w]; if (W && W.grenade) { if (!this.spend(W.price)) return false; this.s.nades = (this.s.nades | 0) + 1; save(); return true; }
+    if (!W || this.owns(w) || !this.spend(W.price)) return false; this.s.owned[w] = true; if (!W.melee) { this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; } save(); return true; }
+  buyAmmo(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade || !this.owns(w) || !this.spend(W.ammoPrice)) return false; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; }
   // an issued weapon (the police pistol in the thief mission): owned, loaded, with spare magazines; a gun you already own just gets topped up
-  gift(w) { const W = WEAPONS[w]; if (!W || W.melee) return false; if (!this.owns(w)) { this.s.owned[w] = true; this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack * 1.5; save(); return true; } if (this.mag(w) + this.reserve(w) < 24) { this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; } return false; }
+  gift(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade) return false; if (!this.owns(w)) { this.s.owned[w] = true; this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack * 1.5; save(); return true; } if (this.mag(w) + this.reserve(w) < 24) { this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; } return false; }
   mag(w) { return this.s.mag[w] || 0; }
   reserve(w) { return this.s.ammo[w] || 0; }
   // fire one round; false when the magazine is empty
   shoot(w) { if ((this.s.mag[w] || 0) <= 0) return false; this.s.mag[w]--; save(); return true; }
-  reload(w) { const W = WEAPONS[w]; if (!W || W.melee) return false; const need = W.mag - (this.s.mag[w] || 0), take = Math.min(need, this.s.ammo[w] || 0); if (take <= 0) return false; this.s.mag[w] = (this.s.mag[w] || 0) + take; this.s.ammo[w] -= take; save(); return true; }
+  reload(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade) return false; const need = W.mag - (this.s.mag[w] || 0), take = Math.min(need, this.s.ammo[w] || 0); if (take <= 0) return false; this.s.mag[w] = (this.s.mag[w] || 0) + take; this.s.ammo[w] -= take; save(); return true; }
   // weapons the player can cycle through (fist first)
   cycle() { return [null, ...WEAPON_ORDER.filter((w) => this.owns(w))]; }
 }

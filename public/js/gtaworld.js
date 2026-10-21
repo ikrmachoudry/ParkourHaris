@@ -501,7 +501,7 @@ export function buildGta(world, th, info, seed) {
     const put = (kind, x, y, z, ry, rz, sc) => { const m = makeWeaponModel(kind); m.position.set(x, y, z); m.rotation.set(0, ry, rz); m.scale.setScalar(sc); world.group.add(m); };
     for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) put('pistol', L.x + 7.5, 1.45 + r * 0.8, L.z - 2.25 + c * 1.45, 0, 0, 3.4);                      // pistols, barrels to the right
     for (let r = 0; r < 4; r++) put('ak', L.x - 7.5, 1.3 + r * 0.7, L.z - 0.2 + (r % 2 ? 0.3 : -0.3), Math.PI, 0, 1.7);                                      // AK-47s, barrels to the left
-    for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) for (const cx of [3.7, 6.0]) put('bat', L.x + sx * cx, 1.75 + r * 0.62, L.z - 5.0, 0, Math.PI / 2, 1.9);   // bats laid across the back wall
+    for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) for (let c = 0; c < 4; c++) put('grenade', L.x + sx * 4.9 + (c - 1.5) * 1.15, 1.7 + r * 0.62 + 0.12, L.z - 5.0, 0, 0, 3.1);   // grenades on the back wall boards (the bats are gone)
     { const bw = 15, bh = 7.5, by = 4.43 + 3.2 + bh / 2, bz = L.z + 0.4, tex = akSignTexture(), mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });   // the big lit AK-47 board on the roof, readable from the street (+z) and from behind
       for (const px of [-5.5, 5.5]) wm.add(Bx(0.45, 3.4, 0.45), L.x + px, 4.43 + 1.7, bz, '#2a2d35');
       const f = new THREE.Mesh(new THREE.PlaneGeometry(bw, bh), mat); f.position.set(L.x, by, bz + 0.12); world.group.add(f);
@@ -509,7 +509,7 @@ export function buildGta(world, th, info, seed) {
       world.addSolid(L.x - bw / 2, by - bh / 2, bz - 0.15, L.x + bw / 2, by + bh / 2, bz + 0.15, { name: 'prop' }); world.addSolid(L.x - 5.75, 4.4, bz - 0.25, L.x - 5.25, 7.7, bz + 0.25, { name: 'prop' }); world.addSolid(L.x + 5.25, 4.4, bz - 0.25, L.x + 5.75, 7.7, bz + 0.25, { name: 'prop' });
       for (const [gx, gy, gw, gh] of [[0, by + bh / 2 + 0.08, bw + 0.3, 0.14], [0, by - bh / 2 - 0.08, bw + 0.3, 0.14]]) world.glow.add(Bx(gw, gh, 0.14), L.x + gx, gy, bz, '#ff3b3b');
       for (const sx of [-1, 1]) world.glow.add(Bx(0.14, bh + 0.3, 0.14), L.x + sx * (bw / 2 + 0.08), by, bz, '#ff3b3b'); }
-    { const s3 = mk(signTexture('BAT   PISTOL   AK-47', '#2a0f12', '#ffffff'), 7, 1.0); s3.position.set(L.x, 2.7, L.z - 5.1); world.group.add(s3); } }
+    { const s3 = mk(signTexture('PISTOL   AK-47   GRENADE', '#2a0f12', '#ffffff'), 7, 1.0); s3.position.set(L.x, 2.7, L.z - 5.1); world.group.add(s3); } }
   // ---- INTELLIMUM AUTOS: a glass showroom, four display cars, a pylon sign with the infinity logo and the SELL ring on the lot
   { const S = AUTOS.showroom, Z = AUTOS.zone, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), fz = S.z + S.d / 2;
     wm.add(Bx(46, 0.06, 40), AUTOS.x, 0.22, 30, '#3f434c');                                                   // black-top lot

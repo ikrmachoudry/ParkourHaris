@@ -286,12 +286,16 @@ export function buildHeroChar(opts = {}) {
     const br = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.62, 8), gm); br.rotation.x = Math.PI / 2; br.position.set(0, 0.085, 0.7); sn.add(br);
     const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.3, 10), gm2); sc.rotation.x = Math.PI / 2; sc.position.set(0, 0.17, 0.1); sn.add(sc);
     const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.05, 10), gm2); sl.rotation.x = Math.PI / 2; sl.position.set(0, 0.17, 0.27); sn.add(sl); A(0.012, 0.05, 0.02, 0, 0.12, 0.05, gm2); A(0.012, 0.05, 0.02, 0, 0.12, 0.2, gm2); }
-  bat.visible = ak.visible = sn.visible = false;
-  for (const o of [bat, ak, sn]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
-  gun.add(bat, ak, sn);
+  const gr = new THREE.Group(); { const gmat = new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 });   // hand grenade (olive, with the spoon lever)
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), gmat); body.scale.y = 1.2; body.position.set(0, 0.02, 0.07); gr.add(body);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.04, 8), gm2); cap.position.set(0, 0.095, 0.07); gr.add(cap);
+    const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), gm2); lev.position.set(0.034, 0.085, 0.07); lev.rotation.z = -0.5; gr.add(lev); }
+  bat.visible = ak.visible = sn.visible = gr.visible = false;
+  for (const o of [bat, ak, sn, gr]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  gun.add(bat, ak, sn, gr);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;
-  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn }, tris: Math.round(tris), outfit: o };
+  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn, grenade: gr }, tris: Math.round(tris), outfit: o };
   ch.pose = (name, t = 0, k = 1) => poseChar(ch, name, t, k);
   return ch;
 }
@@ -426,6 +430,12 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.spine, -0.12 + br, 0, 0); R(b.head, 0.08, Math.sin(t * 0.5) * 0.25, 0);
     R(b['upperarm.L'], 0.45, 0, -0.25); R(b['upperarm.R'], 0.45, 0, 0.25); R(b['forearm.L'], -0.15, 0, 0); R(b['forearm.R'], -0.15, 0, 0);
     curl('L', 0.3); curl('R', 0.3);
+  } else if (name === 'nadeThrow') {   // overhand grenade throw, t = 0..1 (procedural fallback; the GLB heroes play the baked Mixamo clip): arm cocked back over the shoulder, then whipped forward with the body
+    const e = (x) => x * x * (3 - 2 * x), c = (x) => Math.max(0, Math.min(1, x)), wind = e(c(t / 0.5)), thr = e(c((t - 0.5) / 0.18)), fol = e(c((t - 0.7) / 0.3));
+    b.hips.position.y = rest.hips.y - 0.05 * wind; R(b.hips, 0, 0.35 * wind - 0.6 * thr, 0); R(b.chest, -0.12 * wind + 0.35 * thr, 0.5 * wind - 0.9 * thr + 0.2 * fol, 0); R(b.head, 0, 0.2 * wind - 0.3 * thr, 0);
+    R(b['upperleg.L'], -0.3 - 0.25 * thr, 0, 0.1); R(b['upperleg.R'], 0.25, 0, -0.1); R(b['lowerleg.L'], 0.3, 0, 0); R(b['lowerleg.R'], 0.25, 0, 0);
+    R(b['upperarm.R'], -2.5 * wind + 1.2 * thr - 0.4 * fol, 0.3 * wind, 0.5 - 0.3 * thr); R(b['forearm.R'], -1.9 * wind + 1.6 * thr, 0, 0); R(b['hand.R'], 0, 0, 0); curl('R', 0.9 - 0.7 * thr);
+    R(b['upperarm.L'], -1.1 + 0.3 * thr, 0, -0.5); R(b['forearm.L'], -0.7, 0, 0); curl('L', 0.6);
   } else if (name === 'punch') {  // t = progress 0..1: wind-up, straight right (a step-in jab with hip and shoulder turn), return
     const e = t < 0.25 ? -t / 0.25 * 0.4 : t < 0.5 ? -0.4 + (t - 0.25) / 0.25 * 1.4 : Math.max(0, 1 - (t - 0.5) / 0.4);   // -0.4 (back) .. 1 (full extension)
     const ex = Math.max(0, e), bk = Math.min(0, e);

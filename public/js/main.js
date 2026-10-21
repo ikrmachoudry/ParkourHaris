@@ -19,6 +19,7 @@ import { Weather } from './weather.js';
 import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
+import { ShopPreview } from './shopprev.js';
 import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
 import { findRoute } from './nav.js';
 import { Minimap } from './minimap.js';
@@ -238,7 +239,7 @@ function beamTexture() {
   const gr = g.createLinearGradient(0, 128, 0, 0); gr.addColorStop(0, 'rgba(255,244,200,.9)'); gr.addColorStop(1, 'rgba(255,244,200,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(24, 128); g.lineTo(40, 128); g.lineTo(64, 0); g.lineTo(0, 0); g.closePath(); g.fill();
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; _beamTex = t; return t;
 }
-const WEAPON_ICON = { sniper: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h22l3-2.4h3M9 20l-1 5h4l1-5M14 15.5h8M16 15.5v-2.6h4v2.6"/><circle cx="16" cy="7" r="3.2"/><path d="M16 2.5v9M11.5 7h9" stroke-width="1.4"/></svg>', fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
+const WEAPON_ICON = { grenade: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><ellipse cx="16" cy="19" rx="8" ry="9"/><rect x="13" y="6.5" width="6" height="4" rx="1"/><path d="M19 8.5h5.5l2 3M12.5 11.6l-4-2.6" fill="none" stroke-width="2" stroke-linecap="round"/><path d="M10.5 15.5h11M9.5 19.5h13M10.5 23.5h11" stroke="#0b0e14" stroke-width="1.3" fill="none"/></svg>', sniper: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h22l3-2.4h3M9 20l-1 5h4l1-5M14 15.5h8M16 15.5v-2.6h4v2.6"/><circle cx="16" cy="7" r="3.2"/><path d="M16 2.5v9M11.5 7h9" stroke-width="1.4"/></svg>', fist: '<svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V20M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0V20M17.8 12v-3a2.2 2.2 0 0 1 4.4 0v11a7 7 0 0 1-7 6h-1a7 7 0 0 1-7-7v-4"/></svg>',
   bat: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"><g transform="rotate(42 16 16)"><path d="M14.7 27 L14.7 17.5 C14.7 14.5 12.2 12.5 12.2 9 L12.2 5.5 C12.2 1.8 19.8 1.8 19.8 5.5 L19.8 9 C19.8 12.5 17.3 14.5 17.3 17.5 L17.3 27 Z"/><ellipse cx="16" cy="28.3" rx="2.6" ry="1.5"/></g></svg>',
   pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
   ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
@@ -435,7 +436,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive ? null : this.weapon, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: !!this.nadeToss, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -1030,7 +1031,7 @@ class Race {
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#2f8cff', side: THREE.DoubleSide, toneMapped: false, transparent: true, opacity: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })); m.renderOrder = 5; m.frustumCulled = false; this.scene.add(m); this.navMesh = m; return true; }
   toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
-  equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
+  equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
   // PUBG style weapon wheel: a ring of the four weapons round the middle of the screen; tap one to swap at once
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
@@ -1039,8 +1040,8 @@ class Race {
     // the wheel sits right beside the weapon button (2 x 2, tight), so the thumb barely moves
     let cx = window.innerWidth * 0.8, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
-    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER' };
-    ['fist', 'bat', 'pistol', 'ak', 'sniper'].forEach((k, i) => {
+    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER', grenade: 'x' + this.wallet.nades };
+    ['fist', 'bat', 'pistol', 'ak', 'sniper', 'grenade'].forEach((k, i) => {
       const owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button'), col = i % 2, row = i >> 1, gap = 6;
       let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row - 1) * (ws + gap);
       px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, px)); py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, py));
@@ -1053,11 +1054,11 @@ class Race {
     el.onpointerdown = (e) => { if (e.target === el) { e.preventDefault(); this.toggleWheel(false); } };
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ }
   }
-  cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
+  cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
   zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, SCOPE_FOV.length - 1); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
-  aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
-  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
-  get aimOn() { return !!this.weapon && this.weapon !== 'bat' && (this.aiming || this.aimT > 0); }
+  aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
+  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
+  get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
   syncAct() { { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
     { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
@@ -1085,6 +1086,7 @@ class Race {
   updateAmmoHud() {
     const el = $('hud-ammo'); if (!el) return; const w = this.weapon, W = w && WEAPONS[w];
     if (this.reloadT > 0 && W) { el.textContent = 'RELOADING'; el.classList.remove('hidden'); }
+    else if (W && W.grenade) { el.textContent = 'GRENADES  x' + this.wallet.nades; el.classList.remove('hidden'); }
     else if (W && !W.melee) { el.textContent = this.wallet.mag(w) + ' / ' + this.wallet.reserve(w); el.classList.remove('hidden'); } else el.classList.add('hidden');
   }
   // ================= SHARED CITY (multiplayer) =================
@@ -1208,12 +1210,64 @@ class Race {
   }
   // ---- weapons
   updateWeapon(dt, b) {
+    this.updateNades(dt, b);
     if (this.fireCd > 0) this.fireCd -= dt;
     if (this.aimT > 0) this.aimT -= dt;
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
     if (this.fireHeld && (this.weapon === 'ak' || this.weapon === 'pistol')) this.fire();   // hold the fire button: AK and pistol keep firing
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
+  }
+  // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
+  throwNade() {
+    const b = this.me.body; if (this.nadeT > 0 || !this.wallet || this.wallet.nades <= 0 || this.drive || b.stun > 0) return false;
+    if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
+    this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = !!this.crouch; A.sfx.click(); this.punchCd = 0.4; return true;
+  }
+  nadeVisual() {
+    if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
+    const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.nadeMats.body); body.scale.y = 1.2; g.add(body);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8), this.nadeMats.lever); cap.position.y = 0.085; g.add(cap);
+    const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), this.nadeMats.lever); lev.position.set(0.035, 0.07, 0); lev.rotation.z = -0.5; g.add(lev); return g;
+  }
+  updateNades(dt, b) {
+    if (this.nadeT > 0) {   // the throw animation: 0..1 (the same clip lengths as the baked clips, a little sped up)
+      const toss = this.nadeToss, dur = toss ? 1.3 : 1.12, rel = toss ? 0.75 : 0.64;
+      this.nadeT += dt / dur;
+      if (!this.nadeRel && this.nadeT >= rel) {
+        this.nadeRel = true;
+        if (this.wallet.useNade()) {
+          const W = WEAPONS.grenade, yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw), up = clamp(0.5 - (this.camPitch || 0) * 0.7, 0.12, 1.05), sp = toss ? 11 : 19;
+          const m = this.nadeVisual(), n = { m, x: b.x + fx * 0.55, y: b.y + (this.crouch ? 1.05 : 1.55), z: b.z + fz * 0.55, vx: fx * sp * Math.cos(up) + b.vx * 0.5, vy: sp * Math.sin(up) + 1.2, vz: fz * sp * Math.cos(up) + b.vz * 0.5, t: W.fuse, py: 0, noSnap: 0, grounded: false, ground: null, spin: 9 };
+          n.py = n.y; m.position.set(n.x, n.y, n.z); this.scene.add(m); (this.nades || (this.nades = [])).push(n); this.updateAmmoHud(); A.sfx.swing && A.sfx.swing(false);
+        }
+      }
+      if (this.nadeT >= 1) { this.nadeT = 0; this.nadeRel = false; if (this.weapon === 'grenade' && this.wallet.nades <= 0) { this.weapon = null; this.syncAct(); } this.updateAmmoHud(); }
+    }
+    if (!this.nades || !this.nades.length) return;
+    for (let i = this.nades.length - 1; i >= 0; i--) {
+      const n = this.nades[i]; n.t -= dt;
+      let steps = Math.max(1, Math.ceil(dt / 0.02)), h = dt / steps;
+      for (let k = 0; k < steps; k++) {
+        n.py = n.y; n.vy = Math.max(-30, n.vy - 18 * h); const ox = n.x, oz = n.z; n.x += n.vx * h; n.y += n.vy * h; n.z += n.vz * h;
+        if (this.world.resolveHorizontal) { this.world.resolveHorizontal(n); const mx = n.x - ox, mz = n.z - oz, d0 = Math.hypot(n.vx * h, n.vz * h); if (Math.hypot(mx - n.vx * h, mz - n.vz * h) > 0.004 && d0 > 1e-6) { const nx = n.x - (ox + n.vx * h), nz = n.z - (oz + n.vz * h), nl = Math.hypot(nx, nz) || 1, dn = (n.vx * nx + n.vz * nz) / nl; n.vx = (n.vx - 2 * dn * nx / nl) * 0.45; n.vz = (n.vz - 2 * dn * nz / nl) * 0.45; if (Math.abs(dn) > 3) A.sfx.click(); } }
+        const g = this.world.findGround(n, n.py, false);
+        if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
+      }
+      n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); this.grenadeBoom(n.x, n.y, n.z); }
+    }
+  }
+  grenadeBoom(x, y, z) {
+    const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
+    this.particles.emit(x, y + 0.4, z, 46, { color: '#ffb347', speed: 9, up: 5, life: 0.7, size: 0.9, gravity: 6, spread: 1.2 }); this.particles.emit(x, y + 0.3, z, 30, { color: '#3a3a3a', speed: 5, up: 4, life: 1.3, size: 1.2, gravity: -1, spread: 1 }); this.particles.emit(x, y + 0.2, z, 22, { color: '#c9b79c', speed: 11, up: 2, life: 0.5, size: 0.25, gravity: 12, spread: 1.5 });
+    if (this.fxP) this.fxP.emit(x, y + 0.6, z, 16, { color: '#ffe08a', speed: 5, up: 3, life: 0.35, size: 1.1, spread: 0.8 });
+    A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
+    if (this.peds) this.peds.blast(x, z, R, W.dmg, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); });
+    if (this.wanted) this.wanted.blast(x, z, R, W.dmg);
+    for (const st of this.fireCars()) { if (st.wreck) continue; const d = Math.hypot(st.x - x, st.z - z); if (d > R + 1.5) continue; if (st.hp === undefined) st.hp = 100; st.hp = Math.max(0, st.hp - 70 * (1 - d / (R + 2))); this.crime('car', st.x, st.z); }
+    this.crime('shot', x, z);
+    if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }
   }
   // ---- THIEF CHASE on the summit: the thief's volleys and the police pistol
   policeGun() {
@@ -1332,15 +1386,25 @@ class Race {
     if (on && !this.onArms) { this.onArms = true; if (!this.shopClosed) this.openShop(); }
     else if (this.onArms && (this.drive || d > 3.4)) { this.onArms = false; this.shopClosed = false; this.closeShop(); }
   }
-  openShop() { const el = $('shop-ui'); if (!el) return; this.shopOpen = true; document.body.classList.add('m-open'); el.classList.remove('hidden'); try { if (document.exitPointerLock) document.exitPointerLock(); } catch (e) { /* ignore */ } this.renderShop(); }
-  closeShop() { const el = $('shop-ui'); if (el) el.classList.add('hidden'); if (this.shopOpen) { this.shopOpen = false; document.body.classList.remove('m-open'); tryLock(); } }
+  openShop() { const el = $('shop-ui'); if (!el) return; this.shopOpen = true; document.body.classList.add('m-open'); el.classList.remove('hidden'); this.shopSelect(this.shopSel || 'pistol', true); try { if (document.exitPointerLock) document.exitPointerLock(); } catch (e) { /* ignore */ } this.renderShop(); }
+  // the preview pane on the left: the weapon of the row you touch turns slowly in a small lit window (only drawn while the shop is open)
+  shopSelect(k, open) {
+    const W = WEAPONS[k]; if (!W) return; this.shopSel = k; const cv = $('shop-prev-c'); if (!cv) return;
+    if (!this.shopPrev) this.shopPrev = new ShopPreview(cv); const P = this.shopPrev; if (!P.ok) { const pn = $('shop-prev'); if (pn) pn.style.display = 'none'; return; }
+    P.show(k); P.start(); $('sp-name').textContent = W.name;
+    const ST = { bat: [0.35, 0.45, 0.05], pistol: [0.2, 0.4, 0.3], ak: [0.27, 1, 0.4], sniper: [1, 0.1, 1], grenade: [0.85, 0.15, 0.3] }[k] || [0.3, 0.3, 0.3], L = ['DAMAGE', 'SPEED', 'RANGE'];
+    $('sp-stats').innerHTML = L.map((t, i) => '<span>' + t + '</span><i><b style="width:' + Math.round(ST[i] * 100) + '%"></b></i>').join('');
+    if (!open) for (const r of document.querySelectorAll('.shop-row')) r.classList.toggle('sel', r.dataset.k === k);
+  }
+  closeShop() { const el = $('shop-ui'); if (el) el.classList.add('hidden'); if (this.shopPrev) this.shopPrev.stop(); if (this.shopOpen) { this.shopOpen = false; document.body.classList.remove('m-open'); tryLock(); } }
   renderShop() {
     const W = this.wallet, list = $('shop-list'); if (!list) return; $('shop-cash').textContent = fmtMoney(W.money); list.innerHTML = '';
     for (const k of WEAPON_ORDER) {
-      const d = WEAPONS[k], owned = W.owns(k), row = document.createElement('div'); row.className = 'shop-row';
+      const d = WEAPONS[k], owned = W.owns(k), row = document.createElement('div'); row.className = 'shop-row' + (this.shopSel === k ? ' sel' : ''); row.dataset.k = k; row.addEventListener('pointerdown', () => this.shopSelect(k)); row.addEventListener('pointerenter', () => { if (this.shopSel !== k) this.shopSelect(k); });
       const t = document.createElement('b'); t.textContent = d.name; const sm = document.createElement('small'); sm.textContent = d.desc + (owned && !d.melee ? '  •  ' + W.mag(k) + ' loaded, ' + W.reserve(k) + ' spare' : ''); const bx = document.createElement('span'); bx.className = 'sb';
       const btn = (label, fn, dis, alt) => { const e = document.createElement('button'); e.textContent = label; e.disabled = !!dis; if (alt) e.className = 'alt'; e.onclick = () => { fn(); this.renderShop(); }; bx.appendChild(e); };
-      if (!owned) btn('BUY ' + fmtMoney(d.price), () => { if (W.buy(k)) { this.weapon = k; this.syncAct(); A.sfx.pickup(); } }, !W.canPay(d.price));
+      if (d.grenade) { sm.textContent = d.desc + '  \u2022  you carry ' + W.nades; btn('BUY 1 ' + fmtMoney(d.price), () => { if (W.buy(k)) { A.sfx.pickup(); this.updateAmmoHud(); this.syncAct(); } }, !W.canPay(d.price)); if (owned) btn(this.weapon === k ? 'EQUIPPED' : 'EQUIP', () => { this.equip(k); A.sfx.click(); this.updateAmmoHud(); }, this.weapon === k, true); }
+      else if (!owned) btn('BUY ' + fmtMoney(d.price), () => { if (W.buy(k)) { this.weapon = k; this.syncAct(); A.sfx.pickup(); } }, !W.canPay(d.price));
       else { btn(this.weapon === k ? 'EQUIPPED' : 'EQUIP', () => { this.weapon = k; if (k === 'bat') { this.aiming = false; this.aimT = 0; } this.syncAct(); A.sfx.click(); }, this.weapon === k, true); if (!d.melee) btn('+' + d.ammoPack + ' AMMO ' + fmtMoney(d.ammoPrice), () => { if (W.buyAmmo(k)) A.sfx.pickup(); this.updateAmmoHud(); }, !W.canPay(d.ammoPrice)); }
       row.append(t, bx, sm); list.appendChild(row);
     }
@@ -1363,6 +1427,7 @@ class Race {
   punch() {
     if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
     if (this.meta.city && isGun(this.weapon)) return this.fire();
+    if (this.meta.city && this.weapon === 'grenade') return this.throwNade();
     const b = this.me.body, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));

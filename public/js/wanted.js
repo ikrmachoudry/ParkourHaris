@@ -178,6 +178,15 @@ export class Wanted {
     this.seen = true; this.unseenT = 0;
     return best;
   }
+  // a grenade: officers within r metres are hurt / killed, police cars take damage (less with distance)
+  blast(x, z, r, dmg) {
+    for (const o of this.foot) {
+      if (o.dead) continue; const d = Math.hypot(o.x - x, o.z - z); if (d > r) continue; const k = 1 - 0.55 * d / r;
+      o.hp -= dmg * k * 1.2; o.down = Math.max(o.down, 1.6); this.R.particles.emit(o.x, 1.2 + this.ground(o.x, o.z), o.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
+      if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); } else { this.hurtFoot(o); this.crime('copHit', o.x, o.z); }
+    }
+    for (const c of this.cars) { const cs = c.st, d = Math.hypot(c.x - x, c.z - z); if (!cs || cs.wreck || d > r + 1.5) continue; cs.hp = Math.max(0, (cs.hp === undefined ? 100 : cs.hp) - 70 * (1 - d / (r + 2))); this.crime('car', c.x, c.z); }
+  }
   killFoot(o) { o.dead = true; o.t = 0; try { A.voice.death(0.9); } catch (e) { /* noop */ } }
   hurtFoot(o) { const n = performance.now(); if (n - (o.hAt || 0) < 450) return; o.hAt = n; try { const cp = this.R.camera.position, d = Math.hypot(o.x - cp.x, o.z - cp.z); if (d < 40) A.voice.grunt(0.95 * Math.max(0.3, 1 - d / 40)); } catch (e) { /* noop */ } }
   melee(x, z, fx, fz) {

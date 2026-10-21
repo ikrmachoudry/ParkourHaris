@@ -158,6 +158,18 @@ export class Peds {
     this.alarm(best.x, best.z, 12, best);
     this.lastHit = best; if (onHit) onHit(best, best.hp <= 0); return true;
   }
+  // a grenade / explosion: everybody within r metres is hurt (less with distance), thrown away from the centre; dead ones scream and fall. Returns how many were hit.
+  blast(x, z, r, dmg, onHit) {
+    let n = 0;
+    for (const p of this.list) {
+      if (p.hp <= 0 || (!this.puppet && (!p.actor || !p.actor.group.visible)) || (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie')) continue;
+      const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz); if (d > r) continue; const nx = d > 1e-3 ? dx / d : 1, nz = d > 1e-3 ? dz / d : 0, k = 1 - 0.55 * d / r;
+      p.hp -= dmg * k; if (this.puppet) p.hold = 0.6; const dead = p.hp <= 0; n++;
+      this.voice(dead ? 'death' : 'hurt', p); p.st = 'fly'; p.vx = nx * (6 + 6 * k); p.vz = nz * (6 + 6 * k); p.vy = 5.5 * k + 1.5; p.lie = 0; p.punchT = 0; p.yaw = Math.atan2(-nx, -nz);
+      this.lastHit = p; if (onHit) onHit(p, dead, d);
+    }
+    this.alarm(x, z, 40, null, true); return n;
+  }
   // a bullet: the first person on the line (ox,oz) + (fx,fz) * [0..range] within 0.55 m of it. Returns { p, dead, d } or null. Everybody near panics (gunfire).
   shoot(ox, oz, fx, fz, range, dmg, onHit, only = -1) {
     let best = null, bd = range;
