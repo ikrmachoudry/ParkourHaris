@@ -31,7 +31,7 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v100</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v101</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -178,6 +178,23 @@
     </div>
   </section>
 
+  <section id="pset" class="hidden">
+    <div class="panel">
+      <h2>Settings</h2>
+      <div id="quick2" aria-label="Game switches">
+        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
+      </div>
+      <div class="sethead">TIME OF DAY</div>
+      <div id="tsel"><button data-t="morning">Morning</button><button data-t="noon">Noon</button><button data-t="afternoon">Afternoon</button><button data-t="night">Night</button><button data-t="auto">Auto</button></div>
+      <div class="sethead">DISTANCE HAZE</div>
+      <div id="hsel"><button data-h="clear">Clear</button><button data-h="normal">Normal</button></div>
+      <button class="btn grey" id="pset-back">BACK</button>
+    </div>
+  </section>
+
   <!-- ============ SETTINGS ============ -->
   <section id="s-settings" class="screen panel-screen hidden">
     <div class="panel">
@@ -251,20 +268,11 @@
         <button class="btn pink" id="p-retry">RESTART</button>
         <button class="btn grey" id="p-gfx">GFX: AUTO</button>
       </div>
+      <button class="btn purple" id="p-settings">&#9881; SETTINGS</button>
       <div class="vols">
         <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
         <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
       </div>
-      <div id="quick2" aria-label="Game switches">
-        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
-      </div>
-      <div class="sethead">TIME OF DAY</div>
-      <div id="tsel"><button data-t="morning">Morning</button><button data-t="noon">Noon</button><button data-t="afternoon">Afternoon</button><button data-t="night">Night</button><button data-t="auto">Auto</button></div>
-      <div class="sethead">DISTANCE HAZE</div>
-      <div id="hsel"><button data-h="clear">Clear</button><button data-h="normal">Normal</button></div>
       <ul class="help pkeys">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>
         <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>M</kbd> mute</li>

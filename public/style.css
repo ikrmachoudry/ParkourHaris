@@ -191,8 +191,8 @@ body.touch #hud-toast { top: 18%; }
 body.touch #hud-count { font-size: clamp(70px, 16vw, 150px); }
 
 /* ---------- in-game menu ---------- */
-#pause { position: absolute; inset: 0; z-index: 45; display: grid; place-content: center; background: rgba(10,5,40,.55); backdrop-filter: blur(5px); pointer-events: auto; touch-action: manipulation; }
-#pause .panel { width: min(560px, 94vw); display: grid; gap: 12px; text-align: center; }
+#pause, #pset { position: absolute; inset: 0; z-index: 45; display: grid; place-content: center; background: rgba(10,5,40,.55); backdrop-filter: blur(5px); pointer-events: auto; touch-action: manipulation; }
+#pause .panel, #pset .panel { width: min(560px, 94vw); display: grid; gap: 12px; text-align: center; }
 #pause h2 { margin: 0; }
 #pause .note { margin: 0; }
 #pause #hud-progress { position: relative; left: auto; bottom: auto; transform: none; width: calc(100% - 40px); margin: 30px 20px 8px; }
@@ -202,7 +202,7 @@ body.touch #hud-count { font-size: clamp(70px, 16vw, 150px); }
 #pause .pkeys { margin: 0; padding: 0; list-style: none; font-size: 15px; line-height: 2; }
 body.touch #pause .pkeys { display: none; }
 @media (max-height: 560px) {
-  #pause .panel { width: min(700px, 96vw); padding: 10px 16px; gap: 7px; }
+  #pause .panel, #pset .panel { width: min(700px, 96vw); padding: 10px 16px; gap: 7px; }
   #pause h2 { font-size: 24px; }
   #pause .btn { font-size: 16px; padding: 7px 10px; border-radius: 14px; }
   #pause .btn.big { font-size: 22px; padding: 8px 12px; }
@@ -609,7 +609,7 @@ body.big-map, body.big-map #bigmap-wrap, body.big-map #bigmap { cursor: grab !im
 body.big-map #bigmap-wrap:active, body.big-map #bigmap:active { cursor: grabbing !important; }
 body.big-map #bigmap-x, body.big-map #bigmap-zoom button { cursor: pointer !important; }
 
-#pause .panel { max-height: 94vh; overflow-y: auto; }
+#pause .panel, #pset .panel { max-height: 94vh; overflow-y: auto; }
 #tsel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 #tsel button, #hsel button { padding: 9px 4px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font: 700 13px system-ui, sans-serif; cursor: pointer; }
 #tsel button.on, #hsel button.on { background: #34c759; border-color: #34c759; color: #06240f; }

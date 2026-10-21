@@ -1859,11 +1859,13 @@ function closePause() {
   if (!race || !race.menuOpen) return;
   if (race.paused) { race.t0 += performance.now() - race.pauseAt; race.paused = false; }
   race.menuOpen = false;
-  $('pause').classList.add('hidden');
+  $('pause').classList.add('hidden'); $('pset').classList.add('hidden');
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
+$('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
+$('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 $('p-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
 $('p-gfx').onclick = () => { Q.low = !Q.low; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); };
