@@ -805,6 +805,11 @@ class Race {
       const hl0 = st.hl || spec.hl, hw0 = st.hw || spec.hw;
       const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), lz = dx * fx + dz * fz, lx = -dx * fz + dz * fx, hl = hl0 + P.R + 0.05, hw = hw0 + P.R + 0.05;
       if (Math.abs(lz) >= hl || Math.abs(lx) >= hw) continue;
+      // CLIMBING ON: a normal jump (~0.7 m) clears the bonnet / boot (0.95 m), a second one the roof (1.45 m); once your feet are over the top you stand on it and can walk across
+      if (!spec.bike && st.id < 30 && hw0 > 0.7 && hl0 < 3.1 && Math.abs(st.speed) < 3 && !(st.sunk)) {
+        const top = st.y + (Math.abs(lz) / hl0 > 0.58 ? 0.95 : 1.45);
+        if (b.y >= top - 0.38 && b.vy <= 2 && b.stun <= 0) { if (b.y < top + 0.15 || b.grounded) { b.y = top; b.vy = Math.min(b.vy, 0); b.grounded = true; b.ground = null; b.jumping = false; b.coyote = 0.11; } continue; }
+      }
       if (Math.abs(st.speed) > 4 && b.hitCd <= 0) { // a moving car hits you: thrown aside
         const sg = Math.sign(st.speed) || 1; let nx = fx * sg, nz = fz * sg; nx += -fz * Math.sign(lx || 1) * 0.5; nz += fx * Math.sign(lx || 1) * 0.5; const l = Math.hypot(nx, nz) || 1;
         if (knock(b, nx / l, nz / l, Math.min(22, 4 + Math.abs(st.speed) * 0.85))) { b.vy = 5 + Math.min(4, Math.abs(st.speed) * 0.12); b.stun = Math.min(3.2, 1.8 + Math.abs(st.speed) * 0.05); b.immune = 0; A.sfx.thud(1); A.voice.pain && A.voice.pain(0.8); A.crashSfx(Math.min(10, 4 + Math.abs(st.speed) * 0.2)); this.shake = Math.max(this.shake || 0, 0.3); this.particles.emit(b.x, b.y + 0.8, b.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); continue; }
