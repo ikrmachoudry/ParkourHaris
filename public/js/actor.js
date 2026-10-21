@@ -28,10 +28,11 @@ export class HeroActor {
     const sp = st.speed || 0;
     if (st.seated) name = st.bike ? 'ride' : st.pax ? 'pax' : 'sit';
     else if (st.swim) name = 'swim';
-    else if (!st.grounded && Math.abs(st.vy || 0) > 1.2) name = 'jump';
+    else if (!st.grounded && (Math.abs(st.vy || 0) > 1.2 || this.inAir)) { name = 'jump'; this.inAir = true; }   // stays in the jump pose over the apex (it used to flip to run for a moment, lifting the leg a second time)
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }
     if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
+    if (st.grounded || st.swim || st.seated) this.inAir = false;
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
     if (st.stun > 0 && !st.seated) name = 'fall';
     const w = st.weapon && !st.seated ? st.weapon : null;   // 'bat' | 'pistol' | 'ak'

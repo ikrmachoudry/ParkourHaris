@@ -41,7 +41,7 @@ function play(n, opt = {}) {
   P[1] = { x: SNIPE.pad.x, y: 18, z: SNIPE.pad.z, a: 0 }; for (let i = 0; i < 80; i++) D.tick(0.1); ok(D.s > R.sGate + 10, 'he drives on once the sniper is at the pad'); }
 { const P = { 1: { x: 130, y: 0, z: 100, a: 0 } }; const D = new SnipeDirector({ getP: (id) => P[id] || null, onEv() {}, onEnd() {} }); D.start([1]); for (let i = 0; i < 1800; i++) D.tick(0.1); ok(D.s > R.sGate + 10 || D.ended, 'the wait is limited (does not hang forever)'); }
 // a shot tanker keeps rolling, burning, into the tunnel and comes to rest inside it
-{ const r = play(2, { shotDelay: 20 }); const D = r.D; ok(D.tk.mode === 4 && D.tk.z > 428 && D.tk.z < 441 && D.tk.v < 0.5, 'a shot tanker rolls on into the tunnel and stops inside (z ' + D.tk.z.toFixed(1) + ' mode ' + D.tk.mode + ' v ' + D.tk.v.toFixed(2) + ')'); }
+{ const r = play(2, { shotDelay: 20 }); const D = r.D; ok(D.tk.mode === 4 && D.tk.z > 428 && D.tk.z < 446 && D.tk.v < 0.5, 'a shot tanker rolls on into the tunnel and stops inside (z ' + D.tk.z.toFixed(1) + ' mode ' + D.tk.mode + ' v ' + D.tk.v.toFixed(2) + ')'); }
 { const D = new SnipeDirector({ getP: () => null, onEv() {}, onEnd() {} }); D.start([1]); D.stage = 'chase'; D.tk.mode = 5; ok(D.hit(1, 6) === true && D.tk.mode === 3, 'a bullet still counts while the tanker is stopped in the tunnel mouth'); }
 const names = (r) => r.evs.map((e) => e[0]).join(',');
 for (const n of [1, 2, 3, 4]) {

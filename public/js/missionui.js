@@ -189,7 +189,7 @@ export class MissionClient {
     if (!T) return; this.big('', 1); this.sub('', 1); if (T[0]) this.big(T[0], 2000, T[2]); if (T[1]) this.sub(T[1], 3500); if (k === 'gun') A.sfx.bonk(); else A.sfx.pickup();
   }
   // the camera shot during the cut-scene (null = the normal camera)
-  camShot(dt) { return this.mission === 'thief' && this.phase === 'brief' ? this.ts.shot(dt) : this.mission === 'snipe' && this.phase === 'run' ? this.ss.shot(dt) : null; }
+  camShot(dt) { return this.mission === 'thief' && this.phase === 'brief' ? this.ts.shot(dt) : this.mission === 'snipe' && this.phase === 'run' ? this.ss.shot(dt, this.role) : null; }
   // markers for the mini-map
   marks() {
     if (this.mission === 'snipe' && (this.phase === 'run' || this.phase === 'brief') && this.paths) {

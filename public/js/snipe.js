@@ -19,10 +19,10 @@ export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x
 export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of the bank door, to the driver's door
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
-const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 5.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
+const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17, AI_SHOT_Z = SNIPE.tun.z0 - 30;
-const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
+const WRECK_Z = 441.5;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
 
 // role of the player with this seat in a mission of n players
 let SOLO = 'sniper';   // a solo player chooses: 'sniper' (the AI drives the tanker) or 'truck' (the AI sniper shoots)
@@ -207,7 +207,7 @@ export class SnipeDirector {
   }
   // the driver is out: the tanker rolls on without him
   bail(ai) {
-    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 4.5, ROLL_V); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
+    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 5.5, ROLL_V); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
   }
   // the sniper's bullet reached the tank: only counts after the driver is out and before the tanker is inside the tunnel
   hit(id, dmg) {

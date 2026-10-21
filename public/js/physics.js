@@ -30,13 +30,13 @@ export function stepBody(w, b, dt, inp) {
   if (b.noCtrl > 0) b.noCtrl -= dt;
 
   // ---- swimming pools: water never hurts, you just float, paddle slower and can hop out
-  let sw = 0, surf = 0;
+  let sw = 0, surf = 0, sea = false;
   for (const pl of w.pools) {
     if (b.x > pl.x0 && b.x < pl.x1 && b.z > pl.z0 && b.z < pl.z1) { const d = pl.surf - b.y; if (d > 0.12) { sw = Math.min(1, d / 0.9); surf = pl.surf; } break; }
   }
   if (!sw && w.seaSwim && w.terrain) { // the open sea: deeper than your knees and you swim (the same floating as a pool)
     const th = w.terrain(b.x, b.z), d = w.waterY - b.y;
-    if (th < w.waterY - 0.15 && d > 0.45) { sw = Math.min(1, d / 0.5); surf = w.waterY; }
+    if (th < w.waterY - 0.15 && d > 0.45) { sw = Math.min(1, d / 0.5); surf = w.waterY; sea = true; }
   }
   if (sw > 0.3 && b.swim <= 0.3) { b.events.push('splash'); b.waterSurf = surf; }
   b.swim = sw;
@@ -72,7 +72,7 @@ export function stepBody(w, b, dt, inp) {
   }
 
   // ---- jump
-  if (sw > 0.4 && inp.jumpPressed && b.stun <= 0) { b.vy = 9; b.grounded = false; b.ground = null; b.noSnap = 0.2; b.jumpBuf = 0; b.events.push('stroke'); }
+  if (sw > 0.4 && !sea && inp.jumpPressed && b.stun <= 0) { b.vy = 9; b.grounded = false; b.ground = null; b.noSnap = 0.2; b.jumpBuf = 0; b.events.push('stroke'); }   // (no jumping in the open sea; a pool still lets you hop out)
   else if (b.jumpBuf > 0 && (b.grounded || b.coyote > 0) && b.stun <= 0 && b.dive <= 0.45) {
     b.vy = P.JUMP * (b.jumpMul || 1); b.grounded = false; b.ground = null; b.coyote = 0; b.jumpBuf = 0; b.noSnap = 0.2; b.jumping = true;
     b.events.push('jump');
@@ -81,7 +81,7 @@ export function stepBody(w, b, dt, inp) {
 
   b.vy = Math.max(P.TERM, b.vy - P.G * dt * (b.dive > 0 && !b.grounded ? 0.8 : 1) * (1 - 0.92 * sw));
   if (sw > 0.05) { // buoyancy: spring to a floating height, damped; holding jump treads water higher
-    const tgt = surf - (inp.jumpHeld ? 0.3 : 0.95);
+    const tgt = surf - (inp.jumpHeld && !sea ? 0.3 : 0.95);
     b.vy += (tgt - b.y) * 26 * dt * sw; b.vy *= Math.exp(-2.4 * dt * sw);
   }
 

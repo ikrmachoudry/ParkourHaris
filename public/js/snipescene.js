@@ -31,6 +31,7 @@ export class SnipeScene {
     this.car = buildCarMesh(22, !!R.isTouch); this.car.rotation.order = 'YXZ';
     this.actor = new HeroActor(0, { role: 'robber', skinTone: '#6b4429', hair: '#0d0a08' });
     this.car.visible = false; this.actor.group.visible = false; R.scene.add(this.car, this.actor.group);
+    this.cops = [0, 1].map((i) => { const a = new HeroActor(0, { role: 'cop', skinTone: i ? '#8d5a3b' : '#c68e63', hair: '#15100c' }); a.group.visible = false; a.group.rotation.order = 'YXZ'; R.scene.add(a.group); return { a, x: 0, z: 0, yaw: 0, on: false }; });
     this.pol = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
     this.ai = [0, 1].map((i) => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); const z = ZONES[i]; return { m, x: z.x + (i ? 0.7 : -0.7), z: z.z, yaw: Math.PI, i }; });
     this.pur = [0, 1].map(() => { const m = buildTrafficMesh(15); m.rotation.order = 'YXZ'; m.visible = false; R.scene.add(m); return { m, x: 0, z: 0, yaw: 0 }; });
@@ -57,6 +58,23 @@ export class SnipeScene {
     this.lastMode = mode; void first;
   }
   // the YELLOW LINE on the road: follows the player's own route (bank -> hill pad / tunnel end) so nobody has to keep looking at the map
+  // two police officers walk the thief from his car to the police car (they come out of it, flank him, and stand by the car when he is in)
+  updateCops(dt, s) {
+    if (!this.cops) return; const ar = s.st === 'arrest' ? s.ar : -1, pc = this.pol[0];
+    for (let i = 0; i < 2; i++) {
+      const c = this.cops[i], g = c.a.group;
+      if (ar < 6.6 || ar > 14.5 || !pc) { g.visible = false; c.on = false; continue; }
+      const side = i ? 1 : -1, fy = this.pyaw, fx = Math.sin(fy), fz = Math.cos(fy);
+      let tx, tz;
+      if (ar < 12.5) { tx = this.px - fz * side * 1.15 - fx * 0.3; tz = this.pz + fx * side * 1.15 - fz * 0.3; }   // flanking the thief
+      else { tx = pc.x - 1.6 + i * 3.2; tz = pc.z - 2.2; }                                                          // standing by the police car
+      if (!c.on) { c.on = true; c.x = pc.x + (i ? 1.6 : -1.6); c.z = pc.z - 2.2; c.yaw = fy; }
+      const dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz), step = Math.min(d, 3.2 * dt), sp = dt > 0 ? step / dt : 0;
+      if (d > 0.05) { c.x += dx / d * step; c.z += dz / d * step; c.yaw = angLerp(c.yaw, d > 0.4 ? Math.atan2(dx, dz) : fy, 1 - Math.exp(-10 * dt)); }
+      g.visible = true; g.position.set(c.x, this.ground(c.x, c.z), c.z); g.rotation.set(0, c.yaw, 0); g.scale.setScalar(1);
+      c.a.update(dt, { seated: false, speed: Math.min(sp, 3), grounded: true, weapon: undefined, aiming: false, crouch: false });
+    }
+  }
   // the blue STAND HERE arrow + ring on the hill top: the exact spot the sniper has to stand on (shown until he is on it)
   stand(on) {
     if (!on) { if (this.standM) { this.standM.visible = false; this.standR.visible = false; } return; }
@@ -91,7 +109,7 @@ export class SnipeScene {
   }
   hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
-    this.stand(false); this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
+    this.tunDone = false; this.tunT = 0; this.stand(false); if (this.cops) for (const c of this.cops) { c.a.group.visible = false; c.on = false; } this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
     if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
     try { A.sirenMission(0); } catch { /* noop */ }
     const c = this.truck; if (c && this.tank) {
@@ -124,7 +142,7 @@ export class SnipeScene {
   seat(g, x, y, z, yaw, ud, f, r) { const sy = Math.sin(yaw), cy = Math.cos(yaw); g.position.set(x + sy * f - cy * r, y + ud.seatY, z + cy * f + sy * r); g.rotation.set(0, yaw, 0); g.scale.setScalar(ud.seatS || 1); }
   update(dt) {
     this.t += dt; const s = this.snap, R = this.R;
-    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; } try { A.sirenMission(0); } catch { /* noop */ } return; }
+    if (!s || s.st === 'done' || s.st === 'fail') { if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; if (this.cops) for (const c of this.cops) c.a.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; } try { A.sirenMission(0); } catch { /* noop */ } return; }
     if (!this.built) this.build();
     this.armTruck();
     const age = Math.min(0.3, (performance.now() - this.at) / 1000), f = 1 - Math.exp(-15 * dt);
@@ -144,6 +162,7 @@ export class SnipeScene {
     if (mode === 'car') { this.seat(g, this.cx, y, this.cz, this.cyaw, ud, ud.seatF, ud.seatR); this.actor.update(dt, { seated: true, speed: 0, grounded: true }); }
     else if (mode === 'rear') { const p = this.pol[0], u2 = p.m.userData; this.seat(g, p.x, p.m.position.y, p.z, p.yaw, u2, (u2.seatF || 0) - 1.0, 0); this.actor.update(dt, { seated: true, speed: 0, grounded: true }); }
     else { g.rotation.order = 'YXZ'; g.position.set(this.px, this.ground(this.px, this.pz), this.pz); g.rotation.set(0, this.pyaw, 0); g.scale.setScalar(1); this.actor.update(dt, { seated: false, speed: psp, grounded: true, weapon: undefined, aiming: false, crouch: false, gesture: pose === 'scared' ? 'scared' : undefined }); }
+    this.updateCops(dt, s);
     // the tanker: while the AI or the roll-on script drives it, this scene places the real truck
     const k = s.k, c = this.truck;
     if (c && k) {
@@ -183,16 +202,25 @@ export class SnipeScene {
       try { A.sirenMission(dm < 1e8 ? Math.max(0, 1 - dm / 260) : 0); } catch { /* noop */ } }
   }
   // the cut-scene when the police arrive (null = the normal camera)
-  shot(dt) {
-    const s = this.snap; if (!s || !this.built || s.st !== 'arrest') { this.shotT = 0; return null; }
+  shot(dt, role) {
+    const s = this.snap; if (!s || !this.built) { this.shotT = 0; this.tunDone = false; return null; }
+    const k = 1 - Math.exp(-4 * dt);
+    // the burning tanker rolls into the tunnel: everybody watches it from the tunnel road until it hits the thief's car and stops, then each player gets his own camera back
+    if ((s.k[4] === 3 || s.k[4] === 4) && !this.tunDone && s.st !== 'arrest') {
+      this.tunT = (this.tunT || 0) + dt; if (s.k[4] === 4 && s.k[3] < 0.4) this.tunDone = true;
+      if (this.tunT > 45) this.tunDone = true;
+      this.look.x += (s.k[0] - this.look.x) * k; this.look.y += (2.2 - this.look.y) * k; this.look.z += (s.k[1] - this.look.z) * k;
+      return { px: 56.4, py: 3.1, pz: 428, lx: this.look.x, ly: this.look.y, lz: this.look.z, fov: 62 };
+    }
+    if (s.st !== 'arrest' || role !== 'truck') { this.shotT = 0; return null; }   // the hill sniper and the blockers keep their own cameras for the arrest
     this.shotT += dt; const t = s.ar, tx = t < 8 ? (this.pol[0].x + 63) / 2 : t < 12.5 ? this.px : this.pol[0].x, tz = t < 8 ? (this.pol[0].z + 455) / 2 : t < 12.5 ? this.pz : this.pol[0].z;
-    const k = 1 - Math.exp(-4 * dt); this.look.x += (tx - this.look.x) * k; this.look.y += (1.4 - this.look.y) * k; this.look.z += (tz - this.look.z) * k;
+    this.look.x += (tx - this.look.x) * k; this.look.y += (1.4 - this.look.y) * k; this.look.z += (tz - this.look.z) * k;
     const drift = Math.min(1, this.shotT / 17);
-    return { px: 78 - drift * 6, py: 5.6, pz: 486 - drift * 3, lx: this.look.x, ly: this.look.y, lz: this.look.z, fov: 56 };   // south of the tunnel, on the beach, looking back at the far mouth (the ridge is behind the thief)
+    return { px: 78 - drift * 6, py: 5.6, pz: 486 - drift * 3, lx: this.look.x, ly: this.look.y, lz: this.look.z, fov: 56 };
   }
   dispose() {
     if (!this.built) return; const R = this.R;
-    this.hideGuide(); try { A.sirenMission(0); } catch { /* noop */ } R.scene.remove(this.car, this.actor.group); if (this.mark) R.scene.remove(this.mark); this.actor.dispose(); for (const p of [...this.pol, ...this.ai, ...this.pur]) R.scene.remove(p.m);
+    this.hideGuide(); try { A.sirenMission(0); } catch { /* noop */ } R.scene.remove(this.car, this.actor.group); if (this.cops) for (const c of this.cops) { R.scene.remove(c.a.group); c.a.dispose && c.a.dispose(); } if (this.mark) R.scene.remove(this.mark); this.actor.dispose(); for (const p of [...this.pol, ...this.ai, ...this.pur]) R.scene.remove(p.m);
     this.car.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); this.built = false;
   }
 }
