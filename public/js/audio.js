@@ -49,7 +49,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
+const SAMPLES = ['u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
   // vehicles + world (real recordings, see tools/build_audio.sh)
   'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
   'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
@@ -81,8 +81,8 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot = the sharp crack + a low, lowpassed body (the chest thump) + a short room tail; a little random detune so full auto does not sound like one looped file
 const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
 export const voice = {
-  scream(vol = 0.8) { const r = Math.random() < 0.5; return play(r ? 'scream1' : 'scream2', Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
-  death(vol = 0.9) { return play('death', vol, rnd(0.9, 1.1)); },
+  scream(vol = 0.8) { return play(pick(['u_scared0', 'u_scared1', 'u_scared2']), Math.min(1.2, vol * 1.2), rnd(0.92, 1.12), 0, 0, 0, 0.2) || play(pick(['scream1', 'scream2']), Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
+  death(vol = 0.9) { return play('u_death', Math.min(1.2, vol * 1.1), rnd(0.93, 1.07), 0, 0, 0, 0.2) || play('death', vol, rnd(0.9, 1.1)); },
   pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
 };
 

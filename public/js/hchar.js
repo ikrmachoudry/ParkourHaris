@@ -434,15 +434,15 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperleg.L'], -0.4 - 0.3 * ex, 0, 0.1); R(b['upperleg.R'], 0.3 + 0.15 * ex, 0, -0.1); R(b['lowerleg.L'], 0.3 + 0.2 * ex, 0, 0); R(b['lowerleg.R'], 0.15 + 0.3 * ex, 0, 0);   // lead foot forward, back heel drives
     R(b['upperarm.R'], -0.95 - 0.8 * ex - bk * 0.35, 0, 0.12 - 0.12 * ex); R(b['forearm.R'], -2.0 + 1.9 * ex, 0, 0); curl('R', 1.3);
     R(b['upperarm.L'], -0.9 - 0.15 * ex, 0, -0.22); R(b['forearm.L'], -1.95, 0, 0); curl('L', 1.3);   // the other fist stays up by the chin like a boxer's guard: a one-arm jab
-  } else if (name === 'kick') {   // t = progress 0..1: weight onto the left leg, right knee lifts, the foot drives forward-down (a stomp / low kick), recovery
-    const lift = t < 0.3 ? t / 0.3 : t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.35);              // knee up
-    const ext = t < 0.3 ? 0 : t < 0.5 ? (t - 0.3) / 0.2 : Math.max(0, 1 - (t - 0.5) / 0.3);          // leg straightens into the target
-    b.hips.position.y = rest.hips.y - 0.05 * lift;
-    R(b.hips, 0, 0.12 * ext, 0); R(b.spine, -0.12 * lift + 0.1 * ext, 0, 0); R(b.chest, -0.1 * ext, 0, 0); R(b.head, 0.08, 0, 0);
-    R(b['upperleg.L'], -0.12 * lift, 0, 0.04); R(b['lowerleg.L'], 0.2 * lift, 0, 0); R(b['foot.L'], 0.05, 0, 0);               // the standing leg bends a little and carries the weight
-    R(b['upperleg.R'], -1.25 * lift + 0.75 * ext, 0, -0.06); R(b['lowerleg.R'], 1.5 * lift - 1.45 * ext, 0, 0); R(b['foot.R'], -0.4 * ext, 0, 0);
-    R(b['upperarm.L'], -0.5 * lift, 0, -0.45 * lift - 0.1); R(b['forearm.L'], -0.5, 0, 0); R(b['upperarm.R'], 0.35 * lift, 0, 0.55 * lift + 0.1); R(b['forearm.R'], -0.4, 0, 0);   // arms swing out for balance
-    curl('L', 0.8); curl('R', 0.8);
+  } else if (name === 'kick') {   // t = progress 0..1: a hard, snappy kick - wind up (knee high, body leaning back a touch), the leg SNAPS out at ~0.45 with the whole body driving through it, then recovery
+    const lift = t < 0.28 ? t / 0.28 : t < 0.5 ? 1 : Math.max(0, 1 - (t - 0.5) / 0.4);              // knee up
+    const ext = t < 0.28 ? 0 : t < 0.44 ? (t - 0.28) / 0.16 : t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.3);   // the snap: fast out, held on impact, slower back
+    b.hips.position.y = rest.hips.y - 0.09 * lift; b.hips.position.z = rest.hips.z + 0.06 * ext;
+    R(b.hips, 0, 0.28 * ext - 0.1 * lift, 0); R(b.spine, -0.16 * lift + 0.38 * ext, 0, 0); R(b.chest, -0.06 * lift + 0.12 * ext, -0.2 * ext, 0); R(b.head, 0.1 - 0.12 * ext, 0, 0);
+    R(b['upperleg.L'], -0.28 * lift, 0, 0.05); R(b['lowerleg.L'], 0.45 * lift, 0, 0); R(b['foot.L'], 0.1, 0, 0);                  // the standing leg bends and carries the weight
+    R(b['upperleg.R'], -1.5 * lift + 0.5 * ext, 0, -0.06); R(b['lowerleg.R'], 1.75 * lift - 1.7 * ext, 0, 0); R(b['foot.R'], -0.5 * ext, 0, 0);
+    R(b['upperarm.L'], -0.7 * lift + 0.3 * ext, 0, -0.55 * lift - 0.1); R(b['forearm.L'], -0.6, 0, 0); R(b['upperarm.R'], 0.5 * lift, 0, 0.7 * lift + 0.1); R(b['forearm.R'], -0.5, 0, 0);   // arms fling out for balance
+    curl('L', 0.9); curl('R', 0.9);
   }
   else if (name === 'scared') {   // cowering: knees bent, arms up in front of the face, trembling
     const tr = Math.sin(t * 22) * 0.03;

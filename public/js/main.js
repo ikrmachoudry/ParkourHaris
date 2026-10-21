@@ -1223,7 +1223,7 @@ class Race {
     if (!show || !el) return;
     const px = Math.round(28 + W.spread * 280); if (el._px !== px) { el._px = px; el.style.width = el.style.height = px + 'px'; el.style.margin = (-px / 2) + 'px 0 0 ' + (-px / 2) + 'px'; }
     let on = false; const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw;
-    if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
+    if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
     const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
     el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
   }
@@ -1236,7 +1236,7 @@ class Race {
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
-    if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
+    if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
     if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
