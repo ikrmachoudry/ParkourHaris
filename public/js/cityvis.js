@@ -188,5 +188,5 @@ function addDriver(m, id) {
 
 // burnt-out wreck: paint turns to soot on both the animated and the baked copy; restoreCar brings the paint back
 const _paintMats = (mesh) => { const out = []; mesh.traverse((o) => { if (o.isMesh && o.material && o.material.type === 'MeshPhysicalMaterial' && out.indexOf(o.material) < 0) out.push(o.material); }); return out; };
-export function charCar(mesh) { const u = mesh.userData; if (u.charred) return; u.charred = true; for (const m of _paintMats(mesh)) { m.userData.c0 = m.color.getHex(); m.color.set('#17140f'); m.roughness = 0.95; m.metalness = 0.1; m.clearcoat = 0; } }
-export function restoreCar(mesh) { const u = mesh.userData; if (!u.charred) return; u.charred = false; for (const m of _paintMats(mesh)) { if (m.userData.c0 !== undefined) m.color.setHex(m.userData.c0); m.roughness = 0.34; m.metalness = 0.55; m.clearcoat = 1; } }
+export function charCar(mesh) { const u = mesh.userData; if (u.charred) return; u.charred = true; try { u.hero && u.hero.hurtLook && u.hero.hurtLook(0, true); } catch (e) { /* noop */ } for (const m of _paintMats(mesh)) { m.userData.c0 = m.color.getHex(); m.color.set('#17140f'); m.roughness = 0.95; m.metalness = 0.1; m.clearcoat = 0; } }
+export function restoreCar(mesh) { const u = mesh.userData; if (!u.charred) return; u.charred = false; try { u.hero && u.hero.repair && u.hero.repair(); } catch (e) { /* noop */ } for (const m of _paintMats(mesh)) { if (m.userData.c0 !== undefined) m.color.setHex(m.userData.c0); m.roughness = 0.34; m.metalness = 0.55; m.clearcoat = 1; } }

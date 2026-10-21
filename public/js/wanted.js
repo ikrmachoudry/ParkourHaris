@@ -49,7 +49,7 @@ export class Wanted {
     this.el = document.getElementById('wanted'); this.elBust = document.getElementById('bust-bar');
     this.lastStars = -1; this.flashPhase = 0;
   }
-  nearestCop(b) { if (b.stun > 0) return null; for (const c of this.cars) if (Math.hypot(c.x - b.x, c.z - b.z) < 4.6 && c.v < 4) return c; return null; }
+  nearestCop(b) { if (b.stun > 0) return null; for (const c of this.cars) if (!(c.st && c.st.wreck) && (Math.hypot(c.x - b.x, c.z - b.z) < 4.6 && c.v < 4)) return c; return null; }
   takeCar(c) { const i = this.cars.indexOf(c); if (i >= 0) this.removeCar(i); }
   get active() { return this.stars > 0; }
   boxes() { const t = this.R.info && this.R.info.track; return (t && t.boxes) || []; }
@@ -88,6 +88,7 @@ export class Wanted {
     c.x = best[0] + (c.dz ? -c.dz : 0) * LANE * 0; c.z = best[1]; c.lastG = null; c.nid = NID++; this.cars.push(c);
   }
   stepCar(c, dt, tx, tz, px, pz) {
+    if (c.st && c.st.wreck) { c.v = 0; c.parked = true; return; }   // a burnt-out patrol car stays where it died
     const st = c.st;
     if (c.parked) { c.v = Math.max(0, c.v - 20 * dt); } else {
       const top = (this.stars >= 4 ? 33 : 27) * (this.seen ? 1 : 0.8);
@@ -162,7 +163,7 @@ export class Wanted {
     let best = -1;
     for (const o of this.foot) {
       if (o.dead) continue; const dx = o.x - ox, dz = o.z - oz, a = dx * fx + dz * fz, l = Math.abs(-dx * fz + dz * fx);
-      if (a > 0.6 && a < range && l < 0.55 && (best < 0 || a < best)) { best = a; this._tgt = { foot: o }; }
+      if (a > -0.9 && a < range && l < (a < 2 ? 0.9 : 0.65) && (best < 0 || a < best)) { best = Math.max(0.3, a); this._tgt = { foot: o }; }
     }
     for (const c of this.cars) {
       const dx = c.x - ox, dz = c.z - oz, a = dx * fx + dz * fz; if (a < 0.6 || a > range) continue; const f = Math.sin(c.yaw), g = Math.cos(c.yaw);
@@ -172,16 +173,17 @@ export class Wanted {
     const t = this._tgt;
     if (t.foot) {
       const o = t.foot; o.hp -= dmg * 1.2; this.R.particles.emit(o.x, 1.2 + this.ground(o.x, o.z), o.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
-      if (o.hp <= 0) { o.dead = true; o.t = 0; this.crime('copKill', o.x, o.z); this.R.earn && this.R.earn(0); } else { o.down = Math.max(o.down, 0.5); this.crime('copHit', o.x, o.z); }
-    } else { this.crime('car', t.car.x, t.car.z); this.R.particles.emit(ox + fx * best, 1.0, oz + fz * best, 5, { color: '#ffd23f', speed: 4, up: 2, life: 0.25, size: 0.14 }); }
+      if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); this.R.earn && this.R.earn(0); } else { o.down = Math.max(o.down, 0.5); this.crime('copHit', o.x, o.z); }
+    } else { const cs = t.car.st; if (cs && !cs.wreck) cs.hp = Math.max(0, (cs.hp === undefined ? 100 : cs.hp) - Math.max(6, (dmg || 1) * 9)); this.crime('car', t.car.x, t.car.z); this.R.particles.emit(ox + fx * best, 1.0, oz + fz * best, 5, { color: '#ffd23f', speed: 4, up: 2, life: 0.25, size: 0.14 }); }
     this.seen = true; this.unseenT = 0;
     return best;
   }
+  killFoot(o) { o.dead = true; o.t = 0; try { A.voice.death(0.9); } catch (e) { /* noop */ } }
   melee(x, z, fx, fz) {
     for (const o of this.foot) {
       if (o.dead) continue; const dx = o.x - x, dz = o.z - z, d = Math.hypot(dx, dz); if (d > 1.9 || (dx * fx + dz * fz) / (d || 1) < 0.3) continue;
       o.hp -= 1; o.down = Math.max(o.down, 1.1); this.R.particles.emit(o.x, 1.3, o.z, 8, { color: '#ffffff', speed: 4, up: 2, life: 0.3, size: 0.25 });
-      if (o.hp <= 0) { o.dead = true; o.t = 0; this.crime('copKill', o.x, o.z); } else this.crime('copHit', o.x, o.z); return true;
+      if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); } else this.crime('copHit', o.x, o.z); return true;
     }
     return false;
   }
@@ -234,7 +236,7 @@ export class Wanted {
       const o = this.foot[i]; this.stepFoot(o, dt, px, pz, onFoot, car);
       if (o.dead && o.t > 9) { this.group.remove(o.actor.group); o.actor.dispose(); this.foot.splice(i, 1); continue; }
       // run over by the player's car
-      if (car && !o.dead && o.down <= 0 && speed > 6) { const dx = o.x - car.x, dz = o.z - car.z, f = Math.sin(car.yaw), g = Math.cos(car.yaw), lz = dx * f + dz * g, lx = -dx * g + dz * f; if (Math.abs(lz) < 2.5 && Math.abs(lx) < 1.3) { o.hp -= 3; o.down = 2.2; R.particles.emit(o.x, 1, o.z, 10, { color: '#ff5a4a', speed: 4, up: 3, life: 0.4, size: 0.22 }); if (o.hp <= 0) { o.dead = true; o.t = 0; this.crime('copKill', o.x, o.z); } else this.crime('copHit', o.x, o.z); } }
+      if (car && !o.dead && o.down <= 0 && speed > 6) { const dx = o.x - car.x, dz = o.z - car.z, f = Math.sin(car.yaw), g = Math.cos(car.yaw), lz = dx * f + dz * g, lx = -dx * g + dz * f; if (Math.abs(lz) < 2.5 && Math.abs(lx) < 1.3) { o.hp -= 3; o.down = 2.2; R.particles.emit(o.x, 1, o.z, 10, { color: '#ff5a4a', speed: 4, up: 3, life: 0.4, size: 0.22 }); if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); } else this.crime('copHit', o.x, o.z); } }
     }
 
     // arrest

@@ -510,8 +510,15 @@ export function buildHeroCar(opts = {}) {
       }
       pa.needsUpdate = true; if (ca) ca.needsUpdate = true; bodyGeo.computeVertexNormals();
     },
-    hurtLook(hp) { if (hood && hood.pivot) this.setLid(hood, hp < 15 ? 0.3 : hp < 40 ? 0.16 : 0); },
-    repair() { const o = bodyGeo.userData.orig; if (o) { bodyGeo.attributes.position.array.set(o.p); if (o.c) bodyGeo.attributes.color.array.set(o.c); bodyGeo.attributes.position.needsUpdate = true; if (bodyGeo.attributes.color) bodyGeo.attributes.color.needsUpdate = true; bodyGeo.computeVertexNormals(); } if (hood && hood.pivot) this.setLid(hood, 0); },
+    // wear: <35 hp the windows are blown out, <15 the bonnet is sprung up; a burnt-out wreck has lost its doors and boot lid. Only visibility flags + one lid angle, so it costs nothing on a phone.
+    hurtLook(hp, wreck) {
+      if (wreck !== undefined) this._wk = !!wreck; const w = !!this._wk, key = (hp < 35 ? 1 : 0) + (hp < 15 ? 2 : 0) + (w ? 4 : 0); if (key === this._lk) return; this._lk = key;
+      if (hood && hood.pivot) this.setLid(hood, w ? 0.55 : hp < 15 ? 0.3 : hp < 40 ? 0.16 : 0);
+      if (trunk && trunk.pivot) this.setLid(trunk, w ? 0.35 : 0);
+      glassBody.visible = !(hp < 35 || w);
+      for (const d of doors) { d.pivot.visible = !w; if (d.pivot.children[2]) d.pivot.children[2].visible = !(hp < 35); }
+    },
+    repair() { this._wk = false; this._lk = -1; glassBody.visible = true; for (const d of doors) { d.pivot.visible = true; if (d.pivot.children[2]) d.pivot.children[2].visible = true; } if (trunk && trunk.pivot) this.setLid(trunk, 0); const o = bodyGeo.userData.orig; if (o) { bodyGeo.attributes.position.array.set(o.p); if (o.c) bodyGeo.attributes.color.array.set(o.c); bodyGeo.attributes.position.needsUpdate = true; if (bodyGeo.attributes.color) bodyGeo.attributes.color.needsUpdate = true; bodyGeo.computeVertexNormals(); } if (hood && hood.pivot) this.setLid(hood, 0); },
     lamp: car_lamp, style: sp, police,
   };
   return car;

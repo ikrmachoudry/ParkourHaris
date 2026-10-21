@@ -394,7 +394,7 @@ class Race {
     const hanging = false;
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
-    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
+    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); this.updateCopFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
     else {
@@ -640,7 +640,7 @@ class Race {
         if (c.mode === 'gone') continue;
       }
       const near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70;
-      this.carFx(st, dt, near);
+      this.carFx(st, dt, near); { const h = c.m && c.m.userData.hero; if (h && !st.wreck) h.hurtLook(st.hp); }
       if (st.hp < 35 && !st.fled) { st.fled = true; if (c.mode === 'drive') { c.mode = 'abandoned'; c.v = Math.min(c.v, 6); this.driverOut(c, 'cower'); } }
       if (st.hp < 35) c.goneT = Math.max(c.goneT || 0, 25);
       if (st.hp <= 0 && !st.wreck) {
@@ -654,13 +654,32 @@ class Race {
       }
     }
   }
+  // police cars wear down like every other vehicle: bullets -> smoke -> flames -> burnt-out wreck (doors gone, windows blown out)
+  updateCopFire(dt) {
+    if (!this.wanted) return; const cp = this.camera.position;
+    for (const c of this.wanted.cars) {
+      const st = c.st; if (!st) continue; if (st.hp === undefined) st.hp = 100; if (st.hp >= 100 && !st.wreck) continue;
+      st.x = c.x; st.z = c.z; st.yaw = c.yaw || 0; st.y = this.wanted.ground ? this.wanted.ground(c.x, c.z) : 0; st.vx = st.vz = 0;
+      const near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70, hero = c.mesh.userData.hero;
+      this.carFx(st, dt, near); if (hero && !st.wreck) hero.hurtLook(st.hp);
+      if (st.hp <= 0 && !st.wreck) {
+        st.burnT = (st.burnT || 0) + dt;
+        if (st.burnT > 6) {
+          st.wreck = true; try { charCar(c.mesh); } catch (e) { /* noop */ } c.v = 0; c.parked = true;
+          const dd = Math.hypot(st.x - cp.x, st.z - cp.z);
+          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 });
+          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
+        }
+      } else if (st.wreck && near && Math.random() < 0.2) this.particles.emit(st.x, st.y + 1.0, st.z, 1, { color: '#2b2b2b', speed: 0.3, up: 1.8, life: 1.6, size: 1.0, gravity: -0.7, spread: 0.8 });
+    }
+  }
   updateCarFire(dt) {
     const cp = this.camera.position;
     for (const c of this.cars) {
       const st = c.st, hero = c.mesh.userData.hero; if (!hero) continue;
       if (!st.home) st.home = { x: st.x, z: st.z, yaw: st.yaw };
       const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70;
-      this.carFx(st, dt, near);
+      this.carFx(st, dt, near); if (st.hp !== undefined) hero.hurtLook(st.hp);
       if (near && st.id >= 30 && st.id <= 32 && Math.abs(st.speed) > 1.5) {   // boat wake: foam at the stern and a bow spray
         const bg = STYLE_GEO[cityVeh(st.id).style], fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), k = Math.min(1, Math.abs(st.speed) / 14); st.wkA = (st.wkA || 0) + dt * (10 + 30 * k);
         while (st.wkA >= 1) { st.wkA -= 1; const w = this.world.waterY === undefined ? -1.2 : this.world.waterY, sd = Math.random() - 0.5;
@@ -677,7 +696,7 @@ class Race {
       if (st.hp !== undefined && st.hp <= 0 && !st.wreck) {
         st.burnT = (st.burnT || 0) + dt;
         if (st.burnT > 6) {   // burnt out (the driver, if still inside, is thrown out by the blast)
-          st.wreck = true; st.wreckT = 0; charCar(c.mesh); hero.hurtLook(0);
+          st.wreck = true; st.wreckT = 0; charCar(c.mesh);
           this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 }); { const dd = Math.hypot(st.x - cp.x, st.z - cp.z); A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); }
           if (this.drive === c) { this.toggleCar(true); const b = this.me.body; b.hitCd = 0; b.immune = 0; if (knock(b, Math.sin(st.yaw + 2), Math.cos(st.yaw + 2), 16)) { b.vy = 6; b.stun = 2.4; A.crashSfx(10); this.shake = 0.8; } }
         }
@@ -1224,6 +1243,7 @@ class Race {
     const px = Math.round(28 + W.spread * 280); if (el._px !== px) { el._px = px; el.style.width = el.style.height = px + 'px'; el.style.margin = (-px / 2) + 'px 0 0 ' + (-px / 2) + 'px'; }
     let on = false; const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw;
     if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
+    if (!on && this.wanted) for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz) || 1; if (d > W.range) continue; let da = d < 1.5 ? 0 : Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
     const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
     el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
   }
@@ -1237,6 +1257,7 @@ class Race {
     let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
+    if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
     if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
