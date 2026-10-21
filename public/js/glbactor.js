@@ -196,6 +196,11 @@ export class GlbActor extends HeroActor {
       });
       if (ce.lower) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.lower); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
       if (ce.yaw) { _q.setFromAxisAngle(_v.set(0, 1, 0), ce.yaw); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
+      if (/^(rifle|pistol)/.test(this.pose || '')) {   // the gun-holding clips lean the chest back (belly pushed out, a swayback): straighten the upper body a little (head follows half way so he still looks ahead)
+        const sk = this.straight = (this.straight || 0) + (0.24 - (this.straight || 0)) * Math.min(1, dt * 6);
+        _q.setFromAxisAngle(_v.set(1, 0, 0), sk); for (const n of ['spine', 'chest', 'neck', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q);
+        _q.setFromAxisAngle(_v.set(1, 0, 0), sk * 0.55); Wm.head.premultiply(_q);
+      } else this.straight = 0;
       if (ce.wrist) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.wrist); Wm['hand.R'].premultiply(_q); }
       const mo = (rt.mOff = rt.mOff || new THREE.Vector3()); _v.fromArray(clip.hips, i0 * 3); mo.fromArray(clip.hips, i1 * 3); mo.lerp(_v, 1 - al);   // (lerp from i1 towards i0 by 1-al)
       mo.multiplyScalar(rt.hipsWorldY / (rt.mxHipsY * 1.0)); if (ce.air) mo.y *= 0.2;   // the game body already rises and falls
