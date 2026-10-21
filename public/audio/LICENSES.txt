@@ -7,3 +7,8 @@ https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
 To the extent possible under law, Team Forbidden has waived all copyright and related or neighboring rights.
 All audio in this folder is CC0 1.0 (public domain), taken from the CC0-Public-Domain-Sounds collection (Warfork CC0 assets by Team Forbidden for jump/death/pain voices and the menu track 'Fireworks'; CC0 SFX packs for gunshots, screams, hits; Micro Pack - Organic Wooshes for the swings).
+
+--- v97 sound bank (built by tools/build_audio.sh) ---
+Engine loops (eng_*.mp3 are pitch / filter variants), skid.mp3 and crash0.mp3: from Kenney's Starter-Kit-Racing (github.com/KenneyNL/Starter-Kit-Racing, audio/*.ogg), Kenney assets are CC0 1.0.
+Impacts, footsteps and UI sounds: Kenney "Impact Sounds", "Interface Sounds", "Music Jingles" (CC0 1.0, kenney.nl).
+Water splashes / loops, rain, highway bed, doors, explosion, latch: "40 CC0 water / splash / slime SFX", "100 CC0 SFX #2", "100 CC0 SFX" (rubberduck, CC0 1.0), and the Warfork CC0 assets (Team Forbidden, CC0 1.0), all via github.com/lavenderdotpet/CC0-Public-Domain-Sounds.

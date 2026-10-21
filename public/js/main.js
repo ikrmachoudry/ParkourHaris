@@ -418,9 +418,15 @@ class Race {
     if (!this.finished && lt >= 0 && b.z < this.info.finishZ && b.y > this.info.finishY - 3 && Math.abs(b.x) < 16) this.onLocalFinish();
 
     // footsteps
+    if (this.meta.city) {   // water sounds: lapping + strokes while swimming, climbing out, and the sea on the shore
+      const swm = b.swim > 0.3 && !this.drive, spd = Math.hypot(b.vx, b.vz); A.swimSet(swm, spd);
+      if (swm) { this.strokeT = (this.strokeT || 0) + dt * (spd > 0.6 ? 1 : 0.35); if (this.strokeT > 0.95) { this.strokeT = 0; A.sfx.stroke(spd > 0.6 ? 1 : 0.5); } }
+      if (this.wasSwim && !swm && !this.drive) A.sfx.splashOut(); this.wasSwim = swm;
+      this.seaT = (this.seaT || 0) - dt; if (this.seaT <= 0) { this.seaT = 0.3; A.seaSet(this.seaProx(b.x, b.z)); }
+    }
     if (b.grounded && !b.stun && !this.drive && !(b.swim > 0.3)) {
       this.stepDist += Math.hypot(b.vx, b.vz) * dt;
-      if (this.stepDist > 2.4) { this.stepDist = 0; if (Math.hypot(b.vx, b.vz) > 3) { A.sfx.step(); this.particles.emit(b.x, b.y + 0.05, b.z, 2, { color: '#ffffff', speed: 0.8, up: 0.8, life: 0.35, size: 0.22, gravity: 1 }); } }
+      if (this.stepDist > 2.4) { this.stepDist = 0; if (Math.hypot(b.vx, b.vz) > 3) { A.sfx.step(b.x > -232 && b.x < -98 && b.z > 489 && b.z < 552 ? 'w' : b.y > 0.45 ? 'g' : 'c'); this.particles.emit(b.x, b.y + 0.05, b.z, 2, { color: '#ffffff', speed: 0.8, up: 0.8, life: 0.35, size: 0.22, gravity: 1 }); } }
     }
 
     // ---- local model
@@ -576,14 +582,20 @@ class Race {
       if (this.multi && !c.local && c.st.driver !== -1 && c.st.driver !== this.localId) app.net.send({ t: 'jack', to: c.st.driver, c: this.cars.indexOf(c) }); // carjack: the driver is thrown out
       this.drive = c; c.st.driver = this.localId; c.st.parked = false; if (this.lightsOn) this.applyLights(c);
       b.vx = b.vz = b.vy = 0; b.grounded = true; document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-      if (c.mesh.userData.hero) { const cv = cityVeh(c.st.id); A.carDoor(true); setTimeout(() => A.carDoor(false), 700); setTimeout(() => { if (this.drive === c) { A.engineCrank(); A.carEngineStart(cv); } }, 900); } else { A.engineStart(); A.sfx.door(); A.sfx.vroom(); }
+      if (c.mesh.userData.hero) { const cv = cityVeh(c.st.id); A.carDoor(true); setTimeout(() => A.carDoor(false), 700); setTimeout(() => { if (this.drive === c) { A.engineCrank(cv); A.carEngineStart(cv); } }, 900); } else { A.engineStart(); A.sfx.door(); A.sfx.vroom(); }
       this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
       this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'use the joystick to drive, tap the door to get out' : 'W/S drive • A/D steer • C get out'));
     }
   }
+  // 0..1: how close the coast is (the waves get louder); 1 when you are on the water
+  seaProx(x, z) {
+    const T = this.world.terrain, W = this.world.waterY; if (!T || W === undefined) return 0; if (T(x, z) < W - 0.1) return 1;
+    for (const d of [8, 20, 40, 70, 110]) for (let k = 0; k < 8; k++) { const a = k * 0.7854; if (T(x + Math.cos(a) * d, z + Math.sin(a) * d) < W - 0.1) return Math.max(0, 1 - d / 140); }
+    return 0;
+  }
   g_g(g) { g.scale.setScalar(1); g.rotation.x = 0; }
   // a mission puts the player straight behind the wheel: start the engine sound (and the lights) the same way getting into the car does
-  engineOn(c) { try { if (this.lightsOn) this.applyLights(c); A.engineStop(); A.carEngineStop(); if (c.mesh.userData.hero) { A.engineCrank(); A.carEngineStart(cityVeh(c.st.id)); } else A.engineStart(); } catch (e) { console.warn(e); } }
+  engineOn(c) { try { if (this.lightsOn) this.applyLights(c); A.engineStop(); A.carEngineStop(); if (c.mesh.userData.hero) { A.engineCrank(cityVeh(c.st.id)); A.carEngineStart(cityVeh(c.st.id)); } else A.engineStart(); } catch (e) { console.warn(e); } }
   // DAMAGE FX (GTA V style), by health: <62 thin white fumes from under the hood, <35 heavy dark smoke, <15 black smoke + flames licking out of the engine bay, 0 = inferno.
   // The smoke swells as it rises and is dragged back by the car's own speed; flames / embers are additive so they glow.
   carFx(st, dt, near) {
@@ -695,7 +707,7 @@ class Race {
     if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
-    if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
+    if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load, st.speed); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
     this.hornCd -= dt; this.skidT -= dt;
     if (c.mesh.userData.hero) {
       this.smokeT = (this.smokeT || 0) - dt;
@@ -1519,7 +1531,7 @@ class Race {
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.copGhosts) { this.copGhosts.dispose(); this.copGhosts = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
-    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
+    A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
@@ -1954,7 +1966,7 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
-window.__ph = { app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { A, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

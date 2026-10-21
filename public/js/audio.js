@@ -49,7 +49,12 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain'];
+const SAMPLES = ['glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
+  // vehicles + world (real recordings, see tools/build_audio.sh)
+  'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
+  'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
+  'spl_big0', 'spl_big1', 'spl_med0', 'spl_med1', 'spl_sm0', 'spl_sm1', 'spl_sm2', 'spl_sm3', 'water_in', 'water_out', 'sea_loop', 'lap_loop', 'rain_loop', 'city_loop',
+  'ui_click', 'ui_select', 'ui_back', 'ui_tick', 'ui_ok', 'ui_ok2', 'ui_open', 'ui_warn', 'ui_bong', 'pickup', 'cash', 'respawn', 'bouncepad', 'noammo', 'boom0', 'boom1', 'boom2', 'win', 'fin', 'door_o', 'door_c', 'latch'];
 const bank = {};
 let bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
 function decode(url, cb) {
@@ -82,44 +87,56 @@ export const voice = {
 };
 
 export const sfx = {
-  click() { tone('triangle', 520, 780, 0.09, 0.25); },
-  roar(big = 1) { tone('sawtooth', big ? 180 : 260, big ? 60 : 110, 0.5, 0.22); tone('square', big ? 120 : 200, 50, 0.4, 0.12, 0.03); noise(0.4, 0.14, 'lowpass', 800, 200); },
-  tame() { tone('triangle', 520, 780, 0.12, 0.25); tone('triangle', 660, 990, 0.12, 0.25, 0.1); tone('triangle', 880, 1320, 0.2, 0.25, 0.2); },
-  select() { tone('triangle', 660, 990, 0.12, 0.28); tone('sine', 990, 1320, 0.1, 0.18, 0.06); },
-  back() { tone('triangle', 520, 330, 0.12, 0.22); },
+  click() { play('ui_click', 0.7); },
+  roar(big = 1) { play('boom1', 0.5, big ? 0.42 : 0.6, 0, 0, 700); },
+  tame() { play('ui_ok2', 0.8); },
+  select() { play('ui_select', 0.75); },
+  back() { play('ui_back', 0.7); },
   jump() { /* no jump sound */ },
-  land(s = 10) { const v = Math.min(0.5, 0.12 + s * 0.012); tone('sine', 140, 60, 0.12, v); noise(0.09, v * 0.7, 'lowpass', 900, 200); },
-  step() { noise(0.045, 0.07, 'bandpass', rnd(500, 800), 300, 0, 2); },
-  dive() { noise(0.3, 0.22, 'bandpass', 500, 2200, 0, 1.5); tone('sine', 300, 520, 0.2, 0.15); },
-  bounce() { tone('sine', 180, 920, 0.3, 0.38); tone('triangle', 360, 1400, 0.22, 0.12, 0.03); },
-  pickup() { tone('triangle', 520, 1040, 0.18, 0.3); tone('sine', 780, 1560, 0.24, 0.2, 0.07); tone('sine', 1170, 2340, 0.2, 0.12, 0.14); },
-  swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); tone('sine', 380, 160, 0.16, 0.08); } },
-  cash() { tone('triangle', 988, 1480, 0.08, 0.22); tone('triangle', 1480, 1976, 0.14, 0.18, 0.07); },
-  empty() { tone('square', 1400, 1000, 0.025, 0.1); },
-  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; tone('sawtooth', 900, 140, 0.11, 0.3); noise(0.09, 0.4, 'highpass', 2500, 900); tone('square', 200, 60, 0.12, 0.18); },
+  land(s = 10) {   // a landing or a bump: a dull thud, a metal knock for hard ones
+    const v = Math.min(1, 0.25 + s * 0.03);
+    if (s > 28) { play('mh' + (Math.random() * 3 | 0), v, rnd(0.9, 1.05)); play('th0', v * 0.8, 0.55, 0.01, 0, 500); }
+    else if (s > 14) { play('mm' + (Math.random() * 3 | 0), v * 0.8, rnd(0.9, 1.1)); }
+    else play('th' + (Math.random() * 3 | 0), Math.min(0.7, v), rnd(0.8, 1.0), 0, 0, 1400);
+  },
+  step(kind = 'c') { const k = kind === 'g' ? 'fsg' : kind === 'w' ? 'fsw' : 'fsc'; play(k + (Math.random() * 4 | 0), rnd(0.35, 0.5), rnd(0.9, 1.1)); },
+  dive() { play('swish', 0.7, rnd(0.8, 0.95)); },
+  bounce() { play('bouncepad', 0.7, rnd(0.97, 1.03)); },
+  pickup() { play('pickup', 0.8); },
+  swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); } },
+  cash() { play('cash', 0.8); },
+  empty() { play('noammo', 0.6); },
+  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; noise(0.09, 0.4, 'highpass', 2500, 900); },
   sniperShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
-  boom(vol = 1) { const v = Math.min(1.6, vol * 1.9); noise(2.2, 1.0 * v, 'lowpass', 1400, 50, 0, 0.6); tone('sine', 90, 22, 1.8, 1.0 * v); tone('sine', 55, 20, 2.2, 0.8 * v, 0.02); noise(0.6, 0.7 * v, 'lowpass', 3600, 200); noise(0.25, 0.8 * v, 'highpass', 900, 900); tone('triangle', 60, 26, 1.4, 0.6 * v, 0.05); noise(3.4, 0.4 * v, 'lowpass', 600, 70, 0.3, 0.5); setTimeout(() => { try { noise(1.6, 0.5 * v, 'lowpass', 900, 60); tone('sine', 70, 24, 1.2, 0.5 * v); } catch { /* noop */ } }, 380); },   // a tanker exploding: a loud blast, a second blast, a long roar
+  boom(vol = 1) {   // real explosion recordings: the blast + a slowed, low-passed copy for the rumble
+    const v = Math.min(1.5, vol * 1.3); const i = Math.random() * 2 | 0;
+    if (!play('boom' + i, 0.9 * v, rnd(0.9, 1.05), 0, 0, 0, 0.6)) return;
+    play('boom2', 0.8 * v, 0.55, 0.02, 0, 700, 0.8); play('boom1', 0.5 * v, 0.7, 0.05, 0, 400, 0.6);
+  },
   akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
   glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
   metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },
   hiss(v = 1) { noise(0.7, 0.22 * v, 'highpass', 3500, 2200, 0, 0.7); play('metal1', 0.4 * v, 0.7); },
-  bonk() { if (play(pick(['hit1', 'hit2']), 0.95, rnd(0.92, 1.08))) return; tone('square', 190, 55, 0.2, 0.42); noise(0.14, 0.45, 'lowpass', 3000, 300); tone('triangle', 820, 220, 0.22, 0.22, 0.02); },
-  hit() { tone('sawtooth', 420, 70, 0.28, 0.28); noise(0.18, 0.3, 'lowpass', 1800, 150); tone('square', 220, 110, 0.15, 0.12, 0.04); },
-  door() { tone('square', 150, 90, 0.07, 0.3); tone('square', 110, 70, 0.1, 0.25, 0.09); noise(0.05, 0.18, 'lowpass', 2000, 400); },
-  honk() { tone('square', 392, 392, 0.34, 0.2); tone('square', 494, 494, 0.34, 0.2); },
-  honkBig() { tone('sawtooth', 130, 128, 0.95, 0.3); tone('square', 164, 162, 0.95, 0.24); tone('sawtooth', 196, 194, 0.95, 0.22); tone('square', 262, 258, 0.95, 0.14); noise(0.12, 0.12, 'lowpass', 900, 300); },
-  skid() { noise(0.18, 0.1, 'bandpass', 2600, 1800, 0, 3); },
-  vroom() { tone('sawtooth', 70, 160, 0.35, 0.2); tone('sawtooth', 90, 210, 0.3, 0.1, 0.05); },
-  splash() { noise(0.6, 0.45, 'bandpass', 1800, 260, 0, 0.8); noise(0.3, 0.2, 'highpass', 2400, 900, 0.05); tone('sine', 220, 80, 0.3, 0.12); },
-  respawn() { noise(0.4, 0.22, 'highpass', 400, 4000, 0, 0.7); tone('sine', 300, 900, 0.3, 0.15); },
-  checkpoint() { tone('sine', 660, 660, 0.14, 0.3); tone('sine', 990, 990, 0.25, 0.3, 0.1); tone('triangle', 1320, 1320, 0.3, 0.1, 0.18); },
-  tick() { tone('sine', 660, 660, 0.14, 0.4); },
-  go() { [523, 659, 784].forEach((f) => tone('square', f, f, 0.5, 0.14)); tone('sine', 1046, 1046, 0.6, 0.3); },
-  join() { tone('triangle', 520, 520, 0.1, 0.25); tone('triangle', 780, 780, 0.14, 0.25, 0.09); },
-  finish() { [523, 659, 784, 1046, 1318].forEach((f, i) => { tone('square', f, f, 0.22, 0.14, i * 0.09); tone('triangle', f * 2, f * 2, 0.3, 0.08, i * 0.09); }); },
-  win() { const n = [523, 659, 784, 659, 784, 1046, 1318]; n.forEach((f, i) => { tone('square', f, f, 0.24, 0.13, i * 0.12); tone('triangle', f / 2, f / 2, 0.3, 0.12, i * 0.12); }); },
-  lose() { [392, 349, 311, 262].forEach((f, i) => tone('triangle', f, f * 0.97, 0.3, 0.22, i * 0.17)); },
-  warn() { tone('square', 880, 880, 0.08, 0.14); },
+  bonk() { play(pick(['hit1', 'hit2']), 0.95, rnd(0.92, 1.08)); },
+  hit() { play(pick(['hit1', 'hit2']), 0.8, rnd(0.85, 1.0)); },
+  door() { play('door_c', 0.7, rnd(0.95, 1.05)); },
+  honk() { tone('square', 392, 392, 0.34, 0.12); tone('square', 494, 494, 0.34, 0.12); },
+  honkBig() { tone('sawtooth', 130, 128, 0.95, 0.3); tone('square', 164, 162, 0.95, 0.24); tone('sawtooth', 196, 194, 0.95, 0.22); noise(0.12, 0.12, 'lowpass', 900, 300); },
+  skid() { /* the squeal is the looping tyre sample (skidSet) */ },
+  vroom() { engineCrank(); },
+  // WATER: a dive / jump in (the splash + the gulp of going under), a swimming stroke, climbing out
+  splash(p = 1) { const big = p > 0.6; play('water_in', 0.9 * Math.min(1, 0.5 + p), rnd(0.95, 1.05)); play(big ? pick(['spl_big0', 'spl_big1']) : pick(['spl_med0', 'spl_med1']), 0.8, rnd(0.9, 1.1), 0.02, 0, 0, 0.2); },
+  stroke(v = 1) { play(pick(['spl_sm0', 'spl_sm1', 'spl_sm2', 'spl_sm3']), 0.3 * v, rnd(0.85, 1.15), 0, rnd(-0.15, 0.15), 3800); },
+  splashOut() { play('water_out', 0.8, rnd(0.95, 1.05)); play('spl_med1', 0.5, rnd(0.9, 1.05), 0.1); },
+  respawn() { play('respawn', 0.7); },
+  checkpoint() { play('ui_ok', 0.8); },
+  tick() { play('ui_tick', 0.7); },
+  go() { play('ui_bong', 0.8, 1.2); },
+  join() { play('ui_open', 0.7); },
+  finish() { play('fin', 0.9); },
+  win() { play('win', 0.9); },
+  lose() { play('ui_warn', 0.9, 0.7); play('ui_bong', 0.8, 0.6, 0.2); },
+  warn() { play('ui_warn', 0.5, 1.2); },
 };
 
 // ------------------------------------------------------------------ music (generative, per level)
@@ -220,26 +237,16 @@ export const getVolumes = () => ({ music: musVol, sfx: sfxVol });
 export function duckMusic(d) { ducked = !!d; if (musG) musG.gain.setTargetAtTime(MUS * musVol * (d ? 0.36 : 1), ctx.currentTime, 0.2); }
 export const audioReady = () => !!ctx;
 
-// ---- car engine: two detuned saw oscillators + low-pass, pitch follows speed
+// ---- the arcade race cars (not the city vehicles): the same real engine recording
 let eng = null;
 export function engineStart() {
-  if (!ctx || eng) return;
-  const g = ctx.createGain(); g.gain.value = 0.0001; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
-  const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square'; o1.frequency.value = 60; o2.frequency.value = 30;
-  o1.connect(f); o2.connect(f); f.connect(g); g.connect(sfxG); o1.start(); o2.start();
-  eng = { g, f, o1, o2 };
+  if (!ctx || eng) return; const L = loopV('eng_car', 0.0001, 0.8); if (!L) return; L.g.gain.setTargetAtTime(0.18, ctx.currentTime, 0.2); eng = L;
 }
 export function engineSet(speed01, gas) {
   if (!ctx || !eng) return; const t = ctx.currentTime, k = Math.max(0, Math.min(1, speed01));
-  const hz = 52 + k * 150 + (gas ? 16 : 0);
-  eng.o1.frequency.setTargetAtTime(hz, t, 0.08); eng.o2.frequency.setTargetAtTime(hz * 0.5, t, 0.08);
-  eng.f.frequency.setTargetAtTime(380 + k * 900 + (gas ? 300 : 0), t, 0.1);
-  eng.g.gain.setTargetAtTime(0.05 + k * 0.07 + (gas ? 0.04 : 0), t, 0.1);
+  eng.s.playbackRate.setTargetAtTime(0.8 + k * 1.9 + (gas ? 0.2 : 0), t, 0.1); eng.f.frequency.setTargetAtTime(900 + k * 2800 + (gas ? 1500 : 0), t, 0.1); eng.g.gain.setTargetAtTime(0.16 + k * 0.12 + (gas ? 0.08 : 0), t, 0.1);
 }
-export function engineStop() {
-  if (!eng) return; const e = eng; eng = null;
-  try { e.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch { /* noop */ } }, 300); } catch { /* noop */ }
-}
+export function engineStop() { if (!eng) return; const e = eng; eng = null; stopLoop(e, 0.3); }
 
 // Spoken Hindi (browser text-to-speech). Each speaker gets their own pitch/speed so thugs sound different. Silent if the device has no speech engine.
 let hiVoice = null;
@@ -255,53 +262,80 @@ export function speakHindi(text, who = 0, vol = 1) {
 }
 try { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => { hiVoice = null; }; } catch { /* ignore */ }
 
-// ================= CITY VEHICLE SOUNDS =================
-// Engine: a harmonic-rich pulse train at the firing frequency (cylinders x revs / 2), a sub-octave rumble for big engines, a touch of
-// intake noise, a gentle idle "lope", and a soft clip that grows with load -> it growls when you push it. Pitch follows real gear rpm.
-let ceng = null, horn = null, skidV = null, cityAmb = null;
-let _wave = null;
-function engWave() {
-  if (_wave) return _wave;
-  const n = 22, re = new Float32Array(n + 1), im = new Float32Array(n + 1);
-  for (let k = 1; k <= n; k++) im[k] = (1 / Math.pow(k, 0.85)) * (k % 2 === 0 ? 0.75 : 1) * (k === 3 ? 1.25 : 1);
-  _wave = ctx.createPeriodicWave(re, im); return _wave;
+// ================= CITY VEHICLE + BOAT SOUNDS =================
+// Real engine recordings (steady revs) played as loops; the playback rate follows the engine revs, a low-pass opens with load, and a second layer
+// (another recording at another pitch) fades in with the revs. Each vehicle has its own recipe, so a hatchback, a V8 coupe, a bus, a tractor,
+// an auto-rickshaw, a motorbike and the three boats all sound different.  The boats add the hull wash and slapping waves (water loops + splashes).
+let ceng = null, horn = null, skidV = null, cityAmb = null, seaV = null, swimV = null;
+const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top revs, gb: layer-b gain idle -> top, lp: low-pass idle -> open, gain, chop: [Hz, depth] amplitude chug
+  car:   { a: 'eng_car', ra: [0.8, 2.5], b: 'eng_car', rb: [1.3, 3.6], gb: [0, 0.3], lp: [700, 4200], gain: 0.55 },
+  hot:   { a: 'eng_car', ra: [0.95, 3.1], b: 'eng_moto', rb: [1.5, 4.2], gb: [0, 0.35], lp: [900, 5200], gain: 0.55 },
+  rough: { a: 'eng_car', ra: [0.7, 2.0], b: 'eng_v8', rb: [0.9, 2.1], gb: [0.1, 0.25], lp: [500, 2800], gain: 0.6, chop: [9, 0.2] },
+  suv:   { a: 'eng_v8', ra: [0.8, 2.3], b: 'eng_car', rb: [0.8, 1.9], gb: [0.15, 0.2], lp: [600, 3300], gain: 0.6 },
+  v8:    { a: 'eng_v8', ra: [0.85, 2.7], b: 'eng_car', rb: [1.0, 2.6], gb: [0, 0.25], lp: [800, 4600], gain: 0.62 },
+  sport: { a: 'eng_v8', ra: [1.0, 3.6], b: 'eng_moto', rb: [1.7, 4.6], gb: [0.05, 0.55], lp: [1200, 7000], gain: 0.62 },
+  racer: { a: 'eng_v8', ra: [1.1, 3.9], b: 'eng_moto', rb: [2.0, 5.0], gb: [0.1, 0.65], lp: [1600, 9000], gain: 0.62 },
+  bikeS: { a: 'eng_moto', ra: [1.2, 4.4], b: 'eng_car', rb: [2.4, 5.4], gb: [0, 0.3], lp: [1600, 8000], gain: 0.55 },
+  bikeC: { a: 'eng_moto', ra: [0.62, 2.1], b: 'eng_v8', rb: [0.7, 1.7], gb: [0.25, 0.35], lp: [500, 3000], gain: 0.62, chop: [6, 0.28] },
+  bikeD: { a: 'eng_moto', ra: [1.1, 3.5], b: 'eng_car', rb: [2.0, 4.4], gb: [0, 0.35], lp: [1500, 7000], gain: 0.55, chop: [18, 0.15] },
+  rick:  { a: 'eng_moto', ra: [0.85, 2.4], b: 'eng_boat', rb: [1.2, 3.0], gb: [0.2, 0.3], lp: [900, 3800], gain: 0.62, chop: [24, 0.38] },
+  tractor: { a: 'eng_diesel', ra: [0.9, 1.7], b: 'eng_diesel', rb: [1.6, 2.6], gb: [0, 0.2], lp: [450, 1700], gain: 0.8, chop: [7, 0.3] },
+  truck: { a: 'eng_diesel', ra: [0.9, 2.2], b: 'eng_v8', rb: [0.6, 1.5], gb: [0.1, 0.3], lp: [450, 2200], gain: 0.8, chop: [5, 0.14] },
+  bus:   { a: 'eng_diesel', ra: [0.95, 2.4], b: 'eng_v8', rb: [0.6, 1.6], gb: [0.2, 0.3], lp: [500, 2500], gain: 0.8, chop: [4, 0.1] },
+  speedboat: { a: 'eng_boat', ra: [1.0, 3.5], b: 'eng_v8', rb: [0.9, 2.9], gb: [0.15, 0.55], lp: [1000, 6500], gain: 0.62, boat: 1.0 },
+  fishboat:  { a: 'eng_diesel', ra: [0.8, 1.5], b: 'eng_boat', rb: [0.5, 0.95], gb: [0.1, 0.25], lp: [420, 1500], gain: 0.85, chop: [5.5, 0.42], boat: 0.8 },
+  yacht:     { a: 'eng_diesel', ra: [0.78, 1.7], b: 'eng_boat', rb: [0.55, 1.2], gb: [0.2, 0.4], lp: [380, 1900], gain: 0.8, chop: [3, 0.08], boat: 1.1 },
+};
+const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht' };
+// a looping recording: a source, a low-pass and a gain; starts at a random point so layers never line up
+function loopV(name, vol = 0, rate = 1, lpf = 0, dest = sfxG) {
+  const b = bank[name]; if (!ctx || !b) return null;
+  const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.loopStart = 0.02; s.loopEnd = Math.max(0.06, b.duration - 0.02); s.playbackRate.value = rate;
+  const f = ctx.createBiquadFilter(); f.type = lpf < 0 ? 'highpass' : 'lowpass'; f.frequency.value = Math.abs(lpf) || 20000; f.Q.value = 0.5;
+  const g = ctx.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(dest); s.start(0, Math.random() * (b.duration - 0.1));
+  return { s, f, g };
 }
+const stopLoop = (L, fade = 0.15) => { if (!L) return; try { L.g.gain.cancelScheduledValues(ctx.currentTime); L.g.gain.setTargetAtTime(0.0001, ctx.currentTime, fade / 3); setTimeout(() => { try { L.s.stop(); } catch { /* noop */ } }, fade * 1000 + 100); } catch { /* noop */ } };
 export function carEngineStart(p = {}) {
   if (!ctx || ceng) return;
-  const cyl = p.cyl || 4, pitch = p.pitch || 1, big = cyl >= 6;
-  const out = ctx.createGain(); out.gain.value = 0.0001;
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600; lp.Q.value = 0.8;
-  const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 180; body.gain.value = 6; body.Q.value = 0.9;
-  const sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 2.4); } sh.curve = cv; sh.oversample = '2x';
-  const mix = ctx.createGain(); mix.gain.value = 1;
-  const o1 = ctx.createOscillator(); o1.setPeriodicWave(engWave());
-  const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; const g2 = ctx.createGain(); g2.gain.value = big ? 0.5 : 0.22;
-  const o3 = ctx.createOscillator(); o3.type = 'square'; const g3 = ctx.createGain(); g3.gain.value = 0.08;
-  o1.connect(mix); o2.connect(g2); g2.connect(mix); o3.connect(g3); g3.connect(mix);
-  const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true; const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 500; nf.Q.value = 0.7; const ng = ctx.createGain(); ng.gain.value = 0.0001;
-  ns.connect(nf); nf.connect(ng);
-  mix.connect(sh); sh.connect(lp); lp.connect(body); body.connect(out); ng.connect(out); out.connect(sfxG);
-  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 9; lg.gain.value = 0.0; lfo.connect(lg); lg.connect(out.gain);
-  o1.start(); o2.start(); o3.start(); ns.start(); lfo.start();
-  ceng = { out, lp, o1, o2, o3, ns, ng, nf, lfo, lg, cyl, pitch, body };
+  const k = PROF_OF[p.id] || (p.cyl >= 6 ? 'v8' : 'car'), P = PROF[k];
+  const out = ctx.createGain(); out.gain.value = 0.0001; out.connect(sfxG);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = P.lp[0]; lp.Q.value = 0.6; lp.connect(out);
+  const A = loopV(P.a, 0.0001, P.ra[0], 0, lp), B = loopV(P.b, 0.0001, P.rb[0], 0, lp);
+  if (!A) return;   // recordings not loaded yet (first seconds of the game): silence rather than a beep
+  let lfo = null, lg = null;
+  if (P.chop) { lfo = ctx.createOscillator(); lg = ctx.createGain(); lfo.frequency.value = P.chop[0]; lg.gain.value = 0; lfo.connect(lg); lg.connect(out.gain); lfo.start(); }
+  let wash = null, slap = 0;
+  if (P.boat) wash = { lap: loopV('lap_loop', 0.0001, 1, 0, sfxG), sea: loopV('sea_loop', 0.0001, 1.0, 0, sfxG) };
+  const pm = Math.pow(p.pitch || 1, 0.45);
+  ceng = { out, lp, A, B, P, lfo, lg, pm, wash, slapAt: 0 };
+  out.gain.setTargetAtTime(P.gain * 0.35, ctx.currentTime, 0.2);
 }
-export function carEngineSet(rpm01, load) {
-  if (!ctx || !ceng) return; const t = ctx.currentTime, e = ceng, r = Math.max(0, Math.min(1, rpm01)), ld = Math.max(0, Math.min(1, load));
-  const rev = (11 + r * 94) * e.pitch, f = rev * e.cyl / 2;
-  e.o1.frequency.setTargetAtTime(f, t, 0.03); e.o2.frequency.setTargetAtTime(f * 0.5, t, 0.03); e.o3.frequency.setTargetAtTime(f * 2, t, 0.03);
-  e.lp.frequency.setTargetAtTime(380 + r * 1500 + ld * 1700, t, 0.06);
-  e.body.frequency.setTargetAtTime(110 + r * 260, t, 0.1);
-  const idle = Math.max(0, 1 - r * 3.2);                         // the lumpy idle fades as revs rise
-  e.lfo.frequency.setTargetAtTime(Math.max(3, f / (e.cyl >= 6 ? 3 : 2)), t, 0.1); e.lg.gain.setTargetAtTime(0.012 * idle, t, 0.1);
-  e.out.gain.setTargetAtTime(0.05 + 0.04 * r + 0.07 * ld, t, 0.06);
-  e.nf.frequency.setTargetAtTime(350 + r * 1800, t, 0.1); e.ng.gain.setTargetAtTime(0.004 + 0.03 * ld * (0.4 + r), t, 0.08);
+const lerp = (a, b, t) => a + (b - a) * t;
+export function carEngineSet(rpm01, load, speed = 0) {
+  if (!ctx || !ceng) return; const t = ctx.currentTime, e = ceng, P = e.P, r = Math.max(0, Math.min(1, rpm01)), ld = Math.max(0, Math.min(1, load)), rr = Math.pow(r, 0.85);
+  e.A.s.playbackRate.setTargetAtTime(lerp(P.ra[0], P.ra[1], rr) * e.pm, t, 0.05);
+  if (e.B) { e.B.s.playbackRate.setTargetAtTime(lerp(P.rb[0], P.rb[1], rr) * e.pm, t, 0.05); e.B.g.gain.setTargetAtTime(lerp(P.gb[0], P.gb[1], r) * (0.35 + 0.65 * ld) * P.gain, t, 0.08); }
+  e.A.g.gain.setTargetAtTime(P.gain * (0.55 + 0.25 * r + 0.35 * ld), t, 0.06);
+  e.lp.frequency.setTargetAtTime(lerp(P.lp[0], P.lp[1], Math.min(1, 0.2 + 0.45 * r + 0.55 * ld)), t, 0.08);
+  e.out.gain.setTargetAtTime(0.38 + 0.15 * ld, t, 0.06);
+  if (e.lg) { e.lfo.frequency.setTargetAtTime(P.chop[0] * (0.6 + 1.1 * r), t, 0.1); e.lg.gain.setTargetAtTime(P.chop[1] * (0.25 + 0.75 * (1 - r)) * 0.4, t, 0.1); }
+  if (e.wash) {   // hull wash + slapping waves: louder and brighter the faster the boat goes
+    const sp = Math.abs(speed), k = Math.min(1, sp / 20), w = P.boat;
+    e.wash.lap.g.gain.setTargetAtTime(0.02 + 0.5 * k * w, t, 0.15); e.wash.lap.s.playbackRate.setTargetAtTime(0.85 + 0.5 * k, t, 0.2); e.wash.lap.f.frequency.setTargetAtTime(900 + 4500 * k, t, 0.2);
+    e.wash.sea.g.gain.setTargetAtTime(0.05 + 0.4 * k * w, t, 0.2); e.wash.sea.f.frequency.setTargetAtTime(500 + 2600 * k, t, 0.2);
+    const now = performance.now(); if (sp > 5 && now > e.slapAt) { e.slapAt = now + rnd(180, 520) / (0.4 + k * 1.6); play(pick(['spl_sm0', 'spl_sm1', 'spl_sm2', 'spl_sm3']), (0.18 + 0.4 * k) * w, rnd(0.8, 1.2), 0, rnd(-0.3, 0.3), 3000 + 3000 * k); }
+  }
 }
 export function carEngineStop() {
   if (!ceng) return; const e = ceng; ceng = null;
-  try { e.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.12); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.o3.stop(); e.ns.stop(); e.lfo.stop(); } catch { /* noop */ } }, 700); } catch { /* noop */ }
+  try { e.out.gain.cancelScheduledValues(ctx.currentTime); e.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.12); stopLoop(e.A, 0.5); stopLoop(e.B, 0.5); if (e.wash) { stopLoop(e.wash.lap, 0.6); stopLoop(e.wash.sea, 0.6); } setTimeout(() => { try { if (e.lfo) e.lfo.stop(); } catch { /* noop */ } }, 900); } catch { /* noop */ }
 }
-export function engineCrank() { // starter motor then catch: a quick rise
-  if (!ctx) return; tone('sawtooth', 38, 55, 0.5, 0.1); tone('square', 70, 110, 0.45, 0.04); noise(0.5, 0.05, 'bandpass', 300, 600, 0, 1);
+export function engineCrank(p = {}) { // the starter: the engine recording winding up from a crawl to idle, plus the key / relay click
+  if (!ctx) return; const b = bank[(PROF[PROF_OF[p.id]] || PROF.car).a]; if (!b) return; const t = ctx.currentTime;
+  const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.setValueAtTime(0.18, t); s.playbackRate.linearRampToValueAtTime(0.5, t + 0.45); s.playbackRate.linearRampToValueAtTime(1.0, t + 0.8);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.4, t + 0.1); g.gain.setTargetAtTime(0.0001, t + 0.6, 0.15); s.connect(g); g.connect(sfxG); s.start(t, 0.3); s.stop(t + 1.5);
+  play('latch', 0.4, 0.9);
 }
 
 // Horn: two reed tones a major third apart (real car horns), buzzy, held for as long as the button is held (never shorter than 0.2 s)
@@ -362,49 +396,53 @@ export function sirenMission(v) {
 }
 // rain: soft filtered noise (a hiss with a lower patter), glides in and out; v = 0..1
 let rainN = null;
-export function rainSet(v) {
-  if (!ctx || !noiseBuf) return;
-  if (v < 0.02) { if (rainN) { const R = rainN; rainN = null; try { R.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.5); setTimeout(() => { try { R.a.stop(); R.b.stop(); } catch { /* noop */ } }, 2500); } catch { /* noop */ } } return; }
-  if (!rainN) {
-    const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(sfxG);
-    const mk = (type, f, q, vol) => { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.playbackRate.value = 0.9 + Math.random() * 0.2; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const gg = ctx.createGain(); gg.gain.value = vol; s.connect(fl); fl.connect(gg); gg.connect(g); s.start(); return s; };
-    const a = mk('highpass', 1400, 0.5, 0.55), b = mk('bandpass', 700, 0.6, 0.45);
-    rainN = { g, a, b };
-  }
-  rainN.g.gain.setTargetAtTime(0.0002 + 0.11 * v, ctx.currentTime, 0.4);
+export function rainSet(v) {   // the real rain recording, louder with the storm
+  if (!ctx) return;
+  if (v < 0.02) { if (rainN) { const R = rainN; rainN = null; stopLoop(R, 2); } return; }
+  if (!rainN) { rainN = loopV('rain_loop', 0.0001, 1, 0); if (!rainN) return; }
+  rainN.g.gain.setTargetAtTime(0.0002 + 0.7 * v, ctx.currentTime, 0.4);
 }
 export function sirenTickAll() { sirenTick(sirenP); sirenTick(sirenF); }
 
-// tyre squeal: a continuous band of noise whose loudness follows how hard the tyres are sliding
+// tyre squeal: the real skid recording looping, louder and higher the harder the tyres slide
 export function skidSet(level) {
   if (!ctx) return;
-  if (!skidV) {
-    const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
-    const b1 = ctx.createBiquadFilter(); b1.type = 'bandpass'; b1.frequency.value = 1900; b1.Q.value = 5;
-    const b2 = ctx.createBiquadFilter(); b2.type = 'bandpass'; b2.frequency.value = 1150; b2.Q.value = 3;
-    const g = ctx.createGain(); g.gain.value = 0.0001; ns.connect(b1); ns.connect(b2); b1.connect(g); b2.connect(g); g.connect(sfxG); ns.start();
-    skidV = { ns, g, b1 };
-  }
-  const t = ctx.currentTime; skidV.g.gain.setTargetAtTime(Math.max(0.0001, level * 0.16), t, 0.04); skidV.b1.frequency.setTargetAtTime(1700 + level * 900, t, 0.1);
+  if (!skidV) { if (level < 0.02) return; skidV = loopV('skid', 0.0001, 1, 0); if (!skidV) return; }
+  const t = ctx.currentTime; skidV.g.gain.setTargetAtTime(Math.max(0.0001, level * 0.55), t, 0.05); skidV.s.playbackRate.setTargetAtTime(0.9 + level * 0.3, t, 0.1);
 }
-export function skidStop() { if (!skidV) return; const v = skidV; skidV = null; try { v.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.05); setTimeout(() => { try { v.ns.stop(); } catch { /* noop */ } }, 300); } catch { /* noop */ } }
+export function skidStop() { if (!skidV) return; const v = skidV; skidV = null; stopLoop(v, 0.15); }
 
-// metal crash: a heavy thump, a crunch of noise and (for big hits) glass
+// a crash: real metal impacts (heavy / medium / light by the force), the body thump and, for big ones, breaking glass
 export function crashSfx(power = 10) {
-  if (!ctx) return; const p = Math.max(0.15, Math.min(1, power / 22));
-  tone('sine', 95, 38, 0.32, 0.55 * p); tone('sawtooth', 160, 50, 0.22, 0.22 * p);
-  noise(0.35, 0.5 * p, 'lowpass', 2600, 250); noise(0.18, 0.3 * p, 'bandpass', 900, 2200, 0.01, 1.4);
-  if (power > 11) { noise(0.5, 0.18 * p, 'highpass', 5200, 3200, 0.05, 0.9); tone('triangle', 3400, 2500, 0.18, 0.05, 0.04); }
+  if (!ctx) return; const p = Math.max(0.15, Math.min(1, power / 22)), r3 = () => Math.random() * 3 | 0;
+  play((power > 15 ? 'mh' : power > 8 ? 'mm' : 'ml') + r3(), 0.6 + 0.4 * p, rnd(0.9, 1.1)); play('th' + r3(), 0.5 * p, rnd(0.5, 0.7), 0.01, 0, 500);
+  if (power > 7) play('crash0', 0.5 * p, rnd(0.9, 1.1), 0.03);
+  if (power > 11) play('gl' + (Math.random() * 2 | 0), 0.6 * p, rnd(0.95, 1.1), 0.05);
 }
-export function carDoor(open = false) { // a solid "thunk": low body knock + latch click
-  tone('sine', open ? 130 : 105, open ? 90 : 55, 0.14, 0.3); noise(0.06, open ? 0.12 : 0.22, 'lowpass', 2400, 500); noise(0.02, 0.1, 'highpass', 3500, 2500, open ? 0 : 0.07);
+export function carDoor(open = false) { // a real metal door: the handle, the slam and the latch
+  if (open) play('door_o', 0.55, rnd(0.95, 1.05)); else { play('door_c', 0.8, rnd(0.95, 1.05)); play('latch', 0.35, 1, 0.08); }
 }
-// a faint, constant city bed: distant traffic rumble (low-passed noise with a slow swell)
+// the city's constant bed: far-off traffic (a real highway recording)
+let wantCity = false;
 export function cityAmbience(on) {
-  if (!ctx) return;
-  if (!on) { if (cityAmb) { const a = cityAmb; cityAmb = null; try { a.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); setTimeout(() => { try { a.ns.stop(); a.lfo.stop(); } catch { /* noop */ } }, 1500); } catch { /* noop */ } } return; }
+  if (!ctx) return; wantCity = !!on;
+  if (!on) { if (cityAmb) { const a = cityAmb; cityAmb = null; stopLoop(a, 1.2); } return; }
   if (cityAmb) return;
-  const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260; const g = ctx.createGain(); g.gain.value = 0.0001;
-  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 0.008; lfo.connect(lg); lg.connect(g.gain);
-  ns.connect(lp); lp.connect(g); g.connect(sfxG); ns.start(); lfo.start(); g.gain.setTargetAtTime(0.035, ctx.currentTime, 1.2); cityAmb = { ns, g, lfo };
+  const a = loopV('city_loop', 0.0001, 1, 0); if (!a) { setTimeout(() => { if (ctx && !cityAmb && wantCity) cityAmbience(true); }, 1500); return; }
+  a.g.gain.setTargetAtTime(0.16, ctx.currentTime, 1.2); cityAmb = a;
 }
+// the sea: waves on the shore, louder the closer you are to the coast (0..1)
+export function seaSet(v) {
+  if (!ctx) return;
+  if (v < 0.02) { if (seaV) { stopLoop(seaV, 1.5); seaV = null; } return; }
+  if (!seaV) { seaV = loopV('sea_loop', 0.0001, 1, 0); if (!seaV) return; }
+  seaV.g.gain.setTargetAtTime(0.0002 + 0.55 * v * v, ctx.currentTime, 0.5);
+}
+// swimming: the water lapping round you (a little louder while you are moving)
+export function swimSet(on, speed = 0) {
+  if (!ctx) return;
+  if (!on) { if (swimV) { stopLoop(swimV, 0.6); swimV = null; } return; }
+  if (!swimV) { swimV = loopV('lap_loop', 0.0001, 1, 0); if (!swimV) return; }
+  swimV.g.gain.setTargetAtTime(0.18 + 0.1 * Math.min(1, speed / 4), ctx.currentTime, 0.2);
+}
+try { window.__aud = { get ctx() { return ctx; }, get master() { return master; }, bank }; } catch { /* no window */ }
