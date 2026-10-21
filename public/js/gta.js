@@ -14,7 +14,7 @@ export const GT = {
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
 const TAU = Math.PI * 2;
-export const HILLS = [[370, -370, 70, 21], [395, 365, 62, 14], [-365, 375, 66, 16], [40, -460, 60, 11], [-40, 460, 55, 9], [-430, 20, 55, 14], [430, -230, 55, 12], [-30, 400, 50, 8], [112, 346, 28, 26]];
+export const HILLS = [[370, -370, 70, 21], [395, 365, 62, 14], [-365, 375, 66, 16], [40, -460, 60, 11], [-40, 460, 55, 9], [-430, 20, 55, 14], [430, -230, 55, 12], [-30, 400, 50, 8]];
 const noise = (x, z) => (Math.sin(x * 0.043 + 1.3) * Math.cos(z * 0.051 + 0.4) * 0.6 + Math.sin((x + z) * 0.09 + 2.0) * 0.3 + Math.sin(x * 0.17) * Math.sin(z * 0.15) * 0.1);
 
 export const mtC = (r) => { const M = GT.MT; return r >= M.R ? 0 : M.H * Math.pow(1 - Math.max(r, M.Rt) / M.R, 1.25); };
@@ -22,6 +22,8 @@ export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th =
 
 // SNIPE THE TRUCK: a new road runs south from the city (the x = 60 avenue) straight through a ridge by a concrete TUNNEL. A bypass loops round the east end of the ridge to the far mouth
 // (the blockers use it) and a hill road climbs to the sniper pad on the hill north-east of the tunnel (clear view of the road before the tunnel).
+// where the sniper's car waits: far out in open country, a long cross-country drive (through boulders and trees) to the foot of the hill road at (150, 326)
+export const SNIPE_START = { x: 300, z: 258, yaw: Math.atan2(150 - 300, 326 - 258) };
 export const SNIPE = {
   road: [[60, 240], [60, 482]],                                            // the new road through the tunnel (x = 60, driving south)
   tun: { x: 60, z0: 414, z1: 452, half: 8, h: 6.8 },                       // the tunnel (inner half width, inner height)

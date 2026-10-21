@@ -9,13 +9,13 @@
 //  Empty blocker places are filled by AI police cars.
 //  stages:  rob (he runs out of the bank into his car) -> chase -> arrest (police arrive, he is taken away) -> done.   truck modes: 0 driven by a player, 1 driven by the AI,
 //  2 rolling on its own, 3 exploding, 4 burnt wreck, 5 stopped in the tunnel
-import { GT, SNIPE, BANK } from './gta.js';
+import { GT, SNIPE, SNIPE_START, BANK } from './gta.js';
 
 const hyp = Math.hypot, STEP = 1.5;
 export const TRUCK_IDX = 29;                       // the cargo truck (gtaCars index) that becomes the tanker
 export const SNIPE_BRIEF_MS = 3500;
 export const LANE_S = SNIPE.lane, LANE_E = 56.75;  // south-bound lane of the new road, east-bound lane of the z = 60 avenue
-export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x: 20, z: LANE_E, yaw: Math.PI / 2 }, cars: [{ x: 150, z: 292, yaw: 0 }, { x: 150, z: 392, yaw: 0 }, { x: 150, z: 376, yaw: 0 }], carYaw: Math.PI / 2 };   // the sniper and the blockers start ALREADY on the bypass road (half way), so they are in position long before the tanker
+export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x: 20, z: LANE_E, yaw: Math.PI / 2 }, cars: [{ x: SNIPE_START.x, z: SNIPE_START.z, yaw: SNIPE_START.yaw }, { x: 150, z: 392, yaw: 0 }, { x: 150, z: 376, yaw: 0 }], carYaw: Math.PI / 2 };   // the sniper and the blockers start ALREADY on the bypass road (half way), so they are in position long before the tanker
 export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of the bank door, to the driver's door
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
