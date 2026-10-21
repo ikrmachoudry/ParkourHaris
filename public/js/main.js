@@ -394,7 +394,7 @@ class Race {
     const hanging = false;
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
-    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); this.updateCopFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
+    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); this.updateCopFire(dt); this.fireSpread(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
     else {
@@ -629,6 +629,26 @@ class Race {
       }
     }
   }
+  // FIRE SPREADS: every vehicle burning (0 health) heats the ones standing next to it (they smoke, catch fire and blow up in turn); an explosion also hurts the neighbours at once
+  fireCars() {
+    const out = [];
+    for (const c of this.cars) if (c.st.hl && c.st.id < 30 && !c.st.sunk) out.push(c.st);
+    if (this.tai && (!this.multi || this.simHost)) for (const c of this.tai.cars) if (c.mode !== 'gone' && c.st.hp !== undefined) out.push(c.st);
+    if (this.wanted) for (const c of this.wanted.cars) if (c.st) out.push(c.st);
+    return out;
+  }
+  fireSpread(dt) {
+    const L = this.fireCars(); let any = false; for (const a of L) if (a.hp !== undefined && a.hp <= 0 && !a.wreck) { any = true; break; } if (!any) return;
+    for (const a of L) {
+      if (!(a.hp !== undefined && a.hp <= 0 && !a.wreck)) continue;
+      for (const b of L) {
+        if (b === a || b.wreck || b.sunk) continue; const d = Math.hypot(b.x - a.x, b.z - a.z); if (d > 7) continue;
+        if (b.hp === undefined) b.hp = 100; if (b.hp <= 0) continue;
+        b.hp = Math.max(0, b.hp - dt * 11 * (1 - d / 8));   // ~3-5 s of heat per smoke stage when parked right beside it
+      }
+    }
+  }
+  blast(st) { for (const b of this.fireCars()) { if (b === st || b.wreck) continue; const d = Math.hypot(b.x - st.x, b.z - st.z); if (d > 8) continue; if (b.hp === undefined) b.hp = 100; b.hp = Math.max(0, b.hp - 38 * (1 - d / 9)); } }
   // fire: a car at 0 health burns for ~6 s, then it is a burnt-out wreck (soot black, cannot be driven); it is replaced by a fresh one at its parking spot after a minute
   // the AI cars: shot at often enough they crack, smoke (the driver gets out), burn, and after a few seconds explode and stay behind as a black wreck; later a fresh one drives in again far away
   updateTrafficFire(dt) {
@@ -649,7 +669,7 @@ class Race {
           st.wreck = true; try { charCar(c.m); } catch (e) { /* noop */ }
           const dd = Math.hypot(st.x - cp.x, st.z - cp.z);
           this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 });
-          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
+          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); this.blast(st); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
         }
       }
     }
@@ -668,7 +688,7 @@ class Race {
           st.wreck = true; try { charCar(c.mesh); } catch (e) { /* noop */ } c.v = 0; c.parked = true;
           const dd = Math.hypot(st.x - cp.x, st.z - cp.z);
           this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 });
-          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
+          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); this.blast(st); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
         }
       } else if (st.wreck && near && Math.random() < 0.2) this.particles.emit(st.x, st.y + 1.0, st.z, 1, { color: '#2b2b2b', speed: 0.3, up: 1.8, life: 1.6, size: 1.0, gravity: -0.7, spread: 0.8 });
     }
@@ -697,7 +717,7 @@ class Race {
         st.burnT = (st.burnT || 0) + dt;
         if (st.burnT > 6) {   // burnt out (the driver, if still inside, is thrown out by the blast)
           st.wreck = true; st.wreckT = 0; charCar(c.mesh);
-          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 }); { const dd = Math.hypot(st.x - cp.x, st.z - cp.z); A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); }
+          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 }); { const dd = Math.hypot(st.x - cp.x, st.z - cp.z); A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); this.blast(st); }
           if (this.drive === c) { this.toggleCar(true); const b = this.me.body; b.hitCd = 0; b.immune = 0; if (knock(b, Math.sin(st.yaw + 2), Math.cos(st.yaw + 2), 16)) { b.vy = 6; b.stun = 2.4; A.crashSfx(10); this.shake = 0.8; } }
         }
       } else if (st.wreck) {
