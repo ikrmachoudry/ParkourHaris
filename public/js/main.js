@@ -58,7 +58,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const MAXDPR = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2);
-const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 760 };   // far = draw distance (m) of the city
+const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 480 : 1100 };   // far = draw distance (m) of the city
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
@@ -77,7 +77,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
     Q.good = 0;
     if (Q.dpr > 0.7) { Q.dpr = Math.max(0.7, Q.dpr - 0.2); resize(); }
     else if (Q.shadows && fps < 30) { Q.shadows = false; if (race) race.setShadows(false); }
-    else if (Q.far > 240) { Q.far = Math.max(240, Q.far - 60); if (race) race.setFar(); }
+    else if (Q.far > (IS_TOUCH ? 320 : 480)) { Q.far = Math.max(IS_TOUCH ? 320 : 480, Q.far - 60); if (race) race.setFar(); }
   } else if (fps > 58) {
     if (++Q.good >= 3 && Q.dpr < Math.min(MAXDPR, 1.75)) { Q.dpr = Math.min(Math.min(MAXDPR, 1.75), Q.dpr + 0.1); Q.good = 0; resize(); }
   } else Q.good = 0;
@@ -85,7 +85,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
 try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
 if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 380 : 760; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
+  if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -590,8 +590,8 @@ class Race {
   }
   // draw distance: the fog closes in just before it and the far parts of the city (map chunks, cars) are not drawn at all
   setFar() {
-    const f = Q.far; CULL.far = Math.min(280, f * 0.7); if (!this.meta.city) return;
-    this.scene.fog.far = Math.min(this.fogFarBase || 950, f * 0.96); this.scene.fog.near = Math.min(this.fogNearBase || 180, f * 0.3);
+    const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); if (!this.meta.city) return;
+    this.scene.fog.far = Math.min(this.fogFarBase || 950, f * 0.98); this.scene.fog.near = Math.min(this.fogNearBase || 180, f * 0.35);
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }

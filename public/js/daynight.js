@@ -89,10 +89,10 @@ export class DayNight {
     if (rn > 0.005) {
       const lumD = smooth(-0.1, 0.35, sinA), gv = 0.12 + 0.5 * lumD, grey = this.tmp.setRGB(gv * 0.94, gv * 0.98, gv * 1.05), k2 = Math.min(1, rn * 1.1);
       sky.top.value.lerp(grey, k2 * 0.75); sky.horizon.value.lerp(this.tmp2.setRGB(gv * 1.08, gv * 1.1, gv * 1.12), k2 * 0.8); sky.bottom.value.lerp(grey, k2 * 0.7);
-      fog.lerp(grey, k2 * 0.7); this.scene.fog.color.copy(fog); if (this.scene.background && this.scene.background.isColor) this.scene.background.copy(fog);
+      fog.lerp(grey, k2 * 0.55); this.scene.fog.color.copy(fog); if (this.scene.background && this.scene.background.isColor) this.scene.background.copy(fog);
       this.sun.intensity *= 1 - 0.7 * k2; this.moon.intensity *= 1 - 0.5 * k2; this.hemi.intensity *= 1 - 0.18 * k2; this.scene.environmentIntensity *= 1 - 0.4 * k2;
       sky.sunColor.value.multiplyScalar(1 - k2); sky.night.value *= 1 - 0.85 * k2;
-      this.scene.fog.far = this.fogFar0 * (1 - 0.5 * k2); this.scene.fog.near = this.fogNear0 * (1 - 0.6 * k2);
+      this.scene.fog.far = this.fogFar0 * (1 - 0.22 * k2); this.scene.fog.near = this.fogNear0 * (1 - 0.3 * k2);
       if (this.water) this.water.material.uniforms.fogC.value.copy(fog);
     } else { this.scene.fog.far = this.fogFar0; this.scene.fog.near = this.fogNear0; }
     // clouds: white by day, pink-ish at sunrise / sunset, dark blue-grey at night

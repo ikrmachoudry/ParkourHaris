@@ -183,7 +183,7 @@ function impulse(c, nx, nz, rx, rz, m, Iz, e) {
 }
 
 const ALL = (t) => { if (!t.props) return t.boxes || []; return t._all || (t._all = [...(t.boxes || []), ...t.props]); };
-const TD_SEA = -0.8, TD_EDGE = 538;   // the terrain ends at 540: the beach strips at the far south and north (z 505..540) are drivable
+const TD_SEA = -1.12, TD_EDGE = 538;   // the terrain ends at 540: the beach strips at the far south and north (z 505..540) are drivable
 // buildings, piers and every other solid box: every circle of the car against every nearby box (only while the car is lower than the roof) - cars AND boats
 export function bumpBoxes(c, track, spec, geo) {
   let ev = '';
