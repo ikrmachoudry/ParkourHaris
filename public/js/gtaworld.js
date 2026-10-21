@@ -6,7 +6,7 @@ import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import { buildPort } from './portworld.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, snipeClear } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -549,8 +549,8 @@ export function buildGta(world, th, info, seed) {
     if (snipeClear(x, z)) continue;
     plant(x, h, z, 1.2 + R() * 1.2, true); n++;
   }
-  // ---- SNIPE: the sniper's cross-country run. The car waits far out in the open; boulders and trees stand in the way (zig-zag, then a loose jungle) up to the hill road at (150, 326)
-  { const S0 = SNIPE_START, E = { x: 150, z: 326 }, dx = E.x - S0.x, dz = E.z - S0.z, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
+  // ---- SNIPE: the sniper's cross-country run. The car waits far out in the open; boulders and trees stand in the way (zig-zag, then a loose jungle) up to the foot of the hill road
+  { const S0 = SNIPE_START, E = { x: SNIPE_ACCESS[SNIPE_ACCESS.length - 1][0], z: SNIPE_ACCESS[SNIPE_ACCESS.length - 1][1] }, dx = E.x - S0.x, dz = E.z - S0.z, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
     let sd = 4242; const r2 = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
     const rock = (x, z) => { const y = gtaH(x, z), k = 1.1 + r2() * 0.9; wm.add(new THREE.DodecahedronGeometry(1.5 * k, 0), x, y + 0.7 * k, z, '#7e7b73', r2() * 3, r2() * 3, 0); wm.add(new THREE.DodecahedronGeometry(0.9 * k, 0), x + 0.55 * k, y + 0.4 * k, z + 0.25, '#8a867d', r2() * 3, r2() * 3, 0); solidProp(x, z, 1.6 * k, 2.4 * k, y); };
     const big = (x, z) => { const y = gtaH(x, z), sc = 1.8 + r2() * 0.9; tree(wm, x, y, z, sc, r2, false); solidProp(x, z, 0.3 * sc, 3, y); };

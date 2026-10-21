@@ -92,7 +92,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
   const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
-  const Fslope = m * G * slope * cosT;
+  const Fslope = m * G * slope * cosT * (onRd || slope < 0.06 ? 1 : slope > 0 ? 1 + Math.min(2.2, slope * 5) : 1);   // off the road an uphill drags 2-3x harder: a hillside without a road is a real struggle (the steep ones stop the car and roll it back)
   const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
   // ---- normal loads with weight transfer (filtered longitudinal acceleration)
   const axF = c.ax;

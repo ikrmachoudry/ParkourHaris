@@ -23,14 +23,25 @@ export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th =
 // SNIPE THE TRUCK: a new road runs south from the city (the x = 60 avenue) straight through a ridge by a concrete TUNNEL. A bypass loops round the east end of the ridge to the far mouth
 // (the blockers use it) and a hill road climbs to the sniper pad on the hill north-east of the tunnel (clear view of the road before the tunnel).
 // where the sniper's car waits: far out in open country, a long cross-country drive (through boulders and trees) to the foot of the hill road at (150, 326)
-export const SNIPE_ACCESS = [[290, 262], [220, 294], [150, 326]];   // the road the sniper's car stands on: out in the open country, it runs west to the foot of the hill road
-export const SNIPE_START = { x: 290, z: 262, yaw: Math.atan2(220 - 290, 294 - 262) };
+export const SNIPE_ACCESS = [[326, 196], [308, 222], [290, 244], [274, 262]];   // the flat road the sniper's car stands on: out in the open country, it runs south-west to the foot of the hill
+export const SNIPE_START = { x: 326, z: 196, yaw: Math.atan2(308 - 326, 222 - 196) };
+// the hill road: ONE smooth S-bend (west, then south, then west again) from the foot of the hill straight to the pad - no hairpin, no doubling back. It climbs ~18 m over ~130 m (a ~14 % grade), so a weak car
+// really struggles. Catmull-Rom through the control points, a point every ~10 m; [x, z, road height]
+function snipeHillRoad() {
+  const C = [[274, 262], [254, 264], [236, 274], [223, 292], [216, 310], [205, 326], [190, 334], [180, 334]], pts = [];
+  const cr = (a, b, c, d, t) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+  for (let i = 0; i + 1 < C.length; i++) { const p0 = C[Math.max(0, i - 1)], p1 = C[i], p2 = C[i + 1], p3 = C[Math.min(C.length - 1, i + 2)], n = Math.max(2, Math.round(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / 10)); for (let k = 0; k < n; k++) { const t = k / n; pts.push([cr(p0[0], p1[0], p2[0], p3[0], t), cr(p0[1], p1[1], p2[1], p3[1], t)]); } }
+  pts.push([C[C.length - 1][0], C[C.length - 1][1]]);
+  const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const L = cum[cum.length - 1];
+  return pts.map((q, i) => { const t = cum[i] / L, e = 0.65 * t + 0.35 * t * t * (3 - 2 * t), d = Math.hypot(q[0] - 180, q[1] - 334), u = Math.max(0, Math.min(1, (d - 9) / 16)), w = 1 - u * u * (3 - 2 * u); /* the pad's own mound (radius ~25) is already this high: meet it */ return [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(18 * (e * (1 - w) + w) * 100) / 100]; });
+}
 export const SNIPE = {
   road: [[60, 240], [60, 482]],                                            // the new road through the tunnel (x = 60, driving south)
   tun: { x: 60, z0: 414, z1: 452, half: 8, h: 6.8 },                       // the tunnel (inner half width, inner height)
   ridge: { z: 433, sz: 31, x0: -70, x1: 130, h: 22 },                      // the ridge the tunnel goes through
   bypass: [[120, 240], [150, 282], [150, 468], [60, 468]],                 // from the city (the x = 120 avenue) round the east end of the ridge to the far mouth
-  hill: [[150, 326, 0], [158, 340, 4], [167, 352, 9], [181, 358, 14], [191, 346, 17], [186, 334, 18], [180, 334, 18]],   // [x, z, road height]: the sniper's road
+  hill: snipeHillRoad(),                                                   // [x, z, road height]: the sniper's road (one smooth S-bend up to the pad)
   stand: { x: 172.4, z: 334, r: 1.6 },                                   // the small blue circle on the side of the hilltop: where the sniper stands
   pad: { x: 180, z: 334, y: 18, r: 9 },                                    // the circled sniping area
   bail: { z: 250 },                                                        // the red line: the truck driver pulls out here

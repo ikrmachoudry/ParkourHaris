@@ -39,6 +39,18 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
 // the realistic cars on the highway: the sports car is fast, the sedan slower
 { const a = newCar(17, -118, 0, Math.PI / 2), b2 = newCar(11, -118, 0, Math.PI / 2); let va = 0, vb = 0; drive(a, 118, 0, 22, 1, (c) => { va = Math.max(va, c.speed); }); drive(b2, 118, 0, 22, 1, (c) => { vb = Math.max(vb, c.speed); });
   ok(va * 3.6 > 110 && va > vb * 1.2, 'sports car ' + (va * 3.6).toFixed(0) + ' km/h vs sedan ' + (vb * 3.6).toFixed(0) + ' km/h'); }
+// the sniper hill: ONE smooth S-bend road (no hairpin) that a car can climb, while the bare hillside beside it is a struggle
+{ const { SNIPE, SNIPE_ACCESS } = await import('../public/js/gta.js'); const H = SNIPE.hill; let turn = 0;
+  for (let i = 2; i < H.length; i++) { const a = Math.atan2(H[i - 1][1] - H[i - 2][1], H[i - 1][0] - H[i - 2][0]), b = Math.atan2(H[i][1] - H[i - 1][1], H[i][0] - H[i - 1][0]); let d = Math.abs(b - a); d = Math.min(d, 6.2832 - d); turn = Math.max(turn, d); }
+  ok(turn < 0.5, 'the hill road has no sharp bend (max ' + (turn * 57.3).toFixed(0) + ' deg between points)');
+  const e = SNIPE_ACCESS[SNIPE_ACCESS.length - 1]; ok(Math.hypot(H[0][0] - e[0], H[0][1] - e[1]) < 0.5, 'the hill road starts exactly where the access road ends');
+  const start = H[0], nx = H[1]; const car = newCar(11, start[0], start[1], Math.atan2(nx[0] - start[0], nx[1] - start[1])); car.y = 0; let t = 0, k = 1;
+  while (k < H.length && t < 120) { const w = H[k]; const want = Math.atan2(w[0] - car.x, w[1] - car.z); let d = want - car.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+    stepCar(car, 1 / 60, { gas: Math.hypot(car.vx, car.vz) < 9 ? 1 : 0.3, steer: Math.max(-1, Math.min(1, -d * 3)) }, tr, [], t); t += 1 / 60; if (Math.hypot(w[0] - car.x, w[1] - car.z) < 6) k++; if (!Number.isFinite(car.x)) break; }
+  ok(car.y > 16 && k >= H.length, 'a sedan drives up the sniper hill road to the pad (y ' + car.y.toFixed(1) + ' in ' + t.toFixed(0) + ' s)');
+  // the straight bare slope: from the plain right up the steep north-east face
+  const c2 = newCar(11, 205, 300, Math.atan2(180 - 205, 334 - 300)); c2.y = gtaH(205, 300); let t2 = 0; while (t2 < 12) { stepCar(c2, 1 / 60, { gas: 1, steer: 0 }, tr, [], t2); t2 += 1 / 60; }
+  ok(Number.isFinite(c2.x), 'a car on the bare hillside stays sane (y ' + c2.y.toFixed(1) + ')'); }
 // no stunt ramps any more: the city street is flat
 ok(gtaH(0, -40) === 0 && gtaH(-60, -100) === 0, 'the avenues are flat (no ramps)');
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);
