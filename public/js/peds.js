@@ -37,7 +37,7 @@ export class Peds {
       if (pup) { const r = this.puppetStep(p, dt, t); speed = r.speed; gesture = r.gesture; if (p.dead) continue; }
       else if (p.st === 'walk') {
         this.pose(p, t - (p.shift || 0));
-        if (!p.temp) for (const c of vehicles) { const sp = Math.abs(c.speed); if (sp < 9 || c.y > 1) continue; const dx = p.x - c.x, dz = p.z - c.z; if (dx * dx + dz * dz < 36 && (dx * c.vx + dz * c.vz) / (Math.hypot(dx, dz) * sp + 1e-3) > -0.2 && Math.random() < dt * 3 * (sp / 15)) { this.scare(p, c.x, c.z); break; } }   // a car racing past scares him
+        if (!p.temp) for (const c of vehicles) { const sp = Math.abs(c.speed); if (sp < 9 || c.y > 1 || c.driver >= 1000) continue; const dx = p.x - c.x, dz = p.z - c.z; if (dx * dx + dz * dz < 36 && (dx * c.vx + dz * c.vz) / (Math.hypot(dx, dz) * sp + 1e-3) > -0.2 && Math.random() < dt * 3 * (sp / 15)) { this.scare(p, c.x, c.z); break; } }   // a car racing past scares him
         if (me && ctx.sit && p.fear > 0.55) { const mx = me.x - p.x, mz = me.z - p.z; if (mx * mx + mz * mz < 36) this.scare(p, me.x, me.z); }   // somebody sitting down and acting odd right next to him
       } else if (p.st === 'cower') {
         p.timer -= dt; gesture = 'scared'; if (p.timer <= 0) { p.st = 'flee'; p.timer = 4 + Math.random() * 2; }

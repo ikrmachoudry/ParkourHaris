@@ -271,7 +271,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 45 || nw - (this._scrT || 0) < 1400) return; this._scrT = nw; A.voice.scream(0.8 * Math.max(0.35, 1 - dd / 45)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 30 || nw - (this._scrT || 0) < 1400) return; { const cp = this.camera.position, fw = this._fw || (this._fw = new THREE.Vector3()); this.camera.getWorldDirection(fw); const dx = p.x - cp.x, dz = p.z - cp.z, dl = Math.hypot(dx, dz) || 1; if (!(p.actor && p.actor.group.visible) || (dx * fw.x + dz * fw.z) / dl < 0.3) return; }   /* people you cannot see never scream at you */ this._scrT = nw; A.voice.scream(0.8 * Math.max(0.35, 1 - dd / 30)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -394,7 +394,7 @@ class Race {
     const hanging = false;
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
-    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
+    this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
     else {
@@ -630,6 +630,30 @@ class Race {
     }
   }
   // fire: a car at 0 health burns for ~6 s, then it is a burnt-out wreck (soot black, cannot be driven); it is replaced by a fresh one at its parking spot after a minute
+  // the AI cars: shot at often enough they crack, smoke (the driver gets out), burn, and after a few seconds explode and stay behind as a black wreck; later a fresh one drives in again far away
+  updateTrafficFire(dt) {
+    if (!this.tai) return; const cp = this.camera.position;
+    for (const c of this.tai.cars) {
+      const st = c.st; if (st.hp === undefined) continue;
+      if (c.mode === 'gone' || (c.mode === 'drive' && (st.wreck || st.hp < 100))) {   // respawned: a fresh car
+        if (c.mode === 'gone' || st.wreck) { if (st.wreck) { try { restoreCar(c.m); } catch (e) { /* noop */ } } st.wreck = false; st.hp = 100; st.burnT = 0; st.fled = false; if (st.dmg) st.dmg.length = 0; if (c.m && c.m.userData.drv) c.m.userData.drv.visible = c.mode === 'drive'; }
+        if (c.mode === 'gone') continue;
+      }
+      const near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70;
+      this.carFx(st, dt, near);
+      if (st.hp < 35 && !st.fled) { st.fled = true; if (c.mode === 'drive') { c.mode = 'abandoned'; c.v = Math.min(c.v, 6); this.driverOut(c, 'cower'); } }
+      if (st.hp < 35) c.goneT = Math.max(c.goneT || 0, 25);
+      if (st.hp <= 0 && !st.wreck) {
+        st.burnT = (st.burnT || 0) + dt;
+        if (st.burnT > 6) {
+          st.wreck = true; try { charCar(c.m); } catch (e) { /* noop */ }
+          const dd = Math.hypot(st.x - cp.x, st.z - cp.z);
+          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 });
+          A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); if (dd < 40) this.shake = Math.max(this.shake || 0, 0.5 * (1 - dd / 40));
+        }
+      }
+    }
+  }
   updateCarFire(dt) {
     const cp = this.camera.position;
     for (const c of this.cars) {
@@ -654,7 +678,7 @@ class Race {
         st.burnT = (st.burnT || 0) + dt;
         if (st.burnT > 6) {   // burnt out (the driver, if still inside, is thrown out by the blast)
           st.wreck = true; st.wreckT = 0; charCar(c.mesh); hero.hurtLook(0);
-          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); A.sfx.land(34);
+          this.particles.emit(st.x, st.y + 1, st.z, 40, { color: '#ffb347', speed: 8, up: 6, life: 0.8, size: 0.5, gravity: 8, spread: 1.2 }); this.fxP.emit(st.x, st.y + 1, st.z, 14, { color: '#ff7a1a', alpha: 0.9, size: 2.2, speed: 3, up: 3, life: 0.7, gravity: -1, spread: 1.4 }); { const dd = Math.hypot(st.x - cp.x, st.z - cp.z); A.sfx.boom(0.55 * Math.max(0.15, 1 - dd / 90)); }
           if (this.drive === c) { this.toggleCar(true); const b = this.me.body; b.hitCd = 0; b.immune = 0; if (knock(b, Math.sin(st.yaw + 2), Math.cos(st.yaw + 2), 16)) { b.vy = 6; b.stun = 2.4; A.crashSfx(10); this.shake = 0.8; } }
         }
       } else if (st.wreck) {
@@ -1238,7 +1262,7 @@ class Race {
       else if (best && !best.tai && this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' && best.c === this.mission.ss.truck && this.mission.ss.snap && this.mission.ss.snap.k[4] < 2 && (this.toastT || 0) < performance.now()) { this.toastT = performance.now() + 2500; this.toast('HOLD FIRE - the driver is still in the tanker. Shoot after he jumps out!'); }
       if (best) { len = bd; const st = best.c.st, code = hitCode(st, ox + fx * bd, oz + fz * bd, hAt(bd)); hcode = code;
         this.crime('car', st.x, st.z);
-        if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) addHit(st, code); } else { addHit(st, code); if (st.hp !== undefined && !st.wreck && !(this.mission && this.mission.mission === 'snipe' && best.c === this.mission.ss.truck)) st.hp = Math.max(0, st.hp - Math.max(6, (W.dmg || 1) * 9)); }   // bullets wear a car down: cracks -> white smoke -> black smoke -> flames -> burnt-out black wreck
+        if (best.tai) { this.tai.hit(best.c); hc = this.tai.cars.indexOf(best.c); if (!this.multi || this.simHost) { addHit(st, code); if (!st.wreck) st.hp = Math.max(0, (st.hp === undefined ? 100 : st.hp) - Math.max(6, (W.dmg || 1) * 9)); } }   // (AI cars wear down the same way) else { addHit(st, code); if (st.hp !== undefined && !st.wreck && !(this.mission && this.mission.mission === 'snipe' && best.c === this.mission.ss.truck)) st.hp = Math.max(0, st.hp - Math.max(6, (W.dmg || 1) * 9)); }   // bullets wear a car down: cracks -> white smoke -> black smoke -> flames -> burnt-out black wreck
         this.carHitFx(code, ox + fx * bd, oz + fz * bd); }
     }
     this.crime('shot', b.x, b.z);
