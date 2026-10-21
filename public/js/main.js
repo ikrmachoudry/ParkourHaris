@@ -698,6 +698,11 @@ class Race {
     for (const c of this.cars) {
       const st = c.st, hero = c.mesh.userData.hero; if (!hero) continue;
       if (!st.home) st.home = { x: st.x, z: st.z, yaw: st.yaw };
+      // a parked car is never simulated, so anything left over from its last moment (still in the air, spinning, tipped on its side) would hang there for ever: let it fall, stop turning and settle flat
+      if (c !== this.drive && !this.rolling.includes(c) && st.driver === -1 && !st.sunk && !(st.id >= 30 && st.id <= 32)) {
+        if (!this.multi && (st.air || Math.abs(st.yr || 0) > 0.05)) { this.rolling.push(c); }
+        else { const k = Math.exp(-5 * dt); if (st.pitch) st.pitch *= k; if (st.roll) st.roll *= k; if (st.yr) st.yr = 0; if (c.mesh.rotation.z) c.mesh.rotation.z *= k; }
+      }
       const fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), near = (st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 < 70 * 70;
       this.carFx(st, dt, near); if (st.hp !== undefined) hero.hurtLook(st.hp);
       if (near && st.id >= 30 && st.id <= 32 && Math.abs(st.speed) > 1.5) {   // boat wake: foam at the stern and a bow spray
@@ -736,7 +741,7 @@ class Race {
       const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
       for (let i = 0; i < 2; i++) { const e = stepCar(st, dt / 2, { gas: -0.35, steer: 0 }, this.info.track, others, Math.max(0, this.levelTime)); if (e && i === 0) { A.crashSfx(st.crash || 5); this.particles.emit(st.x, st.y + 0.8, st.z, 12, { color: '#ffd9a0', speed: 5, up: 3, life: 0.4, size: 0.2 }); st.crash = 0; } }
       const hero = c.mesh.userData.hero; if (hero && st.dmgQ && st.dmgQ.length) { for (const q of st.dmgQ) hero.dent(q.lx, q.lz, Math.min(0.3, 0.07 + q.d * 0.012)); st.dmgQ.length = 0; hero.hurtLook(st.hp); }
-      if (Math.abs(st.speed) < 0.4 && !((st.wet || 0) > 0 && !st.sunk)) { st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
+      if (Math.abs(st.speed) < 0.4 && !st.air && Math.abs(st.vy || 0) < 0.5 && !((st.wet || 0) > 0 && !st.sunk)) { st.yr = 0; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
     }
   }
   updateDrive(dt, canMove) {
