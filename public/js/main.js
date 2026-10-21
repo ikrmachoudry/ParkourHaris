@@ -591,7 +591,7 @@ class Race {
   // draw distance: the fog closes in just before it and the far parts of the city (map chunks, cars) are not drawn at all
   setFar() {
     const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); if (!this.meta.city) return;
-    this.scene.fog.far = Math.min(this.fogFarBase || 950, f * 0.98); this.scene.fog.near = Math.min(this.fogNearBase || 180, f * 0.35);
+    const clear = (OPT.haze || (IS_TOUCH ? 'normal' : 'clear')) === 'clear'; this.scene.fog.far = clear ? (this.fogFarBase || 950) * 2.2 : Math.min(this.fogFarBase || 950, f * 0.98); this.scene.fog.near = clear ? (this.fogNearBase || 180) * 1.8 : Math.min(this.fogNearBase || 180, f * 0.35);
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }
@@ -1493,6 +1493,7 @@ class Race {
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
+    if (this.dn && this._tOpt !== OPT.time) { this._tOpt = OPT.time; if (window.applyTime) window.applyTime(); }
     const t = this.camTarget; this.cullFar(this.lastDt || 0.016);
     this.sun.position.set(t.x + this.sunDir.x, t.y + this.sunDir.y, t.z + this.sunDir.z); this.sun.target.position.copy(t);
     if (this.dn) {
@@ -1926,10 +1927,16 @@ async function boot() {
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
-  document.querySelectorAll('#quick .qrow').forEach((row) => {
+  document.querySelectorAll('#quick .qrow, #quick2 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); paint(); };
+    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
+  { const HRS = { morning: 8, noon: 12, afternoon: 17, night: 23 };
+    const paintT = () => { document.querySelectorAll('#tsel button').forEach((b) => b.classList.toggle('on', b.dataset.t === OPT.time)); document.querySelectorAll('#hsel button').forEach((b) => b.classList.toggle('on', b.dataset.h === (OPT.haze || (IS_TOUCH ? 'normal' : 'clear')))); };
+    window.applyTime = () => { if (race && race.dn) race.dn.setHour(OPT.time in HRS ? HRS[OPT.time] : null); };
+    document.querySelectorAll('#tsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.time = b.dataset.t; saveOpts(); window.applyTime(); paintT(); }; });
+    document.querySelectorAll('#hsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.haze = b.dataset.h; saveOpts(); if (race) race.setFar(); paintT(); }; });
+    paintT(); }
   $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
   $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits

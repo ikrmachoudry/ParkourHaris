@@ -20,7 +20,7 @@
 <canvas id="c"></canvas>
 <button id="b-full" aria-label="Fullscreen"><svg class="fs-in" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="fs-out" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
 <div id="scope-zoom"><button id="sz-in" aria-label="Zoom in">+</button><span id="sz-lvl">x1.5</span><button id="sz-out" aria-label="Zoom out">&minus;</button></div>
-<button id="b-gm" aria-label="Menu" title="Menu (Esc)">&#9776;</button>
+<button id="b-gm" aria-label="Menu" title="Settings (Esc)">&#9881;</button>
 <div id="ios-hint" class="hidden"><div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> &rarr; <b>Add to Home Screen</b><small>iPhone Safari does not allow websites to go full screen, but the installed icon does:</small><ol><li>Tap the <b>Share</b> button in Safari</li><li>Choose <b>Add to Home Screen</b></li><li>Open <b>Haris GTA</b> from your home screen</li></ol><div class="tap">tap anywhere to close</div></div></div>
 
 <div id="uw"></div>
@@ -31,7 +31,7 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v99</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v100</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -255,6 +255,16 @@
         <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
         <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
       </div>
+      <div id="quick2" aria-label="Game switches">
+        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
+      </div>
+      <div class="sethead">TIME OF DAY</div>
+      <div id="tsel"><button data-t="morning">Morning</button><button data-t="noon">Noon</button><button data-t="afternoon">Afternoon</button><button data-t="night">Night</button><button data-t="auto">Auto</button></div>
+      <div class="sethead">DISTANCE HAZE</div>
+      <div id="hsel"><button data-h="clear">Clear</button><button data-h="normal">Normal</button></div>
       <ul class="help pkeys">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>
         <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>M</kbd> mute</li>

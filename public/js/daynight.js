@@ -3,7 +3,7 @@
 // A full day = DAY_MINUTES real minutes (40: a game hour is about 1.7 minutes), so the light changes slowly. Change DAY_MINUTES to make the day longer or shorter.
 import * as THREE from 'three';
 
-export const DAY_MINUTES = 40;
+export const DAY_MINUTES = 10;
 export const gameHour = (now = Date.now()) => ((now / 60000) * (24 / DAY_MINUTES)) % 24;
 
 const C = (s) => new THREE.Color(s);
