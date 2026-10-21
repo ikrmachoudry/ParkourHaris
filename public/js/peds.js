@@ -80,7 +80,7 @@ export class Peds {
         const rx = p.x - c.x, rz = p.z - c.z, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), al = rx * fx + rz * fz, ac = -rx * fz + rz * fx;
         if (Math.abs(al) < (c.hl || 2.2) + 0.35 && Math.abs(ac) < (c.hw || 1) + 0.35) {
           p.st = 'fly'; p.vx = c.vx * 0.85 + (-fz * (ac > 0 ? 1 : -1)) * 1.2; p.vz = c.vz * 0.85 + (fx * (ac > 0 ? 1 : -1)) * 1.2; p.vy = 2.6 + Math.min(4, Math.abs(c.speed) * 0.14); p.lie = 0; speed = 0;
-          this.alarm(p.x, p.z, 14, p);
+          this.alarm(p.x, p.z, 14, p); this.voice('hurt', p);
           if (onHit) onHit(p, Math.abs(c.speed)); break;
         }
       }
@@ -112,7 +112,7 @@ export class Peds {
     if (!B(nx, p.z)) { p.x = nx; return 1; } if (!B(p.x, nz)) { p.z = nz; return 1; } return 2;
   }
   // a voice for the audio layer: 'scream' (scared) or 'death'. Rate-limited per person.
-  voice(kind, p) { const n = performance.now(); if (!this.onVoice || n - (p.vAt || 0) < (kind === 'death' ? 800 : 3500)) return; p.vAt = n; this.onVoice(kind, p); }
+  voice(kind, p) { const n = performance.now(); if (kind === 'hurt') { if (!this.onVoice || n - (p.hAt || 0) < 450) return; p.hAt = n; this.onVoice(kind, p); return; } if (!this.onVoice || n - (p.vAt || 0) < (kind === 'death' ? 800 : 3500)) return; p.vAt = n; this.onVoice(kind, p); }
   scare(p, x, z) {
     this.voice('scream', p);
     const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz) || 1;
@@ -132,7 +132,7 @@ export class Peds {
   }
   // the kick lands: a lying person slides a little and is shaken, a cowering one is knocked flat
   kick(p, fx, fz, onHit) {
-    p.hp -= 1; if (this.puppet) p.hold = 0.6;
+    p.hp -= 1; if (this.puppet) p.hold = 0.6; this.voice(p.hp <= 0 ? 'death' : 'hurt', p);
     if (p.st === 'lie') { p.vx = fx * 5.5; p.vz = fz * 5.5; p.wait = Math.max(0, p.wait - 1.5); }
     else { p.st = 'fly'; p.vx = fx * 5.2; p.vz = fz * 5.2; p.vy = 3.0; p.lie = 0; p.punchT = 0; }
     this.alarm(p.x, p.z, 12, p);
@@ -152,8 +152,9 @@ export class Peds {
     best.hp -= dmg; if (this.puppet) best.hold = 0.6;
     if (best.hp <= 0) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 7; best.vz = fz * 7; best.vy = 4.2; best.lie = 0; best.punchT = 0; }
     else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; best.x += fx * 0.7; best.z += fz * 0.7; }
-    else if (dmg >= 1) { best.st = 'fly'; best.vx = fx * 5.6; best.vz = fz * 5.6; best.vy = 3.2; best.lie = 0; best.punchT = 0; best.yaw = Math.atan2(-fx, -fz); this.voice('scream', best); }   // a heavy hit: knocked off his feet
+    else if (dmg >= 1) { best.st = 'fly'; best.vx = fx * 5.6; best.vz = fz * 5.6; best.vy = 3.2; best.lie = 0; best.punchT = 0; best.yaw = Math.atan2(-fx, -fz); this.voice('hurt', best); }   // a heavy hit: knocked off his feet
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
+    if (best.hp > 0) this.voice('hurt', best);
     this.alarm(best.x, best.z, 12, best);
     this.lastHit = best; if (onHit) onHit(best, best.hp <= 0); return true;
   }
@@ -173,6 +174,7 @@ export class Peds {
     best.hp -= dmg; if (this.puppet) best.hold = 0.6; const dead = best.hp <= 0;
     if (dead) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 3.5; best.vz = fz * 3.5; best.vy = 2.4; best.lie = 0; best.punchT = 0; }
     else if (best.st !== 'lie') { if (best.brave && Math.random() < 0.35) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; } else { best.st = 'flee'; best.timer = 6; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); } }
+    if (!dead) this.voice('hurt', best);
     this.lastHit = best; if (onHit) onHit(best, dead, bd); return { p: best, dead, d: bd };
   }
   // a driver pulled out of a car: a temporary person who is thrown to the ground, then runs / cowers / fights ('fight' = brave)

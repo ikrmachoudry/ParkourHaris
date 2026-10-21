@@ -23,4 +23,5 @@ mk u_death death 0.04 0.95 -3 9000 0.25
 mk u_scared0 death 0.04 0.38 -4 9000 0.1 1.3
 mk u_scared1 death 0.05 0.5 -4 9000 0.12 1.15
 mk u_scared2 death 0.08 0.34 -4 9000 0.1 1.5
+mk u_grunt grunt 0.5 0.45 -3 9000 0.1
 rm -rf "$T"
