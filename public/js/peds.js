@@ -133,8 +133,8 @@ export class Peds {
   // the kick lands: a lying person slides a little and is shaken, a cowering one is knocked flat
   kick(p, fx, fz, onHit) {
     p.hp -= 1; if (this.puppet) p.hold = 0.6;
-    if (p.st === 'lie') { p.vx = fx * 3.2; p.vz = fz * 3.2; p.wait = Math.max(0, p.wait - 1.5); }
-    else { p.st = 'fly'; p.vx = fx * 2.4; p.vz = fz * 2.4; p.vy = 2.0; p.lie = 0; p.punchT = 0; }
+    if (p.st === 'lie') { p.vx = fx * 5.5; p.vz = fz * 5.5; p.wait = Math.max(0, p.wait - 1.5); }
+    else { p.st = 'fly'; p.vx = fx * 5.2; p.vz = fz * 5.2; p.vy = 3.0; p.lie = 0; p.punchT = 0; }
     this.alarm(p.x, p.z, 12, p);
     if (onHit) onHit(p, false);
   }
@@ -150,8 +150,9 @@ export class Peds {
     }
     if (!best) return false;
     best.hp -= dmg; if (this.puppet) best.hold = 0.6;
-    if (best.hp <= 0) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 4.5; best.vz = fz * 4.5; best.vy = 3.2; best.lie = 0; best.punchT = 0; }
-    else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; }
+    if (best.hp <= 0) { this.voice('death', best); best.st = 'fly'; best.vx = fx * 7; best.vz = fz * 7; best.vy = 4.2; best.lie = 0; best.punchT = 0; }
+    else if (best.brave) { best.st = 'fight'; best.atk = 0.5; best.punchT = 0; best.pend = false; best.vx = best.vz = 0; best.x += fx * 0.7; best.z += fz * 0.7; }
+    else if (dmg >= 1) { best.st = 'fly'; best.vx = fx * 5.6; best.vz = fz * 5.6; best.vy = 3.2; best.lie = 0; best.punchT = 0; best.yaw = Math.atan2(-fx, -fz); this.voice('scream', best); }   // a heavy hit: knocked off his feet
     else { best.st = Math.random() < 0.5 ? 'cower' : 'flee'; best.timer = best.st === 'cower' ? 1 : 5; best.dx = fx; best.dz = fz; best.yaw = Math.atan2(fx, fz); }
     this.alarm(best.x, best.z, 12, best);
     this.lastHit = best; if (onHit) onHit(best, best.hp <= 0); return true;
