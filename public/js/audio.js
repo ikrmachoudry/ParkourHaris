@@ -49,7 +49,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
+const SAMPLES = ['u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
   // vehicles + world (real recordings, see tools/build_audio.sh)
   'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
   'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
@@ -81,7 +81,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot = the sharp crack + a low, lowpassed body (the chest thump) + a short room tail; a little random detune so full auto does not sound like one looped file
 const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
 export const voice = {
-  scream(vol = 0.8) { return play(pick(['scream1', 'scream2']), vol, rnd(0.92, 1.3)); },
+  scream(vol = 0.8) { const r = Math.random() < 0.5; return play(r ? 'scream1' : 'scream2', Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
   death(vol = 0.9) { return play('death', vol, rnd(0.9, 1.1)); },
   pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
 };
@@ -103,20 +103,23 @@ export const sfx = {
   dive() { play('swish', 0.7, rnd(0.8, 0.95)); },
   bounce() { play('bouncepad', 0.7, rnd(0.97, 1.03)); },
   pickup() { play('pickup', 0.8); },
-  swing(bat = false) { if (bat ? !play('whoosh', 0.9, rnd(0.95, 1.08), 0.08) : !play('swish', 0.7, rnd(0.95, 1.1))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); } },
+  swing(bat = false) { if (bat ? !play(bank.u_woosh ? 'u_woosh' : 'whoosh', 0.8, rnd(0.92, 1.0), 0.04) : !play(bank.u_woosh ? 'u_woosh' : 'swish', 0.55, rnd(1.2, 1.35))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); } },
   cash() { play('cash', 0.8); },
   empty() { play('noammo', 0.6); },
-  shot(pan = 0, vol = 1) { if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; noise(0.09, 0.4, 'highpass', 2500, 900); },
-  sniperShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
+  shot(pan = 0, vol = 1) { if (play('u_pistol', 0.8 * vol, rnd(0.97, 1.04), 0, pan, 0, 0.25)) return; if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; noise(0.09, 0.4, 'highpass', 2500, 900); },
+  sniperShot(pan = 0, vol = 1) { if (play('u_sniper', 0.95 * vol, rnd(0.98, 1.02), 0, pan, 0, 0.35)) return; if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
   boom(vol = 1) {   // real explosion recordings: the blast + a slowed, low-passed copy for the rumble
     const v = Math.min(1.5, vol * 1.3); const i = Math.random() * 2 | 0;
+    if (play('u_boom', Math.min(1.4, 0.95 * v), rnd(0.96, 1.04), 0, 0, 0, 0.5)) { play('u_boom', 0.4 * v, 0.6, 0.05, 0, 600, 0.6); return; }
     if (!play('boom' + i, 0.9 * v, rnd(0.9, 1.05), 0, 0, 0, 0.6)) return;
     play('boom2', 0.8 * v, 0.55, 0.02, 0, 700, 0.8); play('boom1', 0.5 * v, 0.7, 0.05, 0, 400, 0.6);
   },
-  akShot(pan = 0, vol = 1) { if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
+  // AK-47: the clip is one single shot; a lone shot (or the first of a burst) rings out with its tail, shots inside a burst use the short clip so they do not smear together
+  akShot(pan = 0, vol = 1) { const n = performance.now(), gap = n - (sfx._akAt || 0); sfx._akAt = n; if (play(gap > 320 ? 'u_ak2' : 'u_ak1', 0.85 * vol, rnd(0.97, 1.05), 0, pan, 0, 0.25)) return; if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
   glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
   metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },
   hiss(v = 1) { noise(0.7, 0.22 * v, 'highpass', 3500, 2200, 0, 0.7); play('metal1', 0.4 * v, 0.7); },
+  thud(v = 1) { if (!play('u_thud', Math.min(1, 0.9 * v), rnd(0.92, 1.05), 0, 0, 0, 0.15)) sfx.land(24); },
   bonk() { play(pick(['hit1', 'hit2']), 0.95, rnd(0.92, 1.08)); },
   hit() { play(pick(['hit1', 'hit2']), 0.8, rnd(0.85, 1.0)); },
   door() { play('door_c', 0.7, rnd(0.95, 1.05)); },

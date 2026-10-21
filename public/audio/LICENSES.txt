@@ -12,3 +12,6 @@ All audio in this folder is CC0 1.0 (public domain), taken from the CC0-Public-D
 Engine loops (eng_*.mp3 are pitch / filter variants), skid.mp3 and crash0.mp3: from Kenney's Starter-Kit-Racing (github.com/KenneyNL/Starter-Kit-Racing, audio/*.ogg), Kenney assets are CC0 1.0.
 Impacts, footsteps and UI sounds: Kenney "Impact Sounds", "Interface Sounds", "Music Jingles" (CC0 1.0, kenney.nl).
 Water splashes / loops, rain, highway bed, doors, explosion, latch: "40 CC0 water / splash / slime SFX", "100 CC0 SFX #2", "100 CC0 SFX" (rubberduck, CC0 1.0), and the Warfork CC0 assets (Team Forbidden, CC0 1.0), all via github.com/lavenderdotpet/CC0-Public-Domain-Sounds.
+
+--- v111: sounds supplied by the game's owner (cut by tools/build_user_audio.sh from tools/audio_src) ---
+Sniper rifle (freesound_community), AK-47 (sovetsky_rastov72), pistol shot (universfield), woosh (ribhavagrawal), concrete footsteps (freesound_community), explosion (freesound_community), thud impact (virtual_vibes): royalty-free sounds from Pixabay / freesound; used as supplied by the owner.
