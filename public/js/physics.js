@@ -110,7 +110,7 @@ export function stepBody(w, b, dt, inp) {
   // ---- integrate + collide
   const wasGrounded = b.grounded, prevY = b.y;
   b.x += b.vx * dt; b.z += b.vz * dt;
-  w.resolveHorizontal(b); w.resolveHorizontal(b);
+  w.resolveHorizontal(b); w.resolveHorizontal(b); if (w.railsFix) w.railsFix(b);
   b.y += b.vy * dt;
 
   b.grounded = false; b.ground = null;

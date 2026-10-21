@@ -811,6 +811,14 @@ export class World {
   }
 
   // ---------------------------------------------------------------- collision queries used by physics.js
+  // RAILS: a person standing on a stair flight / landing that has an invisible rail (obj.rail) cannot walk or slide off its guarded edges (they can still jump off).
+  // rail = { x0, x1 } clamps the centre sideways; { zMin } / { zMax } stop the free end; { lanes: [[a0, a1], ...], zOpen, side } leaves the open edge only in front of the lanes
+  railsFix(b) {
+    const g = b.ground; if (!g || !g.rail || !b.grounded) return; const r = g.rail;
+    if (r.x0 !== undefined && b.x < r.x0) { b.x = r.x0; if (b.vx < 0) b.vx = 0; } if (r.x1 !== undefined && b.x > r.x1) { b.x = r.x1; if (b.vx > 0) b.vx = 0; }
+    if (r.zMin !== undefined && b.z < r.zMin) { b.z = r.zMin; if (b.vz < 0) b.vz = 0; } if (r.zMax !== undefined && b.z > r.zMax) { b.z = r.zMax; if (b.vz > 0) b.vz = 0; }
+    if (r.lanes) { const out = r.side < 0 ? b.z < r.zOpen : b.z > r.zOpen; if (out && !r.lanes.some((l) => b.x >= l[0] - 0.05 && b.x <= l[1] + 0.05)) { b.z = r.zOpen; if (b.vz * r.side > 0) b.vz = 0; } }
+  }
   // horizontal push-out of a vertical cylinder from solids and disc sides
   resolveHorizontal(b) {
     const R = P.R, H = P.H;

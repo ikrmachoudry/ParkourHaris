@@ -63,6 +63,12 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
     if (w.y > P.H - 0.2) reached++; if (w.y > P.H - 0.2 && Math.abs(w.x - bd.x) < bd.w / 2 && Math.abs(w.z - bd.z) < bd.d / 2) onRoof++; }
   ok(reached === tested, 'a person walks up the fire escape to the roof height on ' + reached + '/' + tested + ' buildings');
   ok(onRoof === tested, 'and walks off the stair onto the roof itself (' + onRoof + '/' + tested + ')');
+  // the rails: you cannot walk off the side of a flight, nor off the free end of a landing
+  { const bd = CB[0], P = stairPlan(bd), f = P.flights[0], w = newBody(), cx = (f.x0 + f.x1) / 2; w.x = cx; w.z = (f.zS + f.zE) / 2; w.y = (f.yS + f.yE) / 2; for (let i = 0; i < 40; i++) stepBody(world, w, 1 / 60, { mx: 0, mz: 0 });
+    for (let i = 0; i < 120; i++) stepBody(world, w, 1 / 60, { mx: -P.sx, mz: 0 }); const y1 = w.y; for (let i = 0; i < 120; i++) stepBody(world, w, 1 / 60, { mx: P.sx * 0.0, mz: 0 });
+    ok(y1 > 0.9 && w.x > f.x0 - 0.1 && w.x < f.x1 + 0.1, 'walking sideways on a flight does not drop you off (y ' + y1.toFixed(1) + ', x within the lane)');
+    const l = P.landings[0], w2 = newBody(); w2.x = (l.x0 + l.x1) / 2; w2.z = (l.z0 + l.z1) / 2; w2.y = l.top; for (let i = 0; i < 40; i++) stepBody(world, w2, 1 / 60, { mx: 0, mz: 0 });
+    for (let i = 0; i < 120; i++) stepBody(world, w2, 1 / 60, { mx: 0, mz: 1 }); ok(w2.y > l.top - 0.2, 'walking off the free end of a landing is stopped (y ' + w2.y.toFixed(1) + ')'); }
   // the street side stays clear: the stair never reaches the road
   ok(CB.every((q) => { const P = stairPlan(q); return Math.abs(P.full[0] - q.x) < q.w / 2 + 3.6 && Math.abs(P.full[1] - q.x) < q.w / 2 + 3.6; }), 'the stair fits inside its block'); }
 // no stunt ramps any more: the city street is flat

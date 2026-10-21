@@ -252,13 +252,18 @@ export function buildGta(world, th, info, seed) {
   const CL = B.filter((b) => b.climb);
   for (const b of CL) {
     const P = stairPlan(b);
-    for (const f of P.flights) { const up = f.zE > f.zS; world.ramps.push({ x0: f.x0, x1: f.x1, zN: Math.max(f.zS, f.zE), zF: Math.min(f.zS, f.zE), yN: up ? f.yE : f.yS, yF: up ? f.yS : f.yE, conv: null, ice: false, kind: 'ramp' }); }
-    for (const l of P.landings) world.addSolid(l.x0, l.top - 0.14, l.z0, l.x1, l.top, l.z1, { name: 'prop' });
+    for (const f of P.flights) { const up = f.zE > f.zS; world.ramps.push({ x0: f.x0, x1: f.x1, zN: Math.max(f.zS, f.zE), zF: Math.min(f.zS, f.zE), yN: up ? f.yE : f.yS, yF: up ? f.yS : f.yE, conv: null, ice: false, kind: 'ramp', rail: { x0: f.x0 + 0.2, x1: f.x1 - 0.2 } }); }   // the flight has rails both sides
+    P.landings.forEach((l, qi) => {   // a landing: rails on the outer edge and the free end; the edge where the flights attach is open only in front of the two lanes; the LAST one is open to the roof
+      const north = l.z0 > P.zlo, lanes = [[P.flights[0].x0, P.flights[0].x1], [P.flights[1] ? P.flights[1].x0 : P.flights[0].x0, P.flights[1] ? P.flights[1].x1 : P.flights[0].x1]], last = qi === P.landings.length - 1;
+      const outer = P.sx > 0 ? { x1: l.x1 - 0.2 } : { x0: l.x0 + 0.2 }, wallSide = P.sx > 0 ? { x0: l.x0 } : { x1: l.x1 };
+      const sd = world.addSolid(l.x0, l.top - 0.14, l.z0, l.x1, l.top, l.z1, { name: 'prop' });
+      sd.rail = { ...outer, ...(last ? {} : wallSide), ...(north ? { zMax: l.z1 - 0.2, zOpen: l.z0, side: -1, lanes } : { zMin: l.z0 + 0.2, zOpen: l.z1, side: 1, lanes }) };
+    });
     const H = P.H, t = 0.3, hw = b.w / 2 + 0.3, hd = b.d / 2 + 0.3, gz0 = P.zlo - P.LD - 0.2, gz1 = P.zlo + P.LF + P.LD + 0.2;
-    world.addSolid(b.x - hw, H, b.z - hd, b.x + hw, H + 1, b.z - hd + t, { name: 'prop' }); world.addSolid(b.x - hw, H, b.z + hd - t, b.x + hw, H + 1, b.z + hd, { name: 'prop' });   // the two walls that run along x
+    world.addSolid(b.x - hw, H, b.z - hd, b.x + hw, H + 1.25, b.z - hd + t, { name: 'prop' }); world.addSolid(b.x - hw, H, b.z + hd - t, b.x + hw, H + 1.25, b.z + hd, { name: 'prop' });   // the two walls that run along x
     const wx = P.sx > 0 ? [b.x - hw, b.x - hw + t] : [b.x + hw - t, b.x + hw], sx2 = P.sx > 0 ? [b.x + hw - t, b.x + hw] : [b.x - hw, b.x - hw + t];
-    world.addSolid(wx[0], H, b.z - hd, wx[1], H + 1, b.z + hd, { name: 'prop' });   // the far side (opposite the stair)
-    if (gz0 > b.z - hd) world.addSolid(sx2[0], H, b.z - hd, sx2[1], H + 1, gz0, { name: 'prop' }); if (gz1 < b.z + hd) world.addSolid(sx2[0], H, gz1, sx2[1], H + 1, b.z + hd, { name: 'prop' });   // the stair side, open only in front of the landing
+    world.addSolid(wx[0], H, b.z - hd, wx[1], H + 1.25, b.z + hd, { name: 'prop' });   // the far side (opposite the stair)
+    if (gz0 > b.z - hd) world.addSolid(sx2[0], H, b.z - hd, sx2[1], H + 1.25, gz0, { name: 'prop' }); if (gz1 < b.z + hd) world.addSolid(sx2[0], H, gz1, sx2[1], H + 1.25, b.z + hd, { name: 'prop' });   // the stair side, open only in front of the landing
     const rx = b.x - b.w * 0.25, rz = b.z - b.d * 0.2; world.addSolid(rx - 0.8, H, rz - 0.8, rx + 0.8, H + 3, rz + 0.8, { name: 'prop' });   // water tank
     world.addSolid(b.x + b.w * 0.25 - 0.8, H, b.z + b.d * 0.2 - 0.5, b.x + b.w * 0.25 + 0.8, H + 1, b.z + b.d * 0.2 + 0.5, { name: 'prop' });   // AC unit
   }
@@ -322,10 +327,10 @@ export function buildGta(world, th, info, seed) {
         for (const px of [l.x0 + 0.05, l.x1 - 0.05]) wm.add(Bx(0.1, top, 0.1), px, top / 2, l.z0 > P.zlo ? l.z1 - 0.06 : l.z0 + 0.06, iron);   // legs to the ground
       }
       const hw = b.w / 2 + 0.3, hd = b.d / 2 + 0.3, t = 0.3, gz0 = P.zlo - P.LD - 0.2, gz1 = P.zlo + P.LF + P.LD + 0.2, pc = '#8d8f96';   // parapet (1 m) all round, open in front of the stair landing
-      wm.add(Bx(hw * 2, 1, t), b.x, H + 0.5, b.z - hd + t / 2, pc); wm.add(Bx(hw * 2, 1, t), b.x, H + 0.5, b.z + hd - t / 2, pc);
+      wm.add(Bx(hw * 2, 1.25, t), b.x, H + 0.625, b.z - hd + t / 2, pc); wm.add(Bx(hw * 2, 1.25, t), b.x, H + 0.625, b.z + hd - t / 2, pc);
       const farX = P.sx > 0 ? b.x - hw + t / 2 : b.x + hw - t / 2, nearX = P.sx > 0 ? b.x + hw - t / 2 : b.x - hw + t / 2;
-      wm.add(Bx(t, 1, hd * 2), farX, H + 0.5, b.z, pc);
-      if (gz0 > b.z - hd) wm.add(Bx(t, 1, gz0 - (b.z - hd)), nearX, H + 0.5, (gz0 + b.z - hd) / 2, pc); if (gz1 < b.z + hd) wm.add(Bx(t, 1, b.z + hd - gz1), nearX, H + 0.5, (gz1 + b.z + hd) / 2, pc);
+      wm.add(Bx(t, 1.25, hd * 2), farX, H + 0.625, b.z, pc);
+      if (gz0 > b.z - hd) wm.add(Bx(t, 1.25, gz0 - (b.z - hd)), nearX, H + 0.625, (gz0 + b.z - hd) / 2, pc); if (gz1 < b.z + hd) wm.add(Bx(t, 1.25, b.z + hd - gz1), nearX, H + 0.625, (gz1 + b.z + hd) / 2, pc);
       wm.add(Bx(0.08, 0.5, 2.6), P.wall + P.sx * 0.05, 3.2, P.zlo + P.LF / 2 - 2.9, '#e8b020');   // a "FIRE ESCAPE" style yellow sign plate on the wall near the foot
     }
     if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
