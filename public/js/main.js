@@ -1497,7 +1497,7 @@ class Race {
     const t = this.camTarget; this.cullFar(this.lastDt || 0.016);
     this.sun.position.set(t.x + this.sunDir.x, t.y + this.sunDir.y, t.z + this.sunDir.z); this.sun.target.position.copy(t);
     if (this.dn) {
-      if (this.weather) this.weather.update(this.lastDt || 0.016, this.camera.position);
+      if (this.weather) this.weather.update(this.lastDt || 0.016, this.camera.position, this.camTarget);
       this.dn.update(this.lastDt || 0.016);
       const mo = this.dn.moon, md = this.moonDir; if (md) { mo.position.set(t.x + md.x, t.y + md.y, t.z + md.z); mo.target.position.copy(t); }
       if (this.dn.night !== this.nightOn) { this.nightOn = this.dn.night; this.lightsOn = this.nightOn; if (this.drive && !this.paxMode) this.applyLights(this.drive); }   // headlights come on at dusk, off at dawn (L still toggles them)

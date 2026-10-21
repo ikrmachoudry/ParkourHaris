@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as A from './audio.js';
 import { GT } from './gta.js';
+import { ROOFS } from './world.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hash = (n) => { const s = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
@@ -74,16 +75,20 @@ export class Weather {
     const a = Math.random() * 6.28, r = far ? 18 + Math.random() * 16 : 3 + Math.random() * 32;
     l.x = cam.x + Math.cos(a) * r; l.z = cam.z + Math.sin(a) * r; l.y = this.ground(l.x, l.z) + 0.02; l.vx = l.vz = l.vy = 0; l.air = false; l.ok = true;
   }
-  update(dt, cam) {
+  // is there a roof over this spot (above head height)?
+  covered(x, y, z) { for (let i = 0; i < ROOFS.length; i++) { const r = ROOFS[i]; if (r.y > y + 1.9 && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) return true; } return false; }
+  update(dt, cam, pl) {
     dt = Math.min(dt, 0.05); this.t += dt;
     const t = this.t, wd = this.windAt(cam.x, cam.z, t); this.wx = wd.x; this.wz = wd.z; this.gust = wd.gust; this.windSpeed = wd.sp;
     this.uTime.value = t; this.uWind.value.set(wd.x, wd.z);
     // the rain level follows the clock schedule, glides toward it
     this.rainTarget = this.force !== null ? this.force : rainAt();
     this.rain += (this.rainTarget - this.rain) * Math.min(1, dt * 1.2);
-    const r = this.rain < 0.01 ? 0 : this.rain;
-    this.rainMesh.visible = r > 0; if (r > 0) { const u = this.rainU; u.time.value = t; u.cam.value.copy(cam); u.vel.value.set(wd.x * 0.9, -17 - r * 4, wd.z * 0.9); u.inten.value = Math.min(1, r * 1.15); }
-    A.rainSet(r);
+    this.shT = (this.shT || 0) - dt; if (this.shT <= 0) { this.shT = 0.12; this.shTarget = (this.covered(cam.x, cam.y, cam.z) || (pl && this.covered(pl.x, pl.y, pl.z))) ? 1 : 0; }
+    this.shelter = (this.shelter || 0) + ((this.shTarget || 0) - (this.shelter || 0)) * Math.min(1, dt * 7);
+    const r = this.rain < 0.01 ? 0 : this.rain, rv = r * (1 - this.shelter);
+    this.rainMesh.visible = rv > 0.02; if (rv > 0.02) { const u = this.rainU; u.time.value = t; u.cam.value.copy(cam); u.vel.value.set(wd.x * 0.9, -17 - r * 4, wd.z * 0.9); u.inten.value = Math.min(1, rv * 1.15); }
+    A.rainSet(r * (1 - 0.8 * this.shelter));
     // ---- leaves
     const wet = 1 - 0.75 * Math.min(1, r * 1.5), dm = this.dummy;
     for (let i = 0; i < this.n; i++) {

@@ -14,6 +14,8 @@ const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _m = new THREE.Matrix
 const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
 
 // Merges lots of static meshes into ONE draw call (vertex colours) -> no lag.
+// flat overhead slabs (ceilings, roofs, awnings, canopies) recorded while the map is built: the rain stops under them (see weather.js)
+export const ROOFS = [];
 export class Batch {
   constructor() { this.list = []; }
   add(geo, x, y, z, color, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, ord = 'XYZ') {
@@ -21,6 +23,8 @@ export class Batch {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     if (g.attributes.uv) g.deleteAttribute('uv');
     g.applyMatrix4(_m);
+    { const P = g.attributes.position.array; let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9; for (let i = 0; i < P.length; i += 3) { const a = P[i], b = P[i + 1], c = P[i + 2]; if (a < x0) x0 = a; if (a > x1) x1 = a; if (b < y0) y0 = b; if (b > y1) y1 = b; if (c < z0) z0 = c; if (c > z1) z1 = c; }
+      if (y0 > 2.0 && y0 < 60 && y1 - y0 < 0.8 && x1 - x0 > 1.6 && z1 - z0 > 1.6 && (x1 - x0) * (z1 - z0) > 6) ROOFS.push({ x0, x1, z0, z1, y: y0 }); }
     const n = g.attributes.position.count;
     const arr = new Float32Array(n * 3);
     _c.set(color);
@@ -52,6 +56,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 export class World {
   constructor(theme, headless = false) {
+    ROOFS.length = 0;
     this.theme = theme;
     this.headless = headless;
     this.group = new THREE.Group();
