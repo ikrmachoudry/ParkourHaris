@@ -324,6 +324,14 @@ wss.on('connection', (ws, req) => {
         bcast(room, { t: 'fx', id: p.id, x: m.x, y: m.y, z: m.z, dx: m.dx, dz: m.dz, l: m.l, w: m.w & 3 }, p.id);
         break;
       }
+      case 'gr': { // a grenade: k 0 = he starts the throw (everybody plays the animation), k 1 = it leaves his hand (everybody simulates the same flight and blast)
+        if (!room || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastGr || 0) < 80) return; p.lastGr = t;
+        if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0 }, p.id); break; }
+        if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.vx, -40, 40) || !num(m.vy, -40, 40) || !num(m.vz, -40, 40)) return;
+        bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz }, p.id);
+        break;
+      }
       case 'ph': { // host -> a player: an AI pedestrian punched him
         if (!room || room.phase !== 'race' || room.hostId !== p.id) return;
         const q = room.players.get(m.to); if (!q || !q.ws || !num(m.nx, -1.01, 1.01) || !num(m.nz, -1.01, 1.01)) return;

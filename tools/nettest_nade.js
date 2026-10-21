@@ -1,0 +1,27 @@
+import WebSocket from 'ws';
+const URL = 'ws://localhost:' + (process.env.PORT || 3999) + '/ws';
+const mk = () => new Promise((res) => { const ws = new WebSocket(URL); const q = []; ws.msgs = q; ws.on('message', (d) => q.push(JSON.parse(d))); ws.on('open', () => res(ws)); });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const last = (ws, t) => [...ws.msgs].reverse().find((m) => m.t === t);
+let fails = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fails++; };
+const a = await mk(), b = await mk();
+a.send(JSON.stringify({ t: 'create', name: 'A', char: 0 })); await wait(150);
+const code = last(a, 'joined').code; b.send(JSON.stringify({ t: 'join', code, name: 'B', char: 1 })); await wait(100);
+a.send(JSON.stringify({ t: 'level', level: 0 })); await wait(80); a.send(JSON.stringify({ t: 'start' })); await wait(100);
+const go = last(b, 'go'); await wait(go.t0 - Date.now() + 100);
+const idA = last(b, 'lobby').players.find((p) => p.name === 'A').id;
+a.send(JSON.stringify({ t: 's', x: 0, y: 0, z: 0, r: 0, a: 256, sp: 0, ts: Date.now(), rs: 0 }));
+b.send(JSON.stringify({ t: 's', x: 3, y: 0, z: 0, r: 0, a: 0, sp: 0, ts: Date.now(), rs: 0 })); await wait(100);
+b.send(JSON.stringify({ t: 'jack', to: idA, c: 2 })); await wait(100);
+// grenade: the throw start and the release reach everybody else (and never the sender); bad numbers are dropped
+a.msgs.length = 0; b.msgs.length = 0;
+a.send(JSON.stringify({ t: 'gr', k: 0, toss: 1 })); await wait(120);
+ok(last(b, 'gr') && last(b, 'gr').k === 0 && last(b, 'gr').toss === 1 && last(b, 'gr').id === idA, 'wind-up reaches the other player');
+ok(!last(a, 'gr'), 'the thrower does not get his own message back');
+a.send(JSON.stringify({ t: 'gr', k: 1, x: 1, y: 2, z: 3, vx: 4, vy: 5, vz: 6 })); await wait(120);
+const g = last(b, 'gr'); ok(g && g.k === 1 && g.x === 1 && g.vz === 6, 'release (position + velocity) reaches the other player');
+a.send(JSON.stringify({ t: 'gr', k: 1, x: 1, y: 2, z: 3, vx: 400, vy: 5, vz: 6 })); await wait(120);
+ok(last(b, 'gr').vx === 4, 'a silly velocity is dropped');
+a.send(JSON.stringify({ t: 'ev', k: 'gb', x: 1, z: 1 })); b.send(JSON.stringify({ t: 'ev', k: 'gb', x: 5, z: 5 })); await wait(120);
+ok(last(a, 'ev') && last(a, 'ev').k === 'gb' && last(a, 'ev').x === 5, 'a guest blast event reaches the host');
+console.log(fails ? 'FAILED' : 'NADE OK'); process.exit(fails ? 1 : 0);
