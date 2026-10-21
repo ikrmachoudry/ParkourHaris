@@ -213,7 +213,7 @@ export class SnipeScene {
       this.look.x += (s.k[0] - this.look.x) * k; this.look.y += (2.2 - this.look.y) * k; this.look.z += (s.k[1] - this.look.z) * k;
       return { px: 56.4, py: 3.1, pz: 428, lx: this.look.x, ly: this.look.y, lz: this.look.z, fov: 62 };
     }
-    if (s.st !== 'arrest' || role !== 'truck') { this.shotT = 0; return null; }   // the hill sniper and the blockers keep their own cameras for the arrest
+    if (s.st !== 'arrest' || (role !== 'truck' && role !== 'sniper')) { this.shotT = 0; return null; }   // the truck driver and the hill sniper (who cannot see the far mouth from up there) get the wide shot of the arrest; the blockers are on the spot and keep their own cameras
     this.shotT += dt; const t = s.ar, tx = t < 8 ? (this.pol[0].x + 63) / 2 : t < 12.5 ? this.px : this.pol[0].x, tz = t < 8 ? (this.pol[0].z + 455) / 2 : t < 12.5 ? this.pz : this.pol[0].z;
     this.look.x += (tx - this.look.x) * k; this.look.y += (1.4 - this.look.y) * k; this.look.z += (tz - this.look.z) * k;
     const drift = Math.min(1, this.shotT / 17);

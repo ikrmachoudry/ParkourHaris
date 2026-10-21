@@ -251,7 +251,7 @@ class Race {
   constructor(levelIdx, players, localId, o) {
     this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
     Object.assign(P, P0);
-    if (NO_TEXT) Object.assign(P, { R: 0.3, H: 1.78, G: 9.81, RUN: 4.4, JUMP: 3.7, ACC: 20, DEC: 34, AIR: 2.5, AIR_DEC: 0.4, TERM: -55 });  // real-world walking / jumping
+    if (NO_TEXT) Object.assign(P, { R: 0.3, H: 1.78, G: 15, RUN: 4.4, JUMP: 4.58, ACC: 20, DEC: 34, AIR: 2.5, AIR_DEC: 0.4, TERM: -55 });  // real-world walking / jumping
     this.multi = o.multi; this.localId = localId; this.players = players;
     this.t0 = o.t0; // multi: server ms ; single: performance.now() ms
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
