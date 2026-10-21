@@ -1139,7 +1139,7 @@ class Race {
     if (this.aimT > 0) this.aimT -= dt;
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
-    if (this.fireHeld && this.weapon === 'ak') this.fire();
+    if (this.fireHeld && (this.weapon === 'ak' || this.weapon === 'pistol')) this.fire();   // hold the fire button: AK and pistol keep firing
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
   }
   // ---- THIEF CHASE on the summit: the thief's volleys and the police pistol
@@ -1957,6 +1957,9 @@ async function boot() {
     document.querySelectorAll('#tsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.time = b.dataset.t; saveOpts(); window.applyTime(); paintT(); }; });
     document.querySelectorAll('#hsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.haze = b.dataset.h; saveOpts(); if (race) race.setFar(); paintT(); }; });
     paintT(); }
+  { const paintW = () => document.querySelectorAll('.wsel button').forEach((b) => b.classList.toggle('on', b.dataset.w === (OPT.weather || 'auto')));
+    document.querySelectorAll('.wsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.weather = b.dataset.w; saveOpts(); paintW(); }; });
+    paintW(); }
   $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
   $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits

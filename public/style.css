@@ -641,3 +641,7 @@ body.scoped #xhair, body.m-open #xhair { display: none !important; }
 body.in-race.city-mode.xh #b-auto { display: block; }
 body.m-open #b-auto, body.scoped #b-auto { display: none !important; }
 body.standalone #b-auto { top: calc(max(8px, env(safe-area-inset-top)) + 52px); }
+
+.wsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wsel button { padding: 9px 4px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font: 700 13px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
+.wsel button.on { background: #34c759; border-color: #34c759; color: #06240f; }

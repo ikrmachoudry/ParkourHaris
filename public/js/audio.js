@@ -403,7 +403,7 @@ export function rainSet(v) {   // the real rain recording, louder with the storm
   if (!ctx) return;
   if (v < 0.02) { if (rainN) { const R = rainN; rainN = null; stopLoop(R, 2); } return; }
   if (!rainN) { rainN = loopV('rain_loop', 0.0001, 1, 0); if (!rainN) return; }
-  rainN.g.gain.setTargetAtTime(0.0002 + 0.7 * v, ctx.currentTime, 0.4);
+  rainN.g.gain.setTargetAtTime(0.0002 + 0.28 * v, ctx.currentTime, 0.4);   // (the rain hiss was drowning the guns)
 }
 export function sirenTickAll() { sirenTick(sirenP); sirenTick(sirenF); }
 
@@ -432,14 +432,14 @@ export function cityAmbience(on) {
   if (!on) { if (cityAmb) { const a = cityAmb; cityAmb = null; stopLoop(a, 1.2); } return; }
   if (cityAmb) return;
   const a = loopV('city_loop', 0.0001, 1, 0); if (!a) { setTimeout(() => { if (ctx && !cityAmb && wantCity) cityAmbience(true); }, 1500); return; }
-  a.g.gain.setTargetAtTime(0.16, ctx.currentTime, 1.2); cityAmb = a;
+  a.g.gain.setTargetAtTime(0.1, ctx.currentTime, 1.2); cityAmb = a;
 }
 // the sea: waves on the shore, louder the closer you are to the coast (0..1)
 export function seaSet(v) {
   if (!ctx) return;
   if (v < 0.02) { if (seaV) { stopLoop(seaV, 1.5); seaV = null; } return; }
   if (!seaV) { seaV = loopV('sea_loop', 0.0001, 1, 0); if (!seaV) return; }
-  seaV.g.gain.setTargetAtTime(0.0002 + 0.55 * v * v, ctx.currentTime, 0.5);
+  seaV.g.gain.setTargetAtTime(0.0002 + 0.3 * v * v, ctx.currentTime, 0.5);
 }
 // swimming: the water lapping round you (a little louder while you are moving)
 export function swimSet(on, speed = 0) {

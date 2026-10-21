@@ -85,7 +85,7 @@ export class DayNight {
     if (this.water) { const u = this.water.material.uniforms; u.cA.value.copy(this.waterA).multiplyScalar(lum); u.cB.value.copy(this.waterB).multiplyScalar(lum); u.fogC.value.copy(fog); }
     for (const p of this.pools || []) { const u = p.wm.material.uniforms; u.fogC.value.copy(fog); u.skyTop.value.copy(top); u.skyHor.value.copy(sky.horizon.value); }
     // rain: the sky goes overcast and grey, the light and the view distance shrink
-    const rn = this.race && this.race.weather ? this.race.weather.rain : 0;
+    const rn = this.race && this.race.weather ? Math.max(this.race.weather.rain, this.race.weather.cover || 0) : 0;   // rain or just overcast
     if (rn > 0.005) {
       const lumD = smooth(-0.1, 0.35, sinA), gv = 0.12 + 0.5 * lumD, grey = this.tmp.setRGB(gv * 0.94, gv * 0.98, gv * 1.05), k2 = Math.min(1, rn * 1.1);
       sky.top.value.lerp(grey, k2 * 0.75); sky.horizon.value.lerp(this.tmp2.setRGB(gv * 1.08, gv * 1.1, gv * 1.12), k2 * 0.8); sky.bottom.value.lerp(grey, k2 * 0.7);

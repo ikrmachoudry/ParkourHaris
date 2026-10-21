@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import * as A from './audio.js';
 import { GT } from './gta.js';
 import { ROOFS } from './world.js';
+import { OPT } from './opts.js';
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const hash = (n) => { const s = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
@@ -30,7 +31,7 @@ export class Weather {
   // ctx: { scene, race, mobile }
   constructor({ scene, race, mobile }) {
     this.scene = scene; this.race = race; this.mobile = !!mobile;
-    this.rain = 0; this.rainTarget = 0; this.force = null; this.t = 0;
+    this.rain = 0; this.cover = 0; this.rainTarget = 0; this.force = null; this.t = 0;
     this.wx = 0; this.wz = 0; this.gust = 0; this.windSpeed = 0;
     this.uTime = { value: 0 }; this.uWind = { value: new THREE.Vector2() };   // shared with the grass shader (see gtaworld.js)
     this.windUniforms = race.world && race.world.windU ? [race.world.windU] : [];
@@ -82,8 +83,11 @@ export class Weather {
     const t = this.t, wd = this.windAt(cam.x, cam.z, t); this.wx = wd.x; this.wz = wd.z; this.gust = wd.gust; this.windSpeed = wd.sp;
     this.uTime.value = t; this.uWind.value.set(wd.x, wd.z);
     // the rain level follows the clock schedule, glides toward it
-    this.rainTarget = this.force !== null ? this.force : rainAt();
+    // (the Weather switch in the menu: Auto = the clock schedule, Clear, Cloudy = grey sky without rain, Rainy)
+    const wo = OPT.weather || 'auto';
+    this.rainTarget = this.force !== null ? this.force : wo === 'clear' || wo === 'cloudy' ? 0 : wo === 'rain' ? 0.8 : rainAt();
     this.rain += (this.rainTarget - this.rain) * Math.min(1, dt * 1.2);
+    this.cover += ((wo === 'cloudy' ? 0.6 : wo === 'clear' ? 0 : this.rainTarget) - this.cover) * Math.min(1, dt * 1.2);
     this.shT = (this.shT || 0) - dt; if (this.shT <= 0) { this.shT = 0.12; this.shTarget = (this.covered(cam.x, cam.y, cam.z) || (pl && this.covered(pl.x, pl.y, pl.z))) ? 1 : 0; }
     this.shelter = (this.shelter || 0) + ((this.shTarget || 0) - (this.shelter || 0)) * Math.min(1, dt * 7);
     const r = this.rain < 0.01 ? 0 : this.rain, rv = r * (1 - this.shelter);
