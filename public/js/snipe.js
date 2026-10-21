@@ -19,7 +19,7 @@ export const START = { thief: { x: 36, z: LANE_E, yaw: Math.PI / 2 }, truck: { x
 export const WALK = [[30, 85.6], [30, 71], [34, 64], [36.5, 60.3]];   // out of the bank door, to the driver's door
 export const ZONES = [{ x: 56.8, z: 459, r: 5.2 }, { x: 63.3, z: 459, r: 5.2 }];   // where the blockers park (two lanes)
 const THIEF_STOP_Z = 449;                           // he brakes to a halt here (just inside the far mouth)
-const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 7.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
+const BAIL_MIN = SNIPE.bail.z - 14, LATE_Z = SNIPE.bail.z + 60, ROLL_V = 5.5;   // the tanker rolls on SLOWLY (ROLL_V m/s = 27 km/h) so the sniper has time to aim and shoot
 const CRUISE = 12.5, GATE_BEFORE = 38, WAIT_MAX = 170, WALK_V = 8;   // thief's top speed (m/s, 45 km/h); he waits GATE_BEFORE m short of the red line until everybody is in position (at most WAIT_MAX s)
 const ARREST_LEN = 17, AI_SHOT_Z = SNIPE.tun.z0 - 30;
 const WRECK_Z = 436;                               // a shot tanker keeps rolling, burning, and comes to rest here, inside the tunnel
@@ -61,7 +61,7 @@ export function snipePaths(role, seat) {
   const H = SNIPE.hill, B = SNIPE.bypass, E = LANE_E;
   const toBypass = [[B[1][0], 282]];
   if (role === 'truck') return { lines: [{ pts: tr, color: '#ffd23f' }], marks: [{ x: LANE_S, z: SNIPE.bail.z, r: 8, color: '#ff3b30', glyph: '✖' }] };
-  if (role === 'sniper') return { lines: [{ pts: [...toBypass, [H[0][0], H[0][1]], ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
+  if (role === 'sniper') return { lines: [{ pts: [[SNIPE_START.x, SNIPE_START.z], [H[0][0], H[0][1]], ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
   const z = ZONES[Math.max(0, Math.min(1, blockerNo(seat)))];
   return { lines: [{ pts: [...toBypass, [B[2][0], B[2][1]], [B[3][0] + 14, B[3][1]], [z.x, z.z]], color: '#ffd23f' }], marks: [{ x: z.x, z: z.z, r: z.r, color: '#ffd23f', glyph: '◎' }] };
 }
@@ -207,7 +207,7 @@ export class SnipeDirector {
   }
   // the driver is out: the tanker rolls on without him
   bail(ai) {
-    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 5.5, ROLL_V); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
+    const tk = this.tk; tk.mode = 2; tk.v = clamp(Math.max(tk.vm, ai ? tk.v : 0), 4.5, ROLL_V); tk.bailZ = tk.z; this.say('bail', { ai: ai ? 1 : 0 });
   }
   // the sniper's bullet reached the tank: only counts after the driver is out and before the tanker is inside the tunnel
   hit(id, dmg) {

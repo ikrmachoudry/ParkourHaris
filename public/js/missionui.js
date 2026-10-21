@@ -209,13 +209,14 @@ export class MissionClient {
   todo() {
     let e = $('m-todo'); if (!e) { e = document.createElement('div'); e.id = 'm-todo'; e.style.cssText = 'position:fixed;left:50%;top:58px;transform:translateX(-50%);max-width:78vw;z-index:30;pointer-events:none;text-align:center;font:700 14px/1.25 system-ui,sans-serif;color:#ffd23f;background:rgba(0,0,0,.6);border:1px solid rgba(255,210,63,.6);border-radius:10px;padding:6px 12px;text-shadow:0 1px 2px #000;display:none'; document.body.appendChild(e); }
     const on = this.mission === 'snipe' && (this.phase === 'run' || this.phase === 'brief') && !this.finished && this.role;
-    if (!on) { if (e.style.display !== 'none') e.style.display = 'none'; return; }
+    if (!on) { this.ss.stand(false); if (e.style.display !== 'none') e.style.display = 'none'; return; }
     const R = this.race, b = R.me.body, pd = SNIPE.pad, role = this.role, st = this.ss.stage;
     const mem = (r) => { const q = (this.members || []).find((m) => snipeRole(m.seat, this.members.length) === r); return q && q.id !== R.localId ? String(this.nameOf(q.id)).toUpperCase() : ''; };
     let t = '';
     if (role === 'truck') { const sn = mem('sniper'); t = this.freeze ? 'THE TANKER IS ROLLING - WATCH' + (sn ? ' ' + sn : ' THE SNIPER') + ' SHOOT IT' : 'YOU ARE THE TRUCK DRIVER: FOLLOW THE THIEF (RED CAR) - JUMP OUT (C) AT THE RED LINE'; }
     else if (role === 'sniper') { const up = Math.hypot(b.x - pd.x, b.z - pd.z) < pd.r + 2; t = this.freeze ? 'WATCH THE FIRE' : up ? 'YOU ARE THE SNIPER: SCOPE IN AND SHOOT THE TANK WHEN IT ROLLS - BEFORE THE TUNNEL' : 'YOU ARE THE SNIPER: DRIVE ROUND THE HILL TO THE YELLOW CIRCLE'; }
     else { const z = ZONES[Math.max(0, Math.min(1, this.seat - 2))], at = Math.hypot(b.x - z.x, b.z - z.z) < z.r + 2.5; t = this.freeze ? 'HOLD YOUR PLACE' : at ? 'YOU ARE A BLOCKER: HOLD YOUR PLACE - BLOCK THE THIEF' : 'YOU ARE A BLOCKER: RACE ROUND THE HILL AND PARK IN THE YELLOW CIRCLE AT THE TUNNEL END'; }
+    this.ss.stand(role === 'sniper' && !this.freeze && Math.hypot(b.x - pd.x, b.z - pd.z) > 2.6 && this.phase === 'run');
     void st; if (e.textContent !== t) e.textContent = t; if (e.style.display !== 'block') e.style.display = 'block';
   }
   // the tanker driver is stuck (wedged, flipped, wrecked): after a few seconds it goes back onto the road behind the thief

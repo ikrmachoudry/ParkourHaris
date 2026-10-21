@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { HeroActor } from './actor.js';
 import { buildCarMesh } from './car.js';
 import { animateCityMesh, buildTrafficMesh, restoreCar } from './cityvis.js';
-import { TRUCK_IDX, ZONES } from './snipe.js';
+import { TRUCK_IDX, ZONES, SNIPE } from './snipe.js';
 import * as A from './audio.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -57,6 +57,21 @@ export class SnipeScene {
     this.lastMode = mode; void first;
   }
   // the YELLOW LINE on the road: follows the player's own route (bank -> hill pad / tunnel end) so nobody has to keep looking at the map
+  // the blue STAND HERE arrow + ring on the hill top: the exact spot the sniper has to stand on (shown until he is on it)
+  stand(on) {
+    if (!on) { if (this.standM) { this.standM.visible = false; this.standR.visible = false; } return; }
+    if (!this.standM) {
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 320; const g = cv.getContext('2d');
+      g.font = '900 92px system-ui,Arial,sans-serif'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 16; g.strokeStyle = '#000'; g.strokeText('STAND HERE', 256, 84); g.fillStyle = '#4db8ff'; g.fillText('STAND HERE', 256, 84);
+      g.beginPath(); g.moveTo(256, 312); g.lineTo(150, 156); g.lineTo(222, 156); g.lineTo(222, 118); g.lineTo(290, 118); g.lineTo(290, 156); g.lineTo(362, 156); g.closePath(); g.lineWidth = 14; g.strokeStyle = '#000'; g.stroke(); g.fillStyle = '#4db8ff'; g.fill();
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+      this.standM = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false })); this.standM.renderOrder = 21; this.standM.frustumCulled = false; this.R.scene.add(this.standM);
+      this.standR = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.5, 40), new THREE.MeshBasicMaterial({ color: '#4db8ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, fog: false })); this.standR.rotation.x = -Math.PI / 2; this.standR.frustumCulled = false; this.R.scene.add(this.standR);
+    }
+    const P = SNIPE.pad, y = this.ground(P.x, P.z), cp = this.R.camera.position, dist = Math.hypot(P.x - cp.x, P.z - cp.z), sc = clamp(dist * 0.07, 2.4, 22), tt = performance.now() / 1000;
+    this.standM.visible = this.standR.visible = true; this.standM.scale.set(sc * 1.6, sc, 1); this.standM.position.set(P.x, y + 0.9 + sc * 0.5 + Math.sin(tt * 4) * sc * 0.06, P.z);
+    this.standR.position.set(P.x, y + 0.2, P.z); this.standR.scale.setScalar(1 + 0.12 * Math.sin(tt * 5));
+  }
   showGuide(lines) {
     this.hideGuide(); const g = new THREE.Group(), W = 0.6;
     for (const ln of lines || []) {
@@ -76,7 +91,7 @@ export class SnipeScene {
   }
   hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
-    this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
+    this.stand(false); this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
     if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
     try { A.sirenMission(0); } catch { /* noop */ }
     const c = this.truck; if (c && this.tank) {
