@@ -51,6 +51,20 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
   // the straight bare slope: from the plain right up the steep north-east face
   const c2 = newCar(11, 205, 300, Math.atan2(180 - 205, 334 - 300)); c2.y = gtaH(205, 300); let t2 = 0; while (t2 < 12) { stepCar(c2, 1 / 60, { gas: 1, steer: 0 }, tr, [], t2); t2 += 1 / 60; }
   ok(Number.isFinite(c2.x), 'a car on the bare hillside stays sane (y ' + c2.y.toFixed(1) + ')'); }
+// FIRE ESCAPES: some buildings have an iron stair a person can walk up to a roof (parapet round it, open only at the stair)
+{ const { stairPlan, gtaBuildings } = await import('../public/js/gta.js'); const CB = gtaBuildings().filter((q) => q.climb);
+  ok(CB.length >= 8 && CB.length <= 30, CB.length + ' climbable buildings in the city');
+  let reached = 0, tested = 0, onRoof = 0;
+  for (const bd of CB.slice(0, 6)) { tested++; const P = stairPlan(bd), w = newBody(); w.x = (P.flights[0].x0 + P.flights[0].x1) / 2; w.z = P.zlo - 1.2; w.y = 0; w.yaw = 0; for (let i = 0; i < 30; i++) stepBody(world, w, 1 / 60, { mx: 0, mz: 0 });
+    const way = []; P.flights.forEach((f, qi) => { const cx = (f.x0 + f.x1) / 2, ld = P.landings[qi], nf = P.flights[qi + 1], nx = nf ? (nf.x0 + nf.x1) / 2 : cx; way.push([cx, f.zE], [cx, (ld.z0 + ld.z1) / 2], [nx, (ld.z0 + ld.z1) / 2]); });
+    const last = P.landings[P.landings.length - 1]; way.push([(last.x0 + last.x1) / 2, (last.z0 + last.z1) / 2], [bd.x + P.sx * (bd.w / 2 - 3), (last.z0 + last.z1) / 2]);
+    way.unshift([(P.flights[0].x0 + P.flights[0].x1) / 2, P.zlo + 0.4]);
+    for (const [tx, tz] of way) { for (let k = 0; k < 400; k++) { const dx = tx - w.x, dz = tz - w.z, d = Math.hypot(dx, dz); if (d < 0.35) break; stepBody(world, w, 1 / 60, { mx: dx / d, mz: dz / d }); } }
+    if (w.y > P.H - 0.2) reached++; if (w.y > P.H - 0.2 && Math.abs(w.x - bd.x) < bd.w / 2 && Math.abs(w.z - bd.z) < bd.d / 2) onRoof++; }
+  ok(reached === tested, 'a person walks up the fire escape to the roof height on ' + reached + '/' + tested + ' buildings');
+  ok(onRoof === tested, 'and walks off the stair onto the roof itself (' + onRoof + '/' + tested + ')');
+  // the street side stays clear: the stair never reaches the road
+  ok(CB.every((q) => { const P = stairPlan(q); return Math.abs(P.full[0] - q.x) < q.w / 2 + 3.6 && Math.abs(P.full[1] - q.x) < q.w / 2 + 3.6; }), 'the stair fits inside its block'); }
 // no stunt ramps any more: the city street is flat
 ok(gtaH(0, -40) === 0 && gtaH(-60, -100) === 0, 'the avenues are flat (no ramps)');
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);

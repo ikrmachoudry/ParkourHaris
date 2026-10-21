@@ -256,7 +256,26 @@ export function gtaBuildings() {
     if (Math.max(Math.abs(bx), Math.abs(bz)) <= 90 || PARKS.some((p) => p[0] === bx && p[1] === bz)) continue;
     block(bx, bz, Math.max(Math.abs(bx), Math.abs(bz)) <= 150 ? 1 : 2);
   }
-  return out.filter((b) => !CUSTOM_BLOCKS.some(([cx, cz]) => Math.abs(b.x - cx) < 24 && Math.abs(b.z - cz) < 24));   // the hand-built blocks are built separately
+  const res = out.filter((b) => !CUSTOM_BLOCKS.some(([cx, cz]) => Math.abs(b.x - cx) < 24 && Math.abs(b.z - cz) < 24));   // the hand-built blocks are built separately
+  // CLIMBABLE buildings: some low / mid-rise ones get a new look (brick, parapet, rooftop gear) and an iron fire-escape stair up the street side to a roof people can walk on.
+  // (no random numbers here: the old city stays exactly as it was.) Only buildings with >= 4.8 m of free kerb on their street side qualify.
+  const nearB = (v) => BLK.reduce((a, c) => (Math.abs(c - v) < Math.abs(a - v) ? c : a)), BRICK = ['#b5654a', '#c98b5e', '#a8573f', '#c2b59b', '#8f6b55', '#d1a37a']; let k = 0;
+  for (const b of res) {
+    if (b.zone === 0 || b.h < 9 || b.h > 24) continue; const bx = nearB(b.x), sx = Math.sign(b.x - bx) || 1, face = b.x + sx * b.w / 2, slack = 23.5 - sx * (face - bx); if (slack < 4.8) continue;
+    if (k++ % 3 !== 0) continue; b.climb = sx; b.col = BRICK[Math.floor(k / 3) % BRICK.length];
+  }
+  return res;
+}
+// the fire-escape of a climbable building (b.climb = +1 east face / -1 west face): flights run along z (ramps), landings are slabs; a switchback up to the roof (top = b.h + 0.5, the roof slab)
+export function stairPlan(b) {
+  if (!b.climb) return null; const sx = b.climb, wall = b.x + sx * b.w / 2, H = b.h + 0.5, n = Math.ceil(H / 3.2), r = H / n, LF = 6, LD = 1.6, zlo = b.z - LF / 2;
+  const lane = (o0, o1) => [Math.min(wall + sx * o0, wall + sx * o1), Math.max(wall + sx * o0, wall + sx * o1)], A = lane(0.75, 2.05), Bn = lane(2.2, 3.5), full = lane(0, 3.5), flights = [], landings = [];
+  for (let i = 0; i < n; i++) {
+    const up = i % 2 === 0, ln = up ? A : Bn;   // even flights run +z in the wall lane, odd flights come back -z in the outer lane
+    flights.push({ x0: ln[0], x1: ln[1], zS: up ? zlo : zlo + LF, zE: up ? zlo + LF : zlo, yS: i * r, yE: (i + 1) * r, i });
+    landings.push(up ? { x0: full[0], x1: full[1], z0: zlo + LF, z1: zlo + LF + LD, top: (i + 1) * r } : { x0: full[0], x1: full[1], z0: zlo - LD, z1: zlo, top: (i + 1) * r });
+  }
+  return { sx, wall, H, n, r, LF, LD, zlo, flights, landings, full };
 }
 
 // parked cars (8: ids repeat so there are 4 looks) and the traffic loops (visual only)

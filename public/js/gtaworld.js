@@ -6,7 +6,7 @@ import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import { buildPort } from './portworld.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear, stairPlan } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -225,9 +225,9 @@ export function buildGta(world, th, info, seed) {
   const B = gtaBuildings();
   // ---- collision: blocks (a low kerb), buildings, the park fountains
   for (const bx of BLK) for (const bz of BLK) world.addSolid(bx - 23.5, 0, bz - 23.5, bx + 23.5, 0.2, bz + 23.5, { name: 'block' });
-  for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2, { name: 'building' });
+  for (const b of B) world.addSolid(b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.climb ? b.h + 0.5 : b.h, b.z + b.d / 2, { name: 'building' });   // (a climbable roof is walkable ON the roof slab)
   for (const [px, pz] of PARKS) world.addSolid(px - 2.85, 0.2, pz - 2.85, px + 2.85, 1.2, pz + 2.85, { name: 'fountain' });
-  roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.85, x1: px + 2.85, z0: pz - 2.85, z1: pz + 2.85, h: 1.2 }))];
+  roads.boxes = [...B.map((b) => ({ x0: b.x - b.w / 2, x1: b.x + b.w / 2, z0: b.z - b.d / 2, z1: b.z + b.d / 2, h: b.climb ? b.h + 0.5 : b.h })), ...PARKS.map(([px, pz]) => ({ x0: px - 2.85, x1: px + 2.85, z0: pz - 2.85, z1: pz + 2.85, h: 1.2 }))];
   { // landmark colliders: the repair workshop and the four houses
     const S = REPAIR.shop; world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
     for (const h of HOMES) for (const [a, b, c, d, hh] of HOME_WALLS) {   // hollow houses: real walls with door gaps (you can walk in), no solid box
@@ -248,6 +248,20 @@ export function buildGta(world, th, info, seed) {
     world.addSolid(S.x - S.w / 2, 0, S.z - S.d / 2, S.x + S.w / 2, S.h, S.z + S.d / 2, { name: 'building' }); roads.boxes.push({ x0: S.x - S.w / 2, x1: S.x + S.w / 2, z0: S.z - S.d / 2, z1: S.z + S.d / 2, h: S.h });
     for (const [dx] of AUTOS_SHOW) { world.addSolid(S.x + dx - 1.15, 0, 22.8 - 2.5, S.x + dx + 1.15, 1.6, 22.8 + 2.5, { name: 'prop' }); roads.boxes.push({ x0: S.x + dx - 1.15, x1: S.x + dx + 1.15, z0: 22.8 - 2.5, z1: 22.8 + 2.5, h: 1.6 }); }
     for (const px of [-17.5, 17.5]) { world.addSolid(S.x + px - 0.5, 0, 24, S.x + px + 0.5, 9, 25, { name: 'prop' }); roads.boxes.push({ x0: S.x + px - 0.5, x1: S.x + px + 0.5, z0: 24, z1: 25, h: 9 }); } }
+  // ---- FIRE ESCAPES: every flight is a ramp (people walk up it), every landing a thin slab, the roof gets a parapet (with a gap at the stair) and solid rooftop gear
+  const CL = B.filter((b) => b.climb);
+  for (const b of CL) {
+    const P = stairPlan(b);
+    for (const f of P.flights) { const up = f.zE > f.zS; world.ramps.push({ x0: f.x0, x1: f.x1, zN: Math.max(f.zS, f.zE), zF: Math.min(f.zS, f.zE), yN: up ? f.yE : f.yS, yF: up ? f.yS : f.yE, conv: null, ice: false, kind: 'ramp' }); }
+    for (const l of P.landings) world.addSolid(l.x0, l.top - 0.14, l.z0, l.x1, l.top, l.z1, { name: 'prop' });
+    const H = P.H, t = 0.3, hw = b.w / 2 + 0.3, hd = b.d / 2 + 0.3, gz0 = P.zlo - P.LD - 0.2, gz1 = P.zlo + P.LF + P.LD + 0.2;
+    world.addSolid(b.x - hw, H, b.z - hd, b.x + hw, H + 1, b.z - hd + t, { name: 'prop' }); world.addSolid(b.x - hw, H, b.z + hd - t, b.x + hw, H + 1, b.z + hd, { name: 'prop' });   // the two walls that run along x
+    const wx = P.sx > 0 ? [b.x - hw, b.x - hw + t] : [b.x + hw - t, b.x + hw], sx2 = P.sx > 0 ? [b.x + hw - t, b.x + hw] : [b.x - hw, b.x - hw + t];
+    world.addSolid(wx[0], H, b.z - hd, wx[1], H + 1, b.z + hd, { name: 'prop' });   // the far side (opposite the stair)
+    if (gz0 > b.z - hd) world.addSolid(sx2[0], H, b.z - hd, sx2[1], H + 1, gz0, { name: 'prop' }); if (gz1 < b.z + hd) world.addSolid(sx2[0], H, gz1, sx2[1], H + 1, b.z + hd, { name: 'prop' });   // the stair side, open only in front of the landing
+    const rx = b.x - b.w * 0.25, rz = b.z - b.d * 0.2; world.addSolid(rx - 0.8, H, rz - 0.8, rx + 0.8, H + 3, rz + 0.8, { name: 'prop' });   // water tank
+    world.addSolid(b.x + b.w * 0.25 - 0.8, H, b.z + b.d * 0.2 - 0.5, b.x + b.w * 0.25 + 0.8, H + 1, b.z + b.d * 0.2 + 0.5, { name: 'prop' });   // AC unit
+  }
   info.gta = { buildings: B, roads };
   if (world.headless) return;
 
@@ -288,7 +302,32 @@ export function buildGta(world, th, info, seed) {
       wm.add(new THREE.CylinderGeometry(1.05, 1.05, 1.5, 8), rx, ty + 2.0, rz, R() < 0.5 ? '#1e1e24' : '#2b4c7e'); wm.add(new THREE.CylinderGeometry(0.95, 1.05, 0.2, 8), rx, ty + 2.85, rz, '#d9d9d9');
       wm.add(new THREE.BoxGeometry(1.6, 1.0, 1.0), b.x + b.w * 0.25, ty + 0.5, b.z + b.d * 0.2, '#c8ccd2'); wm.add(new THREE.SphereGeometry(0.55, 6, 3, 0, Math.PI * 2, 0, 1.2), b.x + b.w * 0.1, ty + 1.2, b.z + b.d * 0.3, '#f2f2f2', 0.9, 0, 0); }
     wm.add(new THREE.BoxGeometry(b.w + 0.9, 0.4, b.d + 0.9), b.x, 3.7, b.z, ['#e63946', '#2a9d8f', '#f4a261', '#457b9d'][Math.floor(R() * 4)]);   // shop awning band
-    if (b.h > 14) { wm.add(new THREE.BoxGeometry(3, 1.6, 3), b.x + (R() - 0.5) * b.w * 0.4, b.h + 1.3, b.z + (R() - 0.5) * b.d * 0.4, '#9aa3ad'); }
+    if (b.h > 14) { const qx = b.x + (R() - 0.5) * b.w * 0.4, qz = b.z + (R() - 0.5) * b.d * 0.4; wm.add(new THREE.BoxGeometry(3, 1.6, 3), qx, b.h + 1.3, qz, '#9aa3ad'); if (b.climb) world.addSolid(qx - 1.5, b.h + 0.5, qz - 1.5, qx + 1.5, b.h + 2.1, qz + 1.5, { name: 'prop' }); }
+    if (b.climb) {   // the iron fire escape + parapet (visuals; the physics was added above)
+      const P = stairPlan(b), iron = '#2f343c', rail = '#c9a227', H = P.H, Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+      const rails = (x, z, len, y) => wm.add(Bx(0.06, 0.06, len), x, y, z, rail);
+      for (const f of P.flights) {
+        const L = Math.abs(f.zE - f.zS), rise = f.yE - f.yS, run = Math.hypot(L, rise), th = Math.atan2(rise, L), up = f.zE > f.zS, rx = up ? -th : th, cz = (f.zS + f.zE) / 2, cy = (f.yS + f.yE) / 2, w = f.x1 - f.x0, cx = (f.x0 + f.x1) / 2;
+        wm.add(Bx(w, 0.09, run), cx, cy - 0.05, cz, iron, rx);                                                          // the tread grating
+        for (const sd of [f.x0 + 0.04, f.x1 - 0.04]) { wm.add(Bx(0.08, 0.28, run), sd, cy - 0.17, cz, iron, rx); wm.add(Bx(0.05, 0.05, run), sd, cy + 0.95, cz, rail, rx); }   // stringers + hand rails
+        for (let k = 1; k < 4; k++) { const t = k / 4, zz = f.zS + (f.zE - f.zS) * t, yy = f.yS + rise * t; for (const sd of [f.x0 + 0.04, f.x1 - 0.04]) wm.add(Bx(0.05, 0.95, 0.05), sd, yy + 0.47, zz, iron); }   // posts
+        for (let k = 1; k < 9; k++) { const t = (k - 0.5) / 8, zz = f.zS + (f.zE - f.zS) * t, yy = f.yS + rise * t; wm.add(Bx(w, 0.03, 0.05), cx, yy + 0.02, zz, '#5a606b'); }   // tread lines
+      }
+      for (const l of P.landings) {
+        const cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2, w = l.x1 - l.x0, d = l.z1 - l.z0, top = l.top, last = Math.abs(top - H) < 0.01;
+        wm.add(Bx(w, 0.14, d), cx, top - 0.07 + 0.015, cz, iron);
+        const outer = P.sx > 0 ? l.x1 - 0.04 : l.x0 + 0.04, free = l.z0 > P.zlo ? l.z1 - 0.04 : l.z0 + 0.04;
+        rails(outer, cz, d, top + 0.95); wm.add(Bx(0.05, 0.95, 0.05), outer, top + 0.47, l.z0 + 0.1, iron); wm.add(Bx(0.05, 0.95, 0.05), outer, top + 0.47, l.z1 - 0.1, iron);
+        if (!last) { wm.add(Bx(w, 0.05, 0.05), cx, top + 0.95, free, rail); wm.add(Bx(0.05, 0.95, 0.05), cx, top + 0.47, free, iron); }
+        for (const px of [l.x0 + 0.05, l.x1 - 0.05]) wm.add(Bx(0.1, top, 0.1), px, top / 2, l.z0 > P.zlo ? l.z1 - 0.06 : l.z0 + 0.06, iron);   // legs to the ground
+      }
+      const hw = b.w / 2 + 0.3, hd = b.d / 2 + 0.3, t = 0.3, gz0 = P.zlo - P.LD - 0.2, gz1 = P.zlo + P.LF + P.LD + 0.2, pc = '#8d8f96';   // parapet (1 m) all round, open in front of the stair landing
+      wm.add(Bx(hw * 2, 1, t), b.x, H + 0.5, b.z - hd + t / 2, pc); wm.add(Bx(hw * 2, 1, t), b.x, H + 0.5, b.z + hd - t / 2, pc);
+      const farX = P.sx > 0 ? b.x - hw + t / 2 : b.x + hw - t / 2, nearX = P.sx > 0 ? b.x + hw - t / 2 : b.x - hw + t / 2;
+      wm.add(Bx(t, 1, hd * 2), farX, H + 0.5, b.z, pc);
+      if (gz0 > b.z - hd) wm.add(Bx(t, 1, gz0 - (b.z - hd)), nearX, H + 0.5, (gz0 + b.z - hd) / 2, pc); if (gz1 < b.z + hd) wm.add(Bx(t, 1, b.z + hd - gz1), nearX, H + 0.5, (gz1 + b.z + hd) / 2, pc);
+      wm.add(Bx(0.08, 0.5, 2.6), P.wall + P.sx * 0.05, 3.2, P.zlo + P.LF / 2 - 2.9, '#e8b020');   // a "FIRE ESCAPE" style yellow sign plate on the wall near the foot
+    }
     if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
   }
   // ---- AUTO REPAIR: workshop with roller doors, a canopy over the repair bay, tyres and drums
