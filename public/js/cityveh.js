@@ -65,6 +65,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   let u = c.vx * fx + c.vz * fz, vr = c.vx * rx + c.vz * rz;                 // forward / rightward speed
   const vl = -vr;                                                          // leftward (the model below is left-positive)
   const air = !!c.air;
+  if ((c.wet || 0) > 0.3) inp = (c.wet > 1.6 || c.sd > 0.3) ? { gas: 0, steer: 0 } : { gas: inp.gas * 0.35, steer: inp.steer, hb: inp.hb };
   const onRd = onRoad ? onRoad(c) : true;
   const mu = spec.mu * (onRd ? 1 : 0.85) * (c.slick > 0 ? 0.3 : 1);
   // ---- driver inputs
@@ -206,7 +207,11 @@ function terrain(c, dt, track, spec, geo) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   // the island edge and the sea
   const E = track.edge || TD_EDGE; if (Math.abs(c.x) > E) { c.x = Math.sign(c.x) * E; c.vx *= -0.3; } if (Math.abs(c.z) > E) { c.z = Math.sign(c.z) * E; c.vz *= -0.3; }
-  if (T(c.x + fx * 2.5, c.z + fz * 2.5) < TD_SEA && T(c.x, c.z) < TD_SEA + 0.6) { c.vx *= -0.35; c.vz *= -0.35; c.x += c.vx * dt * 3; c.z += c.vz * dt * 3; ev = ev || 'bump'; c.bump = 8; }
+  // the sea: no wall - the car drives in, slows down in the water, floats a moment (nose down, the engine is dead) and then sinks to the sea bed
+  const WY = track.waterY === undefined ? -1.2 : track.waterY, g0 = T(c.x, c.z);
+  if (WY - g0 > 0.35) { c.wet = (c.wet || 0) + dt; if (!c.sd) c.sd = 0; c.sd += dt * (0.1 + 0.3 * Math.min(1, c.wet / 5)); }
+  else if (c.wet > 0) c.wet = Math.max(0, c.wet - dt * 2);
+  if (c.wet > 0) { const k = Math.exp(-dt * (0.9 + Math.min(2.4, c.wet * 0.8))); c.vx *= k; c.vz *= k; c.yr *= Math.exp(-dt * 1.5); }
   // height: stick to the ground, leave it over a crest / ramp lip (and fly)
   const gy = T(c.x, c.z), sp = Math.hypot(c.vx, c.vz), py = c.y;
   c.gx = (T(c.x + 1.5, c.z) - T(c.x - 1.5, c.z)) / 3; c.gz = (T(c.x, c.z + 1.5) - T(c.x, c.z - 1.5)) / 3;
@@ -220,6 +225,10 @@ function terrain(c, dt, track, spec, geo) {
     if (gy < py - 0.12 - sp * 0.0025) { c.air = true; c.vy = Math.max(vygPrev, c.vyg, 0); c.y = py; }
     else { c.y = gy; const fs = c.gx * fx + c.gz * fz; c.pitch += (Math.atan(fs) - c.pitch) * Math.min(1, dt * 12); }
   }
+  if (c.wet > 0 && c.sd !== undefined) {   // floating / sinking: the body rides on the water, then settles on the bed
+    const fy = WY - 0.4 - c.sd; c.sunk = fy < gy - 0.02;
+    if (fy > gy) { c.y = fy; c.air = false; c.vy = 0; c.pitch += (-0.38 * Math.min(1, c.sd / 1.2) - c.pitch) * Math.min(1, dt * 1.6); }
+  } else if (c.sd && c.wet <= 0) { c.sd = 0; c.sunk = false; }
   c.air = c.air && c.y > gy + 1e-4;
   return ev;
 }

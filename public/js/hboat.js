@@ -32,7 +32,7 @@ function loft(stations, rowFrom, rowTo, hi) {   // a skin between two ring rows 
 function deckGeo(stations) {   // the flat top between the two gunwales
   const pos = [], idx = [], n = stations.length;
   for (let i = 0; i < n; i++) { const [x, hw, deck] = stations[i]; pos.push(x, deck, -hw, x, deck, hw); }
-  for (let i = 0; i + 1 < n; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+  for (let i = 0; i + 1 < n; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, b, c, b, d, c); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.computeVertexNormals(); return g;
 }
 function transomGeo(st0) {   // the flat stern
@@ -49,7 +49,7 @@ export function buildBoat({ paint = '#f4f6f8', detail = 'hi', hull = 'speedboat'
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: o.r ?? 0.5, metalness: o.m ?? 0.1, emissive: o.e || '#000', emissiveIntensity: o.ei || 0, transparent: !!o.t, opacity: o.t ? o.o : 1, side: o.d ? THREE.DoubleSide : THREE.FrontSide });
   const mats = {
     paint: mat(paint, { r: 0.22, m: 0.25, d: true }), anti: mat(hull === 'fishboat' ? '#7a1a1a' : hull === 'yacht' ? '#1b2a4a' : '#1a2f55', { r: 0.6, d: true }),
-    accent: mat(hull === 'speedboat' ? '#d6202e' : hull === 'fishboat' ? '#f3f1ea' : '#1c2b4a', { r: 0.35, m: 0.2, d: true }), white: mat('#f3f4f2', { r: 0.4, m: 0.1 }), deckM: mat(hull === 'yacht' ? '#b98a56' : hull === 'fishboat' ? '#8a6a45' : '#e7e8ea', { r: 0.8 }),
+    accent: mat(hull === 'speedboat' ? '#d6202e' : hull === 'fishboat' ? '#f3f1ea' : '#1c2b4a', { r: 0.35, m: 0.2, d: true }), white: mat('#f3f4f2', { r: 0.4, m: 0.1 }), deckM: mat(hull === 'yacht' ? '#8b5a2b' : hull === 'fishboat' ? '#7a5230' : '#e7e8ea', { d: true, r: 0.8 }),
     teak: mat('#a97c4f', { r: 0.75 }), dark: mat('#1d2027', { r: 0.7 }), chrome: mat('#dfe3ea', { r: 0.18, m: 0.9 }), seat: mat(hull === 'speedboat' ? '#e8e2d2' : '#d9d2c0', { r: 0.8 }), seatD: mat('#2b2f3a', { r: 0.8 }),
     glass: mat('#7fb8d6', { t: true, o: 0.55, r: 0.08, m: 0.3 }), engine: mat('#3b3f48', { r: 0.4, m: 0.6 }), rubber: mat('#111214', { r: 0.9 }), red: mat('#ff3030', { e: '#ff2020', ei: 0.9 }), green: mat('#20e060', { e: '#10d050', ei: 0.9 }), lamp: mat('#fff4cf', { e: '#fff1b0', ei: 0.8 }),
   };
@@ -134,6 +134,7 @@ export function buildBoat({ paint = '#f4f6f8', detail = 'hi', hull = 'speedboat'
     const fy = dy + 2.5;
     box(mats.white, 3.4, 0.7, 3.2, 0, fy + 0.35, 0); box(mats.glass, 0.05, 0.9, 3.1, 1.75, fy + 1.0, 0, 0, 0, -0.3); box(mats.seat, 1.2, 0.2, 2.2, -1.1, fy + 0.8, 0); box(mats.dark, 0.8, 0.5, 1.4, 0.9, fy + 0.95, 0);
     box(mats.chrome, 0.07, 1.5, 3.2, -1.7, fy + 1.5, 0); cyl(mats.chrome, 0.03, 2.6, -1.7, fy + 2.8, 0, 6); box(mats.dark, 1.1, 0.06, 0.28, -1.7, fy + 2.35, 0); cyl(mats.lamp, 0.07, 0.15, -1.7, fy + 4.2, 0, 8);
+    box(mats.deckM, L - 0.5, 0.04, W - 0.4, sx + L / 2 - 0.4, dy + 0.52, 0); box(mats.deckM, 3.2, 0.04, 3.0, 0, fy + 0.72, 0);   // wooden floors: saloon and flybridge
     // helm station in the saloon (the player sits here)
     box(mats.seatD, 0.55, 0.16, 0.55, D.seatX, D.seatTop - 0.12, D.seatR); box(mats.seatD, 0.1, 0.6, 0.55, D.seatX - 0.3, D.seatTop + 0.2, D.seatR); box(mats.dark, 0.5, 1.0, 2.2, D.seatX + 1.0, dy + 0.9, 0); { const w = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.028, 6, 16), mats.teak); w.position.set(D.seatX + 0.7, D.seatTop + 0.4, D.seatR); w.rotation.set(0, -1.1, 0); g.add(w); }
     // aft deck: a teak table and sofas, sun pads on the foredeck, a boarding platform with a ladder, an anchor

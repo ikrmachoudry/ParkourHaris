@@ -466,7 +466,7 @@ class Race {
     this.scenery.update(lt, this.camera.position);
     this.ambient.update(performance.now() / 1000, this.camera.position);
     this.particles.update(dt); this.fxP.update(dt);
-    this.hud(dt); this.hurtTick(dt);
+    this.hud(dt); this.hurtTick(dt); this.xhairTick(dt);
   }
 
   events(b) {
@@ -554,6 +554,7 @@ class Race {
           const px = st.x + rx * sd * dd + fx * al, pz = st.z + rz * sd * dd + fz * al; if (bxs.some((q) => px > q.x0 && px < q.x1 && pz > q.z0 && pz < q.z1 && q.h > 0.2 && q.h < 0.5)) found = [px, 0.35, pz]; }
         if (found) { ox = found[0]; oz = found[2]; oy = found[1]; } else { const dd = bg.w / 2 + 1.4; ox = st.x + rx * dd; oz = st.z + rz * dd; oy = (this.world.waterY === undefined ? -1.2 : this.world.waterY) - 0.5; }
       }
+      if (this.world.terrain && this.world.waterY !== undefined && this.world.terrain(ox, oz) < this.world.waterY - 0.3) oy = this.world.waterY - 0.2;   // out of a car in the sea: swim
       respawn(b, ox, oy, oz, st.yaw); b.hitCd = 0.3;
       if (pax) { /* a passenger leaving never touches the car: the driver keeps driving */ }
       else if (bail) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }          // jumped out of a moving car: it keeps rolling
@@ -647,6 +648,7 @@ class Race {
           if (near && Math.random() < 0.25) this.particles.emit(st.x + (Math.random() - 0.5) * 2, st.y + 0.9, st.z + (Math.random() - 0.5) * 2, 1, { color: '#8fd3ff', speed: 1.2, up: 1.6, life: 0.6, size: 0.12, gravity: 2 });
           if (st.garT >= 30) { st.garT = 0; st.hp = 100; hero.repair(); A.sfx.pickup(); this.particles.emit(st.x, st.y + 1, st.z, 40, { rainbow: true, speed: 4, up: 4, life: 0.8, size: 0.25 }); }
         } else st.garT = 0; }
+      if (st.sunk && st.driver === -1 && this.drive !== c) { st.sunkT = (st.sunkT || 0) + dt; if (st.sunkT > 40 && (st.x - this.me.body.x) ** 2 + (st.z - this.me.body.z) ** 2 > 40 * 40 && st.home) { st.sunkT = 0; st.wet = 0; st.sd = 0; st.sunk = false; st.x = st.home.x; st.z = st.home.z; st.yaw = st.home.yaw; st.vx = st.vz = st.speed = 0; st.pitch = 0; st.y = this.world.terrain ? this.world.terrain(st.x, st.z) : 0; st.parked = true; } } else if (!st.sunk) st.sunkT = 0;
       if ((st.wreck || (st.hp !== undefined && st.hp <= 0)) && st.driver === -1 && !st.air) { const k = Math.exp(-4 * dt); st.yr = (st.yr || 0) * k; st.vx *= k; st.vz *= k; st.speed = (st.speed || 0) * k; st.steer = 0; if (st.pitch) st.pitch *= k; if (st.roll) st.roll *= k; }   // a dead car just stops where it is: it never keeps spinning or tumbling on the road
       if (st.hp !== undefined && st.hp <= 0 && !st.wreck) {
         st.burnT = (st.burnT || 0) + dt;
@@ -671,7 +673,7 @@ class Race {
       const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
       for (let i = 0; i < 2; i++) { const e = stepCar(st, dt / 2, { gas: -0.35, steer: 0 }, this.info.track, others, Math.max(0, this.levelTime)); if (e && i === 0) { A.crashSfx(st.crash || 5); this.particles.emit(st.x, st.y + 0.8, st.z, 12, { color: '#ffd9a0', speed: 5, up: 3, life: 0.4, size: 0.2 }); st.crash = 0; } }
       const hero = c.mesh.userData.hero; if (hero && st.dmgQ && st.dmgQ.length) { for (const q of st.dmgQ) hero.dent(q.lx, q.lz, Math.min(0.3, 0.07 + q.d * 0.012)); st.dmgQ.length = 0; hero.hurtLook(st.hp); }
-      if (Math.abs(st.speed) < 0.4) { st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
+      if (Math.abs(st.speed) < 0.4 && !((st.wet || 0) > 0 && !st.sunk)) { st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
     }
   }
   updateDrive(dt, canMove) {
@@ -693,6 +695,9 @@ class Race {
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
     let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
+    if ((st.wet || 0) > 0 && !this.wetFx) { this.wetFx = true; A.sfx.splash && A.sfx.splash(0.9); this.particles.emit(st.x, (this.world.waterY || 0) + 0.3, st.z, 30, { color: '#cfeaff', speed: 5, up: 6, life: 0.8, size: 0.4, gravity: 14, spread: 1 }); this.toast && this.toast('The car is sinking - get out!'); }
+    if (!(st.wet > 0)) this.wetFx = false;
+    if ((st.sd || 0) > 1.15 && !this.paxMode) { this.toggleCar(true); st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); return; }
     if (c.mesh.userData.hero) {
       const hero = c.mesh.userData.hero;
       if (st.dmgQ && st.dmgQ.length) { for (const q of st.dmgQ) hero.dent(q.lx, q.lz, Math.min(0.3, 0.07 + q.d * 0.012)); st.dmgQ.length = 0; hero.hurtLook(st.hp); }
@@ -1186,6 +1191,18 @@ class Race {
         if (Math.abs(lz) < (st.hl || 2.3) + 0.1 && Math.abs(lx) < (st.hw || 1) + 0.1) { const zone = Math.random() < 0.6 ? 0 : 3, code = hitCode(st, px, pz, zone === 0 ? 1.2 : 0.65, zone); if (q.tai) { this.tai.hit(q.c); const ix = this.tai.cars.indexOf(q.c); if (this.multi && !this.simHost) this.evt({ k: 'cd', c: ix, d: code }); else addHit(st, code); } else addHit(st, code); this.carHitFx(code, px, pz); return true; } } }
     return false;
   }
+  // the aim circle: size follows the weapon's spread, turns red when a person is under it; the AUTO AIM button shows if the lock-on is on
+  xhairTick() {
+    const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished && w !== 'sniper', el = $('xhair'), bd = document.body;
+    if (bd.classList.contains('xh') !== show) bd.classList.toggle('xh', show);
+    const ab = $('b-auto'); if (ab) { ab.classList.toggle('on', !!OPT.autoAim); const em = ab.querySelector('em'); if (em) em.textContent = OPT.autoAim ? 'ON' : 'OFF'; }
+    if (!show || !el) return;
+    const px = Math.round(28 + W.spread * 280); if (el._px !== px) { el._px = px; el.style.width = el.style.height = px + 'px'; el.style.margin = (-px / 2) + 'px 0 0 ' + (-px / 2) + 'px'; }
+    let on = false; const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw;
+    if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
+    const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
+    el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
+  }
   fire() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
     if (OPT.ammo && this.wallet.s) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
@@ -1195,9 +1212,9 @@ class Race {
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
-    if (this.peds) { let bd = 0.2; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
+    if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly') continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
-    if (thiefTs) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
+    if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
@@ -1822,7 +1839,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
   if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
@@ -1863,6 +1880,7 @@ function closePause() {
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
+$('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
 $('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };

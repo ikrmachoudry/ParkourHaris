@@ -21,6 +21,7 @@
 <button id="b-full" aria-label="Fullscreen"><svg class="fs-in" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="fs-out" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
 <div id="scope-zoom"><button id="sz-in" aria-label="Zoom in">+</button><span id="sz-lvl">x1.5</span><button id="sz-out" aria-label="Zoom out">&minus;</button></div>
 <button id="b-gm" aria-label="Menu" title="Settings (Esc)">&#9881;</button>
+<button id="b-auto" aria-label="Auto aim" title="Auto aim on / off (T)"><span>AUTO<br>AIM</span><em>ON</em></button>
 <div id="ios-hint" class="hidden"><div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg> &rarr; <b>Add to Home Screen</b><small>iPhone Safari does not allow websites to go full screen, but the installed icon does:</small><ol><li>Tap the <b>Share</b> button in Safari</li><li>Choose <b>Add to Home Screen</b></li><li>Open <b>Haris GTA</b> from your home screen</li></ol><div class="tap">tap anywhere to close</div></div></div>
 
 <div id="uw"></div>
@@ -31,7 +32,7 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v108</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v109</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -123,6 +124,7 @@
     <div id="hud-money" class="hidden"><b></b><i></i></div>
     <div id="hud-ammo" class="hidden"></div>
     <div id="scope"><i></i><b></b></div>
+    <div id="xhair"><u></u></div>
     <div id="shop-ui" class="hidden"><div class="shop-card"><div class="shop-head" id="shop-head">WEAPON STORE</div><div class="shop-cash" id="shop-cash"></div><div id="shop-list"></div><button id="shop-close" class="shop-x">CLOSE</button></div></div>
     <div id="act-pad">
       <button id="a-punch" title="Punch (F)" aria-label="Punch"><svg viewBox="0 0 32 32" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V13M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0v5M17.8 12.5V9a2.2 2.2 0 0 1 4.4 0v7.5c0 5-3.6 8.5-8.6 8.5h-.6c-3 0-5.2-1.5-6.7-4L5.5 17.5a2 2 0 0 1 3.4-2.1L9.8 17" /></svg><i>PUNCH</i></button>
@@ -185,6 +187,7 @@
         <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
         <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
         <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
+        <button class="qrow" data-k="autoAim"><i class="qi" style="--c:#30d158">&#9678;</i><span>Auto Aim<small>Guns lock on to people near the circle</small></span><b class="sw"></b></button>
         <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
       </div>
       <div class="sethead">TIME OF DAY</div>

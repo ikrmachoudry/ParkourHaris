@@ -621,3 +621,23 @@ body.big-map #bigmap-x, body.big-map #bigmap-zoom button { cursor: pointer !impo
 #m-role span { font: 800 12px system-ui, sans-serif; letter-spacing: .08em; color: rgba(255,255,255,.65); }
 .m-card #m-role button { margin: 0; padding: 9px 4px; font-size: 13px; background: rgba(255,255,255,.08); color: #cbb8ff; border: 2px solid #4a3a85; }
 .m-card #m-role button.on { background: linear-gradient(#34c759, #1f9d45); color: #fff; border-color: #9af0b4; }
+
+/* aim circle: always shown while a gun is held (bright green, red when a target is under it) + the auto-aim button */
+#xhair { position: fixed; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; z-index: 3; pointer-events: none; display: none; --xc: #39ff14; transition: width .12s, height .12s, margin .12s; }
+#xhair::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--xc); box-shadow: 0 0 0 2px rgba(0,0,0,.75), inset 0 0 0 2px rgba(0,0,0,.6), 0 0 10px var(--xc); }
+#xhair u { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--xc); box-shadow: 0 0 0 2px rgba(0,0,0,.8); }
+#xhair.hit { --xc: #ff2d2d; }
+#xhair.hit::before { animation: xhp .35s ease-in-out infinite alternate; }
+#xhair.rel { --xc: #ffd23f; }
+@keyframes xhp { from { transform: scale(1); } to { transform: scale(.82); } }
+body.xh #xhair { display: block; }
+body.scoped #xhair, body.m-open #xhair { display: none !important; }
+#b-auto { display: none; position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 104px); right: max(8px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: rgba(20,14,50,.55); color: #fff; font-size: 8px; font-weight: 900; line-height: 1; z-index: 60; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; text-align: center; }
+#b-auto span { display: block; letter-spacing: .3px; }
+#b-auto em { display: block; font-style: normal; font-size: 10px; margin-top: 1px; color: #ff6b6b; }
+#b-auto.on { border-color: #39ff14; background: rgba(20,90,30,.6); }
+#b-auto.on em { color: #39ff14; }
+#b-auto:active { transform: scale(.92); }
+body.in-race.city-mode.xh #b-auto { display: block; }
+body.m-open #b-auto, body.scoped #b-auto { display: none !important; }
+body.standalone #b-auto { top: calc(max(8px, env(safe-area-inset-top)) + 52px); }
