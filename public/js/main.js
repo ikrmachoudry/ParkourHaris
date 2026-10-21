@@ -10,7 +10,7 @@ import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { makeHero } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
-import { setCityCamera, charCar, restoreCar } from './cityvis.js';
+import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
 import { flashPolice } from './hcar.js';
 import { Wanted } from './wanted.js';
 import { CopGhosts, copSnapshot } from './copnet.js';
@@ -58,7 +58,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const MAXDPR = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2);
-const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5), t: 0, frames: 0, good: 0, shadows: true, warm: 3 };
+const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 760 };   // far = draw distance (m) of the city
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
@@ -77,15 +77,16 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
     Q.good = 0;
     if (Q.dpr > 0.7) { Q.dpr = Math.max(0.7, Q.dpr - 0.2); resize(); }
     else if (Q.shadows && fps < 30) { Q.shadows = false; if (race) race.setShadows(false); }
+    else if (Q.far > 240) { Q.far = Math.max(240, Q.far - 60); if (race) race.setFar(); }
   } else if (fps > 58) {
     if (++Q.good >= 3 && Q.dpr < Math.min(MAXDPR, 1.75)) { Q.dpr = Math.min(Math.min(MAXDPR, 1.75), Q.dpr + 0.1); Q.good = 0; resize(); }
   } else Q.good = 0;
 }
 try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
-if (Q.low) { Q.dpr = 0.75; Q.shadows = false; }
+if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = 0.75; Q.shadows = false; } else { Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
-  if (race) race.setShadows(Q.shadows);
+  if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 380 : 760; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
+  if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -260,7 +261,7 @@ class Race {
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
-    scene.background = new THREE.Color(v.fog); scene.fog = new THREE.Fog(v.fog, v.fogNear, v.fogFar);
+    scene.background = new THREE.Color(v.fog); scene.fog = new THREE.Fog(v.fog, v.fogNear, v.fogFar); this.fogFarBase = v.fogFar; this.fogNearBase = v.fogNear; this.setFar();
     scene.environment = envTex; scene.environmentIntensity = v.env;
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1800);
 
@@ -586,6 +587,17 @@ class Race {
       this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI;
       this.toast(CAR_SPECS[c.st.id].name.toUpperCase() + '!  ' + (IS_TOUCH ? 'use the joystick to drive, tap the door to get out' : 'W/S drive • A/D steer • C get out'));
     }
+  }
+  // draw distance: the fog closes in just before it and the far parts of the city (map chunks, cars) are not drawn at all
+  setFar() {
+    const f = Q.far; CULL.far = Math.min(280, f * 0.7); if (!this.meta.city) return;
+    this.scene.fog.far = Math.min(this.fogFarBase || 950, f * 0.96); this.scene.fog.near = Math.min(this.fogNearBase || 180, f * 0.3);
+    if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
+    this.cullT = 0;
+  }
+  cullFar(dt) {
+    this.cullT = (this.cullT || 0) - dt; if (this.cullT > 0 || !this.world.chunks) return; this.cullT = 0.25;
+    const p = this.camera.position, f = Q.far; for (const c of this.world.chunks) { const dx = c.x - p.x, dz = c.z - p.z, R = f + c.r; c.m.visible = dx * dx + dz * dz < R * R; }
   }
   // 0..1: how close the coast is (the waves get louder); 1 when you are on the water
   seaProx(x, z) {
@@ -1481,7 +1493,7 @@ class Race {
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
-    const t = this.camTarget;
+    const t = this.camTarget; this.cullFar(this.lastDt || 0.016);
     this.sun.position.set(t.x + this.sunDir.x, t.y + this.sunDir.y, t.z + this.sunDir.z); this.sun.target.position.copy(t);
     if (this.dn) {
       if (this.weather) this.weather.update(this.lastDt || 0.016, this.camera.position);
@@ -1966,7 +1978,7 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
-window.__ph = { A, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

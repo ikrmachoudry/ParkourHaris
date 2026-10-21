@@ -323,9 +323,9 @@ export function buildScenery(scene, key, info, world) {
     }
   }
 
-  const m1 = main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }));
-  if (m1) { m1.castShadow = false; m1.receiveShadow = false; group.add(m1); }
-  const m2 = glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
+  const m1 = main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }), 60);
+  if (m1) group.add(m1);
+  const m2 = glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), 60);
   if (m2) group.add(m2);
 
   if (key !== 'jungle' && key !== 'quest' && key !== 'arena' && key !== 'hunt' && key !== 'gta') {

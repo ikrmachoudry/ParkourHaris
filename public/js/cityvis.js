@@ -14,6 +14,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const camPos = new THREE.Vector3(1e6, 0, 0);
 export const setCityCamera = (p) => camPos.copy(p);
+export const CULL = { far: 280 };   // vehicles further than this (m) from the camera are not drawn at all (fog hides them anyway); set by the quality level
+export const farCar = (x, z) => { const dx = x - camPos.x, dz = z - camPos.z; return dx * dx + dz * dz > CULL.far * CULL.far; };
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 let blobTex = null;
@@ -23,28 +25,38 @@ function blob() {
 }
 
 // freeze a finished hero car (doors shut, wheels at rest) into a handful of merged meshes: far-away cars cost ~11 draw calls instead of ~70
-function bakeCar(root) {
+function bakeCar(root, keep = []) {
   root.updateMatrixWorld(true);
-  const groups = new Map();
+  const groups = new Map(), flat = { metal: [], matte: [], mid: [] };   // flat: plain opaque parts of every colour, merged into ONE vertex-coloured mesh (far cars cost ~5 draw calls instead of ~13)
   root.traverse((o) => {
     if (!o.isMesh) return; const m = o.material;
+    let geo = o.geometry.clone(); if (geo.index) geo = geo.toNonIndexed(); geo.applyMatrix4(o.matrixWorld);
+    if ((m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) && !m.transparent && !(m.emissive && m.emissive.getHex() !== 0) && !keep.includes(m) && !m.map) {
+      for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
+      if (!geo.attributes.normal) geo.computeVertexNormals();
+      const n = geo.attributes.position.count, arr = new Float32Array(n * 3), src = m.vertexColors ? geo.attributes.color : null;
+      for (let i = 0; i < n; i++) { const k = i * 3; arr[k] = m.color.r * (src ? src.getX(i) : 1); arr[k + 1] = m.color.g * (src ? src.getY(i) : 1); arr[k + 2] = m.color.b * (src ? src.getZ(i) : 1); }
+      if (m.vertexColors && !src) { /* no colours stored: plain material colour */ }
+      geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); flat[m.metalness >= 0.5 ? 'metal' : m.roughness >= 0.7 ? 'matte' : 'mid'].push(geo); return;
+    }
     const key = [m.type, m.color ? m.color.getHex() : 0, m.opacity, m.side, m.emissiveIntensity, m.transparent].join('|');
-    let g = groups.get(key); if (!g) { g = { m, geos: [] }; groups.set(key, g); }
-    let geo = o.geometry.clone(); if (geo.index) geo = geo.toNonIndexed(); geo.applyMatrix4(o.matrixWorld); g.geos.push(geo);
+    let g = groups.get(key); if (!g) { g = { m, geos: [] }; groups.set(key, g); } g.geos.push(geo);
   });
   const out = new THREE.Group();
   for (const g of groups.values()) {
     const geo = mergeGeometries(g.geos, false); if (!geo) continue;
     const mesh = new THREE.Mesh(geo, g.m); mesh.castShadow = true; mesh.receiveShadow = !g.m.transparent; if (g.m.transparent) mesh.renderOrder = 5; out.add(mesh);
   }
+  for (const k of ['metal', 'matte', 'mid']) if (flat[k].length) { const geo = mergeGeometries(flat[k], false); if (geo) { const mesh = new THREE.Mesh(geo, FLAT_MATS[k]); mesh.castShadow = true; mesh.receiveShadow = true; out.add(mesh); } }
   return out;
 }
+const FLAT_MATS = { metal: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.85 }), matte: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }), mid: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.15 }) };
 
 // a motorbike: same shape of userData as a car, plus bike:true (the rider straddles it and it leans into turns)
 function buildBikeMesh(spec, lo, bakedOnly) {
   const K = BIKE_KINDS[spec.kind], opts = { kind: spec.kind, paint: spec.paint };
   const full = bakedOnly ? null : buildHeroBike({ ...opts, detail: lo ? 'lo' : 'hi' });
-  const baked = bakeCar(buildHeroBike({ ...opts, detail: 'lo' }).group);
+  const bkB = buildHeroBike({ ...opts, detail: 'lo' }), baked = bakeCar(bkB.group, [(bkB.mats || {}).paint]);
   const g = new THREE.Group(), rot = new THREE.Group();
   rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -62,7 +74,7 @@ const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTrac
 function buildRickMesh(spec, lo, bakedOnly) {
   const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];
   const full = bakedOnly ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
-  const bk = build({ paint: spec.paint, detail: 'lo' }), baked = bakeCar(bk.group);
+  const bk = build({ paint: spec.paint, detail: 'lo' }), baked = bakeCar(bk.group, [(bk.mats || {}).paint]);
   const g = new THREE.Group(), rot = new THREE.Group();
   rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(RICK.L * 1.25, RICK.w * 2.6), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -83,7 +95,7 @@ export function buildCityMesh(id, lo = false, bakedOnly = false) {
   const loCar = (lo || bakedOnly) ? buildHeroCar({ ...opts, detail: 'lo' }) : null;       // cheap copy for distance
   const car = loCar && (lo || bakedOnly) ? loCar : buildHeroCar({ ...opts, detail: 'hi' });
   const g = new THREE.Group(), tilt = new THREE.Group(), rot = new THREE.Group();
-  const baked = bakeCar((loCar || buildHeroCar({ ...opts, detail: 'lo' })).group);   // before it is parented: positions stay in car space
+  const bkC = loCar || buildHeroCar({ ...opts, detail: 'lo' }), baked = bakeCar(bkC.group, [(bkC.mats || {}).paint]);   // before it is parented: positions stay in car space
   rot.rotation.y = -Math.PI / 2; if (bakedOnly) rot.add(baked); else rot.add(car.group, baked); g.add(rot); baked.visible = bakedOnly;   // car space +x (nose) -> world forward (+z of the outer group)
   void tilt;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(sp.L * 1.25, sp.w * 3.1), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -101,6 +113,7 @@ export function buildCityMesh(id, lo = false, bakedOnly = false) {
 export function animateCityMesh(mesh, st, dt) {
   const u = mesh.userData, car = u.hero, spec = u.spec;
   const sag = (st.dmg || u.dmKey) ? syncDamage(mesh, st) : null;   // bullet holes, cracked glass, flat tyres
+  if (st.driver === -1 && farCar(mesh.position.x, mesh.position.z)) { if (mesh.visible) { mesh.visible = false; u.farHid = true; } return; } if (u.farHid) { mesh.visible = true; u.farHid = false; }
   { // level of detail: the full animated car near the camera or when somebody is inside, the merged baked copy far away
     const dx = mesh.position.x - camPos.x, dz = mesh.position.z - camPos.z, d2 = dx * dx + dz * dz;
     const near = !u.bakedOnly && (st.driver !== -1 || d2 < (u.near ? 26 * 26 : 19 * 19));

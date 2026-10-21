@@ -33,11 +33,18 @@ export class Batch {
     if (g.attributes.uv) g.deleteAttribute('uv');
     this.list.push(g);
   }
-  build(material) {
+  build(material, cell = 0, cast = false, recv = false) {
     if (!this.list.length) return null;
-    const g = mergeGeometries(this.list, false);
-    this.list.length = 0;
-    return new THREE.Mesh(g, material);
+    if (!cell) { const g = mergeGeometries(this.list, false); this.list.length = 0; return new THREE.Mesh(g, material); }
+    // spatial chunks: one mesh per square of the map, so the camera skips (frustum culling, shadow pass too) everything that is not in view
+    const cells = new Map();
+    for (const g of this.list) {
+      g.computeBoundingBox(); const b = g.boundingBox, cx = Math.floor((b.min.x + b.max.x) / 2 / cell), cz = Math.floor((b.min.z + b.max.z) / 2 / cell), k = cx + ',' + cz;
+      let c = cells.get(k); if (!c) { c = []; cells.set(k, c); } c.push(g);
+    }
+    const grp = new THREE.Group(); grp.userData.chunks = [];
+    for (const gs of cells.values()) { const m = new THREE.Mesh(mergeGeometries(gs, false), material); m.castShadow = cast; m.receiveShadow = recv; m.geometry.computeBoundingSphere(); const bs = m.geometry.boundingSphere; grp.userData.chunks.push({ m, x: bs.center.x, z: bs.center.z, r: bs.radius }); grp.add(m); }
+    this.list.length = 0; return grp;
   }
 }
 
@@ -791,10 +798,11 @@ export class World {
 
   finalize() {
     if (this.headless) return;
-    const m1 = this.main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.02 }));
-    if (m1) { m1.castShadow = true; m1.receiveShadow = true; this.group.add(m1); }
-    const m2 = this.glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
+    const m1 = this.main.build(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.02 }), 60, true, true);
+    if (m1) this.group.add(m1);
+    const m2 = this.glow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), 60);
     if (m2) this.group.add(m2);
+    this.chunks = [...(m1 ? m1.userData.chunks : []), ...(m2 ? m2.userData.chunks : [])];   // distance culling (see Race.cullFar)
   }
 
   // ---------------------------------------------------------------- collision queries used by physics.js
