@@ -51,7 +51,7 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
 const SAMPLES = ['u_grunt', 'u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
   // vehicles + world (real recordings, see tools/build_audio.sh)
-  'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
+  'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_tractor', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
   'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
   'spl_big0', 'spl_big1', 'spl_med0', 'spl_med1', 'spl_sm0', 'spl_sm1', 'spl_sm2', 'spl_sm3', 'water_in', 'water_out', 'sea_loop', 'lap_loop', 'rain_loop', 'city_loop',
   'ui_click', 'ui_select', 'ui_back', 'ui_tick', 'ui_ok', 'ui_ok2', 'ui_open', 'ui_warn', 'ui_bong', 'pickup', 'cash', 'respawn', 'bouncepad', 'noammo', 'boom0', 'boom1', 'boom2', 'win', 'fin', 'door_o', 'door_c', 'latch'];
@@ -283,7 +283,7 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   bikeC: { a: 'eng_moto', ra: [0.62, 2.1], b: 'eng_v8', rb: [0.7, 1.7], gb: [0.25, 0.35], lp: [500, 3000], gain: 0.62, chop: [6, 0.28] },
   bikeD: { a: 'eng_moto', ra: [1.1, 3.5], b: 'eng_car', rb: [2.0, 4.4], gb: [0, 0.35], lp: [1500, 7000], gain: 0.55, chop: [18, 0.15] },
   rick:  { a: 'eng_moto', ra: [0.85, 2.4], b: 'eng_boat', rb: [1.2, 3.0], gb: [0.2, 0.3], lp: [900, 3800], gain: 0.62, chop: [24, 0.38] },
-  tractor: { a: 'eng_diesel', ra: [0.9, 1.7], b: 'eng_diesel', rb: [1.6, 2.6], gb: [0, 0.2], lp: [450, 1700], gain: 0.8, chop: [7, 0.3] },
+  tractor: { a: 'eng_tractor', ra: [0.82, 1.5], b: 'eng_tractor', rb: [1.25, 2.1], gb: [0, 0.22], lp: [700, 3400], gain: 0.95 },   // the real small-tractor recording (4 s seamless loop)
   truck: { a: 'eng_diesel', ra: [0.9, 2.2], b: 'eng_v8', rb: [0.6, 1.5], gb: [0.1, 0.3], lp: [450, 2200], gain: 0.8, chop: [5, 0.14] },
   bus:   { a: 'eng_diesel', ra: [0.95, 2.4], b: 'eng_v8', rb: [0.6, 1.6], gb: [0.2, 0.3], lp: [500, 2500], gain: 0.8, chop: [4, 0.1] },
   speedboat: { a: 'eng_boat', ra: [1.0, 3.5], b: 'eng_v8', rb: [0.9, 2.9], gb: [0.15, 0.55], lp: [1000, 6500], gain: 0.62, boat: 1.0 },
