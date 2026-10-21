@@ -46,13 +46,13 @@ export class MissionHub {
   startThief() {
     if (!(this.dir instanceof ThiefDirector)) this.dir = new ThiefDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why) => this.thiefEnd(ok, why) });
     this.dir.start(this.members); let last = Date.now();
-    this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_th', ...this.dir.snap() }); } }, 100);
+    this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (typeof globalThis.__phHold === 'function' && globalThis.__phHold()) return; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_th', ...this.dir.snap() }); } }, 100);
   }
   // ---- SNIPE THE TRUCK: the same idea, another director
   startSnipe() {
     this.dir = new SnipeDirector({ getP: (id) => this.getP(id), onEv: (k, extra) => this.emit({ t: 'm_ev', k, d: this.dir ? Math.round(this.dir.dmin) : 0, ...(extra && typeof extra === 'object' ? extra : {}) }), onEnd: (ok, why, who) => this.thiefEnd(ok, why, who) });
     this.dir.start(this.members, this.solo); let last = Date.now();
-    this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_sn', ...this.dir.snap() }); } }, 100);
+    this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (typeof globalThis.__phHold === 'function' && globalThis.__phHold()) return; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_sn', ...this.dir.snap() }); } }, 100);
   }
   thiefEnd(ok, why, who) {
     if (this.phase !== 'brief' && this.phase !== 'run') return;

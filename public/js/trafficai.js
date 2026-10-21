@@ -68,7 +68,7 @@ export class TrafficAI {
       }
       c.tau += dt * c.v / L.sp;
       const p = trafficPos(L, c.k, c.tau); st.x = p.x; st.z = p.z; st.yaw = p.yaw; const k = L.sp ? c.v / L.sp : 0; st.vx = p.vx * k; st.vz = p.vz * k; st.speed = c.v;
-      if (c.m) { c.m.visible = c.vis && !farCar(p.x, p.z); c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
+      if (c.m) { if (c.m.userData.drv) c.m.userData.drv.visible = c.mode === 'drive'; c.m.visible = c.vis && !farCar(p.x, p.z); c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
     }
   }
   // ---- multiplayer stream. entry: [tau, v, mode, vis]
@@ -82,7 +82,7 @@ export class TrafficAI {
     }
     if (c.mode !== 'gone') c.tau += dt * c.v / L.sp;
     const st = c.st, p = trafficPos(L, c.k, c.tau); st.x = c.mode === 'gone' ? 1e5 : p.x; st.z = c.mode === 'gone' ? 1e5 : p.z; st.yaw = p.yaw; const k = L.sp ? c.v / L.sp : 0; st.vx = p.vx * k; st.vz = p.vz * k; st.speed = c.v;
-    if (c.m) { c.m.visible = c.vis && c.mode !== 'gone' && !farCar(p.x, p.z); c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
+    if (c.m) { if (c.m.userData.drv) c.m.userData.drv.visible = c.mode === 'drive'; c.m.visible = c.vis && c.mode !== 'gone' && !farCar(p.x, p.z); c.m.position.set(p.x, 0, p.z); c.m.rotation.y = p.yaw; if (c.mode === 'struggle') { c.m.position.x += Math.sin(t * 38) * 0.04; c.m.rotation.z = Math.sin(t * 31) * 0.012; } else c.m.rotation.z = 0; if (c.st.dmg || c.m.userData.dmKey) { const sg = syncDamage(c.m, c.st); if (sg) applySag(c.m, sg); } }
   }
   // the traffic car a person on foot can jack right now: stopped (or crawling) and next to him
   nearestJack(x, z) {

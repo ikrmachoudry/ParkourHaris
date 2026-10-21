@@ -9,7 +9,7 @@
 //  Empty blocker places are filled by AI police cars.
 //  stages:  rob (he runs out of the bank into his car) -> chase -> arrest (police arrive, he is taken away) -> done.   truck modes: 0 driven by a player, 1 driven by the AI,
 //  2 rolling on its own, 3 exploding, 4 burnt wreck, 5 stopped in the tunnel
-import { GT, SNIPE, SNIPE_START, BANK } from './gta.js';
+import { GT, SNIPE, SNIPE_START, SNIPE_ACCESS, BANK } from './gta.js';
 
 const hyp = Math.hypot, STEP = 1.5;
 export const TRUCK_IDX = 29;                       // the cargo truck (gtaCars index) that becomes the tanker
@@ -61,7 +61,7 @@ export function snipePaths(role, seat) {
   const H = SNIPE.hill, B = SNIPE.bypass, E = LANE_E;
   const toBypass = [[B[1][0], 282]];
   if (role === 'truck') return { lines: [{ pts: tr, color: '#ffd23f' }], marks: [{ x: LANE_S, z: SNIPE.bail.z, r: 8, color: '#ff3b30', glyph: '✖' }] };
-  if (role === 'sniper') return { lines: [{ pts: [[SNIPE_START.x, SNIPE_START.z], [H[0][0], H[0][1]], ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
+  if (role === 'sniper') return { lines: [{ pts: [...SNIPE_ACCESS.map((p) => [p[0], p[1]]), ...H.slice(1).map((p) => [p[0], p[1]])], color: '#ffd23f' }], marks: [{ x: SNIPE.pad.x, z: SNIPE.pad.z, r: SNIPE.pad.r, color: '#ffd23f', glyph: '◎' }] };
   const z = ZONES[Math.max(0, Math.min(1, blockerNo(seat)))];
   return { lines: [{ pts: [...toBypass, [B[2][0], B[2][1]], [B[3][0] + 14, B[3][1]], [z.x, z.z]], color: '#ffd23f' }], marks: [{ x: z.x, z: z.z, r: z.r, color: '#ffd23f', glyph: '◎' }] };
 }
@@ -124,7 +124,8 @@ export class SnipeDirector {
     if (this.ended) return;
     if (this.sniperId < 0 && tk.mode === 2 && this.stage !== 'rob' && tk.z >= AI_SHOT_Z) this.hit(-1, 1);   // the AI sniper fires just before the tunnel
     // ---- the end of the chase
-    if (this.stage === 'chase' && this.stopped && this.truckDown) { this.stage = 'arrest'; this.st = 0; this.ar = 0; this.say('police'); this.onEv('arrest'); }
+    if (this.stage === 'chase' && this.stopped && this.truckDown && this.tk.mode === 4 && this.tk.v < 0.4) this.settle = (this.settle || 0) + dt; else if (this.tk.mode !== 4) this.settle = 0;
+    if (this.stage === 'chase' && this.stopped && this.truckDown && (this.settle || 0) > 3.5) { this.stage = 'arrest'; this.st = 0; this.ar = 0; this.say('police'); this.onEv('arrest'); }
     if (this.stage === 'arrest') this.arrest(dt);
   }
   // where is the route position s (before the start it runs straight back along the avenue)?

@@ -23,13 +23,15 @@ export const mtRoad = (u) => { const M = GT.MT, r = M.R + (M.Rt - M.R) * u, th =
 // SNIPE THE TRUCK: a new road runs south from the city (the x = 60 avenue) straight through a ridge by a concrete TUNNEL. A bypass loops round the east end of the ridge to the far mouth
 // (the blockers use it) and a hill road climbs to the sniper pad on the hill north-east of the tunnel (clear view of the road before the tunnel).
 // where the sniper's car waits: far out in open country, a long cross-country drive (through boulders and trees) to the foot of the hill road at (150, 326)
-export const SNIPE_START = { x: 300, z: 258, yaw: Math.atan2(150 - 300, 326 - 258) };
+export const SNIPE_ACCESS = [[290, 262], [220, 294], [150, 326]];   // the road the sniper's car stands on: out in the open country, it runs west to the foot of the hill road
+export const SNIPE_START = { x: 290, z: 262, yaw: Math.atan2(220 - 290, 294 - 262) };
 export const SNIPE = {
   road: [[60, 240], [60, 482]],                                            // the new road through the tunnel (x = 60, driving south)
   tun: { x: 60, z0: 414, z1: 452, half: 8, h: 6.8 },                       // the tunnel (inner half width, inner height)
   ridge: { z: 433, sz: 31, x0: -70, x1: 130, h: 22 },                      // the ridge the tunnel goes through
   bypass: [[120, 240], [150, 282], [150, 468], [60, 468]],                 // from the city (the x = 120 avenue) round the east end of the ridge to the far mouth
   hill: [[150, 326, 0], [158, 340, 4], [167, 352, 9], [181, 358, 14], [191, 346, 17], [186, 334, 18], [180, 334, 18]],   // [x, z, road height]: the sniper's road
+  stand: { x: 185.5, z: 337, r: 1.6 },                                   // the small blue circle on the side of the hilltop: where the sniper stands
   pad: { x: 180, z: 334, y: 18, r: 9 },                                    // the circled sniping area
   bail: { z: 250 },                                                        // the red line: the truck driver pulls out here
   lane: 63.25,                                                             // the south-bound lane of the new road (left-hand traffic)
@@ -44,7 +46,8 @@ function nearPoly(x, z, pts) {   // distance to a polyline and the road height t
 }
 // true where nothing may grow or be built: round the Snipe roads, the pad and the sniper's view of the road before the tunnel
 export function snipeClear(x, z) {
-  const S = SNIPE; if (z < 280 || x < 20 || x > 300) return false;
+  const S = SNIPE; if (x > 120 && nearPoly(x, z, SNIPE_ACCESS).d < GT.HW + 9) return true;
+  if (z < 280 || x < 20 || x > 300) return false;
   if (x > 40 && x < 165 && z > 290 && z < 418) return true;
   const hw = GT.HW + 6; return nearPoly(x, z, S.road).d < hw + 4 || nearPoly(x, z, S.bypass).d < hw || nearPoly(x, z, S.hill).d < hw || Math.hypot(x - S.pad.x, z - S.pad.z) < S.pad.r + 12;
 }
@@ -83,6 +86,7 @@ export function gtaBase(x, z) {
       const rz = (z - R.z) / R.sz; h += R.h * Math.exp(-rz * rz) * sm(R.x0 - 25, R.x0 + 35, x) * (1 - sm(R.x1 - 35, R.x1 + 25, x)) * sm(300, 330, box);
       const a = nearPoly(x, z, S.road); if (z > 290) h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 15, a.d));
       const b = nearPoly(x, z, S.bypass); h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 12, b.d));
+      const ac = nearPoly(x, z, SNIPE_ACCESS); h = mix(h, 0, 1 - sm(GT.HW + 3, GT.HW + 12, ac.d));
       const c = nearPoly(x, z, S.hill); h = mix(h, c.y, 1 - sm(GT.HW + 2.5, GT.HW + 11, c.d));
       const P = S.pad, dp = Math.hypot(x - P.x, z - P.z); if (dp < P.r + 16) h = mix(h, P.y, 1 - sm(P.r, P.r + 16, dp));
     }
@@ -192,6 +196,7 @@ export function gtaRoads() {
     const S = SNIPE;
     for (let i = 0; i + 1 < S.road.length; i++) segs.push({ ax: S.road[i][0], az: S.road[i][1], bx: S.road[i + 1][0], bz: S.road[i + 1][1], hw, y0: 0, g: 'snipe-tun' });
     for (let i = 0; i + 1 < S.bypass.length; i++) segs.push({ ax: S.bypass[i][0], az: S.bypass[i][1], bx: S.bypass[i + 1][0], bz: S.bypass[i + 1][1], hw, y0: 0, g: 'snipe-by' });
+    for (let i = 0; i + 1 < SNIPE_ACCESS.length; i++) segs.push({ ax: SNIPE_ACCESS[i][0], az: SNIPE_ACCESS[i][1], bx: SNIPE_ACCESS[i + 1][0], bz: SNIPE_ACCESS[i + 1][1], hw, y0: 0, g: 'snipe-acc' });
     for (let i = 0; i + 1 < S.hill.length; i++) segs.push({ ax: S.hill[i][0], az: S.hill[i][1], bx: S.hill[i + 1][0], bz: S.hill[i + 1][1], hw, y0: S.hill[i][2], y1: S.hill[i + 1][2], g: 'snipe-hill' });
     plazas.push({ x: S.pad.x, z: S.pad.z, r: S.pad.r + 1, y: S.pad.y, g: 'snipe-pad' });
   }

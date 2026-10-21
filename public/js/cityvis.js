@@ -154,7 +154,36 @@ export function animateCityMesh(mesh, st, dt) {
 export function buildTrafficMesh(id, paint) {
   const m = buildCityMesh(id, true, true);
   if (paint) m.userData.hero.setColor(paint);
+  if (!m.userData.bike && !m.userData.spec.boat) addDriver(m, id);
   return m;
+}
+
+// a small, cheap, STATIC driver (hips, torso, arms to the wheel, head) sitting exactly where the hero seat is: scaled so the head stays under the roof, nothing pokes out of the floor or the sides
+const _drvGeo = []; const _drvMat = {};
+function driverGeo() {
+  if (_drvGeo[0]) return _drvGeo[0];
+  const parts = [[0.4, 0.14, 0.46, 0, 0.07, 0.2, 0], [0.42, 0.52, 0.24, 0, 0.4, -0.02, 1], [0.11, 0.11, 0.5, -0.2, 0.42, 0.24, 1], [0.11, 0.11, 0.5, 0.2, 0.42, 0.24, 1], [0.15, 0.18, 0.15, 0, 0.7, -0.01, 2], [0.2, 0.22, 0.22, 0, 0.84, 0, 2]];
+  const pos = [], idx = [], grp = [[], [], []];
+  const g = new THREE.BufferGeometry(), arr = [], ind = []; let vo = 0; const starts = [];
+  const cols = [];
+  for (const [w, h, d, x, y, z, k] of parts) {
+    const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, z); const pa = b.attributes.position, ia = b.index.array;
+    for (let i = 0; i < pa.count; i++) { arr.push(pa.getX(i), pa.getY(i), pa.getZ(i)); cols.push(k); }
+    for (let i = 0; i < ia.length; i++) ind.push(ia[i] + vo); vo += pa.count; b.dispose();
+  }
+  void pos; void idx; void grp; void starts;
+  g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.setIndex(ind); g.computeVertexNormals();
+  // vertex colour: 0 trousers, 1 shirt, 2 skin
+  const C = [new THREE.Color('#2a2f3a'), null, new THREE.Color('#b98462')], out = [];
+  _drvGeo[0] = { g, cols, C, out };
+  return _drvGeo[0];
+}
+function addDriver(m, id) {
+  const u = m.userData, D = driverGeo(), shirt = ['#b8b8b0', '#3a5f8a', '#8a3a3a', '#d8c9a0', '#3f7a4f', '#7a5a9a'][id % 6], skin = ['#b98462', '#8d5a3b', '#e0ac85', '#6b4429'][id % 4];
+  const key = shirt + skin;
+  if (!_drvMat[key]) { const geo = D.g.clone(), col = []; for (const k of D.cols) { const c = k === 0 ? D.C[0] : k === 1 ? new THREE.Color(shirt) : new THREE.Color(skin); col.push(c.r, c.g, c.b); } geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); _drvMat[key] = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); }
+  const d = _drvMat[key].clone(); d.position.set(-(u.seatR || 0), u.seatY, u.seatF || 0); d.scale.setScalar((u.seatS || 1) * 0.92); d.matrixAutoUpdate = true;
+  m.add(d); u.drv = d;
 }
 
 // burnt-out wreck: paint turns to soot on both the animated and the baked copy; restoreCar brings the paint back

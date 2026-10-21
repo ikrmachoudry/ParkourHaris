@@ -63,12 +63,13 @@ export class SnipeScene {
     if (!this.cops) return; const ar = s.st === 'arrest' ? s.ar : -1, pc = this.pol[0];
     for (let i = 0; i < 2; i++) {
       const c = this.cops[i], g = c.a.group;
-      if (ar < 6.6 || ar > 14.5 || !pc) { g.visible = false; c.on = false; continue; }
+      if (ar < 6.0 || ar > 14.5 || !pc || pc.x === 0) { g.visible = false; c.on = false; continue; }
       const side = i ? 1 : -1, fy = this.pyaw, fx = Math.sin(fy), fz = Math.cos(fy);
       let tx, tz;
       if (ar < 12.5) { tx = this.px - fz * side * 1.15 - fx * 0.3; tz = this.pz + fx * side * 1.15 - fz * 0.3; }   // flanking the thief
       else { tx = pc.x - 1.6 + i * 3.2; tz = pc.z - 2.2; }                                                          // standing by the police car
       if (!c.on) { c.on = true; c.x = pc.x + (i ? 1.6 : -1.6); c.z = pc.z - 2.2; c.yaw = fy; }
+      if (Math.hypot(tx - c.x, tz - c.z) > 14) { c.x = pc.x + (i ? 1.6 : -1.6); c.z = pc.z - 2.2; }
       const dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz), step = Math.min(d, 3.2 * dt), sp = dt > 0 ? step / dt : 0;
       if (d > 0.05) { c.x += dx / d * step; c.z += dz / d * step; c.yaw = angLerp(c.yaw, d > 0.4 ? Math.atan2(dx, dz) : fy, 1 - Math.exp(-10 * dt)); }
       g.visible = true; g.position.set(c.x, this.ground(c.x, c.z), c.z); g.rotation.set(0, c.yaw, 0); g.scale.setScalar(1);
@@ -84,9 +85,9 @@ export class SnipeScene {
       g.beginPath(); g.moveTo(256, 312); g.lineTo(150, 156); g.lineTo(222, 156); g.lineTo(222, 118); g.lineTo(290, 118); g.lineTo(290, 156); g.lineTo(362, 156); g.closePath(); g.lineWidth = 14; g.strokeStyle = '#000'; g.stroke(); g.fillStyle = '#4db8ff'; g.fill();
       const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
       this.standM = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false, fog: false })); this.standM.renderOrder = 21; this.standM.frustumCulled = false; this.R.scene.add(this.standM);
-      this.standR = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.5, 40), new THREE.MeshBasicMaterial({ color: '#4db8ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, fog: false })); this.standR.rotation.x = -Math.PI / 2; this.standR.frustumCulled = false; this.R.scene.add(this.standR);
+      this.standR = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.35, 32), new THREE.MeshBasicMaterial({ color: '#4db8ff', side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, fog: false })); this.standR.rotation.x = -Math.PI / 2; this.standR.frustumCulled = false; this.R.scene.add(this.standR);
     }
-    const P = SNIPE.pad, y = this.ground(P.x, P.z), cp = this.R.camera.position, dist = Math.hypot(P.x - cp.x, P.z - cp.z), sc = clamp(dist * 0.07, 2.4, 22), tt = performance.now() / 1000;
+    const P = SNIPE.stand, y = this.ground(P.x, P.z), cp = this.R.camera.position, dist = Math.hypot(P.x - cp.x, P.z - cp.z), sc = clamp(dist * 0.07, 2.4, 22), tt = performance.now() / 1000;
     this.standM.visible = this.standR.visible = true; this.standM.scale.set(sc * 1.6, sc, 1); this.standM.position.set(P.x, y + 0.9 + sc * 0.5 + Math.sin(tt * 4) * sc * 0.06, P.z);
     this.standR.position.set(P.x, y + 0.2, P.z); this.standR.scale.setScalar(1 + 0.12 * Math.sin(tt * 5));
   }
@@ -207,7 +208,7 @@ export class SnipeScene {
     const k = 1 - Math.exp(-4 * dt);
     // the burning tanker rolls into the tunnel: everybody watches it from the tunnel road until it hits the thief's car and stops, then each player gets his own camera back
     if ((s.k[4] === 3 || s.k[4] === 4) && !this.tunDone && s.st !== 'arrest') {
-      this.tunT = (this.tunT || 0) + dt; if (s.k[4] === 4 && s.k[3] < 0.4) this.tunDone = true;
+      this.tunT = (this.tunT || 0) + dt;
       if (this.tunT > 45) this.tunDone = true;
       this.look.x += (s.k[0] - this.look.x) * k; this.look.y += (2.2 - this.look.y) * k; this.look.z += (s.k[1] - this.look.z) * k;
       return { px: 56.4, py: 3.1, pz: 428, lx: this.look.x, ly: this.look.y, lz: this.look.z, fov: 62 };
