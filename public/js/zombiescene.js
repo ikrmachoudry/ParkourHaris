@@ -15,7 +15,7 @@ export class ZombieScene {
   clear() {
     this.snaps.length = 0; for (const [, a] of this.act) { a.g.visible = false; this.free.push(a); } this.act.clear(); this.on = false; this.down = false; this.round = 0; this.left = 0; this.myHp = 100; this.showHud(false);
   }
-  dispose() { this.clear(); for (const a of this.free) { try { this.R.scene.remove(a.g); a.m.dispose(); } catch { /* noop */ } } this.free.length = 0; if (this.hud && this.hud.parentNode) this.hud.parentNode.removeChild(this.hud); this.hud = null; }
+  dispose() { this.clear(); for (const a of this.free) { try { this.R.scene.remove(a.g); a.m.dispose(); } catch { /* noop */ } } this.free.length = 0; if (this.hud && this.hud.parentNode) this.hud.parentNode.removeChild(this.hud); this.hud = null; for (const k of ['hpBar', 'vig']) { if (this[k] && this[k].parentNode) this[k].parentNode.removeChild(this[k]); this[k] = null; } }
   // ---- the HUD: round, zombies left, my health
   showHud(on) {
     if (!this.hud) {
@@ -24,13 +24,22 @@ export class ZombieScene {
       e.style.cssText = 'position:fixed;left:50%;top:92px;transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:800 15px/1.2 system-ui,sans-serif;color:#d9ffc8;background:rgba(10,24,6,.66);border:1px solid #7cff4a88;border-radius:12px;padding:6px 14px;min-width:210px;letter-spacing:.5px;text-shadow:0 1px 2px #000';
       e.innerHTML = '<div class="zh-t"></div><div style="margin-top:5px;height:9px;background:#0007;border-radius:5px;overflow:hidden"><i class="zh-b" style="display:block;height:100%;width:100%;background:#4ade80;transition:width .25s"></i></div>';
       document.body.appendChild(e); this.hud = e;
+      const hb = document.createElement('div'); hb.id = 'z-hp';   // YOUR health: a big bar at the bottom, the colour slides green -> yellow -> red as it drops
+      hb.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:30;pointer-events:none;width:min(46vw,420px);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center';
+      hb.innerHTML = '<div style="display:flex;justify-content:space-between;margin:0 4px 4px"><span>YOUR HEALTH</span><span class="zp-n">100</span></div><div style="height:16px;background:#000a;border:2px solid #fffb;border-radius:9px;overflow:hidden;box-shadow:0 2px 8px #000a"><i class="zp-b" style="display:block;height:100%;width:100%;border-radius:7px;transition:width .2s,background .2s"></i></div>';
+      document.body.appendChild(hb); this.hpBar = hb;
+      const vg = document.createElement('div'); vg.id = 'z-vig'; vg.style.cssText = 'position:fixed;inset:0;z-index:29;pointer-events:none;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center,transparent 45%,rgba(200,0,0,.75) 100%)';
+      document.body.appendChild(vg); this.vig = vg;
     }
-    this.hud.style.display = on ? 'block' : 'none';
+    this.hud.style.display = on ? 'block' : 'none'; if (this.hpBar) this.hpBar.style.display = on ? 'block' : 'none'; if (this.vig && !on) this.vig.style.opacity = 0;
   }
   updateHud() {
     if (!this.hud) return; const t = this.hud.querySelector('.zh-t'), b = this.hud.querySelector('.zh-b');
     const txt = this.state === 'brief' || !this.round ? 'ZOMBIE ATTACK - GET READY' : 'ROUND ' + this.round + '/' + ROUND_COUNT + '  -  ZOMBIES LEFT ' + this.left + (this.down ? '  -  YOU ARE DOWN' : '');
     if (t.textContent !== txt) t.textContent = txt;
+    if (this.hpBar) { const h = clamp(this.myHp, 0, 100), bar = this.hpBar.querySelector('.zp-b'), hue = Math.round(h * 1.2);   // 100 -> hue 120 (green), 0 -> hue 0 (red)
+      bar.style.width = h + '%'; bar.style.background = `linear-gradient(90deg, hsl(${Math.max(0, hue - 25)},85%,38%), hsl(${hue},90%,52%))`; this.hpBar.querySelector('.zp-n').textContent = Math.round(h);
+      this.hpBar.style.animation = h <= 25 && h > 0 ? 'zpulse .7s infinite alternate' : ''; if (this.vig) this.vig.style.opacity = h >= 60 ? 0 : String(Math.min(0.9, (60 - h) / 60)); }
     b.style.width = clamp(this.myHp, 0, 100) + '%'; b.style.background = this.myHp > 55 ? '#4ade80' : this.myHp > 25 ? '#facc15' : '#ef4444';
   }
   // ---- snapshots from the director

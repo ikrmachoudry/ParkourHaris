@@ -662,3 +662,5 @@ body.standalone #b-auto { top: calc(max(8px, env(safe-area-inset-top)) + 52px); 
 #pause .panel, #pset .panel { max-height: 94vh; max-height: 94dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 #quick3 { margin: 4px 0; }
 @media (max-height: 480px) { #quick3 .qrow small { display: none; } }
+
+@keyframes zpulse{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.06)}}
