@@ -2,6 +2,7 @@
 // the same people, like the traffic), only the ones near the camera exist as real models, and a car that hits one throws him down.
 import * as THREE from 'three';
 import { HeroActor } from './actor.js';
+import { makeHero } from './glbactor.js';
 import { GT } from './gta.js';
 
 const LOOKS = [
@@ -68,7 +69,7 @@ export class Peds {
       } else if (p.st === 'lie') { p.wait += dt; if (p.vx || p.vz) { if (this.step(p, p.vx * dt, p.vz * dt) === 2) p.vx = p.vz = 0; const k = Math.exp(-6 * dt); p.vx *= k; p.vz *= k; if (Math.abs(p.vx) + Math.abs(p.vz) < 0.05) p.vx = p.vz = 0; } if (p.temp && p.hp > 0 && p.wait > 1.3 && !p.recov) { p.recov = 1; p.lie = 0; p.y = 0; if (p.brave) { p.st = 'fight'; p.atk = 0.4; p.punchT = 0; p.pend = false; } else { p.st = 'cower'; p.timer = 0.8; p.dx = Math.sin(p.yaw + 3.14); p.dz = Math.cos(p.yaw + 3.14); } } else if (p.wait > (p.hp <= 0 ? 40 : 5)) { p.st = 'gone'; p.wait = 0; } }
       else if (p.st === 'gone') { if (p.temp) { p.dead = true; continue; } p.wait += dt; if (p.wait > (p.hp <= 0 ? 50 : 6)) { p.st = 'walk'; p.lie = 0; p.y = 0; p.hp = p.hpMax; p.punchT = 0; } }
       const dx = p.x - camPos.x, dz = p.z - camPos.z, near = p.st !== 'gone' && dx * dx + dz * dz < SHOW2;
-      if (!near) { if (p.actor) p.actor.group.visible = false; p.prevS = 0; continue; }
+      if (!near) { if (p.actor) p.actor.group.visible = false; if (p.dActor) p.dActor.group.visible = false; p.prevS = 0; continue; }
       if (!p.actor) { p.actor = new HeroActor(p.i, p.look); this.scene.add(p.actor.group); }
       const a = p.actor; a.group.visible = true;
       if (p.st === 'walk' && !pup) {      // people stop while you stand right next to them
@@ -84,12 +85,14 @@ export class Peds {
           if (onHit) onHit(p, Math.abs(c.speed)); break;
         }
       }
+      if (p.hp > 0 && p.dk) { this.endDeath(p); }
+      else if (p.hp <= 0 && (p.st === 'fly' || p.st === 'lie' || p.st === 'gone')) { if (this.deathStep(p, dt)) continue; }
       const fl = this.ground ? this.ground(p.x, p.z) : 0;   // the pavement is 0.2 m above the avenue: stand ON it, and a lying person rests on top of it, not inside it
       a.group.position.set(p.x, fl + p.y + 0.26 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0), p.z); a.group.rotation.y = p.yaw;
       a.group.rotation.x = -1.45 * (p.st === 'fly' || p.st === 'lie' ? p.lie : 0);
       a.update(dt, { speed, grounded: p.st !== 'fly', vy: p.st === 'fly' ? 3 : 0, stun: 0, seated: false, gesture, punch: p.punchT });
     }
-    for (let i = this.list.length - 1; i >= 0; i--) { const p = this.list[i]; if (p.dead) { if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.splice(i, 1); } }
+    for (let i = this.list.length - 1; i >= 0; i--) { const p = this.list[i]; if (p.dead) { if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } if (p.dActor) { this.scene.remove(p.dActor.group); p.dActor.dispose(); } this.list.splice(i, 1); } }
   }
   // nobody walks through you: if you touch a person on foot you are pushed out of him (he keeps his place)
   pushOut(b) {
@@ -158,6 +161,18 @@ export class Peds {
     this.alarm(best.x, best.z, 12, best);
     this.lastHit = best; if (onHit) onHit(best, best.hp <= 0); return true;
   }
+  // ---- a dead person plays a real death animation: the explosion's victims fly back (Flying Back Death), everybody else shot / beaten drops (Standing React Death).
+  // The animation needs the skinned model: it is made at the moment of death (the first time it is not ready yet, the old fall plays instead).
+  deathStep(p, dt) {
+    if (!p.dk) { p.dk = p.blast ? 'dFly' : 'dReact'; p.dT = (p.st === 'lie' || p.st === 'gone') ? 99 : 0; }
+    if (!p.dActor) { p.dActor = makeHero(Math.abs(p.i | 0) % 4); p.dActor.group.visible = false; this.scene.add(p.dActor.group); }
+    const A = p.dActor; if (!A.ready) return false;
+    p.dT += dt; const dur = p.dk === 'dFly' ? 3.03 : 3.5, fl = this.ground ? this.ground(p.x, p.z) : 0;
+    A.group.visible = true; A.group.position.set(p.x, fl + p.y, p.z); A.group.rotation.set(0, p.yaw, 0);
+    A.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, seated: false, zpose: p.dk, zp: Math.min(1, p.dT / dur) });
+    if (p.actor) p.actor.group.visible = false; return true;
+  }
+  endDeath(p) { p.dk = null; p.blast = false; p.dT = 0; if (p.dActor) { this.scene.remove(p.dActor.group); p.dActor.dispose(); p.dActor = null; } }
   // a grenade / explosion: everybody within r metres is hurt (less with distance), thrown away from the centre; dead ones scream and fall. Returns how many were hit.
   blast(x, z, r, dmg, onHit) {
     let n = 0;
@@ -165,7 +180,7 @@ export class Peds {
       if (p.hp <= 0 || (!this.puppet && (!p.actor || !p.actor.group.visible)) || (p.st !== 'walk' && p.st !== 'flee' && p.st !== 'cower' && p.st !== 'fight' && p.st !== 'lie')) continue;
       const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz); if (d > r) continue; const nx = d > 1e-3 ? dx / d : 1, nz = d > 1e-3 ? dz / d : 0, k = 1 - 0.55 * d / r;
       p.hp -= dmg * k; if (this.puppet) p.hold = 0.6; const dead = p.hp <= 0; n++;
-      this.voice(dead ? 'death' : 'hurt', p); p.st = 'fly'; p.vx = nx * (6 + 6 * k); p.vz = nz * (6 + 6 * k); p.vy = 5.5 * k + 1.5; p.lie = 0; p.punchT = 0; p.yaw = Math.atan2(-nx, -nz);
+      if (dead) p.blast = true; this.voice(dead ? 'death' : 'hurt', p); p.st = 'fly'; p.vx = nx * (6 + 6 * k); p.vz = nz * (6 + 6 * k); p.vy = 5.5 * k + 1.5; p.lie = 0; p.punchT = 0; p.yaw = Math.atan2(-nx, -nz);
       this.lastHit = p; if (onHit) onHit(p, dead, d);
     }
     this.alarm(x, z, 40, null, true); return n;
@@ -203,7 +218,7 @@ export class Peds {
   // An entry: [index, state, x, z, yaw, y, lie, shift, hp, punch, look*2 + brave]
   snapshot() {
     const r = (v) => Math.round(v * 100) / 100, out = [];
-    for (const p of this.list) { if (p.dead) continue; const s = ST.indexOf(p.st); out.push([p.i, s < 0 ? 6 : s, r(p.x), r(p.z), r(p.yaw), r(p.y), r(p.lie), r(p.shift || 0), r(p.hp), r(p.punchT || 0), (p.look ? LOOKS.indexOf(p.look) : 0) * 2 + (p.brave ? 1 : 0)]); }
+    for (const p of this.list) { if (p.dead) continue; const s = ST.indexOf(p.st); out.push([p.i, s < 0 ? 6 : s, r(p.x), r(p.z), r(p.yaw), r(p.y), r(p.lie), r(p.shift || 0), r(p.hp), r(p.punchT || 0), (p.look ? LOOKS.indexOf(p.look) : 0) * 2 + (p.brave ? 1 : 0), p.dk === 'dFly' ? 2 : p.dk ? 1 : 0]); }
     return out;
   }
   applySnap(d) {
@@ -219,7 +234,7 @@ export class Peds {
   puppetStep(p, dt, t) {
     const e = p.net, now = performance.now(); let speed = 0, gesture = null;
     if (!e || now - p.netAt > 1500) { if (p.temp) { p.dead = true; return { speed, gesture }; } if (p.st !== 'walk' && p.st !== 'gone') { p.st = 'walk'; p.lie = 0; p.y = 0; p.punchT = 0; } if (p.st === 'walk') this.pose(p, t - (p.shift || 0)); return { speed: p.st === 'walk' ? p.sp : 0, gesture }; }
-    const was = p.st; p.st = ST[e[1]] || 'walk'; p.shift = e[7]; p.hp = e[8]; p.punchT = e[9]; p.y += (e[5] - p.y) * Math.min(1, dt * 14); p.lie += (e[6] - p.lie) * Math.min(1, dt * 14);
+    const was = p.st; p.st = ST[e[1]] || 'walk'; p.shift = e[7]; p.hp = e[8]; p.blast = e[11] === 2; p.punchT = e[9]; p.y += (e[5] - p.y) * Math.min(1, dt * 14); p.lie += (e[6] - p.lie) * Math.min(1, dt * 14);
     if (p.st === 'walk') { this.pose(p, t - p.shift); if (p.shift !== p._sh) { p._sh = p.shift; p._still = 0.4; } p._still = (p._still || 0) - dt; speed = p._still > 0 ? 0 : p.sp; }
     else {
       const k = 1 - Math.exp(-14 * dt), ox = p.x, oz = p.z; if (was === 'walk' || Math.hypot(e[2] - p.x, e[3] - p.z) > 6) { p.x = e[2]; p.z = e[3]; } else { p.x += (e[2] - p.x) * k; p.z += (e[3] - p.z) * k; }
@@ -229,5 +244,5 @@ export class Peds {
     }
     return { speed, gesture };
   }
-  dispose() { for (const p of this.list) if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } this.list.length = 0; }
+  dispose() { for (const p of this.list) { if (p.dActor) { this.scene.remove(p.dActor.group); p.dActor.dispose(); } if (p.actor) { this.scene.remove(p.actor.group); p.actor.dispose(); } } this.list.length = 0; }
 }
