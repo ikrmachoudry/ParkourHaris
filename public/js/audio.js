@@ -51,7 +51,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['u_grunt', 'u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
+const SAMPLES = ['u_zg0', 'u_zg1', 'u_zg2', 'u_zbite', 'u_zdie', 'u_grunt', 'u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
   // vehicles + world (real recordings, see tools/build_audio.sh)
   'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_tractor', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
   'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
@@ -98,6 +98,10 @@ export const voice = {
   death(vol = 0.9) { return play('u_death', Math.min(1.2, vol * 1.1), rnd(0.93, 1.07), 0, 0, 0, 0.2) || play('death', vol, rnd(0.9, 1.1)); },
   grunt(vol = 0.9) { return play('u_grunt', Math.min(1.3, vol * 1.2), rnd(0.9, 1.1), 0, 0, 0, 0.15) || play('pain', vol, rnd(0.9, 1.1)); },   // anybody (AI people, cops) taking a hit
   pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
+  // zombies (positional: vol already includes the distance, pan -1..1, and a far one is duller)
+  zgroan(vol = 0.8, pan = 0, far = 0) { return play(pick(['u_zg0', 'u_zg1', 'u_zg2']), vol, rnd(0.88, 1.12), 0, pan, far > 0.3 ? 2400 + 3000 * (1 - far) : 0, 0.1); },
+  zbite(vol = 0.9, pan = 0) { return play('u_zbite', vol, rnd(0.92, 1.08), 0, pan, 0, 0.05); },
+  zdie(vol = 0.9, pan = 0, far = 0) { return play('u_zdie', vol, rnd(0.9, 1.1), 0, pan, far > 0.3 ? 3000 : 0, 0.1); },
 };
 
 export const sfx = {

@@ -38,6 +38,7 @@ const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fin
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const NADE_DUR = [1.12, 1.3, 1.4], NADE_REL = [0.64, 0.75, 0.643];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 const fmtT = (s) => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r < 10 ? '0' : ''}${r.toFixed(2)}`; };
@@ -226,8 +227,8 @@ class Remote {
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
     const WR = race && race.world, swimming = !!(WR && WR.terrain && WR.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR.waterY + 0.1 && WR.terrain(this.x, this.z) < WR.waterY - 0.3);
-    if (this.nadeA) { this.nadeT = (performance.now() - this.nadeA) / 1000 / (this.nadeToss ? 1.3 : 1.12); if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; } }   // somebody else is throwing a grenade (started by his 'gr' message)
-    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: !!this.nadeToss, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
+    if (this.nadeA) { this.nadeT = (performance.now() - this.nadeA) / 1000 / (NADE_DUR[this.nadeToss | 0] || 1.12); if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; } }   // somebody else is throwing a grenade (started by his 'gr' message)
+    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -437,7 +438,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: !!this.nadeToss, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -1131,7 +1132,7 @@ class Race {
       case 'cd': { const c = this.tai && this.tai.cars[m.c | 0]; if (c && Number.isInteger(m.d) && m.d >= 0 && m.d < 16384) { this.tai.hit(c); addHit(c.st, m.d); } break; }
       case 'tj': { const c = this.tai.cars[m.c | 0]; if (c && c.mode === 'drive') this.tai.begin(c); break; }
       case 'tk': { const c = this.tai.cars[m.c | 0]; if (!c || c.mode === 'gone') break; this.tai.take(c); if (!m.e) { const p = this.peds.adopt(+m.x, +m.z, +m.yaw, !!m.b, 'fly', m.l | 0); p.vx = +m.vx || 0; p.vz = +m.vz || 0; this.peds.alarm(+m.x, +m.z, 22, p, true); } break; }
-      case 'gb': { const W = WEAPONS.grenade, x = +m.x, z = +m.z; if (!Number.isFinite(x) || !Number.isFinite(z)) break; this.peds.blast(x, z, W.radius, W.dmg, quiet); for (const st of this.fireCars()) { if (st.wreck) continue; const d = Math.hypot(st.x - x, st.z - z); if (d > W.radius + 1.5) continue; if (st.hp === undefined) st.hp = 100; st.hp = Math.max(0, st.hp - 70 * (1 - d / (W.radius + 2))); } break; }   // a guest's grenade blew up: the host's pedestrians and traffic take the damage
+      case 'gb': { const W = WEAPONS.grenade, x = +m.x, z = +m.z; if (!Number.isFinite(x) || !Number.isFinite(z)) break; this.peds.blast(x, z, W.radius, W.dmg, quiet); this.nadeCars(x, z, W.radius, false); break; }   // a guest's grenade blew up: the host's pedestrians and traffic take the damage
       case 'ai': this.remoteAims.set(m.from, { x: +m.x, z: +m.z, dx: +m.dx, dz: +m.dz, at: performance.now() }); break;
     }
   }
@@ -1165,7 +1166,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
+  crime(kind, x, z) { if (this.mission && (this.mission.mission === 'snipe' || this.mission.mission === 'zombie') && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = isGun(this.weapon), empty = tj.mode === 'abandoned';
@@ -1224,8 +1225,8 @@ class Race {
   throwNade() {
     const b = this.me.body; if (this.nadeT > 0 || !this.wallet || this.wallet.nades <= 0 || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
-    this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = !!this.crouch; A.sfx.click(); this.punchCd = 0.4;
-    if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss ? 1 : 0 });   // everybody sees him wind up
+    this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
+    if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
     return true;
   }
   // one flying grenade (mine = I threw it; the others are simulated the same way from the 'gr' message, so everybody sees it fly, bounce and blow up)
@@ -1235,10 +1236,10 @@ class Race {
   }
   onGrenade(m) {   // another player winds up (k 0) or lets go (k 1)
     const r = this.remotes.get(m.id); if (!r) return;
-    if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = !!m.toss; return; }
+    if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(2, m.toss | 0)); return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
-    if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = false; }
-    this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); A.sfx.swing && A.sfx.swing(false);
+    if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; } A.sfx.swing && A.sfx.swing(false);
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
@@ -1246,17 +1247,43 @@ class Race {
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8), this.nadeMats.lever); cap.position.y = 0.085; g.add(cap);
     const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), this.nadeMats.lever); lev.position.set(0.035, 0.07, 0); lev.rotation.z = -0.5; g.add(lev); return g;
   }
+  // the TARGET SIGN: where the crosshair meets the ground (at most 38 m away); the grenade is thrown so that it lands exactly there
+  nadeTarget() {
+    const cam = this.camera, o = cam.position, dv = cam.getWorldDirection(this._nd || (this._nd = new THREE.Vector3())), b = this.me.body;
+    let last = null;
+    for (let t = 2; t <= 70; t += 0.6) {
+      const x = o.x + dv.x * t, y = o.y + dv.y * t, z = o.z + dv.z * t, g = this.world.findGround({ x, y: y + 2, z }, y + 2, false), gy = g ? g.top : 0;
+      if (Math.hypot(x - b.x, z - b.z) > 38) break;
+      last = { x, y: gy, z }; if (y <= gy + 0.05) return last;
+    }
+    if (last) return last;
+    const x = b.x + Math.sin(b.yaw) * 30, z = b.z + Math.cos(b.yaw) * 30, g = this.world.findGround({ x, y: b.y + 3, z }, b.y + 3, false); return { x, y: g ? g.top : b.y, z };
+  }
+  nadeMarkTick() {
+    const on = this.meta.city && this.weapon === 'grenade' && !this.drive && !!this.wallet && this.wallet.nades > 0 && !(this.mission && this.mission.hold);
+    if (!this.nadeMark) {
+      const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.78, 40), mat), ring2 = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.26, 24), mat);
+      for (const a of [0, Math.PI / 2]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.12), mat); bar.rotation.z = a; g.add(bar); }
+      g.add(ring, ring2); g.rotation.x = -Math.PI / 2; g.renderOrder = 999; g.visible = false; this.scene.add(g); this.nadeMark = g;
+    }
+    const mk = this.nadeMark; if (!on) { mk.visible = false; return; }
+    const t = this.nadeTarget(), pulse = 1 + Math.sin(performance.now() / 160) * 0.08, R = WEAPONS.grenade.radius;
+    mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7));
+  }
   updateNades(dt, b) {
+    this.nadeMarkTick();
     if (this.nadeT > 0) {   // the throw animation: 0..1 (the same clip lengths as the baked clips, a little sped up)
-      const toss = this.nadeToss, dur = toss ? 1.3 : 1.12, rel = toss ? 0.75 : 0.64;
+      const mode = this.nadeToss | 0, dur = NADE_DUR[mode], rel = NADE_REL[mode];
       this.nadeT += dt / dur;
       if (!this.nadeRel && this.nadeT >= rel) {
         this.nadeRel = true;
         if (this.wallet.useNade()) {
-          const W = WEAPONS.grenade, yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw), up = clamp(0.5 - (this.camPitch || 0) * 0.7, 0.12, 1.05), sp = toss ? 11 : 19;
-          const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, vx = fx * sp * Math.cos(up) + b.vx * 0.5, vy = sp * Math.sin(up) + 1.2, vz = fz * sp * Math.cos(up) + b.vz * 0.5;
-          this.spawnNade(x, y, z, vx, vy, vz, true); this.updateAmmoHud();
-          if (this.multi) app.net.send({ t: 'gr', k: 1, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
+          const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
+          const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
+          const T = clamp(0.45 + d * 0.03, 0.5, 1.5), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
+          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; this.updateAmmoHud();
+          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }
       }
@@ -1270,7 +1297,7 @@ class Race {
         n.py = n.y; n.vy = Math.max(-30, n.vy - 18 * h); const ox = n.x, oz = n.z; n.x += n.vx * h; n.y += n.vy * h; n.z += n.vz * h;
         if (this.world.resolveHorizontal) { this.world.resolveHorizontal(n); const mx = n.x - ox, mz = n.z - oz, d0 = Math.hypot(n.vx * h, n.vz * h); if (Math.hypot(mx - n.vx * h, mz - n.vz * h) > 0.004 && d0 > 1e-6) { const nx = n.x - (ox + n.vx * h), nz = n.z - (oz + n.vz * h), nl = Math.hypot(nx, nz) || 1, dn = (n.vx * nx + n.vz * nz) / nl; n.vx = (n.vx - 2 * dn * nx / nl) * 0.45; n.vz = (n.vz - 2 * dn * nz / nl) * 0.45; if (Math.abs(dn) > 3) A.sfx.click(); } }
         const g = this.world.findGround(n, n.py, false);
-        if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
+        if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
       if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); this.grenadeBoom(n.x, n.y, n.z, n.mine); }
@@ -1284,11 +1311,22 @@ class Race {
     if (mine) this.nadeDamage(x, z, R, W);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
   }
+  // a blast wrecks the vehicles around it: the close ones are destroyed at once, the farther ones are badly damaged; every damaged one smokes and blows up a few seconds later
+  nadeCars(x, z, R, crime) {
+    for (const st of this.fireCars()) {
+      if (st.wreck) continue; const d = Math.hypot(st.x - x, st.z - z); if (d > R + 2) continue;
+      if (st.hp === undefined) st.hp = 100;
+      st.hp = d < R * 0.7 ? 0 : Math.max(0, st.hp - 130 * (1 - d / (R + 2)));
+      if (st.hp < 62) { st.hp = 0; st.burnT = Math.max(st.burnT || 0, 3.2); }   // smoking -> burning -> explodes (cars blow up when burnT passes 6 s; this starts the fuse at 3.2 s)
+      if (crime) this.crime('car', st.x, st.z);
+    }
+  }
   nadeDamage(x, z, R, W) {   // what MY grenade does to the shared world (peds, police, cars); the host does the same for a guest's grenade ('gb' event)
     if (this.multi && !this.simHost) this.evt({ k: 'gb', x: +x.toFixed(1), z: +z.toFixed(1) });
     if (this.peds) this.peds.blast(x, z, R, W.dmg, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); });
     if (this.wanted) this.wanted.blast(x, z, R, W.dmg);
-    for (const st of this.fireCars()) { if (st.wreck) continue; const d = Math.hypot(st.x - x, st.z - z); if (d > R + 1.5) continue; if (st.hp === undefined) st.hp = 100; st.hp = Math.max(0, st.hp - 70 * (1 - d / (R + 2))); this.crime('car', st.x, st.z); }
+    if (this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active) this.mission.zs.blast(x, z, R);
+    this.nadeCars(x, z, R, true);
     this.crime('shot', x, z);
   }
   // ---- THIEF CHASE on the summit: the thief's volleys and the police pistol
@@ -1364,12 +1402,15 @@ class Race {
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
+    const zomOn = !!(this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active);
+    if (zomOn && OPT.autoAim) { let bd3 = 0.4; for (const z of this.mission.zs.list()) { const dx = z.x - b.x, dz = z.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd3) { bd3 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.6; } } }   // zombies too
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
     if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
+    if (zomOn) { const zd = this.mission.zs.shoot(ox, oz, fx, fz, len, w); if (zd >= 0 && zd < len) { len = zd; shotAt = shotAt; } }
     if (this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.snap && this.mission.ts.snap.st === 'ambush') {   // the summit: trees and boulders stop bullets; the gunman is hit only while he is out in the open
       const ts = this.mission.ts; let stop = len;
       for (const cv of SUMMIT.covers) { const dx = cv.x - ox, dz = cv.z - oz, a2 = dx * fx + dz * fz, pr = Math.abs(-dx * fz + dz * fx); if (a2 > 0.3 && a2 < stop && pr < cv.r * 0.8) stop = a2 - cv.r * 0.4; }
@@ -1470,6 +1511,7 @@ class Race {
     if (this.kickK && this.peds) { const t = this.peds.downed(b.x, b.z, fx, fz); if (t) { this.evt({ k: 'ki', i: t.i, fx: +fx.toFixed(3), fz: +fz.toFixed(3) }); this.peds.kick(t, fx, fz, (p) => { this.earn(PAY.hit); this.crime('hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.25); this.particles.emit(p.x, 0.4, p.z, 12, { color: '#ffffff', speed: 3, up: 1.5, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 0.4, p.z, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.2 }); }); return; } }
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
     if (this.wanted && this.meta.city) this.wanted.melee(b.x, b.z, fx, fz);
+    if (this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.zs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
     if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.22); this.particles.emit(p.x, 1.2, p.z, 18, { color: '#ffffff', speed: 6, up: 2.5, life: 0.35, size: 0.3 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
     if (BW && this.batCar(b, fx, fz)) return;
     for (const r of this.remotes.values()) {
@@ -1894,7 +1936,7 @@ async function ensureNet() {
   net.on('m_busy', (m) => { if (race && race.multi) race.busy = new Set(m.ids || []); });
   net.on('ph', (m) => { if (race && race.multi) race.onPedHit(m); });
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
-  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_sn', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
+  for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_sn', 'm_zb', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
   net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();

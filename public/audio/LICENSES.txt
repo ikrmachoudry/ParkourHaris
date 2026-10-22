@@ -16,3 +16,4 @@ Water splashes / loops, rain, highway bed, doors, explosion, latch: "40 CC0 wate
 --- v111: sounds supplied by the game's owner (cut by tools/build_user_audio.sh from tools/audio_src) ---
 Sniper rifle (freesound_community), AK-47 (sovetsky_rastov72), pistol shot (universfield), woosh (ribhavagrawal), concrete footsteps (freesound_community), explosion (freesound_community), thud impact (virtual_vibes): royalty-free sounds from Pixabay / freesound; used as supplied by the owner.
 eng_tractor.mp3: 'Minitractor (small tractor)' by tsidilin (Freesound), via Pixabay Content License; first 4.2 s, looped with a cross-fade.
+Zombie growl / bite / death: sounds supplied by the game's owner (dragon-studio, freesound_community), cut by tools/build_user_audio.sh; used as supplied.

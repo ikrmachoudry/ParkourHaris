@@ -24,4 +24,9 @@ mk u_scared0 death 0.04 0.38 -4 9000 0.1 1.3
 mk u_scared1 death 0.05 0.5 -4 9000 0.12 1.15
 mk u_scared2 death 0.08 0.34 -4 9000 0.1 1.5
 mk u_grunt grunt 0.5 0.45 -3 9000 0.1
+mk u_zg0 zgroan 0.0 1.5 -3 7000 0.35
+mk u_zg1 zgroan 1.4 1.7 -3 7000 0.4
+mk u_zg2 zgroan 0.5 1.8 -3 6000 0.4 0.82
+mk u_zbite zbite 0.0 0.84 -3 9000 0.2
+mk u_zdie zdeath 0.0 0.9 -3 9000 0.2
 rm -rf "$T"

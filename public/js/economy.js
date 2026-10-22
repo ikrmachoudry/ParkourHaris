@@ -14,7 +14,7 @@ export const WEAPON_ORDER = ['bat', 'pistol', 'ak', 'sniper', 'grenade'];
 
 // Real US prices (2026): Louisville Slugger ash bat about $34, Glock 19 Gen5 about $626, Zastava ZPAP M70 (AK-47) about $1,420, 9mm about $0.33 and 7.62x39 about $0.67 a round.
 // Pay is small on purpose: the game will have many missions, so a pistol takes a few of them and an AK-47 a good evening.
-export const MISSION_PAY = { stunt: 150, thief: 250, snipe: 4000 };
+export const MISSION_PAY = { stunt: 150, thief: 250, snipe: 4000, zombie: 5000 };
 export const MISSION_PAY_DEFAULT = 120;
 export const PAY = { hit: 2, down: 8, kill: 15, jackBonus: 0 };
 
@@ -32,23 +32,23 @@ function load() {
 function save() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) { /* private window: keep it in memory */ } }
 
 export class Wallet {
-  constructor() { this.s = load(); this.on = null; }
+  constructor() { this.s = load(); this.on = null; this.kit = false; }   // kit: the free full kit of the ZOMBIE ATTACK mission (bat, pistol, AK-47, grenades, unlimited ammo; nothing is saved)
   get money() { return this.s.money; }
   add(n, why) { n = Math.round(n); if (!n) return; this.s.money = Math.max(0, this.s.money + n); save(); if (this.on) this.on(n, why); }
   canPay(n) { return this.s.money >= n; }
   spend(n) { if (this.s.money < n) return false; this.s.money -= n; save(); if (this.on) this.on(-n, 'buy'); return true; }
-  owns(w) { return w === 'grenade' ? this.nades > 0 : !!this.s.owned[w]; }
-  get nades() { return this.s.nades | 0; }
-  useNade() { if (this.nades <= 0) return false; this.s.nades--; save(); return true; }
+  owns(w) { if (this.kit && (w === 'bat' || w === 'pistol' || w === 'ak' || w === 'grenade')) return true; return w === 'grenade' ? this.nades > 0 : !!this.s.owned[w]; }
+  get nades() { return this.kit ? 99 : this.s.nades | 0; }
+  useNade() { if (this.kit) return true; if (this.nades <= 0) return false; this.s.nades--; save(); return true; }
   buy(w) { const W = WEAPONS[w]; if (W && W.grenade) { if (!this.spend(W.price)) return false; this.s.nades = (this.s.nades | 0) + 1; save(); return true; }
     if (!W || this.owns(w) || !this.spend(W.price)) return false; this.s.owned[w] = true; if (!W.melee) { this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; } save(); return true; }
   buyAmmo(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade || !this.owns(w) || !this.spend(W.ammoPrice)) return false; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; }
   // an issued weapon (the police pistol in the thief mission): owned, loaded, with spare magazines; a gun you already own just gets topped up
   gift(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade) return false; if (!this.owns(w)) { this.s.owned[w] = true; this.s.mag[w] = W.mag; this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack * 1.5; save(); return true; } if (this.mag(w) + this.reserve(w) < 24) { this.s.ammo[w] = (this.s.ammo[w] || 0) + W.ammoPack; save(); return true; } return false; }
-  mag(w) { return this.s.mag[w] || 0; }
-  reserve(w) { return this.s.ammo[w] || 0; }
+  mag(w) { if (this.kit && WEAPONS[w] && WEAPONS[w].mag) return WEAPONS[w].mag; return this.s.mag[w] || 0; }
+  reserve(w) { if (this.kit) return 999; return this.s.ammo[w] || 0; }
   // fire one round; false when the magazine is empty
-  shoot(w) { if ((this.s.mag[w] || 0) <= 0) return false; this.s.mag[w]--; save(); return true; }
+  shoot(w) { if (this.kit) return true; if ((this.s.mag[w] || 0) <= 0) return false; this.s.mag[w]--; save(); return true; }
   reload(w) { const W = WEAPONS[w]; if (!W || W.melee || W.grenade) return false; const need = W.mag - (this.s.mag[w] || 0), take = Math.min(need, this.s.ammo[w] || 0); if (take <= 0) return false; this.s.mag[w] = (this.s.mag[w] || 0) + take; this.s.ammo[w] -= take; save(); return true; }
   // weapons the player can cycle through (fist first)
   cycle() { return [null, ...WEAPON_ORDER.filter((w) => this.owns(w))]; }

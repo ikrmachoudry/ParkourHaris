@@ -4,26 +4,29 @@ import * as A from './audio.js';
 import { STUNT, LOBBY, PARK, CHASE, BANK, POLICE } from './gta.js';
 import { ThiefScene } from './thiefscene.js';
 import { SnipeScene } from './snipescene.js';
+import { ZombieScene } from './zombiescene.js';
+import { homeSpawnPos } from './zombie.js';
 import { TRUCK_IDX, START, ZONES, setSoloRole, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
 import { MissionHub } from './mission.js';
 import { MISSION_PAY, MISSION_PAY_DEFAULT } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
 
 const $ = (id) => document.getElementById(id);
-const REASON = { slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 'MISSED THE RAMP', crash: 'CAR WRECKED', time: 'OUT OF TIME', off: 'LEFT THE ROAD', car: 'LEFT THE CAR', order: 'WRONG RAMP', lost: 'YOU LOST HIM', escaped: 'HE ESCAPED OVER THE HILL', missed: 'THE TANKER GOT INTO THE TUNNEL', early: 'YOU JUMPED OUT BEFORE THE RED LINE', late: 'YOU DID NOT JUMP OUT BEFORE THE TUNNEL' };
+const REASON = { breach: 'A ZOMBIE GOT INTO THE HOUSE', slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 'MISSED THE RAMP', crash: 'CAR WRECKED', time: 'OUT OF TIME', off: 'LEFT THE ROAD', car: 'LEFT THE CAR', order: 'WRONG RAMP', lost: 'YOU LOST HIM', escaped: 'HE ESCAPED OVER THE HILL', missed: 'THE TANKER GOT INTO THE TUNNEL', early: 'YOU JUMPED OUT BEFORE THE RED LINE', late: 'YOU DID NOT JUMP OUT BEFORE THE TUNNEL' };
 const IDX_BITS = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5) & 1) << 29), PAXF = 33554432;
 const DESC = {
   stunt: 'Everybody gets the same white super car on the coast highway. Hit BOTH ramps at full speed and fly. If anybody fails, everybody restarts.',
   thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris. At the top he hides behind the trees and rocks with a pistol and shoots at you: get out, take cover, and shoot him down when he pops out. You get a police pistol if you have none.',
+  zombie: 'The undead are coming for HANBAL HOME! You get a free bat, pistol, AK-47 and grenades with unlimited ammo. Survive 5 rounds - every round brings more zombies and they walk faster. If ONE zombie gets through the front door or into the garage, the mission fails. Knocked down? You get up again at the gate.',
   snipe: 'A thief robbed the CITY BANK and is running for the new tunnel. One of you drives the petrol TANKER after him and jumps out at the RED LINE while it keeps rolling. The SNIPER waits on the hill and shoots the tank just before the tunnel. Two BLOCKERS race round the hill and park across the far end so he cannot get out. Alone? You are the sniper.',
 };
-const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK' };
+const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK', zombie: 'ZOMBIE ATTACK' };
 
 export class MissionClient {
   constructor(race, send) {
     this.race = race; this.sendNet = send; this.phase = 'idle'; this.mission = 'stunt'; this.hold = false; this.inPad = false; this.lobby = { in: [], total: 1 };
     this.round = 0; this.members = []; this.res = {}; this.seat = 0; this.briefEnd = 0; this.lastN = 0; this.carIdx = -1; this.finished = false; this.bannerT = 0;
-    this.ts = new ThiefScene(race); this.ss = new SnipeScene(race); this.role = ''; this.freeze = false; this.chased = false; this.paths = null;
+    this.ts = new ThiefScene(race); this.ss = new SnipeScene(race); this.zs = new ZombieScene(race); this.role = ''; this.freeze = false; this.chased = false; this.paths = null;
     if (!race.multi) { this.hub = new MissionHub((m) => setTimeout(() => this.onMsg(m), 0), { getP: () => this.localP() }); this.all = [race.localId]; }
     try { this.soloRole = localStorage.getItem('ph_snipe_role') === 'truck' ? 'truck' : 'sniper'; } catch { this.soloRole = 'sniper'; }
     for (const b of document.querySelectorAll('#m-role button')) b.onclick = () => { this.soloRole = b.dataset.r; try { localStorage.setItem('ph_snipe_role', this.soloRole); } catch {} this.renderPanel(); };
@@ -39,7 +42,7 @@ export class MissionClient {
   send(m) {
     if (this.race.multi) { this.sendNet(m); return; }
     const id = this.race.localId, h = this.hub;
-    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1);
+    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1); else if (m.t === 'm_zh') h.zhit(id, m.z | 0, +m.d || 1);
   }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
@@ -88,20 +91,23 @@ export class MissionClient {
     if (m.t === 'm_lobby') { this.lobby = { in: m.in || [], total: m.total || 1 }; if (m.mission) this.mission = m.mission; this.renderPanel(); }
     else if (m.t === 'm_th') this.ts.apply(m);
     else if (m.t === 'm_sn') this.ss.apply(m);
+    else if (m.t === 'm_zb') { if (this.mission === 'zombie' && (this.phase === 'brief' || this.phase === 'run')) this.zs.apply(m); }
     else if (m.t === 'm_ev') this.onEv(m.k, m.d, m);
     else if (m.t === 'm_go') this.onGo(m);
     else if (m.t === 'm_run') { if (this.phase === 'brief') { this.phase = 'run'; this.hold = this.mission === 'snipe' && this.role === 'truck' && !this.chased; this.runT0 = performance.now(); this.jumps = 0; this.air = false; this.finished = false; this.showFin(false); this.big('GO!', 900); A.sfx.pickup(); this.chips(); } }
     else if (m.t === 'm_st') { this.res = m.res || {}; this.chips(); }
     else if (m.t === 'm_end') {
-      this.hold = false; this.freeze = false; this.showFin(false);
-      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
+      this.hold = false; this.freeze = false; this.showFin(false); if (this.mission === 'zombie') { this.zs.clear(); if (m.pass) this.endZombie(); }
+      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : this.mission === 'zombie' ? 'THE HOUSE IS SAFE - $5,000 EACH' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 7500, true); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
-    } else if (m.t === 'm_idle') { this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
+    } else if (m.t === 'm_idle') { this.endZombie(); this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
   onGo(m) {
     this.freeze = false; this.ss.clear(); this.chased = false;
     if (m.mission === 'thief') return this.onGoThief(m);
     if (m.mission === 'snipe') return this.onGoSnipe(m);
+    if (m.mission === 'zombie') return this.onGoZombie(m);
+    this.endZombie();
     this.mission = m.mission || 'stunt'; this.ts.clear();
     const R = this.race, st = STUNT; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false; this.air = false; this.jumps = 0;
     const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 6500); this.lastN = 0;
@@ -161,6 +167,22 @@ export class MissionClient {
     if (this.role === 'sniper' && R.giveWeapon) R.giveWeapon('sniper', 'SNIPER RIFLE ISSUED');
     const T = { truck: ['YOU DRIVE THE TANKER', 'FOLLOW THE THIEF - WHEN YOU REACH THE RED LINE JUMP OUT (C) AND LET IT ROLL'], sniper: ['YOU ARE THE SNIPER', 'DRIVE ROUND THE HILL TO THE YELLOW CIRCLE - SHOOT THE TANK BEFORE THE TUNNEL'], blocker: ['YOU ARE A BLOCKER', 'RACE ROUND THE HILL AND PARK IN THE YELLOW CIRCLE AT THE FAR END OF THE TUNNEL'] }[this.role];
     this.big('SNIPE THE TRUCK', 2600, '#ff9f1a'); this.sub(T[0] + ' - ' + T[1], 8000); this.chips();
+  }
+  // ---- ZOMBIE ATTACK: everybody stands in front of Hanbal's house with the free kit; the director (zombie.js) does the rest
+  onGoZombie(m) {
+    const R = this.race, b = R.me.body; this.mission = 'zombie'; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = false; this.finished = false;
+    const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 5000); this.lastN = 0;
+    this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
+    if (R.drive) R.toggleCar(true);
+    const p = homeSpawnPos(this.seat), g = this.zs.groundY(p.x, p.z); b.x = p.x; b.z = p.z; b.y = g + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.PI;
+    if (R.wallet) { R.wallet.kit = true; R.weapon = 'ak'; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
+    this.zs.showHud(true); this.zs.state = 'brief'; this.zs.updateHud();
+    this.big('ZOMBIE ATTACK', 2600, '#7cff4a'); this.sub('PROTECT HANBAL HOME - NO ZOMBIE MAY ENTER THE FRONT DOOR OR THE GARAGE', 6000); this.chips();
+  }
+  // leaves the zombie mission: the free kit goes back, the zombies disappear
+  endZombie() {
+    const R = this.race; if (R.wallet && R.wallet.kit) { R.wallet.kit = false; if (R.weapon && !R.wallet.owns(R.weapon)) R.weapon = null; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
+    this.zs.clear();
   }
   onSnipeEv(k, m) {
     const role = this.role, say = (a, b, c, ms) => { this.big('', 1); this.sub('', 1); if (a) this.big(a, ms || 2000, c); if (b) this.sub(b, 4500); };
@@ -234,7 +256,7 @@ export class MissionClient {
   }
   update(dt) {
     const R = this.race, b = R.me.body, P = LOBBY.pad;
-    this.ts.update(dt); this.ss.update(dt); this.todo(); this.stuckCheck(dt);
+    this.ts.update(dt); this.ss.update(dt); this.zs.update(dt); this.todo(); this.stuckCheck(dt);
     if (this.freeze && this.phase === 'run' && R.drive && !this.hold) this.hold = true;   // the scene is for watching: you can still look round, not drive off
     { const cap = this.mission === 'stunt' && (this.phase === 'brief' || this.phase === 'run') ? 33.3 : 36.1; for (const k of [12, 13, 14, 15, 24, 25]) { const c = R.cars[k]; if (c) c.st.topCap = cap; } }   // 130 km/h always, 120 km/h while the STUNT JUMP runs (same for everybody)
     if (this.phase === 'idle') {
@@ -302,5 +324,5 @@ export class MissionClient {
     const e = $('m-chips'); if (!e) return;
     e.innerHTML = this.phase === 'idle' ? '' : this.members.map((q) => `<span style="border-color:${this.colorOf(q.id)}">${all || this.res[q.id] ? '&#10003;' : '&middot;'}</span>`).join('');
   }
-  destroy() { this.ts.dispose(); this.ss.dispose(); this.showPanel(false); this.showFin(false); this.big('', 1); this.sub('', 1); if (this.hub) this.hub.reset(); }
+  destroy() { this.endZombie(); this.zs.dispose(); this.ts.dispose(); this.ss.dispose(); this.showPanel(false); this.showFin(false); this.big('', 1); this.sub('', 1); if (this.hub) this.hub.reset(); }
 }
