@@ -64,7 +64,7 @@ function genCode() {
 function lobbyMsg(room) {
   return {
     t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase,
-    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char })),
+    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, zom: !!p.zom })),
   };
 }
 
@@ -190,7 +190,7 @@ wss.on('connection', (ws, req) => {
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
         if (room) removePlayer(p);
-        p.name = cleanName(m.name); p.char = m.char | 0;
+        p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
         const r = { code: genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
         rooms.set(r.code, r);
         joinRoom(p, r);
@@ -211,8 +211,13 @@ wss.on('connection', (ws, req) => {
         }
         if (r.players.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: `Room is full (${MAX_PLAYERS} players max).` });
         if (room) removePlayer(p);
-        p.name = cleanName(m.name); p.char = m.char | 0;
+        p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
         joinRoom(p, r);
+        break;
+      }
+      case 'zom': {   // zombie skin on / off (looks only)
+        if (!room || room.phase === 'race' || room.phase === 'countdown') return;
+        p.zom = !!m.zom; bcast(room, lobbyMsg(room));
         break;
       }
       case 'char': {

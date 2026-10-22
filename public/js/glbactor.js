@@ -61,6 +61,37 @@ const NEED = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m = new THREE.Matrix4();
 
+// ---- zombie skin: the model keeps its vertex colours; the shader adds a rib cage (stripes + bump), a sternum, and blood / bruise blotches on skin-coloured pixels
+const ZOMBIE_GLSL = `
+ { bool fl = diffuseColor.r > diffuseColor.b * 1.5 && diffuseColor.r > 0.2;
+   if (fl) {
+     float hd = vHp.y > 1.58 ? 0.45 : 1.0;
+     float n1 = vn(vHp * 14.0), n2 = vn(vHp * 38.0 + 7.0), n3 = vn(vHp * 90.0 + 3.0);
+     float sk = vn(vec3(vHp.x * 70.0, vHp.y * 7.0, vHp.z * 70.0) + 5.0);
+     float bl = smoothstep(0.47, 0.62, n1 * 0.65 + n2 * 0.35), st = smoothstep(0.66, 0.78, n3) * 0.8 + smoothstep(0.7, 0.85, sk) * 0.9;
+     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.012, 0.016), clamp(bl * 0.85 + st * 0.5, 0.0, 1.0) * hd);
+     diffuseColor.rgb *= vec3(0.93, 0.9, 0.9);
+     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12, 0.16, 0.1), smoothstep(0.55, 0.64, vn(vHp * 9.0 + 11.0)) * 0.35 * hd);
+     float tm = smoothstep(0.2, 0.165, abs(vHp.x)) * smoothstep(1.12, 1.16, vHp.y) * smoothstep(1.45, 1.41, vHp.y);
+     float ph = (vHp.y + 0.28 * (0.17 - abs(vHp.x))) / 0.029 + 0.3 * vn(vHp * 22.0), rs = 0.5 + 0.5 * cos(6.28318 * ph);
+     diffuseColor.rgb *= 1.0 - tm * (1.0 - smoothstep(0.0, 0.85, rs)) * 0.62;
+     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.17, 0.02, 0.03), tm * (1.0 - rs) * 0.4);
+     diffuseColor.rgb += tm * pow(rs, 3.0) * 0.12;
+     float sx = smoothstep(0.014, 0.0, abs(vHp.x)) * smoothstep(1.2, 1.3, vHp.y) * smoothstep(1.43, 1.38, vHp.y);
+     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.5, 0.42), sx * 0.6);
+     zRib = tm * -sin(6.28318 * ph) * 0.9;
+   } }`;
+function zombieMat(src) {
+  const m = src.clone(); m.roughness = 0.58;
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = 'varying vec3 vHp;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvHp = position;');
+    sh.fragmentShader = 'varying vec3 vHp;\nfloat zRib = 0.0;\nfloat hh(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }\nfloat vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(hh(i), hh(i + vec3(1,0,0)), f.x), mix(hh(i + vec3(0,1,0)), hh(i + vec3(1,1,0)), f.x), f.y), mix(mix(hh(i + vec3(0,0,1)), hh(i + vec3(1,0,1)), f.x), mix(hh(i + vec3(0,1,1)), hh(i + vec3(1,1,1)), f.x), f.y), f.z); }\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + ZOMBIE_GLSL)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize(normal + zRib * 0.55 * normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz));');
+  };
+  m.customProgramCacheKey = () => 'zombie2';
+  return m;
+}
 export class GlbActor extends HeroActor {
   // url: GLB path.  opts: { look, height, map (override bone map), flip (180 deg if the model faces -z) }
   constructor(id, url, opts = {}) {
@@ -82,6 +113,7 @@ export class GlbActor extends HeroActor {
     const box = new THREE.Box3().setFromObject(model, true);
     const h = box.max.y - box.min.y, s = (this.opts.height || 1.78) / h;
     shell.scale.setScalar(s); shell.position.y = -box.min.y * s;
+    if (this.opts.zombie) model.traverse((o) => { if (o.isMesh) o.material = zombieMat(o.material); });
     this.group.add(shell); shell.updateMatrixWorld(true);
     // rest data
     const T = {}; // driver name -> { bone, Q, Rr, parent }
@@ -250,5 +282,6 @@ export class GlbActor extends HeroActor {
 }
 
 // the four player characters (ids 0..3) are MakeHuman bodies (tools/mh_build.py); the procedural human shows while loading and is the fallback if a file is missing
-export const HERO_GLB = ['models/hero0.glb', 'models/hero1.glb', 'models/hero2.glb', 'models/hero3.glb'];
-export const makeHero = (id, look) => HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look }) : new HeroActor(id, look);
+export const HERO_GLB = ['models/hero0.glb', 'models/hero1.glb', 'models/hero2.glb', 'models/hero3.glb', 'models/hero4.glb'];
+export const ZOMBIE_LOOK = { role: 'civilian', top: '#d3a794', pants: '#262b33', shoes: '#d3a794', skinTone: '#d3a794', hair: '#0d0a08', hat: null, sleeve: 5 };   // the procedural stand-in while hero4.glb loads
+export const makeHero = (id, look) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look }) : new HeroActor(id, look);

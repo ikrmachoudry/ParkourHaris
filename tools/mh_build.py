@@ -14,17 +14,19 @@ LOOKS = [dict(shirt='#b53a2e', pants='#2b3140', skin='#c68e63', hair='#16110d', 
          dict(shirt='#2f7a5a', pants='#3a3a44', skin='#8d5a3b', hair='#0d0a08', cap='#3b82f6', beard=False, weight=0.55),
          dict(shirt='#d9a52b', pants='#27384f', skin='#e0ac85', hair='#4a3020', cap='#3ddc84', beard=False, weight=0.45),
          dict(shirt='#5b4aa8', pants='#22252b', skin='#a8714e', hair='#120d0a', cap='#ffc233', beard=True, weight=0.50)]
+LOOKS.append(dict(shirt='#cfa592', pants='#262b33', skin='#d3a794', hair='#0d0a08', cap='#000000', beard=False, weight=0.0))   # 4 = zombie
 L_ = LOOKS[VAR]
+Z = VAR == 4   # zombie: gaunt, bald, bare chest and feet, torn trousers, blood
 SK = dict(shirt=hx(L_['shirt']), pants=hx(L_['pants']), shoes=(0.08, 0.08, 0.08), hair=hx(L_['hair']), cap=hx(L_['cap']), beard=L_['beard'], skin=hx(L_['skin']))
 
 def srgb2lin(c): c = np.array(c, float); return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 # ---------- body ----------
 V, F, G = mh.load_obj()
-V = mh.macro(V, gender=1.0, age=0.52, muscle=0.9, weight=L_['weight'] - 0.1, african=.12, asian=.28, caucasian=.60)
+V = mh.macro(V, gender=1.0, age=0.60 if Z else 0.52, muscle=0.0 if Z else 0.9, weight=0.0 if Z else L_['weight'] - 0.1, african=.12, asian=.28, caucasian=.60)
 # athletic / bodybuilder build: broad shoulders + lats, narrow waist and hips, flat hard chest, no glute / hip bulge
 V = V.copy()
-for nm, w in [('torso/torso-vshape-incr', 1.0), ('torso/torso-muscle-dorsi-incr', 0.9), ('torso/torso-scale-horiz-incr', 0.25), ('hip/hip-scale-horiz-decr', 0.1), ('hip/hip-scale-depth-decr', 0.15), ('buttocks/buttocks-volume-incr', 0.15), ('armslegs/l-upperleg-muscle-incr', 1.0), ('armslegs/r-upperleg-muscle-incr', 1.0), ('armslegs/l-lowerleg-muscle-incr', 1.0), ('armslegs/r-lowerleg-muscle-incr', 1.0), ('stomach/stomach-pregnant-decr', 1.0), ('pelvis/pelvis-tone-incr', 1.0), ('hip/hip-waist-up', 0.3)]: mh.apply(V, nm, w)
+for nm, w in ([('stomach/stomach-pregnant-decr', 1.0), ('torso/torso-scale-horiz-decr', 0.5)] if Z else [('torso/torso-vshape-incr', 1.0), ('torso/torso-muscle-dorsi-incr', 0.9), ('torso/torso-scale-horiz-incr', 0.25), ('hip/hip-scale-horiz-decr', 0.1), ('hip/hip-scale-depth-decr', 0.15), ('buttocks/buttocks-volume-incr', 0.15), ('armslegs/l-upperleg-muscle-incr', 1.0), ('armslegs/r-upperleg-muscle-incr', 1.0), ('armslegs/l-lowerleg-muscle-incr', 1.0), ('armslegs/r-lowerleg-muscle-incr', 1.0), ('stomach/stomach-pregnant-decr', 1.0), ('pelvis/pelvis-tone-incr', 1.0), ('hip/hip-waist-up', 0.3)]): mh.apply(V, nm, w)
 body = [f for f, g in zip(F, G) if g == 'body']
 tris = []
 for f in body:
@@ -127,15 +129,27 @@ N = 99.0
 isShirt = ((tors + arms) > 0.55) & ((neckw + headw) < 0.5) & (hand < 0.5) & ((y > hem) | (arms > 0.5)) & ((y < collar) | (arms > 0.5))
 isPants = ((tors > 0.5) & (y <= hem)) | ((legs > 0.5) & (foot < 0.5)) | ((legs > 0.2) & (y > -7.0) & (foot < 0.3))
 isShoe = (foot > 0.35) | ((legs > 0.3) & (y < -7.3))
+if Z: isShirt = np.zeros(len(P0), bool)
 col[isShirt] = srgb2lin(SK['shirt']); col[isPants] = srgb2lin(SK['pants']); col[isShoe] = srgb2lin(SK['shoes'])
 col[isShoe & (y < y.min() + 0.2)] = srgb2lin((0.8, 0.8, 0.76))   # white sole
+if Z:   # barefoot, ragged trousers ending at ragged knees, rips showing raw skin, blood
+    isShoe = (foot > 0.35) | ((legs > 0.3) & (y < -7.3)); col[isShoe] = srgb2lin(SK['skin']) * 0.9
+    ang = np.arctan2(z, x); tear = -4.3 + 0.8 * np.sin(3 * ang + 0.7 * x) + 0.5 * np.sin(7 * ang + 1.3) + np.where(x > 0, 0.5, -0.5)
+    low = isPants & (y < tear) & (legs > 0.5); col[low] = srgb2lin(SK['skin']); isPants &= ~low
+    skinc = srgb2lin(SK['skin']); blood = srgb2lin((0.36, 0.05, 0.05))
+    for c_, r_ in [((1.1, -2.6, 0.7), 0.75), ((-1.3, -1.4, -0.6), 0.7), ((0.9, -0.5, -0.9), 0.6), ((-0.9, -3.4, 0.6), 0.6), ((1.2, -3.6, -0.5), 0.55)]:
+        m_ = isPants & (np.linalg.norm(P0 - np.array(c_), axis=1) < r_); col[m_] = skinc * 0.8 + blood * 0.35; isPants &= ~m_
+    for c_ in rng.uniform([-1.6, -0.5, -0.9], [1.6, 8.5, 0.9], (26, 3)):   # blood / wound blotches over the body
+        r_ = rng.uniform(0.25, 0.7); m_ = (np.linalg.norm(P0 - c_, axis=1) < r_) & ~isPants; col[m_] = col[m_] * 0.35 + blood * 0.65
 # hair cap
 hz = S['head'][1][2]
 hair = (headw > 0.5) & (y > top - 1.15 - 0.55 * np.clip(z - hz - 0.9, 0, 9)) & ((z < hz + 1.5) | (y > top - 0.55))
 hair |= (headw > 0.5) & (y > S['head'][1][1] + 0.25) & (z < hz - 0.3)             # back and sides of head
 hair &= ~((z > hz + 1.1) & (y < top - 0.7))
+if Z: hair[:] = False
 col[hair] = srgb2lin(SK['hair'])
 cap = (headw > 0.5) & (y > top - 0.95) & ~((z > hz + 1.3) & (y < top - 0.5))
+if Z: cap[:] = False
 col[cap] = srgb2lin(SK['cap']); hair |= cap
 # beard / moustache / eyebrows
 jaw = jp(B['jaw']['head']); eyeL = jp(B['eye.L']['head'])
@@ -144,10 +158,14 @@ if SK['beard']:
     beard &= (np.abs(x) > 0.35) | (y > jaw[1] + 0.12)
     col[beard] = col[beard] * 0.35 + srgb2lin((0.04, 0.03, 0.03)) * 0.65
 brow = (headw > 0.5) & (np.abs(y - (eyeL[1] + 0.33)) < 0.1) & (np.abs(ax - eyeL[0]) < 0.42) & (z > eyeL[2] - 0.2) & ~hair
-col[brow] = srgb2lin((0.03, 0.025, 0.02))
+if not Z: col[brow] = srgb2lin((0.03, 0.025, 0.02))
 # mouth tint
 mouth = (headw > 0.5) & (np.abs(y - (jaw[1] + 0.52)) < 0.045) & (ax < 0.55) & (z > hz + 1.0)
 col[mouth] = col[mouth] * 0.6 + srgb2lin((0.45, 0.2, 0.17)) * 0.4
+if Z:
+    col[mouth] = srgb2lin((0.16, 0.03, 0.03))
+    for e_ in (1, -1):
+        socket = (headw > 0.5) & (np.linalg.norm(np.stack([x - e_ * abs(eyeL[0]), y - eyeL[1]], 1), axis=1) < 0.2) & (z > hz + 0.4); col[socket] = col[socket] * 0.3 + srgb2lin((0.18, 0.04, 0.08)) * 0.7
 # volume for clothes and hair (decimetres)
 nrm = np.zeros_like(P0)
 fn = np.cross(P0[T0[:, 1]] - P0[T0[:, 0]], P0[T0[:, 2]] - P0[T0[:, 0]])
@@ -181,13 +199,15 @@ ep, et, en = [], [], []
 for s in 'LR':
     c = jp(B['eye.' + s]['head']) + np.array([0, 0, 0.02]); p, t, nn = sphere(c, 0.13)
     cc = np.tile(srgb2lin((0.9, 0.88, 0.85)), (len(p), 1)); iris = nn[:, 2] > 0.78; cc[iris] = srgb2lin((0.12, 0.07, 0.04)); cc[nn[:, 2] > 0.95] = srgb2lin((0.01, 0.01, 0.01))
+    if Z: cc[:] = srgb2lin((0.86, 0.84, 0.6)); cc[iris] = srgb2lin((0.78, 0.74, 0.35)); cc[nn[:, 2] > 0.95] = srgb2lin((0.05, 0.02, 0.0))
     ep.append((p, t, cc))
-zf = z[cap].max(); yb = y[cap & (z > zf - 0.5)].min() + 0.15
-pts = [[0, yb, zf - 0.2]]; ang = np.linspace(-1.25, 1.25, 11)
-for t_ in ang: pts.append([1.15 * np.sin(t_), yb - 0.1 * np.cos(t_), zf - 0.2 + 1.2 * np.cos(t_)])
-pts = np.array(pts); tr_ = []
-for i in range(1, len(pts) - 1): tr_ += [[0, i, i + 1], [0, i + 1, i]]
-ep.append((pts, np.array(tr_), np.tile(srgb2lin(SK['cap']) * 0.9, (len(pts), 1))))
+if not Z:
+  zf = z[cap].max(); yb = y[cap & (z > zf - 0.5)].min() + 0.15
+  pts = [[0, yb, zf - 0.2]]; ang = np.linspace(-1.25, 1.25, 11)
+  for t_ in ang: pts.append([1.15 * np.sin(t_), yb - 0.1 * np.cos(t_), zf - 0.2 + 1.2 * np.cos(t_)])
+  pts = np.array(pts); tr_ = []
+  for i in range(1, len(pts) - 1): tr_ += [[0, i, i + 1], [0, i + 1, i]]
+  ep.append((pts, np.array(tr_), np.tile(srgb2lin(SK['cap']) * 0.9, (len(pts), 1))))
 allP = [P0]; allT = [T0]; allC = [col]; allW = [W0]
 for p, t, cc in ep:
     allT.append(t + sum(len(a) for a in allP)); allP.append(p); allC.append(cc)

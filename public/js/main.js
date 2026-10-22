@@ -94,7 +94,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 // ------------------------------------------------------------------ app state
-const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
+const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), zom: localStorage.getItem('ph_zom') === '1', level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
 let race = null, stage = null, thumbs = [];
 const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 
@@ -181,7 +181,7 @@ class Stage {
 class Remote {
   constructor(info, scene) {
     this.info = info; this.id = info.id; this.name = info.name;
-    this.model = makeActor(info.char); scene.add(this.model.group);
+    this.model = makeActor(info.char, info.zom); scene.add(this.model.group);
     this.tag = null; if (!NO_TEXT) { this.tag = makeNameTag(info.name, CHARACTERS[info.char].color); this.tag.position.set(0, this.model.height + 0.7, 0); this.model.group.add(this.tag); }
     this.snaps = []; this.x = 0; this.y = -50; this.z = 0; this.yaw = Math.PI; this.speed = 0; this.flags = 0; this.vy = 0; this.vx = 0; this.vz = 0; this.sw = 0; this.ds = []; this.dMin = 0; this.jit = 0; this.rs = 0; this.has = false; this.finished = false; this.lastLanded = false; this.rxAt = Date.now(); this.stunT = 0;
   }
@@ -233,7 +233,7 @@ class Remote {
 }
 
 // ------------------------------------------------------------------ the race
-const makeActor = (id) => makeHero(id);
+const makeActor = (id, zom) => makeHero(zom ? 4 : id);
 let _beamTex = null;
 function beamTexture() {
   if (_beamTex) return _beamTex; const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const g = cv.getContext('2d');
@@ -305,7 +305,7 @@ class Race {
     const idx = players.findIndex((p) => p.id === localId);
     this.slot = Math.max(0, idx);
     const me = players[this.slot] || { name: 'Player', char: 0 };
-    this.me = { body: newBody(), model: makeActor(me.char), name: me.name, char: me.char };
+    this.me = { body: newBody(), model: makeActor(me.char, me.zom), name: me.name, char: me.char };
     scene.add(this.me.model.group); this.me.model.group.rotation.order = 'YXZ';
     this.me.tag = null; if (!NO_TEXT) { this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag); }
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
@@ -1743,6 +1743,10 @@ function show(name) {
 let toastTimer = 0;
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
 
+// ---- zombie skin toggle (looks only; the other players see it too)
+function setZomBtn() { const b = $('b-zom'); if (b) b.textContent = 'ZOMBIE SKIN: ' + (app.zom ? 'ON' : 'OFF'); }
+$('b-zom').onclick = () => { A.initAudio(); A.sfx.click(); app.zom = !app.zom; try { localStorage.setItem('ph_zom', app.zom ? '1' : '0'); } catch (e) { /* private mode */ } setZomBtn(); if (app.net && app.room) app.net.send({ t: 'zom', zom: app.zom }); };
+
 // ---- character cards
 function charCards(container, opts) {
   container.innerHTML = '';
@@ -1798,7 +1802,7 @@ function openProfile(mode) {
   $('profile-title').textContent = mode === 'single' ? 'Choose your player' : 'Choose your player';
   charCards($('char-cards'), { onPick: (id) => { app.char = id; markChars($('char-cards'), id); stage.sel = id; A.sfx.select(); stage.burst(id); } });
   markChars($('char-cards'), app.char);
-  stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char;
+  stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char; setZomBtn();
   show('profile');
 }
 function readName() {
@@ -1817,7 +1821,7 @@ function startSingle(levelIdx) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char }], 1, { multi: false, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, zom: app.zom }], 1, { multi: false, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -1917,8 +1921,8 @@ async function mpAction(kind) {
   const st = $('mp-status'); st.textContent = 'Connecting...';
   try {
     const net = await ensureNet();
-    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char });
-    else net.send({ t: 'join', name: app.name, char: app.char }); // no code: the server puts us in the room a friend created
+    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom });
+    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom }); // no code: the server puts us in the room a friend created
     st.textContent = kind === 'create' ? '' : 'Looking for a room...';
   } catch (e) { st.textContent = 'Could not connect to the game server. Is it running?'; gtoast('Could not connect to the game server'); }
 }
