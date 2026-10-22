@@ -1919,9 +1919,9 @@ async function ensureNet() {
     $('mp-status').textContent = m.msg;
     stopJoin(); gtoast(m.msg);   // no auto-retry: you can only join a room that already exists
   });
-  net.on('rooms', (m) => setJoinAvail(m.n | 0));
+  net.on('rooms', (m) => setJoinAvail(m.n | 0, m.l));
   net.on('go', onGo);
-  net.on('s', (m) => { if (race && race.multi) { const r = race.remotes.get(m.id); if (r) r.push(m); } });
+  net.on('s', (m) => { if (race && race.multi) { let r = race.remotes.get(m.id); if (!r && app.room) { const pl = app.room.players.find((q) => q.id === m.id); if (pl && m.id !== app.myId) { race.addRemote(pl); r = race.remotes.get(m.id); } } if (r) r.push(m); } });
   net.on('fin', (m) => { if (race && race.multi) race.onFin(m); });
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
@@ -1945,10 +1945,16 @@ async function ensureNet() {
 }
 // JOIN ROOM is only available while a room exists: ask the server every 2 s while the multiplayer screen is open
 let roomPoll = null;
-function setJoinAvail(n) { const b = $('b-join'); if (!b) return; b.disabled = !(n > 0); b.classList.toggle('off', !(n > 0)); const sm = b.querySelector('small'); if (sm) sm.textContent = n > 0 ? 'A room is open - tap to join' : 'Not available yet - the host must tap CREATE ROOM first'; }
+function setJoinAvail(n, list) {
+  const b = $('b-join'); if (!b) return; b.disabled = false; b.classList.remove('off');   // always tappable: the server answers with a clear message when the named room does not exist yet
+  const sm = b.querySelector('small'); if (sm) sm.textContent = n > 0 ? 'Rooms open now - tap a name below or type it' : 'Type the same room name as the host';
+  const box = $('mp-rooms'); if (box) { box.textContent = ''; if (list && list.length) { box.append('Open rooms: '); for (const c of list) { const a = document.createElement('button'); a.className = 'btn small blue'; a.style.margin = '0 4px 4px 0'; a.textContent = c; a.onclick = () => { $('mp-room').value = c; }; box.appendChild(a); } } }
+}
+const roomName = () => { const v = ($('mp-room').value || '').trim(); try { localStorage.setItem('ph_room', v); } catch { /* noop */ } return v; };
 async function startRoomPoll() {
   if (roomPoll) { clearInterval(roomPoll); roomPoll = null; }
   setJoinAvail(0);
+  { const inp = $('mp-room'); if (inp && !inp.value) { let v = new URLSearchParams(location.search).get('room') || ''; if (!v) try { v = localStorage.getItem('ph_room') || ''; } catch { /* noop */ } inp.value = v; } }
   try {
     const net = await ensureNet();
     const q = () => { if (app.screen !== 'mp' || app.room || !net.connected) { if (app.screen !== 'mp') { clearInterval(roomPoll); roomPoll = null; } return; } net.send({ t: 'rooms' }); };
@@ -1963,8 +1969,8 @@ async function mpAction(kind) {
   const st = $('mp-status'); st.textContent = 'Connecting...';
   try {
     const net = await ensureNet();
-    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom });
-    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom }); // no code: the server puts us in the room a friend created
+    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom, room: roomName() });
+    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom, room: roomName() });   // same room NAME -> same room
     st.textContent = kind === 'create' ? '' : 'Looking for a room...';
   } catch (e) { st.textContent = 'Could not connect to the game server. Is it running?'; gtoast('Could not connect to the game server'); }
 }

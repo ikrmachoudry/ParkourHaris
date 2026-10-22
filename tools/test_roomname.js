@@ -1,0 +1,23 @@
+// room names: everybody who types the same name (any case, with or without the word ROOM) lands in the SAME room; a missing room says so
+import WebSocket from 'ws';
+const PORT = process.env.PORT || 3999; let fail = 0;
+const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail = 1; };
+const cl = (name) => new Promise((res) => { const ws = new WebSocket(`ws://localhost:${PORT}/ws`), q = []; ws.on('message', (d) => q.push(JSON.parse(d))); ws.on('open', () => res({ ws, q, name, send: (o) => ws.send(JSON.stringify(o)) })); });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const last = (c, t) => [...c.q].reverse().find((m) => m.t === t);
+const [a, b, c, d] = await Promise.all([cl('A'), cl('B'), cl('C'), cl('D')]);
+a.send({ t: 'create', name: 'Ikrma', room: 'room IKRMA' }); await wait(200);
+ok(last(a, 'joined') && last(a, 'joined').code === 'IKRMA', 'create "room IKRMA" -> code IKRMA');
+c.send({ t: 'create', name: 'Haris', room: 'HARIS' }); await wait(200);
+b.send({ t: 'join', name: 'Bee', room: 'ikrma' }); await wait(200);
+ok(last(b, 'joined') && last(b, 'joined').code === 'IKRMA', 'join "ikrma" lands in IKRMA, not in HARIS');
+ok(last(a, 'lobby').players.length === 2, 'host sees 2 players');
+d.send({ t: 'join', name: 'Dee', room: 'USA' }); await wait(200);
+ok(last(d, 'err') && /No room named USA/.test(last(d, 'err').msg), 'unknown name -> clear error');
+d.send({ t: 'join', name: 'Dee' }); await wait(200);
+ok(last(d, 'err') && /more than one room/.test(last(d, 'err').msg), 'blank name with 2 rooms -> asks for the name');
+d.send({ t: 'create', name: 'Dee', room: 'IKRMA' }); await wait(200);
+ok(last(d, 'err') && /already exists/.test(last(d, 'err').msg), 'creating an existing name is refused');
+a.send({ t: 'rooms' }); await wait(150);
+ok(last(a, 'rooms').n === 2 && last(a, 'rooms').l.includes('HARIS'), 'rooms list names');
+[a, b, c, d].forEach((x) => x.ws.close()); await wait(100); process.exit(fail);

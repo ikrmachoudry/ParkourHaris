@@ -52,6 +52,8 @@ function bcast(room, o, exceptId) {
 const cleanName = (n) => String(n || 'Player').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 14) || 'Player';
 const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi);
 
+// room names typed by players ("room IKRMA", "Pakistan", "usa 1") -> one canonical key, so everybody who types the same name lands in the SAME room
+function roomKey(n) { let t = String(n || '').toUpperCase().replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/^ROOM\s+/, ''); return t.replace(/\s+/g, '').slice(0, 14); }
 function genCode() {
   const A = 'ABCDEFGHJKMNPQRSTUVWXYZ';
   for (;;) {
@@ -185,24 +187,28 @@ wss.on('connection', (ws, req) => {
 
     switch (m.t) {
       case 'ping': send(ws, { t: 'pong', c: m.c, s: Date.now() }); break;
-      case 'rooms': send(ws, { t: 'rooms', n: [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS).length }); break;   // lets the JOIN button know whether a room exists
+      case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
 
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
+        const want = roomKey(m.room);
+        if (want && rooms.has(want) && !(room && room.code === want)) return send(ws, { t: 'err', msg: `A room named ${want} already exists. Tap JOIN ROOM to enter it, or choose another name.` });
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
-        const r = { code: genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
+        const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
         rooms.set(r.code, r);
         joinRoom(p, r);
         break;
       }
       case 'join': { // with a code -> that room; without -> the room a friend already created (no code needed)
         let r;
-        if (m.code) {
-          r = rooms.get(String(m.code).toUpperCase().trim());
-          if (!r) return send(ws, { t: 'err', msg: 'Room not found. Check the code.' });
+        const want = roomKey(m.room || m.code);
+        if (want) {
+          r = rooms.get(want);
+          if (!r) return send(ws, { t: 'err', msg: `No room named ${want} yet. Ask the host to create it first (same name), then tap JOIN ROOM.` });
         } else {
           const all = [...rooms.values()];
+          if (all.length > 1) return send(ws, { t: 'err', msg: 'There is more than one room open - type the room name your friend made, then tap JOIN ROOM.' });
           r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < MAX_PLAYERS) || all.find((x) => x.players.size < MAX_PLAYERS);
           if (!r) {
             if (!all.length) return send(ws, { t: 'err', msg: 'No room has been created yet. Ask the host to tap CREATE ROOM first, then tap JOIN ROOM.' });
@@ -384,7 +390,7 @@ wss.on('connection', (ws, req) => {
 // keep every lobby panel honest: if somebody froze / left, the 'waiting for everybody' count updates within a couple of seconds
 setInterval(() => {
   for (const room of rooms.values()) {
-    if (room.phase === 'race' && room.players.size > 1) sendBusy(room);   // keep everybody's idea of who is inside a mission honest
+    if (room.phase === 'race' && room.players.size > 1) { sendBusy(room); if ((room.lobbyTick = (room.lobbyTick || 0) + 1) % 3 === 0) bcast(room, lobbyMsg(room)); }   // the roster again every 6 s: a client that missed a join packet heals itself
     const h = room.hub; if (!h || h.phase !== 'idle' || !h.inLobby.size) continue;
     const ids = pids(room), msg = JSON.stringify(h.lobbyMsg(ids));
     if (msg !== h.lastLobbyMsg) { h.lastLobbyMsg = msg; bcast(room, JSON.parse(msg)); }

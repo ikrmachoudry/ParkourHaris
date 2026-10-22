@@ -32,7 +32,7 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v132</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v133</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -72,9 +72,11 @@
   <section id="s-mp" class="screen panel-screen">
     <div class="panel">
       <h2>Multiplayer</h2>
-      <p class="note">Up to <b>4 players</b> on the same server. No codes needed!</p>
+      <p class="note">Up to <b>4 players</b>. Everybody types the <b>same room name</b> (e.g. IKRMA, HARIS, USA, PAKISTAN): the host taps CREATE, friends tap JOIN.</p>
+      <input id="mp-room" class="name-in" type="text" maxlength="20" placeholder="ROOM NAME (e.g. IKRMA)" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:100%;box-sizing:border-box;font-size:20px;text-align:center;letter-spacing:2px;text-transform:uppercase;padding:10px;margin:4px 0 8px">
+      <div id="mp-rooms" class="note" style="margin:0 0 8px"></div>
       <button class="btn big green" id="b-create"><b>CREATE ROOM</b><small>Start a new room &ndash; you are the host</small></button>
-      <button class="btn big pink" id="b-join"><b>JOIN ROOM</b><small>Only works after the host has created a room</small></button>
+      <button class="btn big pink" id="b-join"><b>JOIN ROOM</b><small>Type the same room name as the host</small></button>
       <div id="mp-status" class="status"></div>
       <div class="row end"><button class="btn grey" id="b-mp-back">BACK</button></div>
     </div>
@@ -83,7 +85,7 @@
   <!-- ============ LOBBY ============ -->
   <section id="s-lobby" class="screen lobby">
     <div class="lobby-top">
-      <div class="code-box"><span>ROOM</span><b id="lobby-code" style="font-size:22px;letter-spacing:4px">----</b><span class="note" style="margin:0">Friends tap MULTIPLAYER &rarr; JOIN ROOM</span><button class="btn small blue hidden" id="b-copy">COPY INVITE LINK</button></div>
+      <div class="code-box"><span>ROOM</span><b id="lobby-code" style="font-size:22px;letter-spacing:4px">----</b><span class="note" style="margin:0">Friends: MULTIPLAYER &rarr; type this name &rarr; JOIN ROOM</span><button class="btn small blue hidden" id="b-copy">COPY INVITE LINK</button></div>
       <button class="btn grey small" id="b-leave">LEAVE</button>
     </div>
     <div class="lobby-bottom">
