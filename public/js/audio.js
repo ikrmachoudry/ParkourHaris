@@ -11,7 +11,9 @@ export function initAudio() {
   if (!AC) return;
   ctx = new AC();
   setTimeout(loadBank, 0);
-  master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
+  { // a brick-wall limiter in front of the speakers: a pile of loud sounds (several players firing automatic guns) used to add up past full scale and CRUSH everything, including my own shots
+    const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -4; lim.knee.value = 3; lim.ratio.value = 14; lim.attack.value = 0.002; lim.release.value = 0.12; master.connect(lim); lim.connect(ctx.destination); }
   sfxG = ctx.createGain(); sfxG.gain.value = SFX * sfxVol; sfxG.connect(master);
   musG = ctx.createGain(); musG.gain.value = MUS * musVol; musG.connect(master);
   { // a short room tail for the gunshots: decaying noise impulse
@@ -74,7 +76,18 @@ export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 
   if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; s.connect(f); f.connect(g); } else s.connect(g);
   if (rev && revIn) { const r = ctx.createGain(); r.gain.value = rev; g.connect(r); r.connect(revIn); }
   if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); n = p; }
-  n.connect(sfxG); s.start(ctx.currentTime + delay); return true;
+  n.connect(bus || sfxG); active++; s.onended = () => { active--; }; s.start(ctx.currentTime + delay); return true;
+}
+// other players' gunshots go through their own bus: only a few at a time and never closer together than a few ms, so a crowd of shooters can not bury MY sounds (mine always play)
+let active = 0, remG = null, remActive = 0; const remLast = {};
+let bus = null;
+export function playRemote(name, vol, rate, lp = 5200) {
+  const b = bank[name]; if (!ctx || !b || remActive >= 3 || active > 60) return false;
+  const now = performance.now(); if (now - (remLast[name] || 0) < 55) return false; remLast[name] = now;
+  if (!remG) { remG = ctx.createGain(); remG.gain.value = 0.62; remG.connect(sfxG); }
+  bus = remG; remActive++; const ok = play(name, vol, rate, 0, 0, lp, 0); bus = null; if (!ok) { remActive--; return false; }
+  setTimeout(() => { remActive = Math.max(0, remActive - 1); }, Math.min(900, b.duration * 1000));   // (counted until about the end of the sample)
+  return true;
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot: a little pitch variation so that full-auto does not sound like one looped file
@@ -107,6 +120,7 @@ export const sfx = {
   swing(bat = false) { if (bat ? !play(bank.u_woosh ? 'u_woosh' : 'whoosh', 0.8, rnd(0.92, 1.0), 0.04) : !play(bank.u_woosh ? 'u_woosh' : 'swish', 0.55, rnd(1.2, 1.35))) { noise(0.24, 0.3, 'bandpass', 500, 2800, 0, 1.2); } },
   cash() { play('cash', 0.8); },
   empty() { play('noammo', 0.6); },
+  rshot(vol = 1, ak = false) { const n = performance.now(); if (ak) { const gap = n - (sfx._rakAt || 0); sfx._rakAt = n; return playRemote(gap > 320 ? 'u_ak2' : 'u_ak1', 0.85 * vol, rnd(0.97, 1.05)); } return playRemote('u_pistol', 0.8 * vol, rnd(0.97, 1.04)); },   // somebody else's shot (multiplayer)
   shot(pan = 0, vol = 1) { if (play('u_pistol', 0.8 * vol, rnd(0.97, 1.04), 0, pan, 0, 0.25)) return; if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; noise(0.09, 0.4, 'highpass', 2500, 900); },
   sniperShot(pan = 0, vol = 1) { if (play('u_sniper', 0.95 * vol, rnd(0.98, 1.02), 0, pan, 0, 0.35)) return; if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
   boom(vol = 1) {   // real explosion recordings: the blast + a slowed, low-passed copy for the rumble

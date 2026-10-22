@@ -971,7 +971,7 @@ class Race {
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
     const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0);
-    app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +b.yaw.toFixed(2), a: flags, w: this.weaponCode(), vm: this.drive && this.drive.local ? this.drive.st.id : 0, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
+    app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +Math.atan2(Math.sin(b.yaw), Math.cos(b.yaw)).toFixed(2), a: flags, w: this.weaponCode(), vm: this.drive && this.drive.local ? this.drive.st.id : 0, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
@@ -1139,7 +1139,7 @@ class Race {
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (!q) return; const len = Math.min(60, m.l || 30);
     q.t = 0.07; q.m.visible = true; q.m.position.set(m.x + m.dx * len / 2, m.y, m.z + m.dz * len / 2); q.m.rotation.set(0, Math.atan2(m.dx, m.dz), 0); q.m.scale.set(1, 1, len);
     this.particles.emit(m.x, m.y, m.z, 3, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 });
-    { const dd = Math.hypot(m.x - this.camera.position.x, m.z - this.camera.position.z); if (dd < 90) { const v = Math.max(0.15, 1 - dd / 90); m.w === 3 ? A.sfx.akShot(0, v) : A.sfx.shot(0, v); } }
+    { const dd = Math.hypot(m.x - this.camera.position.x, m.z - this.camera.position.z); if (dd < 90) { const v = Math.max(0.15, 1 - dd / 90); A.sfx.rshot(v, m.w === 3); } }
   }
   onPedHit(m) {   // an AI pedestrian the host is fighting punched me
     const b = this.me.body; if (b.hitCd > 0 || this.drive) return; if (knock(b, m.nx, m.nz, 7)) { b.vy = 2; b.stun = 0.4; this.crouch = false; A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); }
@@ -2110,7 +2110,7 @@ async function boot() {
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
-  document.querySelectorAll('#quick .qrow, #quick2 .qrow').forEach((row) => {
+  document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick3 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
     row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });

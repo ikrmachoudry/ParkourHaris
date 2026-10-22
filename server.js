@@ -86,7 +86,12 @@ function hubOf(room) { if (!room.hub) room.hub = new MissionHub((msg) => mission
 function missionEmit(room, msg) {
   const h = room.hub, mem = h && h.members && h.members.length ? h.members : null;
   if (!mem || msg.t === 'm_lobby' || msg.t === 'm_idle') bcast(room, msg); else for (const id of mem) { const q = room.players.get(id); if (q) send(q.ws, msg); }
-  if (msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) || msg.t === 'm_idle' || (msg.t === 'm_end' && msg.pass)) bcast(room, { t: 'm_busy', ids: msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) ? (mem || []) : [] });
+  if (msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) || msg.t === 'm_idle' || (msg.t === 'm_end' && msg.pass)) { room.busyIds = msg.t === 'm_go' || (msg.t === 'm_end' && !msg.pass) ? [...(mem || [])] : []; sendBusy(room); }
+}
+// who is inside a mission right now, told to everybody (also to a player who joins later, and again every few seconds so a missed / stale list can never leave two players invisible to each other)
+function sendBusy(room, to) {
+  const ids = (room.busyIds || []).filter((id) => room.players.has(id)), msg = { t: 'm_busy', ids };
+  if (to) send(to.ws, msg); else bcast(room, msg);
 }
 // who counts for a mission: everybody whose connection is alive and has spoken in the last 6 s (a frozen tab or a ghost
 // connection must never block a solo player from starting)
@@ -113,6 +118,7 @@ function startRound(room) {
   room.finishCount = 0;
   room.firstFinish = false;
   room.cars = {};
+  room.busyIds = [];
   room.seed = 1 + Math.floor(Math.random() * 1e9);
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   bcast(room, {
@@ -132,7 +138,7 @@ function removePlayer(p) {
   if (room.players.size === 0) { clearTimers(room); if (room.hub) room.hub.reset(); rooms.delete(room.code); return; }
   if (room.hostId === p.id) room.hostId = room.players.values().next().value.id;
   bcast(room, { t: 'left', id: p.id });
-  bcast(room, lobbyMsg(room));
+  bcast(room, lobbyMsg(room)); sendBusy(room);
   if (room.phase === 'race' || room.phase === 'countdown') {
     const all = [...room.players.values()];
     if (all.every((q) => q.finished)) endRound(room, 'finish');
@@ -144,7 +150,7 @@ function joinRoom(p, room) {
   p.char = freeChar(room, p.char, p.id);
   room.players.set(p.id, p);
   p.finished = false; p.finTime = 0; p.x = 0; p.y = 0; p.z = 0;
-  send(p.ws, { t: 'joined', id: p.id, code: room.code });
+  send(p.ws, { t: 'joined', id: p.id, code: room.code }); sendBusy(room, p);
   bcast(room, lobbyMsg(room));
   if (room.phase === 'race' || room.phase === 'countdown') { // joined a race that is already running: drop in at the start line
     const meta = LEVEL_META[room.level];
@@ -343,7 +349,8 @@ wss.on('connection', (ws, req) => {
         const t = Date.now();
         if (t - p.lastS < 12) return;
         p.lastS = t;
-        if (!num(m.x, -2000, 2000) || !num(m.y, -200, 300) || !num(m.z, -2000, 2000) || !num(m.r, -10, 10)) return;
+        if (!num(m.x, -2000, 2000) || !num(m.y, -200, 300) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
+        m.r = Math.atan2(Math.sin(m.r), Math.cos(m.r));   // a turn angle that has wound up past +-10 rad (spinning the camera, driving in circles) used to get the whole packet thrown away: that player froze / vanished for everybody else
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r; p.a = m.a | 0;
         bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, w: m.w & 31, vm: num(m.vm, 0, 60) ? m.vm | 0 : 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];
@@ -371,6 +378,7 @@ wss.on('connection', (ws, req) => {
 // keep every lobby panel honest: if somebody froze / left, the 'waiting for everybody' count updates within a couple of seconds
 setInterval(() => {
   for (const room of rooms.values()) {
+    if (room.phase === 'race' && room.players.size > 1) sendBusy(room);   // keep everybody's idea of who is inside a mission honest
     const h = room.hub; if (!h || h.phase !== 'idle' || !h.inLobby.size) continue;
     const ids = pids(room), msg = JSON.stringify(h.lobbyMsg(ids));
     if (msg !== h.lastLobbyMsg) { h.lastLobbyMsg = msg; bcast(room, JSON.parse(msg)); }
