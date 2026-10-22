@@ -19,7 +19,7 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 },
+const CLIP_FOR = { zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] }, nadeThrow: { c: 'nadeThrow', nade: 1 }, nadeToss: { c: 'nadeToss', nade: 1 }, nadeStand: { c: 'nadeStand', nade: 1 } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const _aimD = new THREE.Vector3(), _aimT = new THREE.Vector3(), _aimQ = new THREE.Quaternion(), _aimE = new THREE.Quaternion(), _aimI = new THREE.Quaternion(), AIM_BONES = ['spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R'];
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
@@ -218,10 +218,11 @@ export class GlbActor extends HeroActor {
     if (clip) {
       const sp = st.speed || 0; let fi;
       if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 6 - t * 2.5 : 6 - t * 1.0)); }   // only the first leg lift of the clip (frames 3-7): the clip's second leg swing (8-19) read as a double jump   // jump: rising -> apex -> falling, driven by the real vertical speed
+      else if (ce.zp) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.zp || 0) * (clip.n - 1))); }   // zombie death: 0..1 progress from the scene
       else if (ce.nade) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.nade || 0) * (clip.n - 1))); }   // the grenade throw: the game's own 0..1 progress (release at clip.rel)
       else if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
       else { this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1); fi = (this.ct / clip.dur) % 1 * clip.n; }
-      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air || ce.nade ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
+      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air || ce.nade || ce.zp ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
       const Wm = rt.Wm || (rt.Wm = {}); const sc = hk * 0.01 * (rt.mxHipsY / 100) ** 0;
       NEED.forEach((n, j) => {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);

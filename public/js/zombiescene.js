@@ -84,9 +84,9 @@ export class ZombieScene {
       const gy = this.groundY(x, z); a.y += (gy - a.y) * Math.min(1, dt * 12); const g = a.g;
       g.position.set(x, a.y, z); g.rotation.y = yaw;
       const dist = Math.hypot(x - cam.x, z - cam.z); g.visible = dist < 90;
-      if (st === 2) { a.dead += dt; g.scale.setScalar(a.dead > 1.3 ? Math.max(0.01, 1 - (a.dead - 1.3) * 2.2) : 1); } else g.scale.setScalar(1);
+      if (st === 2) { a.dead += dt; g.scale.setScalar(a.dead > 2.9 ? Math.max(0.01, 1 - (a.dead - 2.9) * 2.2) : 1); } else g.scale.setScalar(1);
       if (st === 1) a.att += dt * 1.25; else a.att = 0;
-      if (g.visible) a.m.update(dt, { swim: false, speed: st === 2 ? 0 : Math.min(a.sp, 2.6), grounded: true, vy: 0, stun: st === 2 ? 1 : 0, dive: 0, punch: st === 1 ? (a.att % 1) + 0.001 : 0 });
+      if (g.visible) a.m.update(dt, { swim: false, speed: st === 2 ? 0 : Math.min(a.sp, 2.6), grounded: true, vy: 0, stun: 0, dive: 0, punch: st === 1 ? (a.att % 1) + 0.001 : 0, zpose: st === 2 ? 'zDeath' : st === 1 ? null : e1[5] <= 35 ? 'zCrawl' : 'zWalk', zp: st === 2 ? Math.min(1, a.dead / 2.9) : 0 });
       // a growl now and then (louder the nearer, duller the farther)
       if (st !== 2) { a.gt -= dt; if (a.gt <= 0) { a.gt = 3.5 + Math.random() * 5; const v = clamp(1 - dist / 50, 0, 1); if (v > 0.05) { const dx = x - cam.x, dz = z - cam.z, l = Math.hypot(dx, dz) || 1; this.rt.setFromMatrixColumn(R.camera.matrixWorld, 0); A.voice.zgroan(0.8 * v, clamp(this.rt.x * dx / l + this.rt.z * dz / l, -1, 1), clamp(dist / 50, 0, 1)); } } }
     }

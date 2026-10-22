@@ -12,7 +12,7 @@ export const ZOMBIE_BRIEF_MS = 5000;
 export const ROUND_COUNT = 5;
 // [zombies in the round, speed m/s]: few and slow at first (a brisk walk would catch nobody), a few more and a bit faster every round
 export const ROUNDS = [{ n: 6, v: 0.95 }, { n: 9, v: 1.15 }, { n: 12, v: 1.35 }, { n: 15, v: 1.6 }, { n: 19, v: 1.85 }];
-export const Z_HP = 100, PLAYER_HP = 100, AGGRO = 17, BITE_R = 1.15, BITE_EVERY = 1.1, DOWN_S = 5, INTRO_S = 3, CLEAR_S = 6, DEAD_KEEP = 1.7;
+export const Z_HP = 100, PLAYER_HP = 100, AGGRO = 17, BITE_R = 1.15, BITE_EVERY = 1.1, DOWN_S = 5, INTRO_S = 3, CLEAR_S = 6, DEAD_KEEP = 3.4;
 export const HOME = HOMES[2];   // Hanbal's house (yaw 0: the front door faces +z)
 export const HOME_RUN = { door: 3.4, garage: -3.3 };   // local x of the middle of the front door gap (2.7..4.1) and of the garage opening (-5.5..-1.1)
 // where the zombies come out (house-local x, z; +z = the street in front): every one of these was checked to have a clear straight line to both openings
@@ -87,7 +87,7 @@ export class ZombieDirector {
         continue;
       }
       z.att = 0; z.atk = Math.min(z.atk, 0.45);
-      const sp = R.v * z.vm * (z.hurt > 0 ? 0.35 : 1); dx /= d; dz /= d; z.x += dx * sp * dt; z.z += dz * sp * dt;
+      const sp = R.v * z.vm * (z.hurt > 0 ? 0.35 : 1) * (z.hp <= 35 ? 0.55 : 1); dx /= d; dz /= d; z.x += dx * sp * dt; z.z += dz * sp * dt;
       let da = Math.atan2(dx, dz) - z.yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); z.yaw += da * Math.min(1, dt * 7);
     }
     // they do not stand inside each other
