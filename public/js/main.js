@@ -521,7 +521,7 @@ class Race {
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain)) return null;
     const swimming = b.swim > 0.3; let best = null, bd = 4.6;
     for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3.5) continue; const cv = cityVeh(c.st.id), boat = !!(cv && cv.boat); if (swimming && !boat) continue;
-      let d; if (boat) { const L = (STYLE_GEO[cv.style].L / 2) * 0.8, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), t = Math.max(-L, Math.min(L, (b.x - c.st.x) * fx + (b.z - c.st.z) * fz)); d = Math.hypot(b.x - (c.st.x + fx * t), b.z - (c.st.z + fz * t)) - STYLE_GEO[cv.style].w * 0.3; } else d = Math.hypot(b.x - c.st.x, b.z - c.st.z); d += taken ? 0.8 : 0; if (d < bd) { bd = d; best = c; } }
+      let d; if (boat || (cv && cv.plane)) { const L = (STYLE_GEO[cv.style].L / 2) * 0.8, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), t = Math.max(-L, Math.min(L, (b.x - c.st.x) * fx + (b.z - c.st.z) * fz)); d = Math.hypot(b.x - (c.st.x + fx * t), b.z - (c.st.z + fz * t)) - STYLE_GEO[cv.style].w * (cv.plane ? 0.55 : 0.3); } else d = Math.hypot(b.x - c.st.x, b.z - c.st.z); d += taken ? 0.8 : 0; if (d < bd) { bd = d; best = c; } }
     return best;
   }
   spotFree(x, z, except) { // somewhere a person can stand: not inside a building and not inside another car
