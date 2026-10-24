@@ -36,7 +36,7 @@ const P0 = { ...P };   // the cartoon-game physics; the city overrides them with
 const $ = (id) => document.getElementById(id);
 const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches && matchMedia('(hover: hover)').matches && !matchMedia('(pointer: coarse)').matches;   // a laptop / PC with a mouse (even a touchscreen laptop): keyboard + mouse only
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
-const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
+const touch = { fly: 0, dive: 0, x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const NADE_DUR = [1.12, 1.3, 1.4], NADE_REL = [0.64, 0.75, 0.643];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -570,7 +570,7 @@ class Race {
         if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(12, 3 + sp0 * 0.32))) { b.vy = 2.6 + Math.min(2.4, sp0 * 0.07); b.stun = Math.min(2.8, 1.5 + sp0 * 0.045); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
       } catch (e) { console.warn(e); }
       if (this.lightsOn && this.beam) { this.lightsOn = false; this.applyLights(c); this.lightsOn = true; }
-      document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); A.sirenStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
+      document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); A.sirenStop(); document.body.classList.remove('plane-mode'); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
       this.g_g(this.me.model.group);
       if (this.multi && !force && !pax && !c.local) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false; if (NO_TEXT) this.camPitch = 0.17;
@@ -766,13 +766,14 @@ class Race {
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
     const planeV = !!(cityVeh(st.id) && cityVeh(st.id).plane); let pitchIn = 0;
+    document.body.classList.toggle('plane-mode', planeV);
     if (planeV && !st.tipped) { st.tipped = true; this.toast && this.toast('AIRPLANE 910 km/h: W = throttle up, S = down, hold UP ARROW after ~150 km/h to take off, A/D bank, DOWN ARROW dives, SPACE = brake'); }
     if (planeV) {   // airplane: W / S = throttle, A / D = bank, Arrow UP / DOWN (phone: joystick up / down) = nose up / down, Space = wheel brake
       const cm = canMove !== false; gas = cm ? ((keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0) + (touch.gas ? 1 : 0) - (touch.brk ? 1 : 0)) : 0;
-      pitchIn = cm ? ((keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0) + (Math.abs(touch.y) > 0.15 ? touch.y : 0)) : 0;
+      pitchIn = cm ? ((keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0) + touch.fly - touch.dive) : 0;
       steer = cm ? ((keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + (Math.abs(touch.x) > 0.2 ? touch.x : 0)) : 0;
     }
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), pitch: clamp(pitchIn, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), pitch: clamp(pitchIn, -1, 1), auto: IS_TOUCH }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if ((st.wet || 0) > 0 && !this.wetFx) { this.wetFx = true; A.sfx.splash && A.sfx.splash(0.9); this.particles.emit(st.x, (this.world.waterY || 0) + 0.3, st.z, 30, { color: '#cfeaff', speed: 5, up: 6, life: 0.8, size: 0.4, gravity: 14, spread: 1 }); this.toast && this.toast('The car is sinking - get out!'); }
     if (!(st.wet > 0)) this.wetFx = false;
@@ -2085,7 +2086,7 @@ function openPause() {
   if (race.bigMapOpen) race.toggleMap(false);
   race.menuOpen = true;
   if (!race.multi && !race.paused) { race.paused = true; race.pauseAt = performance.now(); }
-  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0;
+  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = touch.fly = touch.dive = 0; touch.bs = 0;
   $('p-title').textContent = race.multi ? 'Menu' : 'Paused';
   $('p-info').textContent = race.meta.name + (race.multi ? '  \u2022  race goes on!' : '');
   syncGfx();
@@ -2131,7 +2132,7 @@ $('p-full').onclick = () => {
   });
 }
 { const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
-  const open = () => { if (race && !race.over) { keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
+  const open = () => { if (race && !race.over) { keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = touch.fly = touch.dive = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
   if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; open(); });
   if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
@@ -2296,6 +2297,7 @@ window.__ph = { A, rend: renderer, app, Remote, stepBody, newBody, startSingle: 
   act('c-left', () => { touch.sl = 1; }, () => { touch.sl = 0; }); act('c-right', () => { touch.sr = 1; }, () => { touch.sr = 0; });
   act('c-gas', () => { touch.gas = 1; }, () => { touch.gas = 0; }); act('c-brake', () => { touch.brk = 1; }, () => { touch.brk = 0; });
   act('c-hb', () => { touch.hb = 1; }, () => { touch.hb = 0; });
+  act('c-fly', () => { touch.fly = 1; }, () => { touch.fly = 0; }); act('c-dive', () => { touch.dive = 1; }, () => { touch.dive = 0; });
   btn('b-grab', () => { touch.grab = true; press.grab = true; }, () => { touch.grab = false; });
   { const g = $('b-grab'); if (g) { g.addEventListener('mousedown', (e) => { e.preventDefault(); touch.grab = true; press.grab = true; }); window.addEventListener('mouseup', () => { touch.grab = false; }); } }
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });

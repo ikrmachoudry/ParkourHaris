@@ -677,3 +677,12 @@ body.standalone #b-auto { top: calc(max(8px, env(safe-area-inset-top)) + 52px); 
   .m-card button { padding: 9px; font-size: 14px; margin-top: 5px; }
   #m-start { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -6px 10px #14122b; }
 }
+
+/* airplane: FLY (nose up) and DIVE buttons, only while sitting in the plane */
+#c-fly, #c-dive { display: none; position: absolute; border-radius: 50%; opacity: .85; width: var(--pad-big); height: var(--pad-big); }
+body.plane-mode #c-fly, body.plane-mode #c-dive { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+body.plane-mode #c-hb { display: none; }
+#c-fly { right: calc(var(--pad-x) + var(--pad-big) + var(--pad-size) + var(--pad-gap) * 2); bottom: var(--pad-y); background: rgba(40,160,255,.5); }
+#c-dive { right: var(--pad-x); bottom: calc(var(--pad-y) + var(--pad-big) + var(--pad-gap)); width: var(--pad-size); height: var(--pad-size); }
+#c-fly i { font: 800 11px sans-serif; color: #fff; font-style: normal; }
+#c-fly svg, #c-dive svg { width: 50%; height: 50%; }

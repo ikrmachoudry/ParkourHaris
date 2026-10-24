@@ -22,14 +22,15 @@ function once(c, dt, inp, track, spec, geo) {
   const g0 = T ? T(c.x, c.z) : 0, alt = c.y - g0, onGround = alt < 0.12 && !c.air && !((c.spd || 0) >= ROTATE && c.pitch > 0.08);
   if (!onGround && !c.air) c.air = true;   // nose up past the rotation speed: it leaves the runway
   // throttle: W / S move it, it stays where you leave it
-  c.thr = clamp(c.thr + gas * 0.55 * dt, 0, 1);
+  // phone: the throttle is only open while the button is held (a soft tap = a little power, it falls back to idle); keyboard: it stays where you leave it
+  c.thr = clamp(c.thr + (inp.auto && gas === 0 ? -0.5 : gas * 0.55) * dt, 0, 1);
   let u = c.spd || 0;
   // engine: strong at low speed, fading out to the top speed; climbing costs speed, diving gives it back; the air itself slows the plane down when the throttle is closed
   const fade = Math.max(0, 1 - Math.pow(Math.max(0, u) / top, 2));
   u += spec.acc * c.thr * fade * dt;
   u -= 9.81 * Math.sin(c.pitch) * dt * (c.air ? 0.8 : 0);
   u -= u * 0.008 * dt * (c.thr < 0.05 ? 2.2 : 1);
-  if (onGround) { u -= Math.min(u, (1.2 + (inp.hb ? spec.dec : 0)) * dt); }
+  if (onGround) { u -= Math.min(u, (1.2 + (inp.hb || (gas < 0 && c.thr < 0.02) ? spec.dec : 0)) * dt); }
   u = clamp(u, 0, PLANE_TOP);   // 910 km/h flat out
   // ---- attitude
   const ctl = clamp(u / 55, 0.25, 1);
