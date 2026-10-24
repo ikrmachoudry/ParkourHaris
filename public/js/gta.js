@@ -288,7 +288,7 @@ export function gtaCars() {
     // 16..23 = motorbikes: five on the kerb near the spawn, three in the Stunt Park infield (the net flags carry a 5-bit vehicle index)
     ...[[19, -4], [20, -1.5], [21, 1], [19, 3.5], [20, 6]].map(([id, x]) => ({ id, x, z: -5.0, yaw: Math.PI / 2 })), ...[[19, 86.6], [21, 89.8], [20, 93]].map(([id, z]) => ({ id, x: PARK.spawn.x - 7, z, yaw: PARK.spawn.yaw })),
     ...CHASE.copsHome.map((q) => ({ id: 15, ...q })),
-    ...[88.2, 91.6].map((z) => ({ id: 25, x: PARK.spawn.x - 13, z, yaw: PARK.spawn.yaw })),   // two purple 160 km/h racing cars in the Stunt Park infield
+    ...[88.2, 91.6].map((z) => ({ id: 25, x: PARK.spawn.x - 13, z, yaw: PARK.spawn.yaw })),   // two purple 155 km/h racing cars in the Stunt Park infield
     (() => { const h = HOMES[1], p = homeW(h, 1.8, 6.6); return { id: 24, x: p.x, z: p.z, yaw: h.yaw }; })(),   // the yellow 144 km/h coupe in Hannan's front yard
     (() => { const h = HOMES[0], p = homeW(h, 0.9, 8.0); return { id: 27, x: p.x, z: p.z, yaw: h.yaw + Math.PI / 2 }; })(),   // Haris's cargo truck (105 km/h), parked along the avenue side of the yard; 32 vehicles now = every slot of the 5-bit net vehicle id (indices 0..31) is used
     (() => { const h = HOMES[2], p = homeW(h, 2.2, 7.6); return { id: 26, x: p.x, z: p.z, yaw: h.yaw }; })(),   // Hanbal's tractor (21 km/h)
