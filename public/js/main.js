@@ -544,6 +544,7 @@ class Race {
     const b = this.me.body;
     if (this.drive) { // get out
       const c = this.drive, st = c.st;
+      if (!force && cityVeh(st.id).plane && (st.air || (st.spd || 0) > 6)) { this.toast && this.toast('Land and stop the plane before you get out'); return; }
       const boatV = cityVeh(st.id).boat, pax = this.paxMode, bail = !force && !boatV && Math.abs(st.speed) > 5.5, vx0 = st.vx, vz0 = st.vz, sp0 = Math.abs(st.speed);
       if (!force && st.y > 1.2 && !this.world.terrain) { return; }
       const hero = !!c.mesh.userData.hero, lx = Math.cos(st.yaw) * (hero ? -1 : 1), lz = -Math.sin(st.yaw) * (hero ? -1 : 1);
@@ -764,7 +765,14 @@ class Race {
       }
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
-    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    const planeV = !!(cityVeh(st.id) && cityVeh(st.id).plane); let pitchIn = 0;
+    if (planeV && !st.tipped) { st.tipped = true; this.toast && this.toast('AIRPLANE 910 km/h: W = throttle up, S = down, hold UP ARROW after ~150 km/h to take off, A/D bank, DOWN ARROW dives, SPACE = brake'); }
+    if (planeV) {   // airplane: W / S = throttle, A / D = bank, Arrow UP / DOWN (phone: joystick up / down) = nose up / down, Space = wheel brake
+      const cm = canMove !== false; gas = cm ? ((keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0) + (touch.gas ? 1 : 0) - (touch.brk ? 1 : 0)) : 0;
+      pitchIn = cm ? ((keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0) + (Math.abs(touch.y) > 0.15 ? touch.y : 0)) : 0;
+      steer = cm ? ((keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + (Math.abs(touch.x) > 0.2 ? touch.x : 0)) : 0;
+    }
+    let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1), pitch: clamp(pitchIn, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if ((st.wet || 0) > 0 && !this.wetFx) { this.wetFx = true; A.sfx.splash && A.sfx.splash(0.9); this.particles.emit(st.x, (this.world.waterY || 0) + 0.3, st.z, 30, { color: '#cfeaff', speed: 5, up: 6, life: 0.8, size: 0.4, gravity: 14, spread: 1 }); this.toast && this.toast('The car is sinking - get out!'); }
     if (!(st.wet > 0)) this.wetFx = false;
@@ -1679,7 +1687,7 @@ class Race {
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
-      const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   // phones: chase camera a bit closer
+      const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   if (cityVeh(st.id).plane) dist = 24 + Math.min(10, Math.abs(st.speed) * 0.04);   // phones: chase camera a bit closer
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre

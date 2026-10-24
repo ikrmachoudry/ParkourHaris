@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { flagTexture } from './flags.js';
 import { CITY_VEH, newCityState, stepCityCar } from './cityveh.js';
 import { stepBoat } from './boat.js';
+import { stepPlane } from './plane.js';
 import { buildCityMesh, animateCityMesh } from './cityvis.js';
 
 export const CAR_SPECS = [
@@ -57,6 +58,7 @@ export function corridor(track, x, z, margin = 1.5, y) {
 // track: { segs, plazas, boosts:[{x,z,r}] }.  others: [{x,z}] cars to bump into.  returns an event string or ''
 export function stepCar(c, dt, inp, track, others, tm = 0) {
   const spec = CAR_SPECS[c.id];
+  if (spec.city && CITY_VEH[c.id - 11].plane) { c.ownd = true; return stepPlane(c, dt, inp, track, others, CITY_VEH[c.id - 11]); }
   if (spec.city && CITY_VEH[c.id - 11].boat) { c.ownd = true; return stepBoat(c, dt, inp, track, others, CITY_VEH[c.id - 11]); }
   if (spec.city) { c.ownd = true; return stepCityCar(c, dt, inp, track, others, CITY_VEH[c.id - 11], track.terrain ? (q) => corridor(track, q.x, q.z, -1.2).d <= 0 : null); }
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;

@@ -298,7 +298,7 @@ wss.on('connection', (ws, req) => {
         if (t - (p.lastCar || 0) < 250) return;
         if (!num(m.c, 0, 63) || !num(m.x, -2000, 2000) || !num(m.z, -2000, 2000) || !num(m.r, -10, 10)) return;
         p.lastCar = t; room.cars = room.cars || {};
-        const cy = num(m.y, -5, 120) ? m.y : 0;
+        const cy = num(m.y, -5, 1300) ? m.y : 0;
         room.cars[m.c | 0] = { x: m.x, y: cy, z: m.z, r: m.r };
         bcast(room, { t: 'carpark', c: m.c | 0, x: m.x, y: cy, z: m.z, r: m.r }, p.id);
         break;
@@ -339,7 +339,7 @@ wss.on('connection', (ws, req) => {
       case 'fx': { // a shot (tracer + sound) for everybody
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastFx || 0) < 60) return; p.lastFx = t;
-        if (!num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.dx, -1.01, 1.01) || !num(m.dz, -1.01, 1.01) || !num(m.l, 0, 120)) return;
+        if (!num(m.x, -2000, 2000) || !num(m.y, -5, 1300) || !num(m.z, -2000, 2000) || !num(m.dx, -1.01, 1.01) || !num(m.dz, -1.01, 1.01) || !num(m.l, 0, 120)) return;
         bcast(room, { t: 'fx', id: p.id, x: m.x, y: m.y, z: m.z, dx: m.dx, dz: m.dz, l: m.l, w: m.w & 3 }, p.id);
         break;
       }
@@ -347,7 +347,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastGr || 0) < 80) return; p.lastGr = t;
         if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0 }, p.id); break; }
-        if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.vx, -40, 40) || !num(m.vy, -40, 40) || !num(m.vz, -40, 40)) return;
+        if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 1300) || !num(m.z, -2000, 2000) || !num(m.vx, -40, 40) || !num(m.vy, -40, 40) || !num(m.vz, -40, 40)) return;
         bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz }, p.id);
         break;
       }

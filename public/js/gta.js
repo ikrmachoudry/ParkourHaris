@@ -295,7 +295,8 @@ export function gtaCars() {
     (() => { const h = HOMES[3], p = homeW(h, 1.8, 6.6); return { id: 23, x: p.x, z: p.z, yaw: h.yaw }; })(),
     ...[89, 98].map((z) => ({ id: 28, x: PARK.cxW + 62, z, yaw: Math.PI / 2 })),
     { id: 29, x: PARK.spawn.x - 13, z: 95, yaw: PARK.spawn.yaw },
-    ...PORT.berths.map((b) => ({ id: b.hull === 'speedboat' ? 30 : b.hull === 'fishboat' ? 31 : 32, x: b.x, z: b.z, yaw: b.yaw, y: GT.SEA + (b.hull === 'speedboat' ? 0.12 : b.hull === 'fishboat' ? 0.2 : 0.25) }))];   // the three boats moored at Haris Port (water world)   // the red racing car (190 km/h) right beside the two purple racers in the infield; two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
+    ...PORT.berths.map((b) => ({ id: b.hull === 'speedboat' ? 30 : b.hull === 'fishboat' ? 31 : 32, x: b.x, z: b.z, yaw: b.yaw, y: GT.SEA + (b.hull === 'speedboat' ? 0.12 : b.hull === 'fishboat' ? 0.2 : 0.25) })),
+    { id: 33, x: PARK.cxW - 22, z: 58, yaw: HP0() }];   //   // the AIRPLANE (910 km/h) on the Stunt Park apron: take off along the pad, east];   // the three boats moored at Haris Port (water world)   // the red racing car (190 km/h) right beside the two purple racers in the infield; two 165 km/h buses parked in the Stunt Park infield   // Dawood's auto rickshaw (62 km/h), last in the list so the other net indices stay put   // 12..15 = the four white mission cars (they wait in the Stunt Park)
 }
 // traffic: two nested rings of cars (no lane is shared, so cars never run into each other). Pakistan drives on the LEFT:
 // the cars go anti-clockwise seen from above, hugging the inside lane of each ring.
