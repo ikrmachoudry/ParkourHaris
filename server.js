@@ -268,6 +268,7 @@ wss.on('connection', (ws, req) => {
       case 'm_start': { if (!room || room.phase !== 'race') return; hubOf(room).start(p.id, pids(room, p.id), m.role); break; }
       case 'm_hit': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.hit(p.id, Math.min(2, +m.dmg || 1)); break; }
       case 'm_zh': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.zhit(p.id, m.z | 0, Math.max(1, Math.min(200, +m.d || 0))); break; }
+      case 'm_pr': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.rick(p.id, { x: +m.x, z: +m.z, yaw: +m.yaw, sp: +m.sp, hp: +m.hp, drv: m.drv ? 1 : 0 }); break; }
       case 'm_res': { if (!room || room.phase !== 'race' || !room.hub) return; room.hub.result(p.id, !!m.ok, m.why, m.round | 0); break; }
 
       case 'shove': { // running into another player pushes them too (relay only)

@@ -1166,7 +1166,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.mission && (this.mission.mission === 'snipe' || this.mission.mission === 'zombie') && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
+  crime(kind, x, z) { if (this.mission && (this.mission.mission === 'snipe' || this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = isGun(this.weapon), empty = tj.mode === 'abandoned';
@@ -1325,7 +1325,7 @@ class Race {
     if (this.multi && !this.simHost) this.evt({ k: 'gb', x: +x.toFixed(1), z: +z.toFixed(1) });
     if (this.peds) this.peds.blast(x, z, R, W.dmg, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); });
     if (this.wanted) this.wanted.blast(x, z, R, W.dmg);
-    if (this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active) this.mission.zs.blast(x, z, R);
+    if (this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active) this.mission.zs.blast(x, z, R);
     this.nadeCars(x, z, R, true);
     this.crime('shot', x, z);
   }
@@ -1402,7 +1402,7 @@ class Race {
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
-    const zomOn = !!(this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active);
+    const zomOn = !!(this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active);
     if (zomOn && OPT.autoAim) { let bd3 = 0.4; for (const z of this.mission.zs.list()) { const dx = z.x - b.x, dz = z.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd3) { bd3 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.6; } } }   // zombies too
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
     if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
@@ -1511,7 +1511,7 @@ class Race {
     if (this.kickK && this.peds) { const t = this.peds.downed(b.x, b.z, fx, fz); if (t) { this.evt({ k: 'ki', i: t.i, fx: +fx.toFixed(3), fz: +fz.toFixed(3) }); this.peds.kick(t, fx, fz, (p) => { this.earn(PAY.hit); this.crime('hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.25); this.particles.emit(p.x, 0.4, p.z, 12, { color: '#ffffff', speed: 3, up: 1.5, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 0.4, p.z, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.2 }); }); return; } }
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
     if (this.wanted && this.meta.city) this.wanted.melee(b.x, b.z, fx, fz);
-    if (this.mission && this.mission.mission === 'zombie' && this.mission.zs && this.mission.zs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.zs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
+    if (this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.zs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
     if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.22); this.particles.emit(p.x, 1.2, p.z, 18, { color: '#ffffff', speed: 6, up: 2.5, life: 0.35, size: 0.3 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
     if (BW && this.batCar(b, fx, fz)) return;
     for (const r of this.remotes.values()) {

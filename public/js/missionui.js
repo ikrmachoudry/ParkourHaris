@@ -6,21 +6,23 @@ import { ThiefScene } from './thiefscene.js';
 import { SnipeScene } from './snipescene.js';
 import { ZombieScene } from './zombiescene.js';
 import { homeSpawnPos } from './zombie.js';
+import { RICK_IDX, RICK_START, RICK_HOME } from './polirick.js';
 import { TRUCK_IDX, START, ZONES, setSoloRole, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
 import { MissionHub } from './mission.js';
 import { MISSION_PAY, MISSION_PAY_DEFAULT } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
 
 const $ = (id) => document.getElementById(id);
-const REASON = { breach: 'A ZOMBIE GOT INTO THE HOUSE', slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 'MISSED THE RAMP', crash: 'CAR WRECKED', time: 'OUT OF TIME', off: 'LEFT THE ROAD', car: 'LEFT THE CAR', order: 'WRONG RAMP', lost: 'YOU LOST HIM', escaped: 'HE ESCAPED OVER THE HILL', missed: 'THE TANKER GOT INTO THE TUNNEL', early: 'YOU JUMPED OUT BEFORE THE RED LINE', late: 'YOU DID NOT JUMP OUT BEFORE THE TUNNEL' };
+const REASON = { rick: 'THE ZOMBIES DESTROYED THE RICKSHAW', officer: 'THE OFFICER WAS KILLED', wreck: 'THE RICKSHAW WAS WRECKED', breach: 'A ZOMBIE GOT INTO THE HOUSE', slow: 'TOO SLOW ON THE RAMP', short: 'NOT ENOUGH AIR', missed: 'MISSED THE RAMP', crash: 'CAR WRECKED', time: 'OUT OF TIME', off: 'LEFT THE ROAD', car: 'LEFT THE CAR', order: 'WRONG RAMP', lost: 'YOU LOST HIM', escaped: 'HE ESCAPED OVER THE HILL', missed: 'THE TANKER GOT INTO THE TUNNEL', early: 'YOU JUMPED OUT BEFORE THE RED LINE', late: 'YOU DID NOT JUMP OUT BEFORE THE TUNNEL' };
 const IDX_BITS = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5) & 1) << 29), PAXF = 33554432;
 const DESC = {
   stunt: 'Everybody gets the same white super car on the coast highway. Hit BOTH ramps at full speed and fly. If anybody fails, everybody restarts.',
   thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris. At the top he hides behind the trees and rocks with a pistol and shoots at you: get out, take cover, and shoot him down when he pops out. You get a police pistol if you have none.',
   zombie: 'The undead are coming for HANBAL HOME! You get a free bat, pistol, AK-47 and grenades with unlimited ammo. Survive 5 rounds - every round brings more zombies and they walk faster. If ONE zombie gets through the front door or into the garage, the mission fails. Knocked down? You get up again at the gate.',
+  poli: 'A police officer is waiting at HANBAL HOME - and the ZOMBIES are coming! Drive the auto rickshaw up to the officer, then take him to the POLICE STATION (the yellow circle). The undead hunt the rickshaw: every grab damages it and it breaks down at zero. They also bite the officer if he is left standing. Run them over, shoot them, or outrun them. You get a free bat, pistol, AK-47 and grenades. Reward: $4,000 each.',
   snipe: 'A thief robbed the CITY BANK and is running for the new tunnel. One of you drives the petrol TANKER after him and jumps out at the RED LINE while it keeps rolling. The SNIPER waits on the hill and shoots the tank just before the tunnel. Two BLOCKERS race round the hill and park across the far end so he cannot get out. Alone? You are the sniper.',
 };
-const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK', zombie: 'ZOMBIE ATTACK' };
+const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK', zombie: 'ZOMBIE ATTACK', poli: 'POLI RICKSHAW' };
 
 export class MissionClient {
   constructor(race, send) {
@@ -42,7 +44,7 @@ export class MissionClient {
   send(m) {
     if (this.race.multi) { this.sendNet(m); return; }
     const id = this.race.localId, h = this.hub;
-    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1); else if (m.t === 'm_zh') h.zhit(id, m.z | 0, +m.d || 1);
+    if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1); else if (m.t === 'm_zh') h.zhit(id, m.z | 0, +m.d || 1); else if (m.t === 'm_pr') h.rick(id, m);
   }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
@@ -91,14 +93,14 @@ export class MissionClient {
     if (m.t === 'm_lobby') { this.lobby = { in: m.in || [], total: m.total || 1 }; if (m.mission) this.mission = m.mission; this.renderPanel(); }
     else if (m.t === 'm_th') this.ts.apply(m);
     else if (m.t === 'm_sn') this.ss.apply(m);
-    else if (m.t === 'm_zb') { if (this.mission === 'zombie' && (this.phase === 'brief' || this.phase === 'run')) this.zs.apply(m); }
+    else if (m.t === 'm_zb') { if ((this.mission === 'zombie' || this.mission === 'poli') && (this.phase === 'brief' || this.phase === 'run')) this.zs.apply(m); }
     else if (m.t === 'm_ev') this.onEv(m.k, m.d, m);
     else if (m.t === 'm_go') this.onGo(m);
     else if (m.t === 'm_run') { if (this.phase === 'brief') { this.phase = 'run'; this.hold = this.mission === 'snipe' && this.role === 'truck' && !this.chased; this.runT0 = performance.now(); this.jumps = 0; this.air = false; this.finished = false; this.showFin(false); this.big('GO!', 900); A.sfx.pickup(); this.chips(); } }
     else if (m.t === 'm_st') { this.res = m.res || {}; this.chips(); }
     else if (m.t === 'm_end') {
-      this.hold = false; this.freeze = false; this.showFin(false); if (this.mission === 'zombie') { this.zs.clear(); if (m.pass) this.endZombie(); }
-      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : this.mission === 'zombie' ? 'THE HOUSE IS SAFE - $5,000 EACH' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
+      this.hold = false; this.freeze = false; this.showFin(false); if (this.mission === 'zombie' || this.mission === 'poli') { this.zs.clear(); if (m.pass) this.endZombie(); }
+      if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : this.mission === 'zombie' ? 'THE HOUSE IS SAFE - $5,000 EACH' : this.mission === 'poli' ? 'THE OFFICER IS SAFE AT THE STATION - $4,000 EACH' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 7500, true); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
     } else if (m.t === 'm_idle') { this.endZombie(); this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
@@ -107,6 +109,7 @@ export class MissionClient {
     if (m.mission === 'thief') return this.onGoThief(m);
     if (m.mission === 'snipe') return this.onGoSnipe(m);
     if (m.mission === 'zombie') return this.onGoZombie(m);
+    if (m.mission === 'poli') return this.onGoPoli(m);
     this.endZombie();
     this.mission = m.mission || 'stunt'; this.ts.clear();
     const R = this.race, st = STUNT; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false; this.air = false; this.jumps = 0;
@@ -176,13 +179,30 @@ export class MissionClient {
     if (R.drive) R.toggleCar(true);
     const p = homeSpawnPos(this.seat), g = this.zs.groundY(p.x, p.z); b.x = p.x; b.z = p.z; b.y = g + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.PI;
     if (R.wallet) { R.wallet.kit = true; R.weapon = 'ak'; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
-    this.zs.showHud(true); this.zs.state = 'brief'; this.zs.updateHud();
+    this.zs.poli = false; this.zs.showHud(true); this.zs.state = 'brief'; this.zs.updateHud();
     this.big('ZOMBIE ATTACK', 2600, '#7cff4a'); this.sub('PROTECT HANBAL HOME - NO ZOMBIE MAY ENTER THE FRONT DOOR OR THE GARAGE', 6000); this.chips();
+  }
+  // ---- POLI RICKSHAW: the same free kit at Hanbal's house, the auto rickshaw is brought to the yard, the officer is drawn by the zombie scene
+  onGoPoli(m) {
+    const R = this.race, b = R.me.body; this.mission = 'poli'; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = false; this.finished = false;
+    const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 5000); this.lastN = 0;
+    this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
+    if (R.drive) R.toggleCar(true);
+    const c = R.cars[RICK_IDX];
+    if (c) {   // the rickshaw: repaired, parked in the yard nose to the street
+      const s = c.st; s.x = RICK_START.x; s.z = RICK_START.z; s.yaw = RICK_START.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.hp = 100; s.wreck = false; s.burnT = 0; s.wreckT = 0; s.steer = 0; s.skid = 0; s.pitch = 0;
+      s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; s.parked = true; s.driver = -1; s.pax = -1; s.mcar = true; c.mesh.visible = true;
+      if (c.mesh.userData.hero) { c.mesh.userData.hero.repair(); R.restoreMission && R.restoreMission(c.mesh); }
+    }
+    const p = homeSpawnPos(this.seat), g = this.zs.groundY(p.x, p.z); b.x = p.x; b.z = p.z; b.y = g + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.yaw = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.PI;
+    if (R.wallet) { R.wallet.kit = true; R.weapon = 'ak'; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
+    this.zs.poli = true; this.zs.showHud(true); this.zs.state = 'brief'; this.zs.updateHud();
+    this.big('POLI RICKSHAW', 2600, '#4aa8ff'); this.sub('A POLICE OFFICER IS AT HANBAL HOME - ZOMBIES ARE COMING! DRIVE THE RICKSHAW UP TO HIM, THEN TAKE HIM TO THE POLICE STATION', 7000); this.chips();
   }
   // leaves the zombie mission: the free kit goes back, the zombies disappear
   endZombie() {
     const R = this.race; if (R.wallet && R.wallet.kit) { R.wallet.kit = false; if (R.weapon && !R.wallet.owns(R.weapon)) R.weapon = null; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
-    this.zs.clear();
+    this.zs.clear(); this.zs.poli = false;
   }
   onSnipeEv(k, m) {
     const role = this.role, say = (a, b, c, ms) => { this.big('', 1); this.sub('', 1); if (a) this.big(a, ms || 2000, c); if (b) this.sub(b, 4500); };
@@ -300,6 +320,7 @@ export class MissionClient {
       const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1 || !c.st.mcar || (c.st.pax !== undefined && c.st.pax !== -1)) return; const s = c.st, h = CHASE.copsHome[j];
       s.x = h.x; s.z = h.z; s.yaw = h.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.parked = true; s.steer = 0; s.pitch = 0; s.mcar = false; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true;
     });
+    { const c = R.cars[RICK_IDX]; if (c && c !== R.drive && c.st.mcar && c.st.driver === -1 && (c.st.pax === undefined || c.st.pax === -1)) { const s = c.st; s.x = RICK_HOME.x; s.z = RICK_HOME.z; s.yaw = RICK_HOME.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.hp = 100; s.wreck = false; s.burnT = 0; s.parked = true; s.steer = 0; s.pitch = 0; s.mcar = false; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true; if (c.mesh.userData.hero) { c.mesh.userData.hero.repair(); R.restoreMission && R.restoreMission(c.mesh); } } }   // the POLI RICKSHAW goes back to its yard
     for (let k = 12; k < 16; k++) { const c = R.cars[k]; if (!c || c === R.drive || c.st.driver !== -1) continue; const s = c.st; if (!all && !(Math.abs(s.z) < 24 && s.x > 230)) continue;   // after a mission: any left on the highway go home
        s.x = P.x; s.z = P.z + (k - 12) * P.step; s.yaw = P.yaw; s.vx = s.vz = s.speed = 0; s.yr = 0; s.vy = 0; s.air = false; s.parked = true; s.steer = 0; s.pitch = 0; s.mcar = false; s.y = R.info.track && R.info.track.terrain ? R.info.track.terrain(s.x, s.z) : 0; c.mesh.visible = true; }
   }

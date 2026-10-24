@@ -5,7 +5,8 @@
 import { ThiefDirector, THIEF_BRIEF_MS } from './thief.js';
 import { SnipeDirector, SNIPE_BRIEF_MS } from './snipe.js';
 import { ZombieDirector, ZOMBIE_BRIEF_MS } from './zombie.js';
-export const MISSIONS = ['stunt', 'thief', 'snipe', 'zombie'];
+import { PoliDirector, POLI_BRIEF_MS } from './polirick.js';
+export const MISSIONS = ['stunt', 'thief', 'snipe', 'zombie', 'poli'];
 export const BRIEF_MS = 6500, RETRY_MS = 4200, DONE_MS = 8000;
 
 export class MissionHub {
@@ -37,11 +38,11 @@ export class MissionHub {
   }
   go() {
     this.clear(); this.phase = 'brief'; this.round++; this.res = new Map();
-    const thief = this.mission === 'thief', snipe = this.mission === 'snipe', zom = this.mission === 'zombie', ms = thief ? THIEF_BRIEF_MS : snipe ? SNIPE_BRIEF_MS : zom ? ZOMBIE_BRIEF_MS : BRIEF_MS;
+    const thief = this.mission === 'thief', snipe = this.mission === 'snipe', zom = this.mission === 'zombie', poli = this.mission === 'poli', ms = thief ? THIEF_BRIEF_MS : snipe ? SNIPE_BRIEF_MS : zom ? ZOMBIE_BRIEF_MS : poli ? POLI_BRIEF_MS : BRIEF_MS;
     this.emit({ t: 'm_go', mission: this.mission, round: this.round, members: this.members.map((id, seat) => ({ id, seat })), briefMs: ms, solo: this.solo || 'sniper' });
     const r = this.round;
     this.later(ms, () => { if (this.phase === 'brief' && this.round === r) { this.phase = 'run'; this.emit({ t: 'm_run', round: r }); } });
-    if (thief) this.startThief(); else if (snipe) this.startSnipe(); else if (zom) this.startZombie();
+    if (thief) this.startThief(); else if (snipe) this.startSnipe(); else if (zom) this.startZombie(); else if (poli) this.startZombie(PoliDirector);
   }
   // ---- THIEF CHASE: the story is played by a director that lives right here (server in multiplayer), everybody just draws what it broadcasts
   startThief() {
@@ -56,12 +57,13 @@ export class MissionHub {
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (typeof globalThis.__phHold === 'function' && globalThis.__phHold()) return; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); this.emit({ t: 'm_sn', ...this.dir.snap() }); } }, 100);
   }
   // ---- ZOMBIE ATTACK: the director simulates the undead and broadcasts them 10 times a second ('m_zb'); the players report what they hit ('m_zh')
-  startZombie() {
-    this.dir = new ZombieDirector({ getP: (id) => this.getP(id), onSnap: (msg) => this.emit(msg), onEv: () => {}, onEnd: (ok, why) => this.thiefEnd(ok, why) });
+  startZombie(Dir = ZombieDirector) {
+    this.dir = new Dir({ getP: (id) => this.getP(id), onSnap: (msg) => this.emit(msg), onEv: () => {}, onEnd: (ok, why) => this.thiefEnd(ok, why) });
     this.dir.start(this.members); let last = Date.now();
     this.iv = setInterval(() => { const n = Date.now(), dt = Math.min(0.25, (n - last) / 1000); last = n; if (typeof globalThis.__phHold === 'function' && globalThis.__phHold()) return; if (this.dir && (this.phase === 'brief' || this.phase === 'run')) { this.dir.tick(dt); } }, 50);
   }
-  zhit(id, zid, dmg) { if (this.mission !== 'zombie' || (this.phase !== 'run' && this.phase !== 'brief') || !this.dir || !this.dir.hit) return false; return this.dir.hit(id, zid | 0, dmg); }
+  rick(id, d) { if (this.mission !== 'poli' || (this.phase !== 'run' && this.phase !== 'brief') || !this.dir || !this.dir.setRick) return false; return this.dir.setRick(id, d); }
+  zhit(id, zid, dmg) { if ((this.mission !== 'zombie' && this.mission !== 'poli') || (this.phase !== 'run' && this.phase !== 'brief') || !this.dir || !this.dir.hit) return false; return this.dir.hit(id, zid | 0, dmg); }
   thiefEnd(ok, why, who) {
     if (this.phase !== 'brief' && this.phase !== 'run') return;
     if (!ok) { this.fail(who === undefined ? 0 : who, String(why || 'lost').slice(0, 24)); return; }
