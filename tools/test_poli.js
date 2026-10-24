@@ -1,4 +1,5 @@
 // POLI RICKSHAW: the director with a scripted rickshaw (no browser)
+import { PARKSTOP } from '../public/js/polirick.js';
 import { PoliDirector, RICK_START, OFFICER_START, STATION, POLI_BRIEF_MS, ROUTE, routeAt } from '../public/js/polirick.js';
 import { homeSpawnPos } from '../public/js/zombie.js';
 let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('PASS', m); };
@@ -14,7 +15,9 @@ const step = (D, s, dt = 0.1) => { for (let t = 0; t < s; t += dt) D.tick(dt); }
 { const g = mk(); step(g.D, POLI_BRIEF_MS / 1000 + 1);
   g.D.setRick(1, { x: OFFICER_START.x + 2, z: OFFICER_START.z + 1, yaw: 0, sp: 1, hp: 100, drv: 1 }); step(g.D, 0.2);
   ok(g.D.off.aboard && g.ev.includes('pboard'), 'driving up to the officer: he gets in');
-  // drive the whole route at 12 m/s: arrives
+  { const g2 = mk(); step(g2.D, POLI_BRIEF_MS / 1000 + 1); g2.D.setRick(1, { x: OFFICER_START.x + 2, z: OFFICER_START.z, yaw: 0, sp: 1, hp: 100, drv: 1 }); step(g2.D, 0.2); g2.D.setRick(1, { x: STATION.x, z: STATION.z, yaw: 0, sp: 8, hp: 100, drv: 1 }); step(g2.D, 0.3); ok(g2.res && !g2.res.ok && g2.res.why === 'early', 'the station before the stunt park fails the mission'); }
+  g.D.setRick(1, { x: PARKSTOP.x, z: PARKSTOP.z, yaw: 0, sp: 8, hp: 100, drv: 1 }); step(g.D, 0.2); ok(g.D.parked && g.ev.includes('ppark'), 'the stunt park is checked off');
+  // then to the station at 12 m/s: arrives
   let s = 0; const total = routeAt(1e6, 1e6).len; let done = false;
   for (let i = 0; i < 4000 && !g.res; i++) { s += 12 * 0.1; const q = (() => { let acc = 0; for (let k = 0; k + 1 < ROUTE.length; k++) { const a = ROUTE[k], b = ROUTE[k + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (s <= acc + L || k === ROUTE.length - 2) { const t = Math.min(1, (s - acc) / L); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; } acc += L; } })(); g.D.setRick(1, { x: q[0], z: q[1], yaw: 0, sp: 12, hp: 100, drv: 1 }); g.D.tick(0.1); }
   ok(g.res && g.res.ok, 'arriving at the station with the officer wins (' + JSON.stringify(g.res) + ')'); ok(g.ev.includes('pamb'), 'there were ambushes on the way'); void total; void STATION; }

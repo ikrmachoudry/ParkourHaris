@@ -2,7 +2,7 @@
 // The zombies hunt the rickshaw (every grab hurts it; at 0 it is destroyed), the officer (on foot he can be bitten) and the players.  Run them over, shoot them, outdrive them.
 // A director like zombie.js (no DOM / three.js: it runs on the server in multiplayer, in the browser in single player): the players only draw what it broadcasts ('m_zb' with a 'po' block)
 // and the player who drives the rickshaw reports where it is ('m_pr').
-import { HOMES, homeW, POLICE } from './gta.js';
+import { HOMES, homeW, POLICE, PARK } from './gta.js';
 import { ZombieDirector, PLAYER_HP, Z_HP, DEAD_KEEP, BITE_R, BITE_EVERY, DOWN_S, HOME, SPAWN_LOCAL } from './zombie.js';
 
 const hyp = Math.hypot;
@@ -14,6 +14,8 @@ export const OFFICER_START = (() => { const p = homeW(HOME, -0.8, 5.6); return {
 export const STATION = POLICE.zone;   // { x, z, r }
 // the way to the station (the z = -60 avenue east, then north up x = 30): where the ambushes are laid
 export const ROUTE = [[RICK_START.x, RICK_START.z], [-100, -62], [-90, -61.2], [25, -61.2], [30, -65], [STATION.x, STATION.z]];
+// 1st stop: the STUNT PARK (the gate of the pad on the coast highway), 2nd stop: the police station.  Going to the station first fails the mission.
+export const PARKSTOP = { x: PARK.gate.x, z: PARK.gate.z, r: 14 };
 export const RICK_HP = 100, OFFICER_HP = 100, GRAB = 9, GRAB_R = 1.8, OFF_R = 1.1, OFF_BITE = 14;
 const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -37,7 +39,7 @@ export class PoliDirector extends ZombieDirector {
     super.reset();
     this.rick = { x: RICK_START.x, z: RICK_START.z, yaw: RICK_START.yaw, sp: 0, drv: 0, hp: RICK_HP, carhp: 100, at: 0 };
     this.off = { x: OFFICER_START.x, z: OFFICER_START.z, yaw: OFFICER_START.yaw, hp: OFFICER_HP, aboard: false };
-    this.waveT = 0; this.ambT = 0; this.level = 0; this.homeLeft = 0; this.stage = 'home'; this.grabT = {};
+    this.waveT = 0; this.ambT = 0; this.level = 0; this.homeLeft = 0; this.stage = 'home'; this.parked = false; this.shotT = 0;
   }
   start(members) { super.start(members); this.round = 1; }
   // the driver's report: where the rickshaw is, how fast, and the car's own health
@@ -50,14 +52,15 @@ export class PoliDirector extends ZombieDirector {
     return true;
   }
   spawnAt(x, z, v) {
-    const z0 = { id: this.nextId++, x, z, yaw: Math.atan2(this.rick.x - x, this.rick.z - z), hp: Z_HP, vm: 0.88 + this.rnd() * 0.28, v, atk: 0, hurt: 0, dead: 0, att: 0 };
+    const q = this.rnd(), arm = q < 0.3 ? 1 : q < 0.55 ? 2 : 0;   // 1 = a bat (longer reach, harder hits), 2 = a pistol (shoots from a distance)
+    const z0 = { id: this.nextId++, x, z, yaw: Math.atan2(this.rick.x - x, this.rick.z - z), hp: Z_HP, vm: 0.88 + this.rnd() * 0.28, v, arm, atk: 0, hurt: 0, dead: 0, att: 0 };
     this.zs.push(z0); this.say('zspawn', z0.id);
   }
   spawnHome(v) { const sp = SPAWN_LOCAL[Math.floor(this.rnd() * SPAWN_LOCAL.length)], p = homeW(HOME, sp[0] + (this.rnd() - 0.5) * 3, sp[1] + (this.rnd() - 0.5) * 3); this.spawnAt(p.x, p.z, v); }
   // an ambush on the road ahead of the rickshaw (or beside it when it is still at home)
   ambush(n, v) {
-    const R = this.rick, rt = routeAt(R.x, R.z), ahead = Math.min(rt.len - 6, rt.at + 24 + this.rnd() * 18);
-    for (let i = 0; i < n; i++) { const q = routePoint(ahead + (this.rnd() - 0.5) * 6), a = q[2] + Math.PI / 2, side = (this.rnd() - 0.5) * 9; this.spawnAt(q[0] + Math.sin(a) * side, q[1] + Math.cos(a) * side, v); }
+    const R = this.rick, fx = Math.sin(R.yaw), fz = Math.cos(R.yaw), dist = 26 + this.rnd() * 16;   // on the road ahead of where the rickshaw is pointing (it is on a road, so is the spot)
+    for (let i = 0; i < n; i++) { const side = (this.rnd() - 0.5) * 7, along = dist + (this.rnd() - 0.5) * 8; this.spawnAt(R.x + fx * along - fz * side, R.z + fz * along + fx * side, v); }
   }
   tick(dt) {
     if (this.ended) return;
@@ -71,16 +74,17 @@ export class PoliDirector extends ZombieDirector {
       if (!O.aboard && R.drv && hyp(R.x - O.x, R.z - O.z) < 5.5 && R.hp > 0 && O.hp > 0) { O.aboard = true; this.stage = 'route'; this.ambT = 5; this.level = 0; this.say('pboard'); }
       if (!O.aboard) {   // at home: the first zombies come out of the street one by one, then a few more every now and then
         this.waveT -= dt;
-        if (this.waveT <= 0) { const live = this.alive(); if (this.homeLeft > 0) { this.spawnHome(0.95 + this.level * 0.06); this.homeLeft--; this.waveT = 1.1; } else { this.waveT = 14; this.level = Math.min(6, this.level + 1); this.homeLeft = live > 10 ? 0 : 3 + this.level; this.say('pwave'); } }
+        if (this.waveT <= 0) { const live = this.alive(); if (this.homeLeft > 0) { this.spawnHome(1.7 + this.level * 0.1); this.homeLeft--; this.waveT = 1.1; } else { this.waveT = 14; this.level = Math.min(6, this.level + 1); this.homeLeft = live > 10 ? 0 : 3 + this.level; this.say('pwave'); } }
       } else {   // on the road: ambushes ahead, a bit more every time
-        this.ambT -= dt; if (this.ambT <= 0) { this.ambT = 6 + this.rnd() * 3.5; this.level = Math.min(7, this.level + 1); if (this.alive() < 16) this.ambush(Math.min(5, 2 + (this.level >> 1)), 1.0 + this.level * 0.07); this.say('pamb'); }
+        this.ambT -= dt; if (this.ambT <= 0) { this.ambT = 6 + this.rnd() * 3.5; this.level = Math.min(7, this.level + 1); if (this.alive() < 16) this.ambush(Math.min(5, 2 + (this.level >> 1)), 2.6 + this.level * 0.18); this.say('pamb'); }
       }
       this.moveZ(dt);
       // the end
       if (R.hp <= 0) { this.end(false, 'rick'); return; }
       if (O.hp <= 0) { this.end(false, 'officer'); return; }
       if (R.carhp <= 0 && R.drv !== undefined && O.aboard) { this.end(false, 'wreck'); return; }
-      if (O.aboard && hyp(R.x - STATION.x, R.z - STATION.z) < STATION.r) { this.say('parrive'); this.end(true); return; }
+      if (O.aboard && !this.parked && hyp(R.x - PARKSTOP.x, R.z - PARKSTOP.z) < PARKSTOP.r) { this.parked = true; this.say('ppark'); }
+      if (O.aboard && hyp(R.x - STATION.x, R.z - STATION.z) < STATION.r) { if (!this.parked) { this.end(false, 'early'); return; } this.say('parrive'); this.end(true); return; }
     }
     this.snapT += dt; if (this.snapT >= 0.1) { this.snapT = 0; this.push(); }
   }
@@ -93,14 +97,22 @@ export class PoliDirector extends ZombieDirector {
       const pl = this.playersNear(z.x, z.z); let tx = R.x, tz = R.z, kind = 'rick', best = hyp(R.x - z.x, R.z - z.z) * (R.hp > 0 ? 0.85 : 9);
       if (!O.aboard) { const d = hyp(O.x - z.x, O.z - z.z); if (d < best) { best = d; tx = O.x; tz = O.z; kind = 'off'; } }
       if (pl.p && pl.d < 16 && pl.d < best + 4) { best = pl.d; tx = pl.p.x; tz = pl.p.z; kind = 'pl'; }
-      const dx = tx - z.x, dz = tz - z.z, d = hyp(dx, dz) || 1, reach = kind === 'pl' ? BITE_R : kind === 'off' ? OFF_R : GRAB_R;
+      const dx = tx - z.x, dz = tz - z.z, d = hyp(dx, dz) || 1, reach = (kind === 'pl' ? BITE_R : kind === 'off' ? OFF_R : GRAB_R) + (z.arm === 1 ? 0.9 : 0), mul = z.arm === 1 ? 1.6 : 1;
+      if (z.arm === 2 && d < 13 && d > 3) {   // a pistol zombie stops and shoots
+        z.att = 0; z.yaw = Math.atan2(dx, dz); z.atk -= dt;
+        if (z.atk <= 0) {
+          z.atk = 1.7 + this.rnd() * 0.8; const hit = this.rnd() < 0.55, kc = kind === 'rick' ? 1 : kind === 'off' ? 2 : 3; this.say('zshot', z.id, kc);
+          if (hit) { if (kind === 'pl') { const dmg = 8 + (this.level >> 1); this.hp[pl.id] = Math.max(0, (this.hp[pl.id] === undefined ? PLAYER_HP : this.hp[pl.id]) - dmg); if (this.hp[pl.id] <= 0) { this.down[pl.id] = DOWN_S; this.say('zdown', pl.id); } } else if (kind === 'off') { O.hp = Math.max(0, O.hp - 8); this.say('poff', Math.round(O.hp)); } else { R.hp = Math.max(0, R.hp - 6); this.say('prick', Math.round(R.hp)); } }
+        }
+        continue;
+      }
       if (d < reach) {
         z.att = 1; z.yaw = Math.atan2(dx, dz); z.atk -= dt;
         if (z.atk <= 0) {
           z.atk = BITE_EVERY + 0.3;
-          if (kind === 'pl') { const dmg = 10 + (this.level >> 1) * 2; this.hp[pl.id] = Math.max(0, (this.hp[pl.id] === undefined ? PLAYER_HP : this.hp[pl.id]) - dmg); this.say('zbite', z.id, pl.id); if (this.hp[pl.id] <= 0) { this.down[pl.id] = DOWN_S; this.say('zdown', pl.id); } }
-          else if (kind === 'off') { O.hp = Math.max(0, O.hp - OFF_BITE); this.say('zbite', z.id, 0); this.say('poff', Math.round(O.hp)); }
-          else { R.hp = Math.max(0, R.hp - GRAB); this.say('zbite', z.id, 0); this.say('prick', Math.round(R.hp)); }
+          if (kind === 'pl') { const dmg = Math.round((10 + (this.level >> 1) * 2) * mul); this.hp[pl.id] = Math.max(0, (this.hp[pl.id] === undefined ? PLAYER_HP : this.hp[pl.id]) - dmg); this.say('zbite', z.id, pl.id); if (this.hp[pl.id] <= 0) { this.down[pl.id] = DOWN_S; this.say('zdown', pl.id); } }
+          else if (kind === 'off') { O.hp = Math.max(0, O.hp - OFF_BITE * mul); this.say('zbite', z.id, 0); this.say('poff', Math.round(O.hp)); }
+          else { R.hp = Math.max(0, R.hp - GRAB * mul); this.say('zbite', z.id, 0); this.say('prick', Math.round(R.hp)); }
         }
         continue;
       }
@@ -117,8 +129,8 @@ export class PoliDirector extends ZombieDirector {
     const hp = {}; for (const id of this.members) hp[id] = Math.round(this.hp[id] === undefined ? PLAYER_HP : this.hp[id]);
     const dn = {}; for (const id of this.members) if (this.down[id] > 0) dn[id] = 1;
     const R = this.rick, O = this.off;
-    const msg = { t: 'm_zb', r: 1, q: this.alive(), s: this.st, hp, dn, z: this.zs.map((z) => [z.id, r2(z.x), r2(z.z), r2(z.yaw), z.hp <= 0 ? 2 : z.att ? 1 : 0, Math.round(z.hp)]), ev: this.ev, k: this.kills, tm: this.stT,
-      po: { o: [r2(O.x), r2(O.z), r2(O.yaw), Math.round(O.hp), O.aboard ? 1 : 0], r: [r2(R.x), r2(R.z), Math.round(R.hp)], d: Math.round(hyp(R.x - STATION.x, R.z - STATION.z)) } };
+    const msg = { t: 'm_zb', r: 1, q: this.alive(), s: this.st, hp, dn, z: this.zs.map((z) => [z.id, r2(z.x), r2(z.z), r2(z.yaw), z.hp <= 0 ? 2 : z.att ? 1 : 0, Math.round(z.hp), z.arm || 0]), ev: this.ev, k: this.kills, tm: this.stT,
+      po: { o: [r2(O.x), r2(O.z), r2(O.yaw), Math.round(O.hp), O.aboard ? 1 : 0], r: [r2(R.x), r2(R.z), Math.round(R.hp)], pk: this.parked ? 1 : 0 } };
     this.ev = []; this.onSnap(msg);
   }
 }

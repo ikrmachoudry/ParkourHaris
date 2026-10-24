@@ -5,7 +5,7 @@ import { makeHero } from './glbactor.js';
 import * as A from './audio.js';
 import { HeroActor } from './actor.js';
 import { homeSpawnPos, ROUND_COUNT } from './zombie.js';
-import { STATION, RICK_IDX } from './polirick.js';
+import { STATION, RICK_IDX, PARKSTOP } from './polirick.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const ZDMG = { fist: 18, kick: 26, bat: 45, pistol: 34, ak: 26, sniper: 100, grenade: 100 };   // out of 100 zombie health: a bat takes 3 swings, an AK 4 bullets, a sniper bullet or a close grenade 1
@@ -44,7 +44,7 @@ export class ZombieScene {
       rb.style.width = clamp(po.r[2], 0, 100) + '%'; rb.style.background = hc(po.r[2]); this.hud.querySelector('.zh-rn').textContent = Math.round(po.r[2]);
       ob.style.width = clamp(po.o[3], 0, 100) + '%'; ob.style.background = hc(po.o[3]); this.hud.querySelector('.zh-on').textContent = Math.round(po.o[3]);
     }
-    const poTxt = () => { if (this.state === 'brief') return 'POLI RICKSHAW - GET READY'; if (!po.o[4]) return 'DRIVE THE RICKSHAW UP TO THE OFFICER  -  ZOMBIES ' + this.left; const R = this.R, car = R.cars[RICK_IDX], c = car ? car.st : { x: po.r[0], z: po.r[1] }, dx = STATION.x - c.x, dz = STATION.z - c.z, f = R.camera.getWorldDirection(this.tmp), a = Math.atan2(dx, dz) - Math.atan2(f.x, f.z), k = (Math.round(((a + Math.PI * 3) % (Math.PI * 2)) / (Math.PI / 4)) + 4) % 8; return 'POLICE STATION ' + this.arrow[k] + ' ' + Math.round(Math.hypot(dx, dz)) + ' m  -  ZOMBIES ' + this.left; };
+    const poTxt = () => { if (this.state === 'brief') return 'POLI RICKSHAW - GET READY'; if (!po.o[4]) return 'DRIVE THE RICKSHAW UP TO THE OFFICER  -  ZOMBIES ' + this.left; const R = this.R, car = R.cars[RICK_IDX], c = car ? car.st : { x: po.r[0], z: po.r[1] }, T = po.pk ? STATION : PARKSTOP, dx = T.x - c.x, dz = T.z - c.z, f = R.camera.getWorldDirection(this.tmp), a = Math.atan2(dx, dz) - Math.atan2(f.x, f.z), k = (Math.round(((a + Math.PI * 3) % (Math.PI * 2)) / (Math.PI / 4)) + 4) % 8; return (po.pk ? 'POLICE STATION ' : 'STUNT PARK FIRST ') + this.arrow[k] + ' ' + Math.round(Math.hypot(dx, dz)) + ' m  -  ZOMBIES ' + this.left; };
     const txt = this.poli ? (po ? poTxt() : 'POLI RICKSHAW') : this.state === 'brief' || !this.round ? 'ZOMBIE ATTACK - GET READY' : 'ROUND ' + this.round + '/' + ROUND_COUNT + '  -  ZOMBIES LEFT ' + this.left + (this.down ? '  -  YOU ARE DOWN' : '');
     if (t.textContent !== txt) t.textContent = txt;
     if (this.hpBar) { const h = clamp(this.myHp, 0, 100), bar = this.hpBar.querySelector('.zp-b'), hue = Math.round(h * 1.2);   // 100 -> hue 120 (green), 0 -> hue 0 (red)
@@ -74,7 +74,8 @@ export class ZombieScene {
       if (O[4] && rc) { R.seatModel(g, rc, true, 0); this.off.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, seated: true, pax: true }); }
       else { g.position.set(O[0], this.groundY(O[0], O[1]), O[1]); g.rotation.set(0, O[2], 0); g.scale.setScalar(1); let near = false; for (const z of this.list()) if (Math.hypot(z.x - O[0], z.z - O[1]) < 9) { near = true; break; } this.off.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, seated: false, gesture: near ? 'scared' : null }); }
     }
-    if (!this.ring) { const m = new THREE.Mesh(new THREE.CylinderGeometry(STATION.r, STATION.r, 7, 40, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); m.position.set(STATION.x, this.groundY(STATION.x, STATION.z) + 3.5, STATION.z); R.scene.add(m); this.ring = m; }
+    { const T = po && po.pk ? STATION : PARKSTOP; if (this.ringAt !== T) { this.ringAt = T; if (this.ring) this.R.scene.remove(this.ring); this.ring = null; } }
+    if (!this.ring) { const T = po && po.pk ? STATION : PARKSTOP; const m = new THREE.Mesh(new THREE.CylinderGeometry(T.r, T.r, 7, 40, 1, true), new THREE.MeshBasicMaterial({ color: po && po.pk ? 0xffd23f : 0x4aa8ff, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); m.position.set(T.x, this.groundY(T.x, T.z) + 3.5, T.z); R.scene.add(m); this.ring = m; this.ringAt = T; }
     this.ring.visible = true; this.ring.rotation.y += dt * 0.6;
   }
   // ---- snapshots from the director
@@ -102,7 +103,9 @@ export class ZombieScene {
     else if (k === 'zdown') { if (b === undefined || a === me) { /* a = player id */ } if (a === me) { const bd = R.me.body; bd.vx = bd.vz = 0; bd.stun = 4.6; R.crouch = false; R.hurtFx(1); M.big('YOU ARE DOWN', 3000, '#ff5a5a'); M.sub('YOUR TEAM HAS TO HOLD THE HOUSE - YOU GET UP IN A FEW SECONDS', 4000); } else A.sfx.hit && A.sfx.hit(); }
     else if (k === 'zup') { if (a === me) { this.respawn(); } }
     else if (k === 'pgo') { M.big('GO!', 1200, '#ffd23f'); M.sub('DRIVE THE RICKSHAW UP TO THE OFFICER - THE ZOMBIES ARE COMING', 5000); }
-    else if (k === 'pboard') { M.big('OFFICER ABOARD', 2400, '#5ef0a0'); M.sub('TAKE HIM TO THE POLICE STATION (YELLOW CIRCLE) - RUN THE ZOMBIES OVER!', 6000); A.sfx.pickup && A.sfx.pickup(); }
+    else if (k === 'pboard') { M.big('OFFICER ABOARD', 2400, '#5ef0a0'); M.sub('FIRST GO TO THE STUNT PARK (BLUE CIRCLE) - NOT THE STATION YET! RUN THE ZOMBIES OVER', 7000); A.sfx.pickup && A.sfx.pickup(); }
+    else if (k === 'ppark') { M.big('STUNT PARK REACHED', 2600, '#4aa8ff'); M.sub('NOW TAKE THE OFFICER TO THE POLICE STATION (YELLOW CIRCLE)', 6000); A.sfx.pickup && A.sfx.pickup(); }
+    else if (k === 'zshot') { const p = this.posOf(a), po = this.po; if (p && po) { const t = b === 1 ? [po.r[0], po.r[1]] : b === 2 ? [po.o[0], po.o[1]] : [R.camera.position.x, R.camera.position.z], dx = t[0] - p.x, dz = t[1] - p.z, l = Math.hypot(dx, dz) || 1; R.onFx({ x: p.x, y: this.groundY(p.x, p.z) + 1.3, z: p.z, dx: dx / l, dz: dz / l, l, w: 1 }); } }
     else if (k === 'pwave') { M.sub('MORE ZOMBIES ARE COMING - GET THE OFFICER OUT OF HERE', 3000); }
     else if (k === 'pamb') { M.sub('ZOMBIES AHEAD!', 1800); }
     else if (k === 'prick') { const c = R.cars[RICK_IDX]; if (R.drive === c) { R.hurtFx(0.25); R.shake = Math.max(R.shake || 0, 0.3); } A.sfx.hit && A.sfx.hit(); }
@@ -137,7 +140,7 @@ export class ZombieScene {
       const dist = Math.hypot(x - cam.x, z - cam.z); g.visible = dist < 90;
       if (st === 2) { a.dead += dt; g.scale.setScalar(a.dead > 2.9 ? Math.max(0.01, 1 - (a.dead - 2.9) * 2.2) : 1); } else g.scale.setScalar(1);
       if (st === 1) a.att += dt * 1.25; else a.att = 0;
-      if (g.visible) a.m.update(dt, { swim: false, speed: st === 2 ? 0 : Math.min(a.sp, 2.6), grounded: true, vy: 0, stun: 0, dive: 0, punch: st === 1 ? (a.att % 1) + 0.001 : 0, zpose: st === 2 ? 'zDeath' : st === 1 ? null : e1[5] <= 35 ? 'zCrawl' : 'zWalk', zp: st === 2 ? Math.min(1, a.dead / 2.9) : 0 });
+      if (g.visible) a.m.update(dt, { swim: false, weapon: e1[6] === 1 ? 'bat' : e1[6] === 2 ? 'pistol' : null, speed: st === 2 ? 0 : Math.min(a.sp, 5), grounded: true, vy: 0, stun: 0, dive: 0, punch: st === 1 ? (a.att % 1) + 0.001 : 0, zpose: st === 2 ? 'zDeath' : st === 1 || a.sp > 2.3 ? null : e1[5] <= 35 ? 'zCrawl' : 'zWalk', zp: st === 2 ? Math.min(1, a.dead / 2.9) : 0 });
       // a growl now and then (louder the nearer, duller the farther)
       if (st !== 2) { a.gt -= dt; if (a.gt <= 0) { a.gt = 3.5 + Math.random() * 5; const v = clamp(1 - dist / 50, 0, 1); if (v > 0.05) { const dx = x - cam.x, dz = z - cam.z, l = Math.hypot(dx, dz) || 1; this.rt.setFromMatrixColumn(R.camera.matrixWorld, 0); A.voice.zgroan(0.8 * v, clamp(this.rt.x * dx / l + this.rt.z * dz / l, -1, 1), clamp(dist / 50, 0, 1)); } } }
     }
