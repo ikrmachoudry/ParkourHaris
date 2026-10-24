@@ -30,16 +30,14 @@ export const CITY_VEH = [
   // draft = how much water it needs, rideH / lift = height on the water at rest / at speed, trim = bow-up angle at speed
   { id: 30, name: 'Speedboat', style: 'speedboat', hull: 'speedboat', model: 'speedboat', boat: true, paint: '#f4f6f8', mass: 2300, kW: 600, top: 138 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 8, pitch: 1.1, hornHz: 520, acc: 11, dec: 15, turn: 1.15, agil: 3.2, keel: 1.5, draft: 0.5, rideH: 0.12, lift: 0.1, trim: 0.11 },
   { id: 31, name: 'Fishing Boat', style: 'fishboat', hull: 'fishboat', model: 'fishboat', boat: true, paint: '#2457a6', mass: 9000, kW: 160, top: 52 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 6, pitch: 0.55, hornHz: 260, acc: 2.8, dec: 5, turn: 0.52, agil: 1.7, keel: 3.0, draft: 0.9, rideH: 0.2, lift: 0, trim: 0.025 },
-  { id: 32, name: 'Yacht', style: 'yacht', hull: 'yacht', model: 'yacht', boat: true, paint: '#ffffff', mass: 38000, kW: 900, top: 70 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 12, pitch: 0.4, hornHz: 180, acc: 3.4, dec: 6, turn: 0.4, agil: 1.3, keel: 3.6, draft: 1.2, rideH: 0.25, lift: 0.05, trim: 0.035 },   //// street racer with a big spoiler: reads 190 km/h flat out
-  // ---- the AIRPLANE (see plane.js): top = 910 km/h (the engine curve fades out towards it, so it reads 910 flat out), acc = m/s2 at full throttle on the ground
-  { id: 33, name: 'Airplane', style: 'plane', model: 'plane', plane: true, paint: '#e9eef3', mass: 9500, kW: 4000, top: 910 / 3.6 * 1.03, mu: 1, drive: 'rwd', cda: 1, cyl: 8, pitch: 1.6, hornHz: 300, acc: 34, dec: 24 },
+  { id: 32, name: 'Yacht', style: 'yacht', hull: 'yacht', model: 'yacht', boat: true, paint: '#ffffff', mass: 38000, kW: 900, top: 70 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 12, pitch: 0.4, hornHz: 180, acc: 3.4, dec: 6, turn: 0.4, agil: 1.3, keel: 3.6, draft: 1.2, rideH: 0.25, lift: 0.05, trim: 0.035 }   //// street racer with a big spoiler: reads 190 km/h flat out
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 
 // geometry the physics needs (metres) from the body style
 export const STYLE_GEO = {
   sedan: { L: 4.6, w: 1.85, wb: 2.72 }, hatch: { L: 3.95, w: 1.74, wb: 2.4 }, suv: { L: 4.7, w: 2.0, wb: 2.84 }, coupe: { L: 4.5, w: 1.86, wb: 2.72 }, sports: { L: 4.45, w: 1.94, wb: 2.68 },
-  speedboat: { L: 8.6, w: 2.5, wb: 6 }, fishboat: { L: 11.5, w: 3.6, wb: 8 }, yacht: { L: 19, w: 5.2, wb: 13 }, plane: { L: 15, w: 4.2, wb: 6 },
+  speedboat: { L: 8.6, w: 2.5, wb: 6 }, fishboat: { L: 11.5, w: 3.6, wb: 8 }, yacht: { L: 19, w: 5.2, wb: 13 },
   rick: { L: 2.75, w: 1.3, wb: 1.9 }, tractor: { L: 3.7, w: 2.0, wb: 2.0 }, truck: { L: 7.6, w: 2.5, wb: 4.3 }, bus: { L: 11.5, w: 2.6, wb: 6.2 }, bikeS: { L: 2.05, w: 0.75, wb: 1.44 }, bikeC: { L: 2.4, w: 0.85, wb: 1.59 }, bikeD: { L: 2.1, w: 0.8, wb: 1.44 },
 };
 

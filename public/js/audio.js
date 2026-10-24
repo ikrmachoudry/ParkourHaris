@@ -306,10 +306,9 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   bus:   { a: 'eng_diesel', ra: [0.95, 2.4], b: 'eng_v8', rb: [0.6, 1.6], gb: [0.2, 0.3], lp: [500, 2500], gain: 0.8, chop: [4, 0.1] },
   speedboat: { a: 'eng_boat', ra: [1.0, 3.5], b: 'eng_v8', rb: [0.9, 2.9], gb: [0.15, 0.55], lp: [1000, 6500], gain: 0.62, boat: 1.0 },
   fishboat:  { a: 'eng_diesel', ra: [0.8, 1.5], b: 'eng_boat', rb: [0.5, 0.95], gb: [0.1, 0.25], lp: [420, 1500], gain: 0.85, chop: [5.5, 0.42], boat: 0.8 },
-  jet:       { a: 'eng_boat', ra: [0.8, 3.2], b: 'eng_v8', rb: [0.6, 2.4], gb: [0.1, 0.6], lp: [800, 9000], gain: 0.7 },
   yacht:     { a: 'eng_diesel', ra: [0.78, 1.7], b: 'eng_boat', rb: [0.55, 1.2], gb: [0.2, 0.4], lp: [380, 1900], gain: 0.8, chop: [3, 0.08], boat: 1.1 },
 };
-const PROF_OF = { 33: 'jet', 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht' };
+const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht' };
 // a looping recording: a source, a low-pass and a gain; starts at a random point so layers never line up
 function loopV(name, vol = 0, rate = 1, lpf = 0, dest = sfxG) {
   const b = bank[name]; if (!ctx || !b) return null;
