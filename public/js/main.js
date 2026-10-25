@@ -397,6 +397,7 @@ class Race {
     const hanging = false;
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
+    if (this.meta.city) this.weaponVoice();
     this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); this.updateCopFire(dt); this.fireSpread(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (hanging) { b.events.length = 0; }
@@ -1069,6 +1070,11 @@ class Race {
     el.onpointerdown = (e) => { if (e.target === el) { e.preventDefault(); this.toggleWheel(false); } };
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ }
   }
+  // the announcer says the name of the weapon each time it changes (first look at the start is silent)
+  weaponVoice() {
+    const k = this.weapon || 'fist'; if (this._wv === undefined) { this._wv = k; return; } if (k === this._wv) return; this._wv = k;
+    if (this.over || this.finished) return; try { A.voice.weapon(k); } catch { /* noop */ }
+  }
   cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
   zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, SCOPE_FOV.length - 1); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
   aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
@@ -1510,6 +1516,7 @@ class Race {
     // the same button kicks somebody who is lying on the ground or cowering / crouching in front of you
     this.kickK = !!(this.peds && this.peds.downed(b.x, b.z, fx, fz));
     if (!this.kickK) for (const r of this.remotes.values()) { if (!r.has || this.ghost(r) || (r.flags & 8) || Date.now() - r.rxAt > 800) continue; const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz); if (d < 1.9 && d > 1e-3 && (dx * fx + dz * fz) / d > 0.3 && Math.abs(r.y - b.y) < 1.5 && (r.flags & (2 | 2097152))) { this.kickK = true; break; } }
+    { const n = performance.now(); this.pcN = (n - (this.pcAt || 0) < 1800) ? (this.pcN || 0) + 1 : 1; this.pcAt = n; if (!this.weapon && !this.kickK) try { A.voice.punch(this.pcN); } catch { /* noop */ } }   // a shout for the 1st, 2nd and 3rd+ punch of a combo
     this.punchCd = this.kickK ? 0.7 : 0.72; this.punchT = 0.001; this.punchPending = true; A.sfx.swing(this.weapon === 'bat' && !this.kickK); return true;
   }
   updatePunch(dt, b) {

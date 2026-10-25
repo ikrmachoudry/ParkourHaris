@@ -55,7 +55,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
-const SAMPLES = ['u_zg0', 'u_zg1', 'u_zg2', 'u_zbite', 'u_zdie', 'u_grunt', 'u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
+const SAMPLES = ['w_fist', 'w_punch1', 'w_punch2', 'w_punch3', 'w_bat', 'w_pistol', 'w_ak', 'w_sniper', 'u_zg0', 'u_zg1', 'u_zg2', 'u_zbite', 'u_zdie', 'u_grunt', 'u_death', 'u_scared0', 'u_scared1', 'u_scared2', 'u_pistol', 'u_sniper', 'u_ak1', 'u_ak2', 'u_boom', 'u_thud', 'u_woosh', 'glass', 'metal1', 'metal2', 'pbody', 'abody', 'pistol', 'ak', 'whoosh', 'swish', 'hit1', 'hit2', 'jump1', 'jump2', 'scream1', 'scream2', 'death', 'pain',
   // vehicles + world (real recordings, see tools/build_audio.sh)
   'eng_car', 'eng_moto', 'eng_v8', 'eng_diesel', 'eng_tractor', 'eng_boat', 'skid', 'crash0', 'mh0', 'mh1', 'mh2', 'mm0', 'mm1', 'mm2', 'ml0', 'ml1', 'ml2', 'gl0', 'gl1', 'th0', 'th1', 'th2',
   'fsc0', 'fsc1', 'fsc2', 'fsc3', 'fsg0', 'fsg1', 'fsg2', 'fsg3', 'fsw0', 'fsw1', 'fsw2', 'fsw3',
@@ -98,11 +98,16 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot: a little pitch variation so that full-auto does not sound like one looped file
 // a gunshot = the sharp crack + a low, lowpassed body (the chest thump) + a short room tail; a little random detune so full auto does not sound like one looped file
 const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
+let sayAt = 0, sayCur = null;
+const say = (name, vol = 1) => { const b = bank[name]; if (!b || !ctx) return false; const n = performance.now(); if (n - sayAt < (sayCur ? sayCur.dur : 0) * 1000 * 0.85) { return false; } sayAt = n; sayCur = { dur: b.duration }; return play(name, vol, 1, 0, 0, 0, 0.05); };
 export const voice = {
   scream(vol = 0.8) { return play(pick(['u_scared0', 'u_scared1', 'u_scared2']), Math.min(1.2, vol * 1.2), rnd(0.92, 1.12), 0, 0, 0, 0.2) || play(pick(['scream1', 'scream2']), Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
   death(vol = 0.9) { return play('u_death', Math.min(1.2, vol * 1.1), rnd(0.93, 1.07), 0, 0, 0, 0.2) || play('death', vol, rnd(0.9, 1.1)); },
   grunt(vol = 0.9) { return play('u_grunt', Math.min(1.3, vol * 1.2), rnd(0.9, 1.1), 0, 0, 0, 0.15) || play('pain', vol, rnd(0.9, 1.1)); },   // anybody (AI people, cops) taking a hit
   pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
+  // the announcer: says the weapon's name when the player changes weapon (Haris's own recordings), and a shout for the punches of a combo
+  weapon(k) { const n = { fist: 'w_fist', bat: 'w_bat', pistol: 'w_pistol', ak: 'w_ak', sniper: 'w_sniper' }[k || 'fist']; return n ? say(n) : false; },
+  punch(i) { return say(['w_punch1', 'w_punch2', 'w_punch3'][Math.max(0, Math.min(2, i - 1))], 0.8); },
   // zombies (positional: vol already includes the distance, pan -1..1, and a far one is duller)
   zgroan(vol = 0.8, pan = 0, far = 0) { return play(pick(['u_zg0', 'u_zg1', 'u_zg2']), vol, rnd(0.88, 1.12), 0, pan, far > 0.3 ? 2400 + 3000 * (1 - far) : 0, 0.1); },
   zbite(vol = 0.9, pan = 0) { return play('u_zbite', vol, rnd(0.92, 1.08), 0, pan, 0, 0.05); },
