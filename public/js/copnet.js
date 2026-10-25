@@ -24,16 +24,35 @@ export class CopGhosts {
     const seenC = new Set(), seenF = new Set();
     for (const e of m.c || []) {
       seenC.add(e[0]); let c = s.cars.get(e[0]);
-      if (!c) { const mesh = buildTrafficMesh(15); mesh.rotation.order = 'YXZ'; mesh.position.set(e[1], this.ground(e[1], e[2]), e[2]); mesh.rotation.y = e[3]; this.group.add(mesh); c = { mesh, hero: mesh.userData.hero, x: e[1], z: e[2], yaw: e[3], wheel: 0 }; s.cars.set(e[0], c); }
+      if (!c) { const mesh = buildTrafficMesh(15); mesh.rotation.order = 'YXZ'; mesh.position.set(e[1], this.ground(e[1], e[2]), e[2]); mesh.rotation.y = e[3]; this.group.add(mesh); c = { n: e[0], mesh, hero: mesh.userData.hero, x: e[1], z: e[2], yaw: e[3], wheel: 0 }; s.cars.set(e[0], c); }
       c.tx = e[1]; c.tz = e[2]; c.tyaw = e[3]; c.v = e[4];
     }
     for (const e of m.f || []) {
       seenF.add(e[0]); let o = s.foot.get(e[0]);
-      if (!o) { const actor = new HeroActor(0, COP_LOOK); this.group.add(actor.group); o = { actor, x: e[1], z: e[2], yaw: e[3] }; s.foot.set(e[0], o); }
+      if (!o) { const actor = new HeroActor(0, COP_LOOK); this.group.add(actor.group); o = { n: e[0], actor, x: e[1], z: e[2], yaw: e[3] }; s.foot.set(e[0], o); }
       o.tx = e[1]; o.tz = e[2]; o.tyaw = e[3]; o.sp = e[4]; o.bits = e[5] | 0;
     }
     for (const [k, c] of s.cars) if (!seenC.has(k)) { this.dropCar(c); s.cars.delete(k); }
     for (const [k, o] of s.foot) if (!seenF.has(k)) { this.dropFoot(o); s.foot.delete(k); }
+  }
+  // ---- other players can fight the shared police: these find the ghost officer / patrol car a shot, a punch or a blast reaches; main.js then tells its owner (who runs the real police) and raises MY wanted level
+  shoot(ox, oz, fx, fz, range) {
+    let best = null;
+    for (const [id, s] of this.by) {
+      for (const o of s.foot.values()) { if ((o.bits & 1) || !o.actor.group.visible) continue; const dx = o.x - ox, dz = o.z - oz, a = dx * fx + dz * fz, l = Math.abs(-dx * fz + dz * fx); if (a > -0.9 && a < range && l < (a < 2 ? 0.9 : 0.65) && (!best || a < best.d)) best = { d: Math.max(0.3, a), id, k: 'f', n: o.n, x: o.x, z: o.z }; }
+      for (const c of s.cars.values()) { if (!c.mesh.visible) continue; const dx = c.x - ox, dz = c.z - oz, a = dx * fx + dz * fz; if (a < 0.6 || a > range) continue; const f = Math.sin(c.yaw), g = Math.cos(c.yaw);
+        for (let d = Math.max(0.3, a - 3); d < Math.min(range, a + 0.3); d += 0.15) { const rx = ox + fx * d - c.x, rz = oz + fz * d - c.z, lz = rx * f + rz * g, lx = -rx * g + rz * f; if (Math.abs(lz) < 2.35 && Math.abs(lx) < 1.05) { if (!best || d < best.d) best = { d, id, k: 'c', n: c.n, x: c.x, z: c.z }; break; } } }
+    }
+    return best;
+  }
+  // everything within r metres of (x, z) (grenade) or in front of me (melee: fx, fz given)
+  near(x, z, r, fx, fz) {
+    const out = [];
+    for (const [id, s] of this.by) {
+      for (const o of s.foot.values()) { if ((o.bits & 1) || !o.actor.group.visible) continue; const dx = o.x - x, dz = o.z - z, d = Math.hypot(dx, dz); if (d > r) continue; if (fx !== undefined && (dx * fx + dz * fz) / (d || 1) < 0.3) continue; out.push({ id, k: 'f', n: o.n, d, x: o.x, z: o.z }); }
+      if (fx === undefined) for (const c of s.cars.values()) { if (!c.mesh.visible) continue; const d = Math.hypot(c.x - x, c.z - z); if (d <= r + 1.5) out.push({ id, k: 'c', n: c.n, d, x: c.x, z: c.z }); }
+    }
+    return out;
   }
   dropCar(c) { this.group.remove(c.mesh); c.mesh.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); }); }
   dropFoot(o) { this.group.remove(o.actor.group); o.actor.dispose(); }

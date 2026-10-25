@@ -537,6 +537,19 @@ class Race {
     app.net.send({ t: 'pc', ...copSnapshot(w) });
   }
   onCops(m) { if (!this.copGhosts) this.copGhosts = new CopGhosts(this.scene, (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0)); this.copGhosts.onMsg(m); }
+  // I hit another player's police: show it, make MY police come (that is the law), and tell the owner so the officer really drops on their screen
+  hitGhostCop(h, dmg, melee, blast) {
+    try { this.particles.emit(h.x, 1.2, h.z, 8, { color: h.k === 'c' ? '#ffd23f' : '#ff5a4a', speed: 3, up: 2, life: 0.3, size: 0.2 }); if (h.k === 'f') A.voice.grunt(0.8); } catch { /* noop */ }
+    if (this.wanted) this.wanted.crime(h.k === 'c' ? 'car' : 'copHit', h.x, h.z);
+    const n = performance.now(); this._phAt = this._phAt || {}; const key = h.id + ':' + h.k + h.n; if (!blast && n - (this._phAt[key] || 0) < 90) return; this._phAt[key] = n;
+    if (app.net) app.net.send({ t: 'ph', to: h.id, k: h.k, n: h.n, d: +dmg.toFixed(2) }); void melee;
+  }
+  // somebody hit MY police: apply it to the real officer / car (this is the player whose police they are)
+  onCopHit(m) {
+    const w = this.wanted; if (!w) return; const d = +m.d || 0;
+    if (m.k === 'f') { const o = w.foot.find((q) => q.nid === m.n); if (!o || o.dead) return; o.hp -= d * 1.2; if (o.hp <= 0) w.killFoot(o); else { o.down = Math.max(o.down, 0.6); w.hurtFoot(o); } }
+    else { const c = w.cars.find((q) => q.nid === m.n); const cs = c && c.st; if (cs && !cs.wreck) cs.hp = Math.max(0, (cs.hp === undefined ? 100 : cs.hp) - Math.max(6, d * 9)); }
+  }
   onJack(m) { const c = this.cars[m.c | 0]; if (c && c === this.drive) this.toggleCar(true); } // somebody stole my car: I am thrown out
   toggleCar(force) {
     if (!force && (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length)) return;
@@ -1309,6 +1322,7 @@ class Race {
     if (this.fxP) this.fxP.emit(x, y + 0.6, z, 16, { color: '#ffe08a', speed: 5, up: 3, life: 0.35, size: 1.1, spread: 0.8 });
     A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
     if (mine) this.nadeDamage(x, z, R, W);
+    if (mine && this.copGhosts && this.multi) for (const h of this.copGhosts.near(x, z, R)) this.hitGhostCop(h, h.k === 'c' ? 8 * (1 - h.d / (R + 2)) : W.dmg * (1 - 0.55 * h.d / R), false, true);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
   }
   // a blast wrecks the vehicles around it: the close ones are destroyed at once, the farther ones are badly damaged; every damaged one smokes and blows up a few seconds later
@@ -1435,6 +1449,7 @@ class Race {
     }
     this.crime('shot', b.x, b.z);
     if (this.wanted) { const wh = this.wanted.shoot(ox, oz, fx, fz, len, W.dmg); if (wh >= 0 && wh < len) len = Math.max(0.5, wh); }
+    if (this.copGhosts && this.multi) { const gh = this.copGhosts.shoot(ox, oz, fx, fz, len); if (gh && gh.d < len) { len = Math.max(0.5, gh.d); this.hitGhostCop(gh, W.dmg); } }
     // tracer + muzzle flash + bang
     const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
     this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'sniper' ? 0.16 : w === 'ak' ? 0.07 : 0.05);
@@ -1511,6 +1526,7 @@ class Race {
     if (this.kickK && this.peds) { const t = this.peds.downed(b.x, b.z, fx, fz); if (t) { this.evt({ k: 'ki', i: t.i, fx: +fx.toFixed(3), fz: +fz.toFixed(3) }); this.peds.kick(t, fx, fz, (p) => { this.earn(PAY.hit); this.crime('hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.25); this.particles.emit(p.x, 0.4, p.z, 12, { color: '#ffffff', speed: 3, up: 1.5, life: 0.3, size: 0.25 }); this.particles.emit(p.x, 0.4, p.z, 6, { color: '#ffd23f', speed: 4, up: 2, life: 0.3, size: 0.2 }); }); return; } }
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
     if (this.wanted && this.meta.city) this.wanted.melee(b.x, b.z, fx, fz);
+    if (this.copGhosts && this.multi) { const hs = this.copGhosts.near(b.x, b.z, 1.9, fx, fz); if (hs.length) this.hitGhostCop(hs[0], 1 / 1.2, true); }
     if (this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.zs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
     if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.22); this.particles.emit(p.x, 1.2, p.z, 18, { color: '#ffffff', speed: 6, up: 2.5, life: 0.35, size: 0.3 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
     if (BW && this.batCar(b, fx, fz)) return;
@@ -1927,6 +1943,7 @@ async function ensureNet() {
   net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
   net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
+  net.on('ph', (m) => { if (race && race.multi) race.onCopHit(m); });
   net.on('jack', (m) => { if (race && race.multi) race.onJack(m); });
   for (const t of ['pd', 'tf']) net.on(t, (m) => { if (race && race.multi && race.peds) race.onWorld({ ...m, t }); });
   net.on('ev', (m) => { if (race && race.multi) race.onEvent(m); });

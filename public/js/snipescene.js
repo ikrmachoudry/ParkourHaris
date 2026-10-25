@@ -61,9 +61,11 @@ export class SnipeScene {
   // two police officers walk the thief from his car to the police car (they come out of it, flank him, and stand by the car when he is in)
   updateCops(dt, s) {
     if (!this.cops) return; const ar = s.st === 'arrest' ? s.ar : -1, pc = this.pol[0];
+    // the officers stay SEATED in the police car while it is still driving in; the doors open only once it has stopped, and then they walk out
+    if (ar < 0) this.copOut = false; else if (!this.copOut && s.pl && s.pl[0] && s.pl[0][3] < 0.6) this.copOut = true;
     for (let i = 0; i < 2; i++) {
       const c = this.cops[i], g = c.a.group;
-      if (ar < 6.0 || ar > 14.5 || !pc || pc.x === 0) { g.visible = false; c.on = false; continue; }
+      if (ar < 6.0 || ar > 14.5 || !pc || pc.x === 0 || !this.copOut) { g.visible = false; c.on = false; continue; }
       const side = i ? 1 : -1, fy = this.pyaw, fx = Math.sin(fy), fz = Math.cos(fy);
       let tx, tz;
       if (ar < 12.5) { tx = this.px - fz * side * 1.15 - fx * 0.3; tz = this.pz + fx * side * 1.15 - fz * 0.3; }   // flanking the thief
@@ -110,7 +112,7 @@ export class SnipeScene {
   }
   hideGuide() { if (!this.guide) return; this.R.scene.remove(this.guide); this.guide.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.guide = null; }
   clear() {
-    this.tunDone = false; this.tunT = 0; this.stand(false); if (this.cops) for (const c of this.cops) { c.a.group.visible = false; c.on = false; } this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
+    this.exploded = false; this.lastMode = 0; this.tunDone = false; this.tunT = 0; this.stand(false); if (this.cops) for (const c of this.cops) { c.a.group.visible = false; c.on = false; } this.hideGuide(); this.snap = null; this.first = true; this.lastMode = 0; this.boomAt = -1;
     if (this.built) { if (this.mark) this.mark.visible = false; this.car.visible = false; this.actor.group.visible = false; for (const p of this.pol) p.m.visible = false; for (const p of this.ai) p.m.visible = false; for (const p of this.pur) p.m.visible = false; }
     try { A.sirenMission(0); } catch { /* noop */ }
     const c = this.truck; if (c && this.tank) {
@@ -129,8 +131,9 @@ export class SnipeScene {
     return out;
   }
   explode(k) {
+    if (this.exploded) return; this.exploded = true;   // once per mission run, whatever the snapshots do
     const R = this.R, c = this.truck; this.boomAt = this.t;
-    const x = k[0], z = k[1], y = this.ground(x, z) + 1.8, cp = R.camera.position, d = Math.hypot(x - cp.x, z - cp.z), vol = Math.max(0.35, 1 - d / 300), q = R.isTouch ? 0.6 : 1;
+    const x = k[0], z = k[1], y = this.ground(x, z) + 1.8, cp = R.camera.position, d = Math.hypot(x - cp.x, z - cp.z), vol = Math.max(0.35, 1 - d / 300), q = R.isTouch ? 0.4 : 0.7;
     try { A.sfx.boom(vol); } catch { /* noop */ }
     R.shake = Math.max(R.shake || 0, clamp(1.1 - d / 160, 0.1, 1.1));
     for (let i = 0; i < 320 * q; i++) R.fxP.emit(x + (Math.random() - 0.5) * 4, y + Math.random() * 2.5, z + (Math.random() - 0.5) * 8, 1, { color: Math.random() < 0.4 ? '#ffe27a' : Math.random() < 0.6 ? '#ff7a18' : '#ff4a0a', alpha: 1, size: 4.5 + Math.random() * 5, speed: 12, up: 8 + Math.random() * 11, life: 1.4 + Math.random() * 1.6, gravity: -1.6, spread: 4.5 });
@@ -183,7 +186,7 @@ export class SnipeScene {
       if (km === 3 || km === 4) {
         const st = c.st, q = R.isTouch ? 0.5 : 1, since = this.t - this.boomAt;
         if (since < 75) {
-          this.fireA = (this.fireA || 0) + dt * (since < 25 ? 60 : 28) * q;
+          this.fireA = Math.min(3, (this.fireA || 0) + dt * (since < 25 ? 45 : 20) * q);   // (capped: a slow frame can never turn into hundreds of puffs at once)
           while (this.fireA >= 1) { this.fireA -= 1; const rx = st.x + (Math.random() - 0.5) * 3.2, rz = st.z + (Math.random() - 0.5) * 5, ry = st.y + 1.2;
             R.fxP.emit(rx, ry, rz, 1, { color: Math.random() < 0.45 ? '#ffd23f' : '#ff6a12', alpha: 0.9, size: since < 25 ? 3.6 : 2.2, speed: 0.8, up: 4.2, life: 0.9, gravity: -2.8, spread: 1.8 });
             R.particles.emit(rx, ry + 0.8, rz, 1, { color: Math.random() < 0.75 ? '#121212' : '#34312e', alpha: 0.88, size: 2.8, grow: 9, speed: 0.6, up: 7, life: 9, gravity: -0.6, spread: 1.4 }); }

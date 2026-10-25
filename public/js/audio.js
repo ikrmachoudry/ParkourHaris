@@ -10,6 +10,10 @@ export function initAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  { // a heavy scene (a big explosion + fire + many players) can stall the page for a moment and the browser then suspends / 'interrupts' the audio for good: bring it back on its own and on the next touch / key
+    const wake = () => { try { if (ctx && ctx.state !== 'running') ctx.resume(); } catch { /* noop */ } };
+    ctx.onstatechange = wake; setInterval(wake, 1500); for (const ev of ['pointerdown', 'touchstart', 'keydown']) window.addEventListener(ev, wake, { passive: true });
+    setInterval(() => { if (active > 0 && ctx.state === 'running' && active === lastActive) { stuckN++; if (stuckN > 20) { active = 0; remActive = 0; stuckN = 0; } } else stuckN = 0; lastActive = active; }, 1000); }
   setTimeout(loadBank, 0);
   master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
   { // a brick-wall limiter in front of the speakers: a pile of loud sounds (several players firing automatic guns) used to add up past full scale and CRUSH everything, including my own shots
@@ -76,10 +80,11 @@ export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 
   if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; s.connect(f); f.connect(g); } else s.connect(g);
   if (rev && revIn) { const r = ctx.createGain(); r.gain.value = rev; g.connect(r); r.connect(revIn); }
   if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); n = p; }
+  if (active > 70 && vol < 0.9) return false;   // too many voices at once: the small ones are dropped, never the big ones
   n.connect(bus || sfxG); active++; s.onended = () => { active--; }; s.start(ctx.currentTime + delay); return true;
 }
 // other players' gunshots go through their own bus: only a few at a time and never closer together than a few ms, so a crowd of shooters can not bury MY sounds (mine always play)
-let active = 0, remG = null, remActive = 0; const remLast = {};
+let lastActive = 0, stuckN = 0, boomAt = -1e9, active = 0, remG = null, remActive = 0; const remLast = {};
 let bus = null;
 export function playRemote(name, vol, rate, lp = 5200) {
   const b = bank[name]; if (!ctx || !b || remActive >= 3 || active > 60) return false;
@@ -128,6 +133,7 @@ export const sfx = {
   shot(pan = 0, vol = 1) { if (play('u_pistol', 0.8 * vol, rnd(0.97, 1.04), 0, pan, 0, 0.25)) return; if (gun('pistol', 'pbody', 0.85 * vol, 0.7, 0.56, 700, 0.95, 0.5)) return; noise(0.09, 0.4, 'highpass', 2500, 900); },
   sniperShot(pan = 0, vol = 1) { if (play('u_sniper', 0.95 * vol, rnd(0.98, 1.02), 0, pan, 0, 0.35)) return; if (gun('ak', 'abody', 1.5 * vol, 0.42, 0.6, 380, 0.9, 0.7)) return; sfx.shot(); },
   boom(vol = 1) {   // real explosion recordings: the blast + a slowed, low-passed copy for the rumble
+    { const n = performance.now(); if (n - boomAt < 350) return; boomAt = n; }   // several blasts in one moment (a chain of burning cars) play as ONE, never a stuck loop of booms
     const v = Math.min(1.5, vol * 1.3); const i = Math.random() * 2 | 0;
     if (play('u_boom', Math.min(1.4, 0.95 * v), rnd(0.96, 1.04), 0, 0, 0, 0.5)) { play('u_boom', 0.4 * v, 0.6, 0.05, 0, 600, 0.6); return; }
     if (!play('boom' + i, 0.9 * v, rnd(0.9, 1.05), 0, 0, 0, 0.6)) return;

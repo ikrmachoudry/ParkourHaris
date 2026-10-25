@@ -92,7 +92,9 @@ function missionEmit(room, msg) {
 }
 // who is inside a mission right now, told to everybody (also to a player who joins later, and again every few seconds so a missed / stale list can never leave two players invisible to each other)
 function sendBusy(room, to) {
-  const ids = (room.busyIds || []).filter((id) => room.players.has(id)), msg = { t: 'm_busy', ids };
+  // the truth is the mission hub itself (not the events that happened to be sent): a mission that was reset without an 'idle' message can never leave its players hidden from everybody
+  const h = room.hub; room.busyIds = h && h.phase !== 'idle' ? [...(h.members || [])] : [];
+  const ids = room.busyIds.filter((id) => room.players.has(id)), msg = { t: 'm_busy', ids };
   if (to) send(to.ws, msg); else bcast(room, msg);
 }
 // who counts for a mission: everybody whose connection is alive and has spoken in the last 6 s (a frozen tab or a ghost
@@ -281,6 +283,14 @@ wss.on('connection', (ws, req) => {
         if (Math.hypot((p.x || 0) - (q.x || 0), (p.z || 0) - (q.z || 0)) > 4) return;
         p.lastShove = t;
         send(q.ws, { t: 'shove', from: p.id, nx: m.nx, nz: m.nz, p: m.p });
+        break;
+      }
+      case 'ph': { // I hit somebody else's police (an officer or a patrol car): tell the player who owns that police (relay only, they run the real chase)
+        if (!room || room.phase !== 'race') return;
+        const q = room.players.get(m.to); if (!q || q === p || !q.ws) return;
+        const t = Date.now(); if (t - (p.lastPh || 0) < 40) return; p.lastPh = t;
+        if (m.k !== 'f' && m.k !== 'c') return; if (!Number.isFinite(m.n) || !Number.isFinite(m.d) || m.d < 0 || m.d > 200) return;
+        send(q.ws, { t: 'ph', from: p.id, k: m.k, n: m.n | 0, d: +m.d });
         break;
       }
       case 'jack': { // somebody took the car I was driving: tell the driver (relay only)
