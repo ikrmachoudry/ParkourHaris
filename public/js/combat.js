@@ -1,126 +1,332 @@
-// COMBAT MISSION: the hidden battle map (far outside the city, no road leads there) and the bots that fight on it.
-// This file has NO three.js and no DOM: the map layout (walls, rooms, trees, loot spots) and the bot brain are plain data and maths, so they can be unit tested in node.
-export const CMB = { x: 1500, z: 1500, half: 110 };   // map centre (the server accepts positions up to 2000) and half size: 220 x 220 m
+// COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
+// This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
+// so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
+export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
 export const COMBAT_MS = 300000;                        // a match lasts 5 minutes
-export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 8 && Math.abs(z - CMB.z) < CMB.half + 8;
+export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
+const H = CMB.half;
 
 const seeded = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-const T = 0.4;   // wall thickness
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const hash2 = (x, z, s) => { let h = (Math.imul(x | 0, 374761393) + Math.imul(z | 0, 668265263) + Math.imul(s | 0, 1274126177)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+export const vnoise = (x, z, s) => { const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf); const a = hash2(xi, zi, s), b = hash2(xi + 1, zi, s), c = hash2(xi, zi + 1, s), d = hash2(xi + 1, zi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+export const fbm = (x, z, s, o = 4) => { let a = 0.5, f = 1, t = 0, n = 0; for (let i = 0; i < o; i++) { t += a * vnoise(x * f, z * f, s + i * 7); n += a; a *= 0.5; f *= 2; } return t / n; };
 
-// a room: four walls with door gaps, a roof slab, an optional inner wall (two rooms).  Everything in map-local metres; returns solids {x0,z0,x1,z1,y0,y1,k}
-function room(o) {
-  const out = [], hx = o.w / 2, hz = o.d / 2, h = o.h, dw = 3.4, DH = 2.8;
-  const wall = (x0, z0, x1, z1, y0, y1, k = 'wall') => out.push({ x0: o.x + x0, z0: o.z + z0, x1: o.x + x1, z1: o.z + z1, y0, y1, k });
-  const doors = o.doors || [];
-  const side = (s, alongX, fixed, len) => {
-    const ds = doors.filter((d) => d.s === s).map((d) => d.o).sort((a, b) => a - b); let a = -len / 2;
-    const seg = (p, q, y0, y1) => { if (q - p < 0.05) return; if (alongX) wall(p, fixed - T / 2, q, fixed + T / 2, y0, y1); else wall(fixed - T / 2, p, fixed + T / 2, q, y0, y1); };
-    for (const d of ds) { seg(a, d - dw / 2, 0, h); seg(d - dw / 2, d + dw / 2, DH, h); a = d + dw / 2; }   // (above a door: the lintel)
-    seg(a, len / 2, 0, h);
-  };
-  side('N', true, -hz, o.w); side('S', true, hz, o.w); side('W', false, -hx, o.d); side('E', false, hx, o.d);
-  if (o.part) {   // inner wall with a doorway: part = { ax: 'x' wall runs along x at z = pos | 'z' wall runs along z at x = pos, pos, gap }
-    const p = o.part, len = p.ax === 'x' ? o.w : o.d; let a = -len / 2;
-    const seg = (s, e, y0, y1) => { if (e - s < 0.05) return; if (p.ax === 'x') wall(s, p.pos - T / 2, e, p.pos + T / 2, y0, y1); else wall(p.pos - T / 2, s, p.pos + T / 2, e, y0, y1); };
-    seg(a, p.gap - dw / 2, 0, h); seg(p.gap - dw / 2, p.gap + dw / 2, DH, h); seg(p.gap + dw / 2, len / 2, 0, h);
+// ---------------------------------------------------------------- terrain (map-local metres; x east, z south)
+export const SEA_Y = -1.2;   // the sea / river water level of the whole game (gta.js GT.SEA)
+export const riverX = (z) => -90 + 50 * Math.sin(z * 0.011 + 0.6) + 18 * Math.sin(z * 0.037 + 2);
+export function rawH(x, z) {
+  let h = 6 + (fbm(x * 0.0055, z * 0.0055, 11, 4) - 0.5) * 28 + (fbm(x * 0.03, z * 0.03, 21, 3) - 0.5) * 3.2;
+  h += 36 * Math.exp(-(((x - 170) ** 2 + (z + 150) ** 2) / (2 * 62 * 62)));   // the military hill (north east)
+  h += 13 * Math.exp(-(((x + 190) ** 2 + (z + 170) ** 2) / (2 * 45 * 45)));   // a knoll in the north west
+  const d = Math.abs(x - riverX(z)), k = smooth(26, 6, d); h = h * (1 - k) + (-2.9) * k;   // the river valley: deep enough to swim
+  const r = Math.max(Math.abs(x), Math.abs(z)); h += 55 * Math.pow(smooth(H - 55, H - 6, r), 1.4);   // the mountains round the edge
+  return h;
+}
+const PADS = [];   // flat building sites {x0,z0,x1,z1,y}: the ground is levelled under every building and blended into the hillside over 9 m
+export function cmbH(x, z) {
+  const raw = rawH(x, z); let ws = 0, wy = 0, wm = 0;
+  for (const p of PADS) {
+    if (x < p.x0 - 9 || x > p.x1 + 9 || z < p.z0 - 9 || z > p.z1 + 9) continue;
+    const d = Math.hypot(Math.max(p.x0 - x, 0, x - p.x1), Math.max(p.z0 - z, 0, z - p.z1)); if (d >= 9) continue;
+    if (d === 0) return p.y;   // inside a building site: exactly level
+    const w = 1 - smooth(0, 9, d); ws += w; wy += w * p.y; if (w > wm) wm = w;
   }
-  wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, h, h + 0.3, 'roof');
+  return ws > 0 ? raw + (wy / ws - raw) * wm : raw;   // near several sites: blend towards their average level
+}
+
+// ---------------------------------------------------------------- buildings
+const SL = 0.3, BASE = -0.6, TH = 0.4;   // floor slab thickness, how far walls reach below the floor, wall thickness
+const WALLS = ['#e6d9bd', '#d8c7a0', '#cfd8d4', '#e0b9a2', '#d9d3c4', '#c9b79a', '#bfcfd6', '#e8d9a8'];
+const ROOFS = ['#9b4b36', '#7a3f2e', '#5d5f66', '#8c5a3a', '#6b4a3a'];
+const KIND = {
+  house: { fh: 3.0, win: { ww: 1.4, y0: 0.95, y1: 2.2, gap: 4.2 }, fur: 'home', roof: 'gable' },
+  shop: { fh: 3.4, win: { ww: 3.0, y0: 0.8, y1: 2.5, gap: 5.2 }, fur: 'shop', roof: 'flat' },
+  apart: { fh: 3.1, fl: 2, win: { ww: 1.4, y0: 0.95, y1: 2.2, gap: 3.8 }, fur: 'home', roof: 'flat' },
+  school: { fh: 3.4, fl: 2, win: { ww: 1.8, y0: 0.95, y1: 2.4, gap: 4.6 }, fur: 'school', roof: 'flat' },
+  church: { fh: 6.5, win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 }, fur: 'church', roof: 'gable' },
+  barn: { fh: 6.2, win: { ww: 1.0, y0: 3.6, y1: 4.6, gap: 6 }, fur: 'barn', roof: 'gable' },
+  warehouse: { fh: 7, win: { ww: 2.4, y0: 4.6, y1: 6.0, gap: 6.2 }, fur: 'ware', roof: 'lowgable' },
+  hangar: { fh: 9, win: { ww: 2.4, y0: 6.0, y1: 7.6, gap: 7 }, fur: 'ware', roof: 'lowgable' },
+  barracks: { fh: 3.2, win: { ww: 1.2, y0: 1.0, y1: 2.2, gap: 3.6 }, fur: 'barracks', roof: 'gable' },
+  shack: { fh: 2.6, win: { ww: 1.0, y0: 1.0, y1: 2.0, gap: 4 }, fur: 'shack', roof: 'pent' },
+  cabin: { fh: 2.9, win: { ww: 1.1, y0: 1.0, y1: 2.1, gap: 3.8 }, fur: 'shack', roof: 'gable' },
+  kiosk: { fh: 3.0, win: { ww: 2.2, y0: 0.9, y1: 2.3, gap: 3 }, fur: 'shop', roof: 'flat' },
+};
+const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
+const OPP = { N: 'S', S: 'N', W: 'E', E: 'W' };
+
+// one building: wall solids (with door and window openings), floors + a staircase for two storeys, a roof slab.  Everything map-local; y is absolute.
+function buildSolids(o) {
+  const nfl = o.fl || 1, fh = o.fh, top = nfl * fh + (nfl - 1) * SL, fy = o.fy, out = [], hx = o.w / 2, hz = o.d / 2, openings = [];
+  const wall = (x0, z0, x1, z1, y0, y1, k = 'wall') => out.push({ x0: o.x + x0, z0: o.z + z0, x1: o.x + x1, z1: o.z + z1, y0: fy + y0, y1: fy + y1, k });
+  const W = o.win || {};
+  for (const s of ['N', 'S', 'W', 'E']) {
+    const [alongX, sg] = SIDES[s], len = alongX ? o.w : o.d, fixed = sg * (alongX ? hz : hx), cols = [];
+    for (const d of (o.doors || []).filter((q) => q.s === s)) { const hw = (d.w || 3.4) / 2, h = d.h || 2.5; cols.push({ c: d.o, hw, holes: [[0, h]] }); openings.push({ s, c: d.o, hw, y0: 0, y1: h, k: 'door' }); }
+    if (W.ww && !(o.noWin || []).includes(s)) {
+      const n = Math.floor((len - 3.2) / W.gap) + 1;
+      for (let i = 0; i < n; i++) {
+        const c = -(n - 1) * W.gap / 2 + i * W.gap; if (cols.some((q) => Math.abs(q.c - c) < q.hw + W.ww / 2 + 0.7)) continue;
+        const holes = []; for (let f = 0; f < nfl; f++) holes.push([f * (fh + SL) + W.y0, f * (fh + SL) + W.y1]);
+        cols.push({ c, hw: W.ww / 2, holes }); for (const [a, b] of holes) openings.push({ s, c, hw: W.ww / 2, y0: a, y1: b, k: 'win' });
+      }
+    }
+    cols.sort((a, b) => a.c - b.c);
+    const seg = (p, q, y0, y1) => { if (q - p < 0.04 || y1 - y0 < 0.04) return; if (alongX) wall(p, fixed - TH / 2, q, fixed + TH / 2, y0, y1); else wall(fixed - TH / 2, p, fixed + TH / 2, q, y0, y1); };
+    let a = -len / 2 - (alongX ? TH / 2 : 0);
+    for (const c of cols) {
+      seg(a, c.c - c.hw, BASE, top); let y = BASE;
+      for (const [h0, h1] of c.holes.sort((p, q) => p[0] - q[0])) { seg(c.c - c.hw, c.c + c.hw, y, h0); y = h1; }
+      seg(c.c - c.hw, c.c + c.hw, y, top); a = c.c + c.hw;
+    }
+    seg(a, len / 2 + (alongX ? TH / 2 : 0), BASE, top);
+  }
+  if (o.part) {   // an inner wall with a doorway on the ground floor
+    const p = o.part, len = p.ax === 'x' ? o.w : o.d, dw = 3.4; let a = -len / 2 + TH / 2;
+    const seg = (s, e, y0, y1) => { if (e - s < 0.05) return; if (p.ax === 'x') wall(s, p.pos - TH / 2, e, p.pos + TH / 2, y0, y1); else wall(p.pos - TH / 2, s, p.pos + TH / 2, e, y0, y1); };
+    seg(a, p.gap - dw / 2, 0, fh); seg(p.gap - dw / 2, p.gap + dw / 2, 2.5, fh); seg(p.gap + dw / 2, len / 2 - TH / 2, 0, fh);
+    o.partDoor = { ax: p.ax, pos: p.pos, gap: p.gap, w: dw };
+  }
+  let hole = null;
+  if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
+    const st = o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.2, dir: 1 }, rise = fh + SL, n = Math.ceil(rise / 0.3), step = rise / n, tread = 0.45, sw = 1.5;
+    for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
+    const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step };
+    for (let f = 1; f < nfl; f++) {
+      const yb = f * (fh + SL) - SL, yt = f * (fh + SL), X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz;
+      wall(X0, Z0, X1, hole.z0, yb, yt, 'floor'); wall(X0, hole.z1, X1, Z1, yb, yt, 'floor'); wall(X0, hole.z0, hole.x0, hole.z1, yb, yt, 'floor'); wall(hole.x1, hole.z0, X1, hole.z1, yb, yt, 'floor');
+    }
+  }
+  wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
+  o.openings = openings; o.top = top; o.hole = hole;
   return out;
 }
 
-export const BUILDINGS = [
-  { x: 45, z: -62, w: 24, d: 16, h: 4, doors: [{ s: 'S', o: -6 }, { s: 'W', o: 2 }], part: { ax: 'z', pos: 3, gap: -2 }, c: '#c9b79a' },
-  { x: 82, z: -58, w: 16, d: 14, h: 4, doors: [{ s: 'N', o: 0 }, { s: 'W', o: -2 }, { s: 'S', o: 3 }], c: '#b7c4cc' },
-  { x: 45, z: 55, w: 20, d: 18, h: 4, doors: [{ s: 'N', o: 4 }, { s: 'S', o: -3 }], part: { ax: 'x', pos: 1, gap: 4 }, c: '#d1b39a' },
-  { x: 84, z: 48, w: 26, d: 22, h: 6.5, doors: [{ s: 'W', o: -5 }, { s: 'W', o: 6 }, { s: 'N', o: 0 }], c: '#9aa6a0' },   // the warehouse
-  { x: 56, z: -14, w: 8, d: 8, h: 3, doors: [{ s: 'N', o: 0 }, { s: 'S', o: 0 }], c: '#c4a882' },
-  { x: -58, z: -68, w: 10, d: 8, h: 3.2, doors: [{ s: 'E', o: 0 }], c: '#8a6a4a' },    // jungle cabins
-  { x: -62, z: 58, w: 10, d: 8, h: 3.2, doors: [{ s: 'N', o: 0 }, { s: 'E', o: 1 }], c: '#8a6a4a' },
-  { x: -20, z: 78, w: 14, d: 10, h: 3.6, doors: [{ s: 'N', o: -2 }, { s: 'E', o: 0 }], c: '#b9a58a' },
-];
-export const ROADS = [   // visual only (the ground is flat): x0,z0,x1,z1,width
-  [-110, 0, 110, 0, 9], [0, -110, 0, 110, 9], [30, -75, 30, 75, 7], [-70, -40, -70, 40, 5], [-70, 0, 0, 0, 5],
-];
+// ---------------------------------------------------------------- the list of buildings
+const BUILDINGS = [];
+const BASE_Y = Math.round(rawH(170, -150) * 10) / 10;   // the whole military compound is one level plateau
+const RB = seeded(4242);
+function mk(kind, x, z, w, d, front, ov = {}) {
+  const K = KIND[kind], rr = RB, fy = ov.fy !== undefined ? ov.fy : Math.round(rawH(x, z) * 10) / 10;
+  const o = { kind, x, z, w, d, front, fy, fh: ov.fh || K.fh, fl: K.fl || 1, win: ov.win === null ? null : (ov.win || K.win), roof: K.roof, fur: K.fur, c: ov.c || WALLS[Math.floor(rr() * WALLS.length)], rc: ov.rc || ROOFS[Math.floor(rr() * ROOFS.length)], noWin: ov.noWin || [] };
+  const alongX = front === 'N' || front === 'S', len = alongX ? w : d, big = kind === 'warehouse' || kind === 'hangar' || kind === 'barn';
+  const dh = big ? 4.6 : 2.5, dwid = kind === 'hangar' ? 12 : big ? 5 : 3.4;
+  o.doors = ov.doors || [{ s: front, o: big ? 0 : Math.round((rr() - 0.5) * len * 0.4 * 2) / 2, w: dwid, h: dh }];
+  if (!ov.doors && len >= 8) o.doors.push({ s: OPP[front], o: big ? 0 : Math.round((rr() - 0.5) * (alongX ? w : d) * 0.4), w: big ? 3.4 : 3.4, h: 2.5 });
+  if (!ov.doors && (big || kind === 'school') && (alongX ? d : w) >= 12) o.doors.push({ s: alongX ? 'W' : 'N', o: 0, w: 3.4, h: 2.5 });
+  if ((kind === 'house' || kind === 'cabin') && w >= 10 && ov.part !== null) o.part = { ax: 'z', pos: Math.round((rr() - 0.5) * w * 0.3), gap: Math.round((rr() - 0.5) * 3) };
+  if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
+  if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
+  if (ov.stair) o.stair = ov.stair;
+  o.solids = buildSolids(o);
+  PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
+  BUILDINGS.push(o); return o;
+}
+// extra pads (the base compound square, bridge ends)
+const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 
+// the river bridge on the road to the farm
+export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
+padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
+
+// ---- Haris Town (centre east): two streets, houses, shops, apartments, a church and the school
+for (const x of [6, 22]) { mk('house', x, 79, 10 + (x === 22 ? 1 : 0), 9, 'S'); mk('house', x, 111, 10 + (x === 22 ? 1 : 0), 9, 'N'); }
+for (const x of [84, 100, 116]) { mk('house', x, 79, 10, 9, 'S'); if (x > 84) mk('house', x, 111, 10, 9, 'N'); }
+mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.2, dir: 1 } });
+mk('shop', 30, 50, 12, 9, 'S'); mk('church', 12, 40, 10, 18, 'S', { win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 } });
+mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.2, dir: 1 } });
+mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: 4, z0: -6 + TH / 2 + 0.2, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
+mk('kiosk', 62, 192, 8, 6, 'W');   // the petrol station on the highway
+// ---- the military base on the hill (north east): barracks, HQ, hangar, sheds
+for (const z of [-176, -158, -140]) mk('barracks', 148, z, 24, 9, 'E', { fy: BASE_Y });
+mk('apart', 198, -150, 14, 12, 'W', { fy: BASE_Y, c: '#9aa38a', stair: { x0: -4, z0: -6 + TH / 2 + 0.2, dir: 1 } }); mk('hangar', 186, -112, 32, 20, 'S', { fy: BASE_Y, c: '#8f9a8a' });
+mk('shack', 124, -128, 6, 5, 'E', { fy: BASE_Y, c: '#8f9a8a' }); mk('shack', 214, -176, 6, 5, 'W', { fy: BASE_Y, c: '#8f9a8a' });
+// ---- the industrial yard (south east)
+mk('warehouse', 160, 160, 26, 22, 'N', { c: '#a8b0b3' }); mk('warehouse', 196, 160, 26, 22, 'N', { c: '#b5a48c' }); mk('warehouse', 196, 196, 36, 18, 'W', { c: '#9aa6b0' });
+mk('shack', 150, 196, 6, 5, 'E', { c: '#b0a890' });
+// ---- the farm west of the river
+mk('house', -150, 20, 11, 9, 'E'); mk('barn', -178, 58, 22, 14, 'N', { c: '#a14b3a', rc: '#3f3f44' }); mk('shack', -148, 52, 8, 6, 'N');
+// ---- the river village (east bank) and cabins in the forests
+for (let i = 0; i < 6; i++) { const z = -150 + i * 22, x = Math.round(riverX(z) + 40 + ((i % 2) * 8)); mk(i % 3 === 2 ? 'cabin' : 'shack', x, z, i % 3 === 2 ? 8 : 6, i % 3 === 2 ? 7 : 5, 'E'); }
+for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'], [-10, -205, 'S'], [70, -205, 'W'], [235, -40, 'W'], [225, 70, 'W'], [-30, 225, 'N'], [-140, 120, 'E'], [-120, 150, 'E']]) mk('cabin', x, z, 8, 7, f);
+
+// ---------------------------------------------------------------- roads (polylines: [x, z] points; w = width; dirt = a track)
+export const ROADS = [
+  { w: 7, pts: [[62, 238], [60, 200], [50, 172], [48, 120], [48, 95], [50, 50], [58, 12], [85, -50], [120, -92], [150, -112], [166, -108]] },
+  { w: 6, pts: [[-24, 95], [48, 95], [135, 95], [168, 112], [176, 140], [178, 168]] },
+  { w: 6, pts: [[30, 95], [8, 80], [BRIDGE.xa, BRIDGE.z]] },
+  { w: 6, pts: [[BRIDGE.xb, BRIDGE.z], [-100, 58], [-128, 40], [-146, 30]] },
+  { w: 6, pts: [[166, -108], [165, -132], [165, -168]] },
+  { w: 4.5, dirt: 1, pts: [[58, 12], [10, -22], [-30, -60], [-52, -100], [-60, -150]] },
+  { w: 4.5, dirt: 1, pts: [[85, -50], [140, -40], [200, -38], [232, -42]] },
+  { w: 4.5, dirt: 1, pts: [[-130, 40], [-170, 20], [-200, -40], [-212, -90], [-170, -146]] },
+  { w: 4.5, dirt: 1, pts: [[48, 170], [10, 200], [-26, 222]] },
+  { w: 4.5, dirt: 1, pts: [[135, 95], [190, 80], [224, 70]] },
+  { w: 4.5, dirt: 1, pts: [[58, -150], [66, -204]] },
+];
+const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 1 < r.pts.length; i++) a.push([r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w]); return a; };
+const ROADSEGS = segsOf();
+export function distRoad(x, z) {
+  let best = 1e9;
+  for (const [ax, az, bx, bz, w] of ROADSEGS) {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0, d = Math.hypot(x - (ax + t * dx), z - (az + t * dz)) - w / 2;
+    if (d < best) best = d;
+  }
+  return best;   // metres from the road edge (negative = on the road)
+}
+export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
+export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
+export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; return false; };
+
+// ---------------------------------------------------------------- the world: solids, trees, rocks, props, loot spots, spawns, nav grid
 function build() {
-  const R = seeded(2024), solids = [], trees = [], rocks = [], crates = [], H = CMB.half;
-  for (const b of BUILDINGS) solids.push(...room(b));
-  // crates along the inner walls of the bigger buildings (cover) and a few outdoors
-  const crate = (x, z, s = 1.4) => { crates.push({ x, z, s }); solids.push({ x0: x - s / 2, z0: z - s / 2, x1: x + s / 2, z1: z + s / 2, y0: 0, y1: s, k: 'crate' }); };
-  for (const b of BUILDINGS) if (b.w >= 14) { const ix = b.w / 2 - 1.3, iz = b.d / 2 - 1.3; crate(b.x - ix, b.z + iz); crate(b.x + ix, b.z - iz); if (b.w >= 20) { crate(b.x + ix, b.z + iz); crate(b.x - ix + 1.5, b.z + iz); } }
-  for (const [x, z] of [[18, -12], [20, 14], [38, 12], [70, 8], [-12, 24], [-28, -22], [8, 40], [14, -48], [72, -32], [96, 8]]) { crate(x, z); if (R() < 0.6) crate(x + 1.5, z + 0.2, 1.1); }
-  // the bus shelter in the middle: four posts and a roof
-  for (const [x, z] of [[-8, -30], [-2, -30], [-8, -36], [-2, -36]]) solids.push({ x0: x - 0.2, z0: z - 0.2, x1: x + 0.2, z1: z + 0.2, y0: 0, y1: 4.5, k: 'post' });
-  solids.push({ x0: -9, z0: -37, x1: -1, z1: -29, y0: 4.2, y1: 4.5, k: 'roof' });
-  // the cliff wall round the map: nobody leaves
-  const W = 6; for (const [x0, z0, x1, z1] of [[-H - W, -H - W, H + W, -H], [-H - W, H, H + W, H + W], [-H - W, -H, -H, H], [H, -H, H + W, H]]) solids.push({ x0, z0, x1, z1, y0: 0, y1: 16, k: 'cliff' });
-  const open = (x, z, m) => { for (const s of solids) { if (s.y1 < 0.3 || s.y0 > 1.6) continue; if (x > s.x0 - m && x < s.x1 + m && z > s.z0 - m && z < s.z1 + m) return false; } return true; };
-  const onRoad = (x, z, m = 0) => ROADS.some(([a, b, c, d, w]) => x > Math.min(a, c) - w / 2 - m && x < Math.max(a, c) + w / 2 + m && z > Math.min(b, d) - w / 2 - m && z < Math.max(b, d) + w / 2 + m);
-  // jungle: the whole west half is thick with trees and rocks
-  let tries = 0; while (trees.length < 230 && tries++ < 4000) {
-    const x = -H + 4 + R() * (H - 4 - 6), z = -H + 4 + R() * (2 * H - 8); if (onRoad(x, z, 2.5) || !open(x, z, 3.2)) continue;
-    if (trees.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < 14)) continue;
-    const s = 1.7 + R() * 1.1; trees.push({ x, z, s }); solids.push({ x0: x - 0.35, z0: z - 0.35, x1: x + 0.35, z1: z + 0.35, y0: 0, y1: 6, k: 'tree' });
+  const R = seeded(2024), solids = [], trees = [], rocks = [], props = [], fences = [], bucket = new Map(), B = 8;
+  const addS = (s) => { solids.push(s); for (let i = Math.floor((s.x0 - 1) / B); i <= Math.floor((s.x1 + 1) / B); i++) for (let j = Math.floor((s.z0 - 1) / B); j <= Math.floor((s.z1 + 1) / B); j++) { const k = i * 4099 + j; let a = bucket.get(k); if (!a) bucket.set(k, a = []); a.push(s); } return s; };
+  const box = (x0, z0, x1, z1, y0, y1, k) => addS({ x0, z0, x1, z1, y0, y1, k });
+  for (const b of BUILDINGS) for (const s of b.solids) addS(s);
+  // furniture inside the rooms (bigger things are solid cover; the loot spots keep away from all of it)
+  const furn = (b) => {
+    const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
+      if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
+      for (const dr of b.doors) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (Math.abs(x - ex) < w / 2 + 1.9 && Math.abs(z - ez) < d / 2 + 1.9) return; }
+      if (b.partDoor) { const p = b.partDoor; if (p.ax === 'z' ? (Math.abs(x - p.pos) < w / 2 + 1.5 && Math.abs(z - p.gap) < d / 2 + 2.2) : (Math.abs(z - p.pos) < d / 2 + 1.5 && Math.abs(x - p.gap) < w / 2 + 2.2)) return; if (p.ax === 'z' && Math.abs(x - p.pos) < w / 2 + 0.3) return; }
+      const it = { x: b.x + x, z: b.z + z, y: fy, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: fy, y1: fy + h, k: 'prop' });
+    };
+    const f = b.fur;
+    if (f === 'home') { put(-hx + 1.2, -hz + 1.2, 2.1, 1.1, 0.6, '#8a6a4a', 'bed'); put(hx - 1.2, hz - 1.0, 1.4, 0.7, 2.0, '#6a4a30', 'wardrobe'); put(0.5, 0.5, 1.6, 0.9, 0.75, '#a07848', 'table'); put(hx - 0.7, -hz + 1.4, 0.45, 0.45, 0.45, '#7a5a3a', 'chair', false); put(-1.2, hz - 0.7, 1.8, 0.5, 1.6, '#7a5638', 'shelf'); }
+    else if (f === 'shop') { put(0, -hz + 2.6, Math.min(6, b.w - 4), 0.8, 1.05, '#8a6a4a', 'counter'); put(-hx + 0.6, 0, 0.5, Math.min(6, b.d - 3), 1.8, '#9a9a9a', 'shelf'); put(hx - 0.6, 1, 0.5, Math.min(5, b.d - 3), 1.8, '#9a9a9a', 'shelf'); put(0, hz - 1.6, 1.2, 1.2, 0.9, '#c9a165', 'crate'); }
+    else if (f === 'school') { for (const z of [-0.8, 2.0]) for (const x of [-4, 0, 4, 8]) put(x, z, 1.4, 0.7, 0.75, '#b08a58', 'desk'); put(hx - 0.5, 0, 0.4, 3, 1.0, '#2c4a3c', 'board', false); }
+    else if (f === 'church') { for (const z of [-2, 1, 4]) for (const x of [-2.2, 2.2]) put(x, z, 1.8, 0.5, 0.9, '#6a4a30', 'bench'); put(0, -hz + 1.6, 2.2, 1.0, 1.0, '#8a8a82', 'altar'); }
+    else if (f === 'barn') { for (const [x, z] of [[-6, -3], [-5, 2], [6, -3], [7, 2.4]]) put(x, z, 1.5, 1.5, 1.3, '#c9a64a', 'bale'); put(0, -hz + 1.2, 3, 1.2, 1.2, '#7a5638', 'stall'); }
+    else if (f === 'ware') { for (const [x, z] of [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]]) put(x, z, 2.4, 2.4, 2.4, '#b08a58', 'pallet'); put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
+    else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
+    else if (f === 'shack') { put(-hx + 0.9, -hz + 0.8, 1.8, 0.9, 0.55, '#8a6a4a', 'bed'); put(hx - 0.8, hz - 0.7, 0.9, 0.9, 0.9, '#a07848', 'table'); }
+  };
+  for (const b of BUILDINGS) furn(b);
+  // the bridge: a solid deck with rails, pylons in the river
+  { const z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, y = BRIDGE.y; box(BRIDGE.xb, z0, BRIDGE.xa, z1, y - 0.5, y, 'deck'); box(BRIDGE.xb, z0, BRIDGE.xa, z0 + 0.25, y, y + 1.1, 'rail'); box(BRIDGE.xb, z1 - 0.25, BRIDGE.xa, z1, y, y + 1.1, 'rail'); }
+  // outdoor props: containers, sandbags, barrels, crates, stacks of pipes
+  const outside = [];
+  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop' }); outside.push(it); return it; };
+  const container = (x, z, along = 'x', c = '#c0482e', stack = 1) => { const w = along === 'x' ? 6.1 : 2.5, d = along === 'x' ? 2.5 : 6.1, gy = cmbH(x, z); for (let s = 0; s < stack; s++) { const it = { x, z, y: gy + s * 2.6, w, d, h: 2.6, c: s ? '#2f5d8a' : c, k: 'container' }; props.push(it); addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy + s * 2.6 - (s ? 0 : 0.4), y1: gy + (s + 1) * 2.6, k: 'prop' }); } };
+  // the base: a fence round the compound with a gate on the south side, sandbags, containers
+  const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
+  padRect(FB.x0 + 5, FB.z0 + 5, FB.x1 - 5, FB.z1 - 5, BASE_Y);
+  const fence = (x0, z0, x1, z1) => { fences.push({ x0, z0, x1, z1 }); const alongX = Math.abs(z1 - z0) < 0.1, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 6); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0, bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1, gy = Math.max(cmbH(ax, az), cmbH(bx, bz)); addS({ x0: Math.min(ax, bx) - (alongX ? 0 : 0.15), x1: Math.max(ax, bx) + (alongX ? 0 : 0.15), z0: Math.min(az, bz) - (alongX ? 0.15 : 0), z1: Math.max(az, bz) + (alongX ? 0.15 : 0), y0: gy - 1.5, y1: gy + 2.4, k: 'fence' }); } };
+  fence(FB.x0, FB.z0, FB.x1, FB.z0); fence(FB.x0, FB.z0, FB.x0, FB.z1); fence(FB.x1, FB.z0, FB.x1, FB.z1); fence(FB.x0, FB.z1, FB.gate[0], FB.z1); fence(FB.gate[1], FB.z1, FB.x1, FB.z1);
+  for (const [x, z, a] of [[105, -170, 'z'], [235, -90, 'x'], [176, -100, 'x'], [160, -100, 'x'], [165, -186, 'x']]) { if (Math.abs(x - 105) < 1) continue; container(x, z, a, ['#6a7a5a', '#8a6a4a', '#5a6a7a'][Math.floor(R() * 3)]); }
+  for (let i = 0; i < 6; i++) container(236 + (i % 2) * 7, 126 + Math.floor(i / 2) * 7, 'x', ['#c0482e', '#2f5d8a', '#c9a22b', '#4a7a4a'][i % 4], i % 3 === 0 ? 2 : 1);   // the container yard (south east)
+  for (const [x, z] of [[118, -108], [214, -110], [124, -178], [220, -184]]) { crate(x, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); crate(x + 1.8, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); }
+  // watch towers: legs, a platform with rails and a staircase up
+  const tower = (x, z) => {
+    const gy = cmbH(x, z), py = gy + 7.2, rise = 7.2, n = Math.ceil(rise / 0.3), step = rise / n;
+    for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) addS({ x0: x + dx - 0.25, z0: z + dz - 0.25, x1: x + dx + 0.25, z1: z + dz + 0.25, y0: gy - 1, y1: py, k: 'prop' });
+    addS({ x0: x - 2.6, z0: z - 2.6, x1: x + 2.6, z1: z + 2.6, y0: py - 0.3, y1: py, k: 'floor' });
+    for (const [a, b, c2, d2] of [[-2.6, -2.6, 2.6, -2.35], [-2.6, 2.35, 2.6, 2.6], [-2.6, -2.6, -2.35, 2.6], [2.35, -1.2, 2.6, 2.6]]) addS({ x0: x + a, z0: z + b, x1: x + c2, z1: z + d2, y0: py, y1: py + 1.1, k: 'rail' });
+    for (let i = 0; i < n; i++) { const zs = z - 2.6 + (n - 1 - i) * 0.45; addS({ x0: x + 2.6, z0: zs, x1: x + 4.1, z1: zs + 0.45, y0: gy - 1, y1: gy + (i + 1) * step, k: 'step' }); }   // the staircase up the east side
+    props.push({ x, z, y: gy, w: 5.2, d: 5.2, h: 7.2, c: '#7a6a52', k: 'tower' });
+    return { x, z, gy, py, n, step };
+  };
+  const towers = [tower(116, -186), tower(224, -190), tower(0, -120)];
+  // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
+  const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
+  round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
+  for (const [x, z] of [[140, 205], [140, 224], [121, 214]]) round(x, z, 5, 8, '#c9ccd0', 'tank'); round(222, 196, 1.6, 26, '#9a6a5a', 'chimney');
+  // ---- forests: jittered grid, density from noise, kept off roads, buildings and the river
+  const CELL = 6;
+  for (let gx = -H + 14; gx < H - 14; gx += CELL) for (let gz = -H + 14; gz < H - 14; gz += CELL) {
+    const x = gx + R() * CELL, z = gz + R() * CELL, f = fbm(x * 0.011 + 5, z * 0.011 - 3, 41, 3), dr = Math.abs(x - riverX(z));
+    let p = smooth(0.40, 0.60, f) * 0.95 + 0.05 + (dr > 14 && dr < 44 ? 0.2 : 0); if (R() > p) continue;
+    if (distRoad(x, z) < 4 || onPad(x, z, 9) || inField(x, z, 4) || (x > BRIDGE.xb - 8 && x < BRIDGE.xa + 8 && Math.abs(z - BRIDGE.z) < 9)) continue;
+    if (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2) continue;
+    const gy = cmbH(x, z); if (gy < -0.2) continue;
+    const pine = gy > 11 || f > 0.56 ? R() < 0.82 : R() < 0.3, s = (pine ? 1.5 : 1.3) + R() * 1.0;
+    trees.push({ x, z, s, pine, y: gy, r: R() * 6.28 }); addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
   }
-  tries = 0; while (rocks.length < 40 && tries++ < 3000) {
-    const x = -H + 5 + R() * (2 * H - 10), z = -H + 5 + R() * (2 * H - 10); if (onRoad(x, z, 2.5) || !open(x, z, 3)) continue;
-    const s = 0.9 + R() * 0.8; rocks.push({ x, z, s }); solids.push({ x0: x - s, z0: z - s, x1: x + s, z1: z + s, y0: 0, y1: s * 1.3, k: 'rock' });
+  // rocks: boulders on the hillsides and along the river
+  for (let tries = 0; rocks.length < 320 && tries < 6000; tries++) {
+    const x = (R() * 2 - 1) * (H - 20), z = (R() * 2 - 1) * (H - 20), gy = cmbH(x, z); if (gy < -0.5 || distRoad(x, z) < 3 || onPad(x, z, 6) || inField(x, z, 3)) continue;
+    const slope = Math.abs(cmbH(x + 3, z) - cmbH(x - 3, z)) + Math.abs(cmbH(x, z + 3) - cmbH(x, z - 3)), want = 0.04 + slope * 0.25 + (Math.abs(x - riverX(z)) < 30 ? 0.12 : 0); if (R() > want) continue;
+    const s = 0.7 + R() * R() * 2.6; rocks.push({ x, z, s, y: gy, r: R() * 6.28 }); if (s > 1.2) addS({ x0: x - s * 0.9, z0: z - s * 0.9, x1: x + s * 0.9, z1: z + s * 0.9, y0: gy - 0.8, y1: gy + s * 1.1, k: 'rock' });
   }
-  // a few trees round the compound and along the roads
-  for (let i = 0; i < 26; i++) { const x = -5 + R() * 112, z = -H + 6 + R() * (2 * H - 12); if (onRoad(x, z, 3) || !open(x, z, 3.5) || trees.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < 25)) continue; const s = 1.5 + R() * 0.8; trees.push({ x, z, s }); solids.push({ x0: x - 0.3, z0: z - 0.3, x1: x + 0.3, z1: z + 0.3, y0: 0, y1: 6, k: 'tree' }); }
-  // loot spots: inside every room, on the roads, in the jungle (all checked against the walls: nothing is ever half inside a wall)
-  const spots = [], add = (x, z) => { if (Math.abs(x) < H - 3 && Math.abs(z) < H - 3 && open(x, z, 1.0) && !spots.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 9)) spots.push({ x, z }); };
-  for (const b of BUILDINGS) { const ix = b.w / 2 - 2.6, iz = b.d / 2 - 2.6; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]]) add(b.x + sx * ix, b.z + sz * iz); if (b.w >= 14) add(b.x + 2.5, b.z - 1.5); }
-  for (let i = 0; i < 400 && spots.length < 90; i++) { const x = -H + 6 + R() * (2 * H - 12), z = -H + 6 + R() * (2 * H - 12); if (!open(x, z, 2.2)) continue; add(x, z); }
-  const spawns = []; tries = 0; while (spawns.length < 20 && tries++ < 3000) { const x = -H + 8 + R() * (2 * H - 16), z = -H + 8 + R() * (2 * H - 16); if (!open(x, z, 2.2) || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 900)) continue; spawns.push({ x, z }); }
-  // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.55 m
-  const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) free[i * N + j] = open(cell(i), cell(j), 0.5) ? 1 : 0;
-  return { solids, trees, rocks, crates, spots, spawns, nav: { N, free, cell: CS, H } };
+  // some wandering crates / barrels near the buildings and roads (cover)
+  for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; crate(b.x + sx, b.z + sz); if (R() < 0.5) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }
+  for (let i = 0; i < 40; i++) { const x = (R() * 2 - 1) * (H - 40), z = (R() * 2 - 1) * (H - 40), gy = cmbH(x, z), dr = distRoad(x, z); if (gy < 0 || dr > 5 || dr < 1.5 || onPad(x, z, 5)) continue; crate(x, z, 1.0, 1.0, 1.0, '#6a8a9a', 'barrel'); }
+  // ---- the cliff wall round the map: nobody leaves
+  const W = 12; for (const [x0, z0, x1, z1] of [[-H - W, -H - W, H + W, -H + 4], [-H - W, H - 4, H + W, H + W], [-H - W, -H, -H + 4, H], [H - 4, -H, H + W, H]]) addS({ x0, z0, x1, z1, y0: -5, y1: 140, k: 'cliff' });
+  const open = (x, z, m) => { const gy = cmbH(x, z); const i0 = Math.floor((x - m) / B), i1 = Math.floor((x + m) / B), j0 = Math.floor((z - m) / B), j1 = Math.floor((z + m) / B); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + 0.3 || s.y0 > gy + 1.6) continue; if (x > s.x0 - m && x < s.x1 + m && z > s.z0 - m && z < s.z1 + m) return false; } } return true; };
+  // loot spots: inside every room, round the buildings, along the roads, in the forests (checked against everything solid: nothing is ever half inside a wall)
+  const spots = [], add = (x, z) => { if (Math.abs(x) < H - 20 && Math.abs(z) < H - 20 && cmbH(x, z) > -0.4 && open(x, z, 1.0) && !spots.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 6)) spots.push({ x, z }); };
+  for (const b of BUILDINGS) {
+    const ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (let f = 0; f < b.fl; f++) { /* ground floor spots only: the sim has no floors */ if (f) break; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5]]) add(b.x + sx * ix, b.z + sz * iz); }
+    for (const [sx, sz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) add(b.x + sx * (b.w / 2 + 2.2), b.z + sz * (b.d / 2 + 2.2));
+  }
+  for (let i = 0; i < 1500 && spots.length < 330; i++) { const x = (R() * 2 - 1) * (H - 24), z = (R() * 2 - 1) * (H - 24), dr = distRoad(x, z); if (dr > 40 && R() < 0.6) continue; add(x, z); }
+  const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
+  // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
+  let nav = null;
+  const L = {
+    solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
+    get crates() { return outside; },
+    get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; } return (nav = { N, free, cell: CS, H }); },
+  };
+  return L;
 }
 let _L = null;
 export const layout = () => _L || (_L = build());
 
-// ---- geometry helpers (map-local coordinates, y is height)
-export function hitsSolid(L, x, z, r, y = 1.0) { for (const s of L.solids) { if (s.y1 < 0.3 || s.y0 > y) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } return null; }
-// the first distance along a ray (x,z) + t*(dx,dz), t <= len, where it enters a solid that is between y0..y1 high (walls, trees...); len when clear
-export function rayWalls(L, x, z, dx, dz, len, y = 1.3) {
-  let best = len;
-  for (const s of L.solids) {
-    if (s.k === 'roof' || s.y1 < y - 0.4 || s.y0 > y + 0.2) continue;
-    let t0 = 0, t1 = best; if (Math.abs(dx) < 1e-9) { if (x < s.x0 || x > s.x1) continue; } else { let a = (s.x0 - x) / dx, b = (s.x1 - x) / dx; if (a > b) { const q = a; a = b; b = q; } t0 = Math.max(t0, a); t1 = Math.min(t1, b); }
-    if (t0 > t1) continue;
-    if (Math.abs(dz) < 1e-9) { if (z < s.z0 || z > s.z1) continue; } else { let a = (s.z0 - z) / dz, b = (s.z1 - z) / dz; if (a > b) { const q = a; a = b; b = q; } t0 = Math.max(t0, a); t1 = Math.min(t1, b); }
-    if (t0 > t1 || t1 < 0) continue; if (t0 < best) best = Math.max(0, t0);
+// ---- geometry helpers (map-local coordinates, y is absolute height)
+export function hitsSolid(L, x, z, r, gy) {
+  if (gy === undefined) gy = cmbH(x, z); const B = L.B, i0 = Math.floor((x - r) / B), i1 = Math.floor((x + r) / B), j0 = Math.floor((z - r) / B), j1 = Math.floor((z + r) / B);
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + 0.3 || s.y0 > gy + 1.0) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } }
+  return null;
+}
+// the first distance along a ray (x,z) + t*(dx,dz), t <= len, where it enters a solid at body height (walls, trees...); len when clear
+export function rayWalls(L, x, z, dx, dz, len, hy = 1.3) {
+  let best = len; const y = cmbH(x, z) + hy, B = L.B, steps = Math.ceil(len / (B * 0.7)), seen = new Set();
+  for (let k = 0; k <= steps; k++) {
+    const px = x + dx * Math.min(len, k * B * 0.7), pz = z + dz * Math.min(len, k * B * 0.7), ci = Math.floor(px / B), cj = Math.floor(pz / B);
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+      const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
+      for (const s of a) {
+        if (s.k === 'roof' || s.k === 'floor' || s.y1 < y - 0.4 || s.y0 > y + 0.2) continue;
+        let t0 = 0, t1 = best; if (Math.abs(dx) < 1e-9) { if (x < s.x0 || x > s.x1) continue; } else { let p = (s.x0 - x) / dx, q = (s.x1 - x) / dx; if (p > q) { const w = p; p = q; q = w; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); }
+        if (t0 > t1) continue;
+        if (Math.abs(dz) < 1e-9) { if (z < s.z0 || z > s.z1) continue; } else { let p = (s.z0 - z) / dz, q = (s.z1 - z) / dz; if (p > q) { const w = p; p = q; q = w; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); }
+        if (t0 > t1 || t1 < 0) continue; if (t0 < best) best = Math.max(0, t0);
+      }
+    }
   }
   return best;
 }
 export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.01) return true; return rayWalls(L, ax, az, dx / d, dz / d, d, 1.4) >= d - 0.05; }
 
-// A* over the 3 m grid: returns a list of [x, z] waypoints (map-local) or null
+// A* over the 2 m grid with a binary heap: returns a list of [x, z] waypoints (map-local) or null
 export function findPath(L, ax, az, bx, bz) {
-  const { N, free, cell, H } = L.nav, idx = (v) => Math.max(0, Math.min(N - 1, Math.floor((v + H) / cell)));
+  const { N, free, cell } = L.nav, idx = (v) => Math.max(0, Math.min(N - 1, Math.floor((v + H) / cell)));
   const near = (i, j) => { if (free[i * N + j]) return [i, j]; for (let r = 1; r < 4; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, b = j + dj; if (a >= 0 && b >= 0 && a < N && b < N && free[a * N + b]) return [a, b]; } return null; };
   const s = near(idx(ax), idx(az)), g = near(idx(bx), idx(bz)); if (!s || !g) return null;
-  const key = (i, j) => i * N + j, gs = new Map([[key(...s), 0]]), from = new Map(), open = [[0, ...s]], closed = new Set();
+  const key = (i, j) => i * N + j, gs = new Map([[key(...s), 0]]), from = new Map(), closed = new Set(), heap = [[0, ...s]];
+  const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { let m = i; const l = 2 * i + 1, r = l + 1; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
   const hh = (i, j) => Math.hypot(i - g[0], j - g[1]);
-  while (open.length) {
-    let bi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k; const [, i, j] = open.splice(bi, 1)[0], kk = key(i, j);
-    if (closed.has(kk)) continue; closed.add(kk);
+  while (heap.length) {
+    const [, i, j] = pop(), kk = key(i, j); if (closed.has(kk)) continue; closed.add(kk);
     if (i === g[0] && j === g[1]) { const p = []; let c = kk; while (c !== undefined) { const ci = Math.floor(c / N), cj = c % N; p.push([-H + (ci + 0.5) * cell, -H + (cj + 0.5) * cell]); c = from.get(c); } return p.reverse(); }
     for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
       if (!di && !dj) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= N || b >= N || !free[key(a, b)]) continue;
       if (di && dj && (!free[key(i + di, j)] || !free[key(i, j + dj)])) continue;   // no cutting corners
-      const ng = gs.get(kk) + (di && dj ? 1.414 : 1), nk = key(a, b); if (ng < (gs.has(nk) ? gs.get(nk) : 1e9)) { gs.set(nk, ng); from.set(nk, kk); open.push([ng + hh(a, b), a, b]); }
+      const ng = gs.get(kk) + (di && dj ? 1.414 : 1), nk = key(a, b); if (ng < (gs.has(nk) ? gs.get(nk) : 1e9)) { gs.set(nk, ng); from.set(nk, kk); push([ng + hh(a, b), a, b]); }
     }
-    if (closed.size > 12000) return null;
+    if (closed.size > 30000) return null;
   }
   return null;
 }
 
 // ---- the loot
 export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med'];
-export const LOOT_COUNT = 34, LOOT_RESPAWN = 22;
+export const LOOT_COUNT = 64, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
 const BOT = { pistol: { cd: 0.55, dmg: 9, acc: 0.5 }, ak: { cd: 0.17, dmg: 6, acc: 0.42 } };
@@ -131,6 +337,7 @@ export class CombatSim {
     this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot();
   }
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
+  nearSpawn(b) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - b.x, s.z - b.z) < 170 && Math.hypot(s.x - b.x, s.z - b.z) > 30); return c.length ? this.pick(c) : this.pick(this.L.spawns); }
   spawnPoint(avoid) { const L = this.L; let best = null, bd = -1; for (let i = 0; i < 6; i++) { const p = this.pick(L.spawns); const d = avoid ? Math.hypot(p.x - avoid.x, p.z - avoid.z) : 99; if (d > bd) { bd = d; best = p; } } return best; }
   newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0 }; }
   spawnLoot(avoid) {
@@ -159,7 +366,7 @@ export class CombatSim {
   }
   // move a circle through the walls (slides along them)
   step(o, dx, dz, r = 0.45) {
-    const L = this.L; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r, 1.0)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r, 1.0)) o.z = nz;
+    const L = this.L; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r)) o.z = nz;
   }
   tick(dt, P) {   // P = { x, z, hp, alive } of the player (map-local)
     this.t += dt; const L = this.L;
@@ -181,7 +388,7 @@ export class CombatSim {
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {
-          b.think = 5 + this.R() * 5; const tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.pick(L.spawns); b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
+          b.think = 5 + this.R() * 5; const tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b); b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
         }
         if (b.path && b.pi < b.path.length) {
           const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }

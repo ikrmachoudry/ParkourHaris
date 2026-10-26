@@ -8,6 +8,7 @@ export const P = {
   R: 0.42, H: 1.55, STEP: 0.34, EDGE: 0.28, G: 34, RUN: 9.4, JUMP: 12.2,
   ACC: 70, AIR: 22, DEC: 95, AIR_DEC: 9, ICE_ACC: 11, ICE_DEC: 5.5, TERM: -50, SNAP: 0.5,
 };
+const NOSOLIDS = [];
 const TERRAIN_SURF = { active: true, ice: false, conv: null, bounce: 0, boost: 0, dx: 0, dy: 0, dz: 0, moving: false, name: 'terrain' };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
@@ -101,6 +102,14 @@ export class World {
     this.solids.push(s);
     return s;
   }
+  // static solids of the big COMBAT map live in a spatial grid (16 m cells) so thousands of trees and walls cost nothing: the loops below ask sl(x, z) for the short list near the body
+  addStatic(x0, y0, z0, x1, y1, z1, o = {}) {
+    const s = { x0, y0, z0, x1, y1, z1, active: true, ice: false, conv: null, bounce: 0, boost: 0, dx: 0, dy: 0, dz: 0, moving: false, name: o.name || '' };
+    const g = this.sgrid || (this.sgrid = new Map());
+    for (let i = Math.floor((x0 - 0.7) / 16); i <= Math.floor((x1 + 0.7) / 16); i++) for (let j = Math.floor((z0 - 0.7) / 16); j <= Math.floor((z1 + 0.7) / 16); j++) { const k = i * 100003 + j; let a = g.get(k); if (!a) g.set(k, a = []); a.push(s); }
+    return s;
+  }
+  sl(x, z) { if (!this.sgrid || x < 1100 || z < 1100) return this.solids; return this.sgrid.get(Math.floor(x / 16) * 100003 + Math.floor(z / 16)) || NOSOLIDS; }
   add(mesh, cast = true, receive = true) {
     mesh.castShadow = cast; mesh.receiveShadow = receive;
     this.group.add(mesh);
@@ -822,7 +831,7 @@ export class World {
   // horizontal push-out of a vertical cylinder from solids and disc sides
   resolveHorizontal(b) {
     const R = P.R, H = P.H;
-    for (const s of this.solids) {
+    for (const s of this.sl(b.x, b.z)) {
       if (!s.active) continue;
       if (s.y1 <= b.y + P.STEP || s.y0 >= b.y + H) continue;
       if (b.x < s.x0 - R || b.x > s.x1 + R || b.z < s.z0 - R || b.z > s.z1 + R) continue;
@@ -857,7 +866,7 @@ export class World {
     const M = P.EDGE, lim = prevY + P.STEP;
     const snap = wasGrounded && b.noSnap <= 0 ? P.SNAP : 0;
     let best = null, bestTop = -1e9;
-    for (const s of this.solids) {
+    for (const s of this.sl(b.x, b.z)) {
       if (!s.active) continue;
       const top = s.y1;
       if (top > lim || top <= bestTop) continue;
@@ -886,7 +895,7 @@ export class World {
   }
 
   hitCeiling(b, prevY) {
-    for (const s of this.solids) {
+    for (const s of this.sl(b.x, b.z)) {
       if (!s.active) continue;
       if (prevY + P.H > s.y0 + 0.02 || b.y + P.H <= s.y0) continue;
       if (b.x < s.x0 || b.x > s.x1 || b.z < s.z0 || b.z > s.z1) continue;

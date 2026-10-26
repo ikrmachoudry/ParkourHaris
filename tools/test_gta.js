@@ -73,11 +73,16 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
   ok(CB.every((q) => { const P = stairPlan(q); return Math.abs(P.full[0] - q.x) < q.w / 2 + 3.6 && Math.abs(P.full[1] - q.x) < q.w / 2 + 3.6; }), 'the stair fits inside its block'); }
 // no stunt ramps any more: the city street is flat
 ok(gtaH(0, -40) === 0 && gtaH(-60, -100) === 0, 'the avenues are flat (no ramps)');
-{ // the hidden COMBAT map: flat ground far away, walls that stop a walking player, a door that lets him in
-  const { CMB, BUILDINGS } = await import('../public/js/combat.js'); const B = BUILDINGS[2];
-  ok(world.terrain(CMB.x + 5, CMB.z + 5) === 0, 'combat map ground is flat');
-  const walk = (x, z, dx, dz, n) => { const b = newBody(); b.x = x; b.z = z; b.y = 0.05; b.yaw = Math.atan2(dx, dz); for (let i = 0; i < n; i++) stepBody(world, b, 1 / 60, { mx: dx, mz: dz }); return b; };
-  const wx = CMB.x + B.x, wz = CMB.z + B.z - 20, wb = walk(wx - 8, wz, 0, 1, 240); ok(wb.z < CMB.z + B.z - B.d / 2 + 0.2 && wb.z > CMB.z + B.z - B.d / 2 - 2, 'a wall of a combat building stops the player (z ' + (wb.z - CMB.z).toFixed(1) + ')');
-  const db = walk(CMB.x + B.x + 4, wz, 0, 1, 300); ok(db.z > CMB.z + B.z - 2, 'the doorway lets the player into the room (z ' + (db.z - CMB.z).toFixed(1) + ')');
+{ // the BATTLE map: hills + a river, walls that stop a walking player, doors and stairs that let him in
+  const { CMB, cmbH, layout } = await import('../public/js/combat.js'); const L = layout();
+  ok(Math.abs(world.terrain(CMB.x + 5, CMB.z + 5) - cmbH(5, 5)) < 1e-9 && Math.abs(world.terrain(CMB.x + 120, CMB.z - 150) - cmbH(120, -150)) < 1e-9, 'battle map ground follows its own hills');
+  const walk = (x, z, dx, dz, n, y0) => { const b = newBody(); b.x = x; b.z = z; b.y = (y0 !== undefined ? y0 : world.terrain(x, z)) + 0.05; b.yaw = Math.atan2(dx, dz); for (let i = 0; i < n; i++) stepBody(world, b, 1 / 60, { mx: dx, mz: dz }); return b; };
+  const house = L.buildings.find((q) => q.kind === 'house' && q.front === 'S'), hx = CMB.x + house.x, hz = CMB.z + house.z;
+  const wb = walk(hx - house.w / 2 + 0.3, hz + house.d / 2 + 10, 0, -1, 240); ok(wb.z > hz + house.d / 2 - 0.1, 'a wall of a battle-map house stops the player (z ' + (wb.z - hz).toFixed(1) + ' vs wall ' + (house.d / 2).toFixed(1) + ')');
+  const door = house.doors.find((q) => q.s === 'S'), db = walk(hx + door.o, hz + house.d / 2 + 8, 0, -1, 120); ok(db.z < hz + house.d / 2 - 1, 'the front door lets the player into the house (z ' + (db.z - hz).toFixed(1) + ')');
+  const sch = L.buildings.find((q) => q.kind === 'school'), st = sch.stairs, sx = CMB.x + sch.x + st.x0, sz = CMB.z + sch.z + st.z0 + st.sw / 2;
+  const up = walk(sx - 1.0, sz, 1, 0, 200, sch.fy); ok(up.y > sch.fy + sch.fh - 0.1, 'the player walks up the school stairs to the upper floor (y ' + (up.y - sch.fy).toFixed(2) + ' above the floor)');
+  const br = L.bridge, bz = CMB.z + br.z, bb = walk(CMB.x + br.xa + 10, bz, -1, 0, 420); ok(bb.x < CMB.x + br.xb + 12 && bb.y > br.y - 0.2, 'the player crosses the river on the bridge (x ' + (bb.x - CMB.x).toFixed(0) + ', y ' + bb.y.toFixed(1) + ')');
+  const sw = walk(CMB.x + br.c, CMB.z + br.z - 25, 0, 1, 60); ok(sw.swim > 0.3 || sw.y < -0.8, 'the river is deep enough to swim in');
 }
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);

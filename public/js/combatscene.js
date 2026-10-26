@@ -5,7 +5,8 @@ import { makeHero } from './glbactor.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
-import { CombatSim, CMB, COMBAT_MS, layout } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, layout, cmbH } from './combat.js';
+import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
 
@@ -48,17 +49,19 @@ export class CombatScene {
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
     this.sim = new CombatSim((m.round * 7919 + 13) | 0, 8); this.group.visible = true; this.pay = 0;
+    if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
+    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
-    this.respawn(seat | 0); this.showHud(true); this.updateHud(); this.syncLoot();
+    this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
   }
   respawn(seat) {
     const R = this.R, b = R.me.body, L = layout(), p = L.spawns[((seat === undefined ? Math.floor(Math.random() * L.spawns.length) : seat * 5 + 1) % L.spawns.length + L.spawns.length) % L.spawns.length];
-    b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
+    b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = cmbH(p.x, p.z) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
-    this.sim = null; this.on = false; this.group.visible = false; this.showHud(false); A.setCommentary(OPT.punjabi !== false);
+    this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = true; this.showHud(false); A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
@@ -77,7 +80,7 @@ export class CombatScene {
       const pivot = new THREE.Group(); pivot.add(mdl); g.add(pivot); g.userData.pivot = pivot;
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; g.add(ring);
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, depthWrite: false })); beam.position.y = 2.6; g.add(beam);
-      g.position.set(CMB.x + it.x, 0, CMB.z + it.z); this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }
+      g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }
   }
   bot(b) {
     let a = this.bots.get(b.id); if (a) return a;
@@ -102,18 +105,18 @@ export class CombatScene {
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.respawn(); if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
     }
-    this.syncLoot();
+    this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
     for (const [id, l] of this.loot) {   // spin and bob the loot; remove what was taken
       if (!l.it.alive) { this.group.remove(l.g); this.loot.delete(id); continue; }
       l.g.userData.pivot.rotation.y += dt * 1.8; l.g.userData.pivot.position.y = 1.0 + Math.sin(this.t * 2.2 + l.ph) * 0.12;
     }
-    const g0 = (x, z) => 0;
+    const g0 = (x, z) => cmbH(x, z);
     for (const s of sim.bots) {
       const a = this.bot(s); a.g.visible = true;
       if (s.alive) {
-        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(), CMB.z + s.z);
+        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z);
         a.m.update(dt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 });
-      } else { a.g.rotation.set(-Math.PI / 2, s.yaw, 0, 'YXZ'); a.g.position.set(CMB.x + s.x, 0.22, CMB.z + s.z); a.m.update(dt, { seated: false, speed: 0, grounded: true }); a.g.visible = s.dieT < 4; }
+      } else { a.g.rotation.set(-Math.PI / 2, s.yaw, 0, 'YXZ'); a.g.position.set(CMB.x + s.x, g0(s.x, s.z) + 0.22, CMB.z + s.z); a.m.update(dt, { seated: false, speed: 0, grounded: true }); a.g.visible = s.dieT < 4; }
     }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
     if (this.vig && this.vig.style.opacity > 0) this.vig.style.opacity = Math.max(0, this.vig.style.opacity - dt * 1.6);
@@ -123,13 +126,13 @@ export class CombatScene {
     const R = this.R;
     if (e.k === 'shot') {
       const wx = CMB.x + e.x, wz = CMB.z + e.z, tx = e.hit ? b.x : b.x + (Math.random() - 0.5) * 3, tz = e.hit ? b.z : b.z + (Math.random() - 0.5) * 3, cd = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
-      this.tracer(wx, 1.4, wz, tx, 1.3, tz); R.particles && R.particles.emit(wx, 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
+      const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, tx, b.y + 1.3, tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
       if (cd < 120) { const v = Math.max(0.18, 1 - cd / 120); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(v) : A.sfx.shot(0, v); }
       if (e.hit && this.hp > 0 && this.deadT <= 0) this.hurt(e.dmg);
     } else if (e.k === 'kill') {
       this.kills++; const pay = 100; this.pay += pay; if (R.wallet) R.wallet.add(pay, 'kill'); R.toast && R.toast('ENEMY DOWN  +$' + pay); A.sfx.pickup && A.sfx.pickup();
-      R.particles && R.particles.emit(CMB.x + e.x, 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
-    } else if (e.k === 'bothit') R.particles && R.particles.emit(CMB.x + e.x, 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
+      R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
+    } else if (e.k === 'bothit') R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
   }
   hurt(d) {
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);

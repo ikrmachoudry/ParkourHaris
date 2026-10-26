@@ -1,7 +1,7 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
 import { PORT } from './port.js';
-import { CMB, BUILDINGS as CB, ROADS as CR, layout as cmbLayout } from './combat.js';
+import { CMB, ROADS as CR, layout as cmbLayout, cmbH, FIELDS } from './combat.js';
 import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS, SNIPE } from './gta.js';
 
 const W = 1100, O = 550;   // 1 px = 1 m, world -550..550
@@ -40,16 +40,24 @@ function drawStatic() {
 }
 
 // the hidden COMBAT map (240 x 240 m, drawn once; sits at CMB.x / CMB.z in the world so teammates' dots land on it)
-function drawCombat() {
-  const S = 2 * CMB.half + 20, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), o = S / 2, L = cmbLayout();
-  g.fillStyle = '#4f7f3c'; g.fillRect(0, 0, S, S); g.fillStyle = '#3a6a30'; g.fillRect(0, 0, o - 6, S);
-  g.strokeStyle = '#d8d4c4'; g.lineCap = 'butt'; for (const [x0, z0, x1, z1, w] of CR) { g.lineWidth = w + 2; g.beginPath(); g.moveTo(o + x0, o + z0); g.lineTo(o + x1, o + z1); g.stroke(); }
-  g.strokeStyle = '#555a62'; for (const [x0, z0, x1, z1, w] of CR) { g.lineWidth = w; g.beginPath(); g.moveTo(o + x0, o + z0); g.lineTo(o + x1, o + z1); g.stroke(); }
-  g.fillStyle = '#1f4a22'; for (const t of L.trees) { g.beginPath(); g.arc(o + t.x, o + t.z, 1.6, 0, 7); g.fill(); }
+function drawCombat() {   // the BATTLE map as a 620 px picture (1 px = 1 m): shaded hills, the river, roads, fields, forests, buildings
+  const H = CMB.half, S = 2 * H + 20, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), o = S / 2, L = cmbLayout();
+  const im = g.createImageData(S, S), d = im.data;
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const x = i - o, z = j - o, h = cmbH(x, z), hs = (cmbH(x + 2, z + 2) - h) * 0.1, k = Math.min(1, Math.max(0, h / 45)), p = (j * S + i) * 4;
+    let r, gg, b; if (h < -1.2) { r = 52; gg = 110; b = 178; } else if (h < -0.2) { r = 150; gg = 150; b = 112; } else { r = 76 + k * 100 + hs * 60; gg = 124 + k * 40 + hs * 60; b = 58 + k * 70 + hs * 60; }
+    d[p] = r; d[p + 1] = gg; d[p + 2] = b; d[p + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  for (const f of FIELDS) { g.fillStyle = f[4] + 'cc'; g.fillRect(o + f[0], o + f[1], f[2] - f[0], f[3] - f[1]); }
+  g.fillStyle = 'rgba(25,70,30,.55)'; for (const t of L.trees) { g.beginPath(); g.arc(o + t.x, o + t.z, 2.2, 0, 7); g.fill(); }
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  for (const r of CR) { g.strokeStyle = r.dirt ? '#b79a6a' : '#e6e0c8'; g.lineWidth = r.w + 2; g.beginPath(); r.pts.forEach(([x, z], i) => (i ? g.lineTo(o + x, o + z) : g.moveTo(o + x, o + z))); g.stroke(); g.strokeStyle = r.dirt ? '#8a7048' : '#5a5e66'; g.lineWidth = r.w; g.beginPath(); r.pts.forEach(([x, z], i) => (i ? g.lineTo(o + x, o + z) : g.moveTo(o + x, o + z))); g.stroke(); }
+  const B = L.bridge; g.fillStyle = '#d8d4c0'; g.fillRect(o + B.xb, o + B.z - B.w / 2, B.xa - B.xb, B.w);
   g.fillStyle = '#8b8b84'; for (const r of L.rocks) g.fillRect(o + r.x - r.s, o + r.z - r.s, 2 * r.s, 2 * r.s);
-  for (const b of CB) { g.fillStyle = b.c; g.fillRect(o + b.x - b.w / 2, o + b.z - b.d / 2, b.w, b.d); }
-  g.fillStyle = '#2e2b26'; for (const s of L.solids) if (s.k === 'wall') g.fillRect(o + s.x0, o + s.z0, Math.max(0.8, s.x1 - s.x0), Math.max(0.8, s.z1 - s.z0));
-  g.fillStyle = '#6a645b'; for (const s of L.solids) if (s.k === 'cliff') g.fillRect(o + s.x0, o + s.z0, s.x1 - s.x0, s.z1 - s.z0);
+  for (const b of L.buildings) { g.fillStyle = '#2e2b26'; g.fillRect(o + b.x - b.w / 2 - 1, o + b.z - b.d / 2 - 1, b.w + 2, b.d + 2); g.fillStyle = b.kind === 'warehouse' || b.kind === 'hangar' ? '#a8b0b3' : b.roof === 'flat' ? '#8d8b84' : b.rc; g.fillRect(o + b.x - b.w / 2, o + b.z - b.d / 2, b.w, b.d); }
+  g.strokeStyle = '#444'; g.lineWidth = 1.5; for (const f of L.fences) { g.beginPath(); g.moveTo(o + f.x0, o + f.z0); g.lineTo(o + f.x1, o + f.z1); g.stroke(); }
+  g.strokeStyle = '#d33'; g.lineWidth = 4; g.strokeRect(o - H, o - H, 2 * H, 2 * H);
   return cv;
 }
 

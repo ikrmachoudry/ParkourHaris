@@ -6,7 +6,7 @@ import { buildTrafficMesh } from './cityvis.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import { buildPort } from './portworld.js';
-import { layout as cmbLayout, BUILDINGS as CMB_B, ROADS as CMB_R, CMB, cmbInside } from './combat.js';
+import { layout as cmbLayout, CMB, cmbInside, cmbH } from './combat.js';
 import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear, stairPlan } from './gta.js';
 
 const col = new THREE.Color();
@@ -217,11 +217,11 @@ function intellimumTexture() {
 }
 export function buildGta(world, th, info, seed) {
   world.waterY = GT.SEA; world.killY = -2.6; world.seaSwim = true;
-  world.terrain = (x, z) => (cmbInside(x, z) ? 0 : gtaH(x, z));   // (the hidden COMBAT map is dead flat)
+  world.terrain = (x, z) => (cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : gtaH(x, z));   // (the hidden BATTLE map has its own hills and river)
   const roads = gtaRoads(); info.track = roads; info.cars = gtaCars();
   // the city blocks (pavements, lots, driveways, garages) sit 0.2 m above the avenues: cars must ride on that too, or their tyres sink into the ground (a short ramp over the kerb)
   const kerbH = (x, z) => { let k = 0; for (const bx of BLK) { const dx = Math.abs(x - bx); if (dx > 24.5) continue; for (const bz of BLK) { const e = 23.5 - Math.max(dx, Math.abs(z - bz)); if (e > -1) { k = Math.max(k, Math.min(1, (e + 1) / 1.1)); } } } return 0.2 * k; };
-  roads.terrain = (x, z) => cmbInside(x, z) ? 0 : gtaH(x, z) + (z > -245 && z < 245 && x > -245 && x < 245 ? kerbH(x, z) : 0);   // cars drive anywhere: they follow the ground, jump off ramps, bounce off buildings info.spawn = { x: 4, y: 0, z: 9 };
+  roads.terrain = (x, z) => cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : gtaH(x, z) + (z > -245 && z < 245 && x > -245 && x < 245 ? kerbH(x, z) : 0);   // cars drive anywhere: they follow the ground, jump off ramps, bounce off buildings info.spawn = { x: 4, y: 0, z: 9 };
   info.finishZ = -99999; info.finishY = 99999;
   const B = gtaBuildings();
   // ---- collision: blocks (a low kerb), buildings, the park fountains
@@ -269,9 +269,7 @@ export function buildGta(world, th, info, seed) {
     world.addSolid(b.x + b.w * 0.25 - 0.8, H, b.z + b.d * 0.2 - 0.5, b.x + b.w * 0.25 + 0.8, H + 1, b.z + b.d * 0.2 + 0.5, { name: 'prop' });   // AC unit
   }
   info.gta = { buildings: B, roads };
-  { const L = cmbLayout(); for (const q of L.solids) {   // the COMBAT map's walls, trees and crates (collision also exists without graphics)
-      world.addSolid(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'crate' ? 'prop' : 'building' });
-      if (q.y0 < 0.3 && q.k !== 'roof') roads.boxes.push({ x0: CMB.x + q.x0, x1: CMB.x + q.x1, z0: CMB.z + q.z0, z1: CMB.z + q.z1, h: q.y1 }); } }
+  { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building' }); }   // the BATTLE map's walls, trees and crates live in the world's spatial grid (collision also exists without graphics)
   if (world.headless) return;
 
   // ---- ground
@@ -612,21 +610,6 @@ export function buildGta(world, th, info, seed) {
     const arr = M.th0 + M.T * Math.PI * 2;
     for (let k = 0; k < 14; k++) { const a = arr + (50 + k * 22.8) * Math.PI / 180, rad = 16.5 + R() * 1.5, px = M.cx + Math.cos(a) * rad, pz = M.cz + Math.sin(a) * rad; plant(px, gtaH(px, pz), pz, 1.8 + R() * 0.9); }
     for (let k = 0; k < 18; k++) { const a = R() * 6.28, rad = 3 + R() * 6; if (Math.abs(((a - arr) % 6.2832) + 6.2832) % 6.2832 < 0.7) continue; wm.add(new THREE.SphereGeometry(0.35 + R() * 0.3, 5, 4), M.cx + Math.cos(a) * rad, y + 0.15, M.cz + Math.sin(a) * rad, '#4f8f33'); } }   // bushes
-  // ---- COMBAT MISSION: a hidden battle map far outside the city (rooms, jungle, roads, cliff wall).  No road leads there; players are teleported in by the mission.
-  { const L = cmbLayout(), cx = CMB.x, cz = CMB.z, H = CMB.half, Bx = (a, b, c) => new THREE.BoxGeometry(a, b, c), rr = rng(77);
-    wm.add(Bx(2 * H + 40, 0.6, 2 * H + 40), cx, -0.3, cz, '#5f8f45'); wm.add(Bx(H * 0.95, 0.04, 2 * H - 8), cx - H * 0.5, 0.02, cz, '#3f6e35');   // grass, darker jungle floor in the west
-    for (const [x0, z0, x1, z1, w] of CMB_R) { const L2 = Math.hypot(x1 - x0, z1 - z0), vert = Math.abs(x1 - x0) < 0.1; wm.add(Bx(vert ? w : L2, 0.07, vert ? L2 : w), cx + (x0 + x1) / 2, 0.04, cz + (z0 + z1) / 2, '#3b3e44');
-      for (let d = -L2 / 2 + 4; d < L2 / 2 - 2; d += 7) wm.add(Bx(vert ? 0.2 : 2.6, 0.08, vert ? 2.6 : 0.2), cx + (x0 + x1) / 2 + (vert ? 0 : d), 0.06, cz + (z0 + z1) / 2 + (vert ? d : 0), '#e9e6d4'); }
-    for (const b of CMB_B) wm.add(Bx(b.w, 0.06, b.d), cx + b.x, 0.05, cz + b.z, '#6a645b');   // floors
-    for (const q of L.solids) {
-      const w = q.x1 - q.x0, d = q.z1 - q.z0, h = q.y1 - q.y0, x = cx + (q.x0 + q.x1) / 2, z = cz + (q.z0 + q.z1) / 2, y = (q.y0 + q.y1) / 2;
-      const col = q.k === 'wall' ? (CMB_B.find((b) => q.x0 >= b.x - b.w / 2 - 0.5 && q.x1 <= b.x + b.w / 2 + 0.5 && q.z0 >= b.z - b.d / 2 - 0.5 && q.z1 <= b.z + b.d / 2 + 0.5) || { c: '#bbb' }).c : q.k === 'roof' ? '#8a4b3b' : q.k === 'crate' ? '#9a6a3a' : q.k === 'cliff' ? '#7c766a' : q.k === 'post' ? '#555' : null;
-      if (col) wm.add(Bx(w, h, d), x, y, z, col);
-    }
-    for (const t of L.trees) tree(wm, cx + t.x, 0, cz + t.z, t.s, rr, rr() < 0.5);
-    for (const r of L.rocks) { wm.add(new THREE.DodecahedronGeometry(r.s * 1.2, 0), cx + r.x, r.s * 0.6, cz + r.z, '#7e7b73', rr() * 3, rr() * 3, 0); }
-    for (const c of L.crates) { wm.add(Bx(c.s * 1.02, 0.08, c.s * 1.02), cx + c.x, c.s, cz + c.z, '#caa169'); }
-  }
   // ---- lookout + summit props
   { const M = GT.MT, y = mtC(M.Rt); wm.add(new THREE.CylinderGeometry(0.15, 0.2, 9, 6), M.cx, y + 4.5, M.cz, '#ddd'); world.glow.add(new THREE.BoxGeometry(3.4, 1.8, 0.1), M.cx + 1.7, y + 8, M.cz, '#ff6b9d'); }
   // ---- SNIPE THE TRUCK: the concrete tunnel through the ridge, the red bail-out line, the sniper's circled pad and a crash barrier round it
