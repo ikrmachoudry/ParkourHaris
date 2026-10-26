@@ -6,7 +6,7 @@ import { ThiefDirector, THIEF_BRIEF_MS } from './thief.js';
 import { SnipeDirector, SNIPE_BRIEF_MS } from './snipe.js';
 import { ZombieDirector, ZOMBIE_BRIEF_MS } from './zombie.js';
 import { PoliDirector, POLI_BRIEF_MS } from './polirick.js';
-export const MISSIONS = ['stunt', 'thief', 'snipe', 'zombie', 'poli'];
+export const MISSIONS = ['stunt', 'thief', 'snipe', 'zombie', 'poli', 'combat'];
 export const BRIEF_MS = 6500, RETRY_MS = 4200, DONE_MS = 8000;
 
 export class MissionHub {
@@ -42,6 +42,7 @@ export class MissionHub {
     this.emit({ t: 'm_go', mission: this.mission, round: this.round, members: this.members.map((id, seat) => ({ id, seat })), briefMs: ms, solo: this.solo || 'sniper' });
     const r = this.round;
     this.later(ms, () => { if (this.phase === 'brief' && this.round === r) { this.phase = 'run'; this.emit({ t: 'm_run', round: r }); } });
+    if (this.mission === 'combat') this.later(ms + 300000 + 30000, () => { if (this.phase === 'run' && this.round === r) { for (const i of this.members) this.res.set(i, true); this.checkDone(); } });
     if (thief) this.startThief(); else if (snipe) this.startSnipe(); else if (zom) this.startZombie(); else if (poli) this.startZombie(PoliDirector);
   }
   // ---- THIEF CHASE: the story is played by a director that lives right here (server in multiplayer), everybody just draws what it broadcasts
@@ -74,6 +75,10 @@ export class MissionHub {
   hit(id, dmg) { if ((this.mission !== 'thief' && this.mission !== 'snipe') || this.phase !== 'run' || !this.dir || !this.members.includes(id)) return false; return this.dir.hit(id, dmg); }
   // a player reports the result of the current run
   result(id, ok, why, round) {
+    if (this.mission === 'combat') {   // COMBAT: every player plays the 5 minute match against the bots on their own screen and reports when it is over; the mission ends when all have reported (or after a safety timeout)
+      if (this.phase !== 'run' || !this.members.includes(id) || this.res.has(id)) return;
+      this.res.set(id, true); this.emit({ t: 'm_st', round: this.round, res: Object.fromEntries(this.res) }); this.checkDone(); return;
+    }
     if (this.mission !== 'stunt') return;
     if (this.phase !== 'run' || !this.members.includes(id) || (round && round !== this.round) || this.res.has(id)) return;
     this.res.set(id, !!ok);

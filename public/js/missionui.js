@@ -5,6 +5,7 @@ import { STUNT, LOBBY, PARK, CHASE, BANK, POLICE } from './gta.js';
 import { ThiefScene } from './thiefscene.js';
 import { SnipeScene } from './snipescene.js';
 import { ZombieScene } from './zombiescene.js';
+import { CombatScene } from './combatscene.js';
 import { homeSpawnPos } from './zombie.js';
 import { RICK_IDX, RICK_START, RICK_HOME } from './polirick.js';
 import { TRUCK_IDX, START, ZONES, setSoloRole, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
@@ -20,15 +21,16 @@ const DESC = {
   thief: 'A thief has robbed the CITY BANK! Two of you share each police car: one drives, one rides along. Chase him across the city and up Mount Haris. At the top he hides behind the trees and rocks with a pistol and shoots at you: get out, take cover, and shoot him down when he pops out. You get a police pistol if you have none.',
   zombie: 'The undead are coming for HANBAL HOME! You get a free bat, pistol, AK-47 and grenades with unlimited ammo. Survive 5 rounds - every round brings more zombies and they walk faster. If ONE zombie gets through the front door or into the garage, the mission fails. Knocked down? You get up again at the gate.',
   poli: 'A police officer is waiting at HANBAL HOME - and the ZOMBIES are coming! Drive the auto rickshaw up to the officer, take him to the STUNT PARK first (blue circle) and only then to the POLICE STATION (yellow circle) - going to the station first fails the mission. The undead hunt the rickshaw: every grab damages it and it breaks down at zero. They also bite the officer if he is left standing. They run, and some carry bats and pistols. Run them over, shoot them, or outrun them. You get a free bat, pistol, AK-47 and grenades. Reward: $4,000 each.',
+  combat: 'A hidden battle map: rooms, jungle and roads, with enemy soldiers all over it. You start with NOTHING - run, find weapons, ammo, grenades and first aid on the ground (they respawn in new places), shoot the soldiers and stay alive. 5 minutes: the more enemies you take down, the more you earn. Press R to reload.',
   snipe: 'A thief robbed the CITY BANK and is running for the new tunnel. One of you drives the petrol TANKER after him and jumps out at the RED LINE while it keeps rolling. The SNIPER waits on the hill and shoots the tank just before the tunnel. Two BLOCKERS race round the hill and park across the far end so he cannot get out. Alone? You are the sniper.',
 };
-const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK', zombie: 'ZOMBIE ATTACK', poli: 'POLI RICKSHAW' };
+const TITLE = { stunt: 'STUNT JUMP', thief: 'THIEF CHASE', snipe: 'SNIPE THE TRUCK', zombie: 'ZOMBIE ATTACK', poli: 'POLI RICKSHAW', combat: 'COMBAT MISSION' };
 
 export class MissionClient {
   constructor(race, send) {
     this.race = race; this.sendNet = send; this.phase = 'idle'; this.mission = 'stunt'; this.hold = false; this.inPad = false; this.lobby = { in: [], total: 1 };
     this.round = 0; this.members = []; this.res = {}; this.seat = 0; this.briefEnd = 0; this.lastN = 0; this.carIdx = -1; this.finished = false; this.bannerT = 0;
-    this.ts = new ThiefScene(race); this.ss = new SnipeScene(race); this.zs = new ZombieScene(race); this.role = ''; this.freeze = false; this.chased = false; this.paths = null;
+    this.ts = new ThiefScene(race); this.ss = new SnipeScene(race); this.zs = new ZombieScene(race); this.cs = new CombatScene(race); this.role = ''; this.freeze = false; this.chased = false; this.paths = null;
     if (!race.multi) { this.hub = new MissionHub((m) => setTimeout(() => this.onMsg(m), 0), { getP: () => this.localP() }); this.all = [race.localId]; }
     try { this.soloRole = localStorage.getItem('ph_snipe_role') === 'truck' ? 'truck' : 'sniper'; } catch { this.soloRole = 'sniper'; }
     for (const b of document.querySelectorAll('#m-role button')) b.onclick = () => { this.soloRole = b.dataset.r; try { localStorage.setItem('ph_snipe_role', this.soloRole); } catch {} this.renderPanel(); };
@@ -110,6 +112,7 @@ export class MissionClient {
     if (m.mission === 'snipe') return this.onGoSnipe(m);
     if (m.mission === 'zombie') return this.onGoZombie(m);
     if (m.mission === 'poli') return this.onGoPoli(m);
+    if (m.mission === 'combat') return this.onGoCombat(m);
     this.endZombie();
     this.mission = m.mission || 'stunt'; this.ts.clear();
     const R = this.race, st = STUNT; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = true; this.finished = false; this.air = false; this.jumps = 0;
@@ -199,10 +202,19 @@ export class MissionClient {
     this.zs.poli = true; this.zs.showHud(true); this.zs.state = 'brief'; this.zs.updateHud();
     this.big('POLI RICKSHAW', 2600, '#4aa8ff'); this.sub('A POLICE OFFICER IS AT HANBAL HOME - ZOMBIES ARE COMING! DRIVE THE RICKSHAW UP TO HIM, THEN TAKE HIM TO THE POLICE STATION', 7000); this.chips();
   }
+  // ---- COMBAT MISSION: everybody is dropped onto the hidden battle map with empty hands; the bots and the loot are simulated by combat.js on every screen
+  onGoCombat(m) {
+    const R = this.race; this.mission = 'combat'; this.round = m.round; this.members = m.members; this.res = {}; this.phase = 'brief'; this.hold = false; this.finished = false;
+    const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 6500); this.lastN = 0;
+    this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
+    if (R.drive) R.toggleCar(true);
+    this.cs.begin(m, this.seat);
+    this.big('COMBAT MISSION', 2600, '#ffb347'); this.sub('FIND WEAPONS ON THE GROUND - SHOOT THE SOLDIERS - SURVIVE 5 MINUTES  (R = RELOAD)', 7000); this.chips();
+  }
   // leaves the zombie mission: the free kit goes back, the zombies disappear
   endZombie() {
     const R = this.race; if (R.wallet && R.wallet.kit) { R.wallet.kit = false; if (R.weapon && !R.wallet.owns(R.weapon)) R.weapon = null; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
-    this.zs.clear(); this.zs.poli = false;
+    this.zs.clear(); this.zs.poli = false; this.cs.leave();
   }
   onSnipeEv(k, m) {
     const role = this.role, say = (a, b, c, ms) => { this.big('', 1); this.sub('', 1); if (a) this.big(a, ms || 2000, c); if (b) this.sub(b, 4500); };
@@ -276,7 +288,7 @@ export class MissionClient {
   }
   update(dt) {
     const R = this.race, b = R.me.body, P = LOBBY.pad;
-    this.ts.update(dt); this.ss.update(dt); this.zs.update(dt); this.todo(); this.stuckCheck(dt);
+    this.ts.update(dt); this.ss.update(dt); this.zs.update(dt); this.cs.update(dt); this.todo(); this.stuckCheck(dt);
     if (this.freeze && this.phase === 'run' && R.drive && !this.hold) this.hold = true;   // the scene is for watching: you can still look round, not drive off
     { const cap = this.mission === 'stunt' && (this.phase === 'brief' || this.phase === 'run') ? 33.3 : 36.1; for (const k of [12, 13, 14, 15, 24, 25]) { const c = R.cars[k]; if (c) c.st.topCap = cap; } }   // 130 km/h always, 120 km/h while the STUNT JUMP runs (same for everybody)
     if (this.phase === 'idle') {

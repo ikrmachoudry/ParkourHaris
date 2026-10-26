@@ -1347,6 +1347,7 @@ class Race {
     if (this.peds) this.peds.blast(x, z, R, W.dmg, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); });
     if (this.wanted) this.wanted.blast(x, z, R, W.dmg);
     if (this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active) this.mission.zs.blast(x, z, R);
+    if (this.mission && this.mission.cs && this.mission.cs.active) this.mission.cs.blast(x, z, R);
     this.nadeCars(x, z, R, true);
     this.crime('shot', x, z);
   }
@@ -1434,7 +1435,7 @@ class Race {
   }
   fire() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
-    if (OPT.ammo && this.wallet.s) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
+    if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
     this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
@@ -1452,6 +1453,7 @@ class Race {
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
+    if (this.mission && this.mission.cs && this.mission.cs.active) { const cd = this.mission.cs.shoot(ox, oz, fx, fz, len, W.dmg, w); if (cd >= 0 && cd < len) len = cd; }   // COMBAT MISSION bots (and its walls stop the bullet)
     if (zomOn) { const zd = this.mission.zs.shoot(ox, oz, fx, fz, len, w); if (zd >= 0 && zd < len) { len = zd; shotAt = shotAt; } }
     if (this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.snap && this.mission.ts.snap.st === 'ambush') {   // the summit: trees and boulders stop bullets; the gunman is hit only while he is out in the open
       const ts = this.mission.ts; let stop = len;
@@ -1560,6 +1562,7 @@ class Race {
     const BW = this.weapon === 'bat' ? WEAPONS.bat : null;
     if (this.wanted && this.meta.city) this.wanted.melee(b.x, b.z, fx, fz);
     if (this.copGhosts && this.multi) { const hs = this.copGhosts.near(b.x, b.z, 1.9, fx, fz); if (hs.length) this.hitGhostCop(hs[0], 1 / 1.2, true); }
+    if (this.mission && this.mission.cs && this.mission.cs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.cs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
     if (this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active) { const kind = this.kickK ? 'kick' : this.weapon === 'bat' ? 'bat' : 'fist'; if (this.mission.zs.melee(b.x, b.z, fx, fz, kind === 'bat' ? 2.2 : 1.9, kind)) { A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.2); } }
     if (this.peds && this.peds.punch(b.x, b.z, fx, fz, (p, dead) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); A.sfx.bonk(); this.shake = Math.max(this.shake || 0, 0.22); this.particles.emit(p.x, 1.2, p.z, 18, { color: '#ffffff', speed: 6, up: 2.5, life: 0.35, size: 0.3 }); this.particles.emit(p.x, 1.2, p.z, 6, { color: '#ffd23f', speed: 5, up: 3, life: 0.3, size: 0.2 }); }, BW ? BW.dmg : 1, BW ? BW.reach : 1.85)) { this.evt({ k: 'pu', x: +b.x.toFixed(2), z: +b.z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), dmg: BW ? BW.dmg : 1, reach: BW ? BW.reach : 1.85, i: this.peds.lastHit ? this.peds.lastHit.i : -1 }); return; }
     if (BW && this.batCar(b, fx, fz)) return;

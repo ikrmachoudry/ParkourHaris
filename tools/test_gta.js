@@ -4,7 +4,7 @@ import { gtaH, gtaRoads, mtRoad, GT, gtaBuildings, gtaCars } from '../public/js/
 import { newCar, stepCar, corridor } from '../public/js/car.js';
 let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
 const { world, info } = buildLevel(0, true, null, 1);
-ok(world.terrain === gtaH && info.cars.length === 38, 'city built: 38 vehicles, terrain on');
+ok(world.terrain(10, 10) === gtaH(10, 10) && info.cars.length === 38, 'city built: 38 vehicles, terrain on');
 ok(Math.abs(gtaH(0, 0)) < 1e-6 && Math.abs(gtaH(90, -40)) < 1e-6, 'city is flat');
 const top = mtRoad(1); ok(gtaH(top.x, top.z) > 38, 'summit is high (' + gtaH(top.x, top.z).toFixed(1) + ')');
 let maxSlope = 0; for (let u = 0; u < 1; u += 0.005) { const a = mtRoad(u), b = mtRoad(u + 0.005); maxSlope = Math.max(maxSlope, Math.abs(b.y - a.y) / Math.hypot(b.x - a.x, b.z - a.z)); }
@@ -73,4 +73,11 @@ ok(typeof tr.terrain === 'function' && tr.boxes.length > 50, 'cars use the terra
   ok(CB.every((q) => { const P = stairPlan(q); return Math.abs(P.full[0] - q.x) < q.w / 2 + 3.6 && Math.abs(P.full[1] - q.x) < q.w / 2 + 3.6; }), 'the stair fits inside its block'); }
 // no stunt ramps any more: the city street is flat
 ok(gtaH(0, -40) === 0 && gtaH(-60, -100) === 0, 'the avenues are flat (no ramps)');
+{ // the hidden COMBAT map: flat ground far away, walls that stop a walking player, a door that lets him in
+  const { CMB, BUILDINGS } = await import('../public/js/combat.js'); const B = BUILDINGS[2];
+  ok(world.terrain(CMB.x + 5, CMB.z + 5) === 0, 'combat map ground is flat');
+  const walk = (x, z, dx, dz, n) => { const b = newBody(); b.x = x; b.z = z; b.y = 0.05; b.yaw = Math.atan2(dx, dz); for (let i = 0; i < n; i++) stepBody(world, b, 1 / 60, { mx: dx, mz: dz }); return b; };
+  const wx = CMB.x + B.x, wz = CMB.z + B.z - 20, wb = walk(wx - 8, wz, 0, 1, 240); ok(wb.z < CMB.z + B.z - B.d / 2 + 0.2 && wb.z > CMB.z + B.z - B.d / 2 - 2, 'a wall of a combat building stops the player (z ' + (wb.z - CMB.z).toFixed(1) + ')');
+  const db = walk(CMB.x + B.x + 4, wz, 0, 1, 300); ok(db.z > CMB.z + B.z - 2, 'the doorway lets the player into the room (z ' + (db.z - CMB.z).toFixed(1) + ')');
+}
 console.log(bad ? 'GTA: FAILURES' : 'GTA OK'); process.exit(bad ? 1 : 0);
