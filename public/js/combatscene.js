@@ -96,20 +96,24 @@ export class CombatScene {
     this.dropping = true; this.dropPose = 0;
     if (!this.plane) { this.plane = new THREE.Group(); this.group.add(this.plane); }
     this.plane.visible = true; this.plane.clear(); this.loadPlane().then((w) => { if (w && this.plane && this.drop) { this.plane.clear(); this.plane.add(w); } });
-    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ JUMP when you are over the island  •  SPACE / JUMP button', 4);
+    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ press W to stand up, walk to the back door and jump over the island', 4);
   }
   placeDrop(t) { const d = this.drop, b = this.R.me.body; const x = d.sx + d.hd[0] * d.v * t, z = d.sz + d.hd[1] * d.v * t;
     if (this.plane) { this.plane.position.set(x, d.alt, z); this.plane.rotation.y = d.a; }
-    if (d.ph === 'plane') { b.x = x; b.y = d.alt - 1.2; b.z = z; b.yaw = d.a; } }
-  stepDrop(dt, inp, b) {   // called by the main loop instead of the ground physics while dropping
-    const d = this.drop; if (!d) { this.dropping = false; return; }
-    const R = this.R, g = R.me.model && R.me.model.group; d.t += dt;
-    if (this.plane && this.planeProps) for (const pv of this.planeProps) pv.rotation.z += dt * 38;
     if (d.ph === 'plane') {
-      this.placeDrop(d.t); b.grounded = false; this.dropPose = 3; if (g) g.visible = true; { const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; } }
-      { const w = this.plane && this.plane.children[0], st = w && w.userData.seat; if (st) { this.plane.updateMatrixWorld(true); const v = st.getWorldPosition(new THREE.Vector3()); b.x = v.x; b.y = v.y - 0.1; b.z = v.z; b.yaw = d.a + Math.PI / 2; } }   // sit on the left bench, facing the aisle
-      const dist = d.v * d.t; if ((inp.jumpPressed && dist > 40) || dist > d.L - 20) {   // out of the plane
-        d.ph = 'fall'; { const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = true; w.userData.cabin.visible = false; } } b.y += 1.2; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; R.camInit = false; }
+      this.placeDrop(d.t); if (g) g.visible = true; const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; }
+      const ml = Math.hypot(inp.mx, inp.mz), sd = w && w.userData.seat;
+      if (!d.stand && ml > 0.25 && d.t > 0.6) { d.stand = true; d.lu = -1.1; d.lv = -1.0; R.toast && R.toast('WALK to the back door, then press SPACE to jump', 3.5); }   // get up and walk
+      if (d.stand && w) {   // walking in the cabin: the plane's own frame (u along the fuselage, v across), the body keeps the floor
+        const ca = Math.cos(d.a), sa = Math.sin(d.a), spd = 3.4, du = (inp.mx * d.hd[0] + inp.mz * d.hd[1]) * spd * dt / 1.25, dv = (inp.mx * ca - inp.mz * sa) * spd * dt / 1.25;
+        d.lu = Math.max(-6.9, Math.min(5.4, d.lu + du)); d.lv = Math.max(-1.0, Math.min(1.0, d.lv + dv));
+        this.plane.updateMatrixWorld(true); const v = w.localToWorld(new THREE.Vector3(d.lv, -0.49, d.lu)); b.x = v.x; b.y = v.y; b.z = v.z; b.grounded = true; this.dropPose = 0;
+        b.vx = ml > 0.1 ? inp.mx * spd : 0; b.vz = ml > 0.1 ? inp.mz * spd : 0; if (ml > 0.1) b.yaw = Math.atan2(inp.mx, inp.mz);
+      } else if (sd) { b.grounded = false; this.dropPose = 3; this.plane.updateMatrixWorld(true); const v = sd.getWorldPosition(new THREE.Vector3()); b.x = v.x; b.y = v.y - 0.3; b.z = v.z; b.yaw = d.a + Math.PI / 2; b.vx = b.vz = 0; }   // sitting on the left bench, facing the aisle
+      const dist = d.v * d.t, atDoor = d.stand && d.lu < -5.4;
+      if (inp.jumpPressed && dist > 40 && !atDoor) { d.hint = (d.hint || 0) + 1; R.toast && R.toast(d.stand ? 'Go to the back door (the ramp) to jump' : 'Press W and walk to the back door, then SPACE', 2.5); }
+      if ((inp.jumpPressed && dist > 40 && atDoor) || dist > d.L - 20) {   // out of the plane
+        d.ph = 'fall'; this.dropPose = 1; if (w && w.userData.scan) { w.userData.scan.visible = true; w.userData.cabin.visible = false; } b.y += 0.6; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; R.camInit = false; }
       return;
     }
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
@@ -124,8 +128,8 @@ export class CombatScene {
     this.chuteVis(d.ph === 'chute', b, dt);
   }
   chuteVis(on, b, dt) {
-    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ec5b2b', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
-      const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, 0, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f5f1e8', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st);
+    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#1c201c', roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
+      for (let q = 0; q < 4; q++) { const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, q * Math.PI / 2, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#46523a', roughness: 0.85, side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st); }   // olive panels on the black canopy
       const lm = new THREE.MeshBasicMaterial({ color: '#e8e4d6' }), hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }), V = THREE.Vector3;
       const seg = (p, q, r, mat) => { const d = q.clone().sub(p), l = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 5), mat); m.position.copy(p).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); return m; };
       for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.39, rim = new V(Math.cos(a) * 2.7, 3.2, Math.sin(a) * 2.7), sh = new V(Math.cos(a) > 0 ? 0.24 : -0.24, 1.62, 0); g.add(seg(rim, sh, 0.018, lm)); }   // eight suspension lines down to the two risers on the shoulders
@@ -143,9 +147,9 @@ export class CombatScene {
       let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.34), new THREE.MeshStandardMaterial({ color: '#3d5a2a', roughness: 0.7 }))); const s = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.36), new THREE.MeshStandardMaterial({ color: '#ffd23f' })); s.position.y = 0.04; mdl.add(s); }
       else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.38), new THREE.MeshStandardMaterial({ color: '#f4f4f4' }))); const rm = new THREE.MeshStandardMaterial({ color: '#e0242b' }); const a = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.06), rm), c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
       else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
-      const pivot = new THREE.Group(); pivot.add(mdl); g.add(pivot); g.userData.pivot = pivot;
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; g.add(ring);
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, depthWrite: false })); beam.position.y = 2.6; g.add(beam);
+      const gunish = it.k !== 'ammo' && it.k !== 'med', lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.46, 0.52, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
+      /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }
   }
   bot(b) {
@@ -178,7 +182,7 @@ export class CombatScene {
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
     for (const [id, l] of this.loot) {   // spin and bob the loot; remove what was taken
       if (!l.it.alive) { this.group.remove(l.g); this.loot.delete(id); continue; }
-      l.g.userData.pivot.rotation.y += dt * 1.8; l.g.userData.pivot.position.y = 1.0 + Math.sin(this.t * 2.2 + l.ph) * 0.12;
+      
     }
     const g0 = (x, z) => cmbH(x, z);
     for (const s of sim.bots) {

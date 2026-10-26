@@ -8,6 +8,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
+import { layout as cmbLayout, CMB } from './combat.js';
 import { makeHero } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
@@ -1762,6 +1763,16 @@ class Race {
         }
         if (hit && t0 < tmax && t0 > 0) tmax = t0;
       }
+      { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // the match: the camera never goes through a wall, floor or roof (it swings in behind the player instead)
+        const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.2;
+        for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
+          for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
+            for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;
+              let t0 = 0, t1 = tmax, hit = true;
+              for (const [o, d, lo, hi] of [[lx, dx, s.x0 - M, s.x1 + M], [lz, dz, s.z0 - M, s.z1 + M], [oy, dy, s.y0 - M, s.y1 + M]]) {
+                if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
+                let p = (lo - o) / d, q = (hi - o) / d; if (p > q) { const w2 = p; p = q; q = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); if (t0 > t1) { hit = false; break; } }
+              if (hit && t0 < tmax && t0 > 0) tmax = t0; } } } } }
       for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
       this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out

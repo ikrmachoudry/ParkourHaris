@@ -149,7 +149,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   for (const b of L.buildings) {
     const wm = WALLMAT[b.kind] || 'wall', fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
-    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' ? '#f2efe6' : '#3a3530';
+    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' ? '#f2efe6' : '#3a3530';
     for (const s of b.solids) {
       if (s.k === 'wall') B.box(wm, s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, wallC, 0.04);
       else if (s.k === 'floor') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8c6b48', 0.05);
@@ -170,7 +170,16 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
     else if (b.roof === 'lowgable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.12 + 0.6, along, b.c === '#b5a48c' ? '#7a6a58' : '#6e7a84', 0.3);
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05); }
-    else { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
+    else { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
+    if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
+      const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;
+      for (const [yy, ov, hh] of [[fy + fh - 0.05, 0.18, 0.4], [fy + tri, 0.38, 0.3]]) for (const [x0, z0, x1, z1] of [[-hx - ov, -hz - ov, hx + ov, -hz + 0.1], [-hx - ov, hz - 0.1, hx + ov, hz + ov], [-hx - ov, -hz - ov, -hx + 0.1, hz + ov], [hx - 0.1, -hz - ov, hx + ov, hz + ov]]) B.box('trim', b.x + x0, yy, b.z + z0, b.x + x1, yy + hh, b.z + z1, cr, 0);
+      const cy = fy + fh + 0.3 + 0.7, cz = b.z + hz + 0.22; B.box('trim', b.x - 1.15, cy, cz - 0.05, b.x + 1.15, cy + 2.3, cz + 0.05, '#ffffff', 0); B.box('trim', b.x - 0.9, cy + 0.9, cz, b.x + 0.9, cy + 1.4, cz + 0.12, '#c0392b', 0); B.box('trim', b.x - 0.25, cy + 0.3, cz, b.x + 0.25, cy + 2.0, cz + 0.12, '#c0392b', 0);
+      const tx = b.x + 10, tz = b.z - 5; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
+      B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);
+      for (const [px, pz] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) B.box('metal', tx + px - 0.07, roofY, tz + pz - 0.07, tx + px + 0.07, roofY + 2.6, tz + pz + 0.07, '#8d8d90', 0);
+      roofTri(tx - 1.6, tz - 1.6, tx + 1.6, tz + 1.6, roofY + 2.6, 1.0, true, '#8c5a3a', 0.35);
+    }
     if (b.kind === 'house' || b.kind === 'cabin') B.box('conc', b.x + (along ? hx * 0.4 : 0), fy + tri + 0.3, b.z + (along ? 0 : hz * 0.4) + 0.5, b.x + (along ? hx * 0.4 : 0) + 0.7, fy + tri + 2.3 + Math.min(b.w, b.d) * 0.2, b.z + (along ? 0 : hz * 0.4) + 1.2, '#8a5a48', 0.05);   // a chimney
     if (b.kind === 'church') { const sx = b.x, sz = b.z + (b.front === 'S' ? hz - 2.4 : -hz + 2.4); B.box('wall', sx - 2.4, fy + tri, sz - 2.4, sx + 2.4, fy + tri + 7, sz + 2.4, b.c, 0.02); roofTri(sx - 2.4, sz - 2.4, sx + 2.4, sz + 2.4, fy + tri + 7, 4, true, '#5d5f66', 0.3); B.box('trim', sx - 0.1, fy + tri + 11, sz - 0.1, sx + 0.1, fy + tri + 13, sz + 0.1, '#ddd', 0); B.box('trim', sx - 0.6, fy + tri + 12.2, sz - 0.07, sx + 0.6, fy + tri + 12.4, sz + 0.07, '#ddd', 0); }
     if (b.kind === 'hangar' || b.kind === 'warehouse') { B.box('trim', b.x - hx, fy + 0.0, b.z + (b.front === 'S' ? hz : -hz) - 0.05, b.x + hx, fy + 0.5, b.z + (b.front === 'S' ? hz : -hz) + 0.05, '#555', 0); }

@@ -51,6 +51,7 @@ const KIND = {
   barracks: { fh: 3.2, win: { ww: 1.2, y0: 1.0, y1: 2.2, gap: 3.6 }, fur: 'barracks', roof: 'gable' },
   shack: { fh: 2.6, win: { ww: 1.0, y0: 1.0, y1: 2.0, gap: 4 }, fur: 'shack', roof: 'pent' },
   cabin: { fh: 2.9, win: { ww: 1.1, y0: 1.0, y1: 2.1, gap: 3.8 }, fur: 'shack', roof: 'gable' },
+  clinic: { fh: 3.4, fl: 2, win: { ww: 1.6, y0: 0.95, y1: 2.4, gap: 4.4 }, fur: 'clinic', roof: 'flat' },
   kiosk: { fh: 3.0, win: { ww: 2.2, y0: 0.9, y1: 2.3, gap: 3 }, fur: 'shop', roof: 'flat' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
@@ -98,7 +99,19 @@ function buildSolids(o) {
       wall(X0, Z0, X1, hole.z0, yb, yt, 'floor'); wall(X0, hole.z1, X1, Z1, yb, yt, 'floor'); wall(X0, hole.z0, hole.x0, hole.z1, yb, yt, 'floor'); wall(hole.x1, hole.z0, X1, hole.z1, yb, yt, 'floor');
     }
   }
-  wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
+  for (const q of (o.inner || [])) {   // inner partitions with doorways, per floor (hospital below, home above)
+    const y0 = q.f * (fh + SL), run = (p, r, lo, hi) => { if (r - p < 0.04) return; if (q.ax === 'z') wall(q.pos - 0.15, p, q.pos + 0.15, r, lo, hi); else wall(p, q.pos - 0.15, r, q.pos + 0.15, lo, hi); };
+    let cur = q.a; for (const [c, w] of (q.gaps || []).slice().sort((u, v) => u[0] - v[0])) { run(cur, c - w / 2, y0, y0 + fh); run(c - w / 2, c + w / 2, y0 + 2.5, y0 + fh); cur = c + w / 2; } run(cur, q.b, y0, y0 + fh);
+  }
+  if (o.roofStair) {   // a second flight up to the roof terrace; the roof slab has a hole over it and a parapet round the edge
+    const st = o.roofStair, rise = fh + SL, n = Math.ceil(rise / 0.3), step = rise / n, tread = 0.45, sw = 1.5;
+    for (let i = 0; i < n; i++) { const xa = st.x0 + i * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, rise - 0.1, rise + (i + 1) * step, 'step'); }
+    const h0 = st.x0, h1 = st.x0 + (n - 1) * tread, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
+    wall(X0, Z0, X1, st.z0, top, top + SL, 'roof'); wall(X0, st.z0 + sw, X1, Z1, top, top + SL, 'roof'); wall(X0, st.z0, h0, st.z0 + sw, top, top + SL, 'roof'); wall(h1, st.z0, X1, st.z0 + sw, top, top + SL, 'roof');
+    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');
+    if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
+  } else
+    wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
   o.openings = openings; o.top = top; o.hole = hole;
   return out;
 }
@@ -119,6 +132,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
   if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
   if (ov.stair) o.stair = ov.stair;
+  if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank;
   o.solids = buildSolids(o);
   PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
   BUILDINGS.push(o); return o;
@@ -178,6 +192,18 @@ export function distRoad(x, z) {
 export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
 export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
 export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; return false; };
+// ---- Dr. Ikrma's house: hospital on the ground floor (reception, admission rooms, operation theatre, wards), the family home upstairs (a big lobby with five bedrooms round it), a roof terrace with a water tank
+{ const CL = { w: 28, d: 20 }, cand = []; for (let x = -200; x <= 230; x += 8) for (let z = -190; z <= 220; z += 8) cand.push([x, z]); cand.sort((p, q) => Math.hypot(p[0] - 50, p[1] - 30) - Math.hypot(q[0] - 50, q[1] - 30));
+  const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + 28) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
+  const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
+  const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#f6dfbd', doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.2, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.2 }, tank: { x: 10, z: -5 },
+    inner: [
+      { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-4.8, 2.4], [4.8, 1.8]] },
+      { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
+      { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-5, 1.8], [1, 1.8]] }, { f: 1, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-5, 1.8], [1, 1.8]] },
+      { f: 1, ax: 'x', pos: 0, a: -13.8, b: -6 }, { f: 1, ax: 'x', pos: 0, a: 6, b: 13.8 }, { f: 1, ax: 'x', pos: 2.2, a: -6, b: 6, gaps: [[0, 2.2]] }] });
+}
 // ---- more town: houses, shops, flats and sheds scattered over the open ground, mostly beside the roads (concrete country, not meadows)
 { const RX = seeded(777), kinds = [['house', 10, 9], ['house', 11, 9], ['shop', 12, 9], ['apart', 16, 12], ['warehouse', 22, 18], ['cabin', 8, 7], ['shack', 6, 5], ['house', 10, 9], ['shop', 14, 10]], fr = ['N', 'S', 'E', 'W'];
   for (let tries = 0, n = 0; n < 48 && tries < 6000; tries++) {
@@ -211,6 +237,18 @@ function build() {
     else if (f === 'barn') { for (const [x, z] of [[-6, -3], [-5, 2], [6, -3], [7, 2.4]]) put(x, z, 1.5, 1.5, 1.3, '#c9a64a', 'bale'); put(0, -hz + 1.2, 3, 1.2, 1.2, '#7a5638', 'stall'); }
     else if (f === 'ware') { for (const [x, z] of [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]]) put(x, z, 2.4, 2.4, 2.4, '#b08a58', 'pallet'); put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
     else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
+    else if (f === 'clinic') {
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [2.2, 3.6, 5.0]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
+      P(0, -10, -6.4, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
+      P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
+      for (const [x, z] of [[-11.8, 5.4], [-8.4, 5.4], [-11.8, 8.4], [-8.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
+      P(0, 10, -4.8, 1.1, 2.4, 0.95, '#dfe7ea', 'table'); P(0, 12.8, -8.4, 0.6, 3.4, 1.6, '#9fb4bf', 'shelf'); P(0, 8.2, -8.6, 2.6, 0.7, 1.0, '#b8c6cc', 'counter');   // operation theatre: the table, instrument shelves
+      for (const z of [3.6, 6.4, 9.0]) P(0, 10.4, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // second ward
+      P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the big lobby: a sofa each side and a table
+      for (const [bx, bz, wx] of [[-10, -6, -12.9], [-10, 6.4, -12.9], [10, -6, 12.9], [10, 6.4, 12.9]]) { P(1, bx, bz, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, wx, bz + (bz < 0 ? 3.4 : -3.4), 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe'); }   // four of the bedrooms
+      P(1, 0, 7.2, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, -4.6, 8.8, 1.6, 0.6, 2.0, '#6a4a30', 'wardrobe');   // the fifth, in the south
+    }
     else if (f === 'shack') { put(-hx + 0.9, -hz + 0.8, 1.8, 0.9, 0.55, '#8a6a4a', 'bed'); put(hx - 0.8, hz - 0.7, 0.9, 0.9, 0.9, '#a07848', 'table'); }
   };
   for (const b of BUILDINGS) furn(b);
