@@ -32,7 +32,7 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v162</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v163</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
@@ -73,7 +73,7 @@
   <section id="s-cmb" class="screen panel-screen">
     <div class="panel">
       <h2>Combat Mission</h2>
-      <p class="note" style="margin:0 0 10px">A hidden battle map with rooms, jungle and roads. Find weapons, shoot the soldiers, survive 5 minutes.</p>
+      <p class="note" style="margin:0 0 10px">A hidden battle map with rooms, jungle and roads. Find weapons, shoot the soldiers, survive 15 minutes.</p>
       <button class="btn big green" id="b-cmb-solo"><b>PLAY SOLO</b><small>Just you &ndash; nobody else on the map</small></button>
       <button class="btn big pink" id="b-cmb-team"><b>TEAM UP</b><small>Create or join a team room &ndash; only your team is on the map</small></button>
       <div class="row end"><button class="btn grey" id="b-cmb-back">BACK</button></div>
@@ -141,15 +141,16 @@
     <div id="scope"><i></i><b></b></div>
     <div id="xhair"><u></u></div>
     <div id="shop-ui" class="hidden"><div class="shop-prev" id="shop-prev"><canvas id="shop-prev-c"></canvas><div class="sp-name" id="sp-name"></div><div class="sp-stats" id="sp-stats"></div></div><div class="shop-card"><div class="shop-head" id="shop-head">WEAPON STORE</div><div class="shop-cash" id="shop-cash"></div><div id="shop-list"></div><button id="shop-close" class="shop-x">CLOSE</button></div></div>
-    <div id="kb-hint"><b>R</b> Reload <b>1-5</b> Weapons <b>V</b> Next <b>X</b> Fire mode <b>Z</b> Crouch <b>Space</b> Jump <b>F</b> Punch <b>RMB</b> Aim <b>Wheel</b> Zoom <b>Tab</b> Map <b>C</b> Car <b>H</b> Horn</div>
+    <div id="kb-hint"><b>R</b> Reload <b>1-5</b> Weapons <b>V</b> Next <b>X</b> Fire mode <b>Z</b> Crouch <b>Ctrl / X</b> Prone <b>Space</b> Jump <b>F</b> Punch <b>RMB</b> Aim <b>Wheel</b> Zoom <b>Tab</b> Map <b>C</b> Car <b>H</b> Horn</div>
     <div id="act-pad">
       <button id="a-punch" title="Punch (F)" aria-label="Punch"><svg viewBox="0 0 32 32" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15V9.5a2.2 2.2 0 0 1 4.4 0V13M13.4 12.5V7.8a2.2 2.2 0 0 1 4.4 0v5M17.8 12.5V9a2.2 2.2 0 0 1 4.4 0v7.5c0 5-3.6 8.5-8.6 8.5h-.6c-3 0-5.2-1.5-6.7-4L5.5 17.5a2 2 0 0 1 3.4-2.1L9.8 17" /></svg><i>PUNCH</i></button>
-      <button id="a-jump" title="Jump (Space)" aria-label="Jump"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l9-9 9 9M7 25l9-9 9 9"/></svg><i>JUMP</i></button>
+      <button id="a-jump" title="Jump (Space)" aria-label="Jump"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 26V7M7 16l9-9 9 9"/></svg><i>JUMP</i></button>
       <button id="a-weapon" title="Weapon (V)" aria-label="Weapon"></button>
       <button id="a-reload" title="Reload (R)" aria-label="Reload"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M25 16a9 9 0 1 1-3-6.7M25 5v6h-6"/></svg><i>RELOAD</i></button>
       <button id="a-fmode" title="Fire mode (B / X)" aria-label="Fire mode"><svg viewBox="0 0 32 32" fill="#fff"><rect x="8" y="6" width="4" height="20" rx="1.5"/><rect x="15" y="6" width="4" height="20" rx="1.5"/><rect x="22" y="6" width="4" height="20" rx="1.5"/></svg><i>AUTO</i></button>
       <button id="a-aim" title="Aim (right mouse)" aria-label="Aim"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="16" cy="16" r="8"/><path d="M16 3v7M16 22v7M3 16h7M22 16h7"/></svg></button>
       <button id="a-crouch" title="Crouch (Z)" aria-label="Crouch"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="6.5" r="2.6" fill="#fff"/><path d="M14 10.5l-3 6 4.5 2.5-1 6M11 16.5l-4 1.5M15.5 19l5 .5 1.5 5"/></svg><i>CROUCH</i></button>
+      <button id="a-prone" title="Prone (Ctrl / X)" aria-label="Prone"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="19" r="2.6" fill="#fff"/><path d="M10 20.5h9l4-3.5M19 20.5l9 1.5M10 20.5l-1 4M3 26.5h26"/></svg><i>PRONE</i></button>
     </div>
     <div id="rotate"><div>&#128241;<br>Rotate your phone sideways to play</div></div>
     <div id="m-ui" class="hidden"><div class="m-card"><div class="m-head">MISSION LOBBY</div><div id="m-pick"><button data-m="stunt" class="on">STUNT JUMP</button><button data-m="thief">THIEF CHASE</button><button data-m="snipe">SNIPE THE TRUCK</button><button data-m="zombie">ZOMBIE ATTACK</button><button data-m="poli">POLI RICKSHAW</button><button data-m="combat">COMBAT MISSION</button></div><div id="m-role" class="hidden"><span>YOUR ROLE</span><button data-r="sniper" class="on">SNIPER</button><button data-r="truck">TRUCK DRIVER</button></div><div class="m-title">STUNT JUMP</div>

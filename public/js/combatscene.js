@@ -30,15 +30,19 @@ export class CombatScene {
       if (!on) return;
       const e = document.createElement('div'); e.id = 'c-hud';
       e.style.cssText = 'position:fixed;left:50%;top:92px;transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:800 15px/1.25 system-ui,sans-serif;color:#ffe8c8;background:rgba(30,16,6,.68);border:1px solid #ffb34788;border-radius:12px;padding:8px 16px;min-width:230px;text-shadow:0 1px 3px #000';
-      e.innerHTML = '<div class="ch-t" style="font-size:22px;letter-spacing:1px">5:00</div><div class="ch-s"></div>';
+      e.innerHTML = '<div class="ch-t" style="font-size:22px;letter-spacing:1px">15:00</div><div class="ch-s"></div>';
       document.body.appendChild(e); this.hud = e;
       const hb = document.createElement('div'); hb.id = 'c-hp'; hb.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:30;pointer-events:none;width:min(46vw,420px);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center';
       hb.innerHTML = '<div style="display:flex;justify-content:space-between;margin:0 4px 4px"><span>HEALTH</span><span class="cp-n">100</span></div><div style="height:16px;background:#000a;border:2px solid #fffb;border-radius:9px;overflow:hidden"><i class="cp-b" style="display:block;height:100%;width:100%;background:#4ade80;transition:width .2s"></i></div>';
       document.body.appendChild(hb); this.hpBar = hb;
       const vg = document.createElement('div'); vg.style.cssText = 'position:fixed;inset:0;z-index:29;pointer-events:none;opacity:0;transition:opacity .2s;background:radial-gradient(ellipse at center,transparent 45%,rgba(220,0,0,.8) 100%)'; document.body.appendChild(vg); this.vig = vg;
       const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:40;display:none;place-items:center;pointer-events:none;background:rgba(0,0,0,.55);color:#fff;font:800 20px/1.5 system-ui,sans-serif;text-align:center;text-shadow:0 2px 6px #000'; document.body.appendChild(ov); this.ov = ov;
+      const jb = document.createElement('button'); jb.id = 'c-jump'; jb.innerHTML = '<svg viewBox="0 0 32 32" width="34" height="34" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v18M8 15l8-10 8 10"/><path d="M9 27h14"/></svg><b>JUMP</b>';
+      jb.style.cssText = 'position:fixed;right:max(22px,6vw);bottom:34%;z-index:45;display:none;flex-direction:column;align-items:center;gap:2px;width:92px;height:92px;border-radius:50%;border:3px solid #fffd;background:rgba(20,24,20,.62);color:#fff;font:800 14px system-ui,sans-serif;justify-content:center;touch-action:none;cursor:pointer';
+      const jd = (e) => { e.preventDefault(); e.stopPropagation(); this.jumpReq = true; }; jb.addEventListener('pointerdown', jd); jb.addEventListener('touchstart', jd, { passive: false });
+      document.body.appendChild(jb); this.jumpBtn = jb;
     }
-    this.hud.style.display = on ? 'block' : 'none'; this.hpBar.style.display = on ? 'block' : 'none'; if (!on) { this.vig.style.opacity = 0; this.ov.style.display = 'none'; }
+    this.hud.style.display = on ? 'block' : 'none'; this.hpBar.style.display = on ? 'block' : 'none'; if (!on) { this.vig.style.opacity = 0; this.ov.style.display = 'none'; this.jumpBtn.style.display = 'none'; }
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
@@ -96,24 +100,24 @@ export class CombatScene {
     this.dropping = true; this.dropPose = 0;
     if (!this.plane) { this.plane = new THREE.Group(); this.group.add(this.plane); }
     this.plane.visible = true; this.plane.clear(); this.loadPlane().then((w) => { if (w && this.plane && this.drop) { this.plane.clear(); this.plane.add(w); } });
-    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ press W to stand up, walk to the back door and jump over the island', 4);
+    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ move (W / joystick) to stand up, walk to the back door and press JUMP', 4);
   }
   placeDrop(t) { const d = this.drop, b = this.R.me.body; const x = d.sx + d.hd[0] * d.v * t, z = d.sz + d.hd[1] * d.v * t;
     if (this.plane) { this.plane.position.set(x, d.alt, z); this.plane.rotation.y = d.a; }
     if (d.ph === 'plane') {
       this.placeDrop(d.t); if (g) g.visible = true; const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; }
       const ml = Math.hypot(inp.mx, inp.mz), sd = w && w.userData.seat;
-      if (!d.stand && ml > 0.25 && d.t > 0.6) { d.stand = true; d.lu = -1.1; d.lv = -1.0; R.toast && R.toast('WALK to the back door, then press SPACE to jump', 3.5); }   // get up and walk
+      if (!d.stand && ml > 0.25 && d.t > 0.6) { d.stand = true; d.lu = -1.1; d.lv = -1.0; R.toast && R.toast('WALK to the back door, then tap JUMP', 3.5); }   // get up and walk
       if (d.stand && w) {   // walking in the cabin: the plane's own frame (u along the fuselage, v across), the body keeps the floor
         const ca = Math.cos(d.a), sa = Math.sin(d.a), spd = 3.4, du = (inp.mx * d.hd[0] + inp.mz * d.hd[1]) * spd * dt / 1.25, dv = (inp.mx * ca - inp.mz * sa) * spd * dt / 1.25;
         d.lu = Math.max(-6.9, Math.min(5.4, d.lu + du)); d.lv = Math.max(-1.0, Math.min(1.0, d.lv + dv));
         this.plane.updateMatrixWorld(true); const v = w.localToWorld(new THREE.Vector3(d.lv, -0.49, d.lu)); b.x = v.x; b.y = v.y; b.z = v.z; b.grounded = true; this.dropPose = 0;
         b.vx = ml > 0.1 ? inp.mx * spd : 0; b.vz = ml > 0.1 ? inp.mz * spd : 0; if (ml > 0.1) b.yaw = Math.atan2(inp.mx, inp.mz);
       } else if (sd) { b.grounded = false; this.dropPose = 3; this.plane.updateMatrixWorld(true); const v = sd.getWorldPosition(new THREE.Vector3()); b.x = v.x; b.y = v.y - 0.3; b.z = v.z; b.yaw = d.a + Math.PI / 2; b.vx = b.vz = 0; }   // sitting on the left bench, facing the aisle
-      const dist = d.v * d.t, atDoor = d.stand && d.lu < -5.4;
-      if (inp.jumpPressed && dist > 40 && !atDoor) { d.hint = (d.hint || 0) + 1; R.toast && R.toast(d.stand ? 'Go to the back door (the ramp) to jump' : 'Press W and walk to the back door, then SPACE', 2.5); }
+      const dist = d.v * d.t, atDoor = d.stand && d.lu < -5.4; if (this.jumpReq) { inp.jumpPressed = true; this.jumpReq = false; } if (this.jumpBtn) { this.jumpBtn.style.display = 'flex'; this.jumpBtn.style.borderColor = atDoor ? '#6dff8a' : '#fffd'; this.jumpBtn.style.background = atDoor ? 'rgba(30,140,60,.75)' : 'rgba(20,24,20,.62)'; }
+      if (inp.jumpPressed && dist > 40 && !atDoor) { d.hint = (d.hint || 0) + 1; R.toast && R.toast(d.stand ? 'Go to the back door (the ramp) to jump' : 'Walk to the back door (W / stick), then JUMP', 2.5); }
       if ((inp.jumpPressed && dist > 40 && atDoor) || dist > d.L - 20) {   // out of the plane
-        d.ph = 'fall'; this.dropPose = 1; if (w && w.userData.scan) { w.userData.scan.visible = true; w.userData.cabin.visible = false; } b.y += 0.6; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; R.camInit = false; }
+        d.ph = 'fall'; this.dropPose = 1; if (this.jumpBtn) this.jumpBtn.style.display = 'none'; if (w && w.userData.scan) { w.userData.scan.visible = true; w.userData.cabin.visible = false; } b.y += 0.6; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; R.camInit = false; }
       return;
     }
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
@@ -139,7 +143,7 @@ export class CombatScene {
       this.chute = g; this.group.add(g); }
     const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;

@@ -229,7 +229,7 @@ class Remote {
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
     const WR = race && race.world, swimming = !!(WR && WR.terrain && WR.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR.waterY + 0.1 && WR.terrain(this.x, this.z) < WR.waterY - 0.3);
     if (this.nadeA) { this.nadeT = (performance.now() - this.nadeA) / 1000 / (NADE_DUR[this.nadeToss | 0] || 1.12); if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; } }   // somebody else is throwing a grenade (started by his 'gr' message)
-    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
+    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), prone: !!(this.flags & 16777216), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -385,7 +385,7 @@ class Race {
     if (this.meta.city) {
       if (this.crouch && press.jump) this.crouch = false;
       if (this.drive) this.crouch = false;
-      if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5);
+      if (this.drive) this.prone = false; if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5);
     }
     press.jump = false; press.dive = false;
 
@@ -440,7 +440,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -986,7 +986,7 @@ class Race {
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
-    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0);
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.prone && !this.drive ? 16777216 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0);
     app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +Math.atan2(Math.sin(b.yaw), Math.cos(b.yaw)).toFixed(2), a: flags, w: this.weaponCode(), vm: this.drive && this.drive.local ? this.drive.st.id : 0, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
@@ -1046,7 +1046,8 @@ class Race {
     for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; const y = ter(P[i][0], P[i][1]) + 0.2; pos.push(P[i][0] - dz * W, y, P[i][1] + dx * W, P[i][0] + dz * W, y, P[i][1] - dx * W); if (i) { const q = i * 2; idx.push(q - 2, q - 1, q, q - 1, q + 1, q); } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#2f8cff', side: THREE.DoubleSide, toneMapped: false, transparent: true, opacity: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })); m.renderOrder = 5; m.frustumCulled = false; this.scene.add(m); this.navMesh = m; return true; }
-  toggleCrouch() { if (this.over || this.drive) return; this.crouch = !this.crouch; this.syncAct(); }
+  toggleCrouch() { if (this.over || this.drive) return; if (this.prone) { this.prone = false; this.crouch = true; } else this.crouch = !this.crouch; this.syncAct(); }
+  toggleProne() { if (this.over || this.drive || !this.meta.city) return; this.prone = !this.prone; if (this.prone) { this.crouch = false; this.aiming = this.aiming && !!this.weapon; } this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
   equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
   // PUBG style weapon wheel: a ring of the four weapons round the middle of the screen; tap one to swap at once
@@ -1082,7 +1083,7 @@ class Race {
   aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
   toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
-  syncAct() { { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
+  syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
     { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
@@ -1452,7 +1453,7 @@ class Race {
     if (zomOn && OPT.autoAim) { let bd3 = 0.4; for (const z of this.mission.zs.list()) { const dx = z.x - b.x, dz = z.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd3) { bd3 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.6; } } }   // zombies too
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
     if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
-    const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.crouch ? 1.0 : 1.45);
+    const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + fx * 0.7, oz = b.z + fz * 0.7, oy = b.y + (this.prone ? 0.35 : this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
@@ -1743,7 +1744,7 @@ class Race {
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
     this.shoulder += ((NO_TEXT && !this.drive && !spec ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
-    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
+    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
@@ -1777,6 +1778,9 @@ class Race {
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
       this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out
       if (this.camK < 1) { cam.set(ox + dx * this.camK, oy + dy * this.camK, oz + dz * this.camK); }
+      { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // last safety net: a camera that still ended up inside a wall / floor / roof slab is put back on the player
+        const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
+        if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { this.camK = 0.06; cam.set(ox + dx * 0.06, oy + dy * 0.06, oz + dz * 0.06); break; } } } }
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
@@ -2125,7 +2129,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if ((e.code === 'ControlLeft' || e.code === 'KeyX') && !e.repeat) race.toggleProne(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
   if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.meta.city && isGun(race.weapon)) race.toggleFireMode(); else race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
@@ -2353,6 +2357,7 @@ window.__ph = { A, rend: renderer, app, Remote, stepBody, newBody, startSingle: 
   const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
+  act('a-prone', () => { if (race && !race.over && !race.menuOpen) race.toggleProne(); });
   act('a-weapon', () => { if (race && !race.over && !race.menuOpen) race.toggleWheel(); });
   act('a-reload', () => { if (race && !race.over && !race.menuOpen) race.reload(); });
   act('a-fmode', () => { if (race && !race.over && !race.menuOpen) race.toggleFireMode(); });

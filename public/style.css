@@ -689,3 +689,23 @@ body:not(.touch) #a-reload, body:not(.touch) #a-fmode { display: none; }
 #kb-hint { display: none; position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; z-index: 15; pointer-events: none; font: 600 11px system-ui, sans-serif; color: #fff; background: rgba(10,10,25,.55); padding: 4px 10px; border-radius: 8px; white-space: nowrap; text-shadow: 0 1px 2px #000; }
 #kb-hint b { background: rgba(255,255,255,.9); color: #111; border-radius: 4px; padding: 0 5px; margin: 0 3px 0 8px; text-shadow: none; }
 body:not(.touch).in-race.city-mode:not(.driving) #kb-hint { display: block; }
+
+/* ===== v163: PUBG Mobile default landscape layout. Left thumb: stick. Right thumb: big FIRE, scope (ADS) above it, JUMP / CROUCH / PRONE stacked on the far right,
+   RELOAD + FIRE MODE + WEAPON to the left of the fire button. Only white outline icons on grey translucent circles, no text. ===== */
+body.touch.in-race.city-mode:not(.driving) #act-pad { position: fixed; inset: 0; width: auto; height: auto; right: 0; bottom: 0; pointer-events: none; z-index: 20; }
+body.touch #act-pad button { background: rgba(110,110,110,.38) !important; border: 2px solid rgba(255,255,255,.75) !important; box-shadow: none !important; transform: none; }
+body.touch #act-pad button svg { width: 58%; height: 58%; stroke: #fff; stroke-width: 2.2; filter: none; }
+body.touch #act-pad button:active, body.touch #act-pad button.on { background: rgba(255,255,255,.5) !important; transform: scale(.94); }
+body.touch #act-pad button::after { content: none !important; }
+body.touch #act-pad i { display: none !important; }
+body.touch #a-punch  { left: auto; top: auto; right: calc(11vw + 4vmin); bottom: 17vh; width: clamp(84px, 24vmin, 124px); height: clamp(84px, 24vmin, 124px); }
+body.touch #a-aim    { left: auto; top: auto; right: calc(11vw + 4vmin + 4vmin); bottom: calc(17vh + clamp(84px, 24vmin, 124px) + 12px); width: clamp(52px, 14vmin, 76px); height: clamp(52px, 14vmin, 76px); }
+body.touch #a-jump   { left: auto; top: auto; right: 3vw; bottom: 36vh; width: clamp(54px, 15vmin, 78px); height: clamp(54px, 15vmin, 78px); }
+body.touch #a-crouch { left: auto; top: auto; right: 3vw; bottom: calc(36vh - clamp(54px, 15vmin, 78px) - 12px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-prone  { left: auto; top: auto; right: 3vw; bottom: calc(36vh - clamp(54px, 15vmin, 78px) - clamp(48px, 13vmin, 70px) - 24px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-reload { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: 12vh; width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-fmode  { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + 12px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
+body.touch #a-weapon { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + clamp(44px, 12vmin, 62px) + 24px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
+body:not(.touch) #a-prone { display: none; }
+body.touch #a-prone.on { background: rgba(255,255,255,.5) !important; }
+body.touch #c-jump { display: none !important; }

@@ -2,7 +2,7 @@
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
-export const COMBAT_MS = 300000;                        // a match lasts 5 minutes
+export const COMBAT_MS = 900000;                        // a match lasts 15 minutes
 export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
 const H = CMB.half;
 

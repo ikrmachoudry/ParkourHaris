@@ -27,16 +27,17 @@ export class HeroActor {
     this.t += dt;
     let name = 'idle', t = this.t;
     const sp = st.speed || 0;
-    if (st.seated) name = st.bike ? 'ride' : st.pax ? 'pax' : 'sit';
+    if (st.seated) name = st.bike ? 'ride' : st.pax ? (st.weapon && st.weapon !== 'bat' && st.weapon !== 'grenade' ? 'paxGun' : 'pax') : 'sit';
     else if (st.swim) name = 'swim';
     else if (!st.grounded && (Math.abs(st.vy || 0) > 1.2 || this.inAir)) { name = 'jump'; this.inAir = true; }   // stays in the jump pose over the apex (it used to flip to run for a moment, lifting the leg a second time)
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }
-    if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
+    if (st.prone && !st.seated && !st.swim && name !== 'jump') name = sp > 0.15 ? 'crawl' : 'proneIdle';
+    else if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
     if (st.grounded || st.swim || st.seated) this.inAir = false;
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
     if (st.stun > 0 && !st.seated) name = 'fall';
-    const w = st.weapon && !st.seated ? st.weapon : null;   // 'bat' | 'pistol' | 'ak' | (combat guns)
+    const w = st.weapon && (!st.seated || name === 'paxGun') ? st.weapon : null;   // 'bat' | 'pistol' | 'ak' | (combat guns)
     const wc = w ? wcls(w) : null;   // the pose family
     if (w && (name === 'idle' || name === 'walk' || name === 'crouch' || name === 'crouchwalk')) {
       const mv = sp > 0.25;
@@ -55,7 +56,7 @@ export class HeroActor {
     if (st.skydive) { name = st.skydive === 2 ? 'chute' : 'skydive'; t = this.t; }
     if (st.zpose) { name = st.zpose; t = st.zp || 0; }
     if (st.punch > 0 && !st.seated && !st.zpose) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }
-    const DRV = { reloadR: 'aimLow', rifleBack: 'aimLow', rifleStrafeL: 'aimLow', rifleStrafeR: 'aimLow', pistolBack: 'aimLow', pistolStrafeL: 'aimLow', pistolStrafeR: 'aimLow', runBack: 'run', runL: 'run', runR: 'run', dieF: 'idle', dieB: 'idle', dieR: 'idle', dieL: 'idle', skydive: 'jump', chute: 'idle', rifleCrouchIdle: 'aimLow', rifleCrouchAim: 'aimLow', rifleCrouchWalk: 'aimLow', zWalk: 'walk', zCrawl: 'walk', zDeath: 'idle', dReact: 'idle', dFly: 'idle', nadeThrow: 'nadeThrow', nadeToss: 'nadeThrow', nadeStand: 'nadeThrow', pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim', pistolAim: 'aim' };
+    const DRV = { crawl: 'idle', proneIdle: 'idle', reloadR: 'aimLow', rifleBack: 'aimLow', rifleStrafeL: 'aimLow', rifleStrafeR: 'aimLow', pistolBack: 'aimLow', pistolStrafeL: 'aimLow', pistolStrafeR: 'aimLow', runBack: 'run', runL: 'run', runR: 'run', dieF: 'idle', dieB: 'idle', dieR: 'idle', dieL: 'idle', skydive: 'jump', chute: 'idle', rifleCrouchIdle: 'aimLow', rifleCrouchAim: 'aimLow', rifleCrouchWalk: 'aimLow', zWalk: 'walk', zCrawl: 'walk', zDeath: 'idle', dReact: 'idle', dFly: 'idle', nadeThrow: 'nadeThrow', nadeToss: 'nadeThrow', nadeStand: 'nadeThrow', pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim', pistolAim: 'aim' };
     poseChar(this.ch, DRV[name] || name, t, 1);
     { const W = this.ch.wmesh; if (w) { this.ch.gun.visible = true; for (const k in W) W[k].visible = k === w; } else for (const k in W) W[k].visible = k === 'pistol'; }
     // blend from the previous frame's pose (fast, so it still looks crisp)
@@ -76,7 +77,7 @@ export class HeroActor {
       else { const r = this.roll || 0; this.roll = r + (Math.round(r / TAU) * TAU - r) * Math.min(1, dt * 6); if (!stunned && this.lie < 0.05) this.roll = 0; }
       if (Math.abs(this.ang) > 0.004 || Math.abs(this.roll || 0) > 0.004 || stunned) { g.rotation.x = this.ang; g.rotation.y = this.roll || 0; this.hadLie = true; this.liftY = 0.26 * Math.min(1, Math.abs(this.ang) / 1.4); g.position.y = this.liftY; }   // lying flat: lifted a hand's width so the body rests ON the road, not in it
       else if (this.hadLie) { g.rotation.x = 0; g.rotation.y = 0; g.position.y = 0; this.liftY = 0; this.ang = 0; this.roll = 0; this.hadLie = false; } }
-    this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax';
+    this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax' || name === 'paxGun';
   }
   dispose() {
     this.group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose()); } });

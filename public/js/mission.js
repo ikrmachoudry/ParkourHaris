@@ -42,7 +42,7 @@ export class MissionHub {
     this.emit({ t: 'm_go', mission: this.mission, round: this.round, members: this.members.map((id, seat) => ({ id, seat })), briefMs: ms, solo: this.solo || 'sniper' });
     const r = this.round;
     this.later(ms, () => { if (this.phase === 'brief' && this.round === r) { this.phase = 'run'; this.emit({ t: 'm_run', round: r }); } });
-    if (this.mission === 'combat') this.later(ms + 300000 + 30000, () => { if (this.phase === 'run' && this.round === r) { for (const i of this.members) this.res.set(i, true); this.checkDone(); } });
+    if (this.mission === 'combat') this.later(ms + 900000 + 30000, () => { if (this.phase === 'run' && this.round === r) { for (const i of this.members) this.res.set(i, true); this.checkDone(); } });
     if (thief) this.startThief(); else if (snipe) this.startSnipe(); else if (zom) this.startZombie(); else if (poli) this.startZombie(PoliDirector);
   }
   // ---- THIEF CHASE: the story is played by a director that lives right here (server in multiplayer), everybody just draws what it broadcasts
