@@ -12,7 +12,7 @@ const res = { fps: 30, restPos: null, hipsY: 0, clips: {} };
 for (const sp of specs) {
   const [name, file] = sp.split('=');
   const buf = fs.readFileSync(file); const g = new FBXLoader().parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), '');
-  const byName = {}; g.traverse((o) => { if (o.isBone) byName[o.name.replace(/^mixamorig:?/, '')] = o; });
+  const byName = {}; g.traverse((o) => { if (o.isBone) byName[o.name.replace(/^mixamorig\d*:?/, '')] = o; });
   const B = Object.fromEntries(NEED.map((k) => [k, byName[MX[k]]])); const miss = NEED.filter((k) => !B[k]); if (miss.length) throw new Error(name + ' missing ' + miss);
   g.updateMatrixWorld(true);
   const wq = (o) => o.getWorldQuaternion(new THREE.Quaternion());
@@ -23,7 +23,7 @@ for (const sp of specs) {
   }
   const clip = g.animations[0]; const tr = {}; for (const t of clip.tracks) tr[t.name] = t;
   // the real frame count is the hips POSITION track (some exports give the hips rotation more keys than the other bones): sample every track by TIME
-  const hpT = tr['mixamorigHips.position'] || tr['mixamorig:Hips.position'], times = hpT ? Array.from(hpT.times) : Array.from(clip.tracks.find((t) => t.name.endsWith('.quaternion')).times), n = times.length, dur = clip.duration;
+  const hpT = clip.tracks.find((t) => /Hips\.position$/.test(t.name)), times = hpT ? Array.from(hpT.times) : Array.from(clip.tracks.find((t) => t.name.endsWith('.quaternion')).times), n = times.length, dur = clip.duration;
   const itp = {}; for (const t of clip.tracks) itp[t.name] = t.createInterpolant();
   const restHipsPos = B.hips.position.clone();
   const Gs = [], H = [];
