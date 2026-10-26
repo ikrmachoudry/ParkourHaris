@@ -1752,7 +1752,7 @@ class Race {
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage (it is a tube, 2 m radius), like PUBG's cabin
       if (dr && dr.ph === 'plane' && cs.plane) { const P = cs.plane.position, ca = Math.cos(dr.a), sa = Math.sin(dr.a), c = this.camera.position, wx = c.x - P.x, wz = c.z - P.z, lx = wx * ca - wz * sa, lz = wx * sa + wz * ca, ly = c.y - P.y - 0.57, r = Math.hypot(lx, ly), R0 = 1.55;
-        if (r > R0) { const k = R0 / r, nx = lx * k, ny = ly * k; c.x = P.x + nx * ca + lz * sa; c.z = P.z - nx * sa + lz * ca; c.y = P.y + 0.57 + ny; } } }
+        { const k = r > R0 ? R0 / r : 1, nx = Math.max(-1.0, Math.min(1.0, lx * k)), ny = Math.min(1.3, ly * k); c.x = P.x + nx * ca + lz * sa; c.z = P.z - nx * sa + lz * ca; c.y = P.y + 0.57 + ny; } } }   // keep the camera in the aisle, below the ceiling lights
     if (inHome) this.camera.position.y = Math.min(this.camera.position.y, 3.25);   // stay under the ceiling
     if (this.meta.city) { // the camera can never go inside a building or under the ground: pull it in along the line to the player
       const cam = this.camera.position, T = this.world.terrain, ox = this.camTarget.x, oy = this.camTarget.y, oz = this.camTarget.z;
@@ -1897,7 +1897,10 @@ function levelCards(container, opts) {
 }
 
 // ---- thumbnails of the three characters (rendered once with a temporary GL context)
-function makeThumbs() {
+async function makeThumbs() {
+  // the heroes are GLB models that load in the background: wait until every one is in (or failed), then take the pictures
+  const heroes = []; for (let i = 0; i < CHARACTERS.length; i++) heroes.push(makeHero(i));
+  for (let w = 0; w < 100 && heroes.some((c) => c.ready === false && !c.failed); w++) await new Promise((res) => setTimeout(res, 200));
   const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   r.setSize(256, 320, false); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.setClearColor(0x000000, 0);
   const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#b9a4ff', 1.6));
@@ -1905,8 +1908,8 @@ function makeThumbs() {
   const pm = new THREE.PMREMGenerator(r); sc.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; sc.environmentIntensity = 0.7;
   const cam = new THREE.PerspectiveCamera(30, 256 / 320, 0.1, 50); cam.position.set(0, 1.25, 6.6); cam.lookAt(0, 0.98, 0);
   const out = [];
-  for (let i = 0; i < CHARACTERS.length; i++) {
-    const c = makeHero(i); c.group.rotation.y = -0.35; sc.add(c.group); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
+  for (let i = 0; i < heroes.length; i++) {
+    const c = heroes[i]; c.group.rotation.y = -0.35; sc.add(c.group); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false }); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
     r.render(sc, cam); out.push(r.domElement.toDataURL('image/png')); sc.remove(c.group); c.dispose();
   }
   pm.dispose(); r.dispose(); r.forceContextLoss();
@@ -2230,7 +2233,8 @@ $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); 
 async function boot() {
   await ensureFont();
   stage = new Stage();
-  try { thumbs = makeThumbs(); } catch (e) { thumbs = ['', '', '', '']; }
+  thumbs = ['', '', '', ''];
+  makeThumbs().then((t) => { thumbs = t; document.querySelectorAll('.card[data-id] img').forEach((im) => { const u = t[+im.parentNode.dataset.id]; if (u) im.src = u; }); }).catch((e) => console.error(e));
   resize();
   stage.setTitle();
   show('title');
