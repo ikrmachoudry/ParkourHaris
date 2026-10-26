@@ -394,13 +394,13 @@ class Race {
     const steps = Math.max(1, Math.ceil(dt / (1 / 90))), sdt = dt / steps;
     let landed = false;
     w.nearPlayers = [b, ...[...this.remotes.values()]];
-    const hanging = false;
+    const hanging = !!(this.mission && this.mission.cs && this.mission.cs.dropping);
     { const wb = this.me.body; wb.jumpMul = OPT.highJump ? 2.1 : 1; if (OPT.invincible) { wb.shield = 9; wb.stun = 0; this.hurt = 0; if (this.drive) this.drive.st.hp = 100; for (const c of this.cars) if (c.st.wreck) c.st.wreck = false; }
       if (!OPT.wanted && this.wanted && (this.wanted.stars || this.wanted.cars.length || this.wanted.foot.length)) this.wanted.reset(); }
     if (this.meta.city) this.weaponVoice();
     this.stepRolling(dt); if (this.meta.city) { this.updateCarFire(dt); this.updateTrafficFire(dt); this.updateCopFire(dt); this.fireSpread(dt); if (this.mission) this.mission.update(dt); if (this.wanted) { const wb = this.me.body, wd = this.drive ? this.drive.st : null; this.wanted.update(dt, wd ? wd.x : wb.x, wd ? wd.z : wb.z, wd); this.netCops(dt); } if (this.copGhosts) this.copGhosts.update(dt, (id) => { const r = this.remotes.get(id); return !r || this.ghost(r); }); }
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
-    else if (hanging) { b.events.length = 0; }
+    else if (hanging) { b.events.length = 0; this.mission.cs.stepDrop(dt, inp, b); }
     else {
     for (let i = 0; i < steps; i++) {
       stepBody(w, b, sdt, inp);
@@ -439,7 +439,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { skydive: this.mission && this.mission.cs ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive, pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes

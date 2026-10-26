@@ -2,6 +2,7 @@
 // shows the HUD (time, kills, health) and turns the player's bullets, fists and grenades into hits on the bots.
 import * as THREE from 'three';
 import { makeHero } from './glbactor.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
@@ -53,6 +54,7 @@ export class CombatScene {
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
+    this.startDrop();
   }
   respawn(seat) {
     const R = this.R, b = R.me.body, L = layout(), p = L.spawns[((seat === undefined ? Math.floor(Math.random() * L.spawns.length) : seat * 5 + 1) % L.spawns.length + L.spawns.length) % L.spawns.length];
@@ -61,7 +63,7 @@ export class CombatScene {
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
-    this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = true; this.showHud(false); A.setCommentary(OPT.punjabi !== false);
+    this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = true; this.showHud(false); A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
@@ -70,6 +72,62 @@ export class CombatScene {
     if (R.wallet) { R.wallet.cb = null; if (R.weapon && !R.wallet.owns(R.weapon)) R.weapon = null; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     const x = LOBBY.x, z = LOBBY.z + LOBBY.d / 2 + 3.5; b.x = x; b.z = z; b.y = (R.world && R.world.terrain ? R.world.terrain(x, z) : 0) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; R.camInit = false;
   }
+  // ---------------------------------------------------------------- the drop: a transport plane flies over the island, you jump, free-fall and open the parachute
+  loadPlane() {
+    if (this.planeP) return this.planeP;
+    return this.planeP = new Promise((res) => new GLTFLoader().load('models/c130.glb', (g) => {
+      const inner = g.scene; inner.position.set(3.83, 0, -4.73); const w = new THREE.Group(); w.add(inner); w.rotation.y = 0.9235; this.planeProps = [];   // the scan faces the wrong way: turn the nose to +Z, centre it
+      const COL = (n) => /FUZEL/.test(n) ? '#e4e9f2' : /KRIL|OPER|Object05|NGon|Box09/.test(n) ? '#27478a' : /KIL/.test(n) ? '#27478a' : /Cylinder0[12]/.test(n) ? '#aab3c4' : '#c9d0dd';
+      inner.updateMatrixWorld(true);
+      inner.traverse((o) => { if (!o.isMesh) return; let p = o; while (p.parent && p.parent !== inner.children[0] && p.parent !== inner) p = p.parent; const nm = p.name || o.name; const m = new THREE.MeshStandardMaterial({ color: COL(nm), roughness: 0.55, metalness: 0.25 }); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach((q) => { if (q.map) q.map.dispose(); q.dispose(); }); } o.material = m; o.castShadow = false; });   // flat paint: no insignia from the scan
+      const E = [['Cone09', 'Cylinder15', 'Cylinder16', 'Cylinder17', 'Cylinder18'], ['Cone08', 'Cylinder11', 'Cylinder12', 'Cylinder13', 'Cylinder14'], ['Cone04', 'Cylinder03', 'Cylinder04', 'Cylinder05', 'Cylinder06'], ['Cone05', 'Cylinder07', 'Cylinder08', 'Cylinder09', 'Cylinder10']];
+      w.updateMatrixWorld(true);
+      for (const names of E) { const nodes = names.map((n) => inner.getObjectByName(n)).filter(Boolean); if (!nodes.length || !nodes[0]) continue;
+        const bb = new THREE.Box3().setFromObject(nodes[0]), c = bb.getCenter(new THREE.Vector3()); const pv = new THREE.Group(); pv.position.copy(w.worldToLocal(c.clone())); w.add(pv); pv.updateMatrixWorld(true); for (const nd of nodes) pv.attach(nd); this.planeProps.push(pv); }
+      w.scale.setScalar(1.25); res(w);
+    }, undefined, () => res(null)));
+  }
+  startDrop() {
+    const R = this.R, b = R.me.body, a = Math.random() * Math.PI * 2, hd = [Math.sin(a), Math.cos(a)], off = (Math.random() - 0.5) * 240, L = 760;
+    const cx = CMB.x - hd[1] * off, cz = CMB.z + hd[0] * off;   // a straight line across the island, a little off centre
+    this.drop = { ph: 'plane', t: 0, hd, a, sx: cx - hd[0] * L / 2, sz: cz - hd[1] * L / 2, L, v: 34, alt: 230, vx: 0, vz: 0, hint: 0, ch: 0 };
+    this.dropping = true; this.dropPose = 0;
+    if (!this.plane) { this.plane = new THREE.Group(); this.group.add(this.plane); }
+    this.plane.visible = true; this.plane.clear(); this.loadPlane().then((w) => { if (w && this.plane && this.drop) { this.plane.clear(); this.plane.add(w); } });
+    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ JUMP when you are over the island  •  SPACE / JUMP button', 4);
+  }
+  placeDrop(t) { const d = this.drop, b = this.R.me.body; const x = d.sx + d.hd[0] * d.v * t, z = d.sz + d.hd[1] * d.v * t;
+    if (this.plane) { this.plane.position.set(x, d.alt, z); this.plane.rotation.y = d.a; }
+    if (d.ph === 'plane') { b.x = x; b.y = d.alt - 1.2; b.z = z; b.yaw = d.a; } }
+  stepDrop(dt, inp, b) {   // called by the main loop instead of the ground physics while dropping
+    const d = this.drop; if (!d) { this.dropping = false; return; }
+    const R = this.R, g = R.me.model && R.me.model.group; d.t += dt;
+    if (this.plane && this.planeProps) for (const pv of this.planeProps) pv.rotation.z += dt * 38;
+    if (d.ph === 'plane') {
+      this.placeDrop(d.t); b.grounded = false; if (g) g.visible = false; this.dropPose = 0;
+      const dist = d.v * d.t; if ((inp.jumpPressed && dist > 40) || dist > d.L - 20) {   // out of the plane
+        d.ph = 'fall'; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; if (g) g.visible = true; b.y -= 1; R.camInit = false; }
+      return;
+    }
+    if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
+    const gy = cmbH(b.x - CMB.x, b.z - CMB.z), h = b.y - gy;
+    if (d.ph === 'fall' && (inp.jumpPressed && d.t > 1.2 || h < 110)) { d.ph = 'chute'; d.ch = 0; }   // open the parachute (by hand, or automatically at 110 m)
+    const free = d.ph === 'fall'; const maxH = free ? 26 : 12, ml = Math.hypot(inp.mx, inp.mz);
+    const tx = inp.mx * maxH, tz = inp.mz * maxH, k = Math.min(1, dt * (free ? 1.6 : 1.1)); d.vx += (tx - d.vx) * k; d.vz += (tz - d.vz) * k;
+    const vyT = free ? -52 : -6.5; b.vy += (vyT - b.vy) * Math.min(1, dt * (free ? 1.1 : 1.7)); if (free) b.vy -= 9 * dt * (b.vy > -40 ? 1 : 0);
+    b.x += d.vx * dt; b.z += d.vz * dt; b.y += b.vy * dt; b.vx = d.vx; b.vz = d.vz; b.grounded = false; if (ml > 0.1 || Math.hypot(d.vx, d.vz) > 3) b.yaw = Math.atan2(d.vx, d.vz);
+    this.dropPose = free ? 1 : 2;
+    if (b.y <= gy + 0.05) { b.y = gy + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
+    this.chuteVis(d.ph === 'chute', b, dt);
+  }
+  chuteVis(on, b, dt) {
+    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ec5b2b', roughness: 0.8, side: THREE.DoubleSide })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
+      const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, 0, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f5f1e8', roughness: 0.8, side: THREE.DoubleSide })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st);
+      const lm = new THREE.MeshBasicMaterial({ color: '#d8d8d8' }); for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 3.6, 3), lm); l.position.set(x / 2, 1.7, z / 2); l.rotation.set(z * 0.1, 0, -x * 0.1); g.add(l); }
+      this.chute = g; this.group.add(g); }
+    const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
+  }
+  endDrop(landed) { if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;
@@ -94,7 +152,7 @@ export class CombatScene {
   // ---------------------------------------------------------------- per frame
   update(dt) {
     const R = this.R; if (!this.on || !this.sim) return; this.t += dt; const sim = this.sim, b = R.me.body, M = R.mission;
-    const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 };
+    const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     const run = M && M.phase === 'run' && !this.over;
     if (run) {
       this.time -= dt;
