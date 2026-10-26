@@ -1,5 +1,7 @@
 // Standalone 3D weapon models (baseball bat, pistol, AK-47) for the shop walls. Gun frame: +z = barrel, +y = up, origin = grip.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import GUNS from './guns.json' with { type: 'json' };   // the seven real low-poly guns (Ultimate Gun Pack by Quaternius, CC0), pre-converted to flat-coloured triangles in millimetres
 
 const M = {};
@@ -41,9 +43,16 @@ export function makeWeaponModel(kind) {
 
 // a gun from the pack as a THREE group: gun frame +z = barrel, +y = up, origin = grip; null when the pack has no such gun.  kind: pistol revolver smg ak m4 shotgun sniper
 const GEO = {}, GMAT = {};
+// the detailed guns (Sketchfab, CC BY: see the credits in the pause menu): loaded on first use, then they replace the flat-coloured stand-ins. models/guns/manifest.json holds each gun's frame matrix.
+const GLB = {}; let MAN = null;
+const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefined' ? Promise.resolve(null) : (MAN || (MAN = fetch('models/guns/manifest.json').then((r) => r.json()).catch(() => ({}))))).then((man) => !man || !man[kind] ? null : new Promise((res) => new GLTFLoader().load('models/guns/' + kind + '.glb', (g) => {
+  g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m && m.map) m.map.colorSpace = THREE.SRGBColorSpace; if (m && m.metalness > 0.6) m.metalness = 0.6; }); } });
+  g.scene.applyMatrix4(new THREE.Matrix4().fromArray(man[kind])); res(g.scene);
+}, undefined, () => res(null)))));
 export function gunMesh(kind) {
   const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();
   if (!GEO[kind]) GEO[kind] = d.g.map(([r, gg, b, s, k]) => { const geo = new THREE.BufferGeometry(); const a = new Float32Array(k * 3); for (let i = 0; i < k * 3; i++) a[i] = d.p[s * 3 + i] / 1000; geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); geo.computeVertexNormals(); return { geo, key: r + ',' + gg + ',' + b, c: [r, gg, b] }; });
   for (const { geo, key, c } of GEO[kind]) { const m = GMAT[key] || (GMAT[key] = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(Math.min(1, c[0] * 1.5 + 0.03), Math.min(1, c[1] * 1.5 + 0.03), Math.min(1, c[2] * 1.5 + 0.03), THREE.LinearSRGBColorSpace), roughness: 0.55, metalness: 0.25, flatShading: true })); const me = new THREE.Mesh(geo, m); me.castShadow = true; g.add(me); }
+  glbGun(kind).then((src) => { if (!src) return; g.clear(); g.add(skClone(src)); });
   return g;
 }
