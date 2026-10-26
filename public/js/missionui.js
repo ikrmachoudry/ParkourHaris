@@ -49,7 +49,9 @@ export class MissionClient {
     if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1); else if (m.t === 'm_zh') h.zhit(id, m.z | 0, +m.d || 1); else if (m.t === 'm_pr') h.rick(id, m);
   }
   // COMBAT MISSION from the main menu (alone): press the invisible pad for the player
-  autoCombat() { setTimeout(() => { if (this.phase !== 'idle') return; this.send({ t: 'm_in', on: true }); this.send({ t: 'm_pick', mission: 'combat' }); this.send({ t: 'm_start' }); }, 1200); }
+  // a black 'loading' cover so the city never shows before the battle map
+  cover(on, txt) { let c = document.getElementById('cmb-cover'); if (!c && on) { c = document.createElement('div'); c.id = 'cmb-cover'; c.style.cssText = 'position:fixed;inset:0;background:#05070a;color:#ffb347;font:700 22px Arial Black,Arial,sans-serif;display:flex;align-items:center;justify-content:center;z-index:50;letter-spacing:3px;transition:opacity .5s'; document.body.appendChild(c); } if (!c) return; if (on) { c.textContent = txt || 'LOADING BATTLE MAP...'; c.style.opacity = 1; c.style.display = 'flex'; } else { c.style.opacity = 0; setTimeout(() => { if (c.style.opacity === '0') c.style.display = 'none'; }, 600); } }
+  autoCombat() { this.cover(true); setTimeout(() => { if (this.phase !== 'idle') { this.cover(false); return; } this.send({ t: 'm_in', on: true }); this.send({ t: 'm_pick', mission: 'combat' }); this.send({ t: 'm_start' }); }, 1200); }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
   localP() {
@@ -210,7 +212,8 @@ export class MissionClient {
     const me = m.members.find((q) => q.id === R.localId); this.seat = me ? me.seat : 0; this.briefEnd = performance.now() + (m.briefMs || 6500); this.lastN = 0;
     this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
-    this.cs.begin(m, this.seat);
+    this.cover(true); if (R.world && R.world.group) R.world.group.visible = false;
+    setTimeout(() => { this.cs.begin(m, this.seat); setTimeout(() => this.cover(false), 700); }, 120);
     this.big('COMBAT MISSION', 2600, '#ffb347'); this.sub('FIND WEAPONS ON THE GROUND - SHOOT THE SOLDIERS - SURVIVE 5 MINUTES  (R = RELOAD)', 7000); this.chips();
   }
   // leaves the zombie mission: the free kit goes back, the zombies disappear

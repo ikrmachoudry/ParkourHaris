@@ -2,6 +2,7 @@
 // shows the HUD (time, kills, health) and turns the player's bullets, fists and grenades into hits on the bots.
 import * as THREE from 'three';
 import { makeHero } from './glbactor.js';
+import { buildCabin } from './planecabin.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
@@ -84,6 +85,7 @@ export class CombatScene {
       w.updateMatrixWorld(true);
       for (const names of E) { const nodes = names.map((n) => inner.getObjectByName(n)).filter(Boolean); if (!nodes.length || !nodes[0]) continue;
         const bb = new THREE.Box3().setFromObject(nodes[0]), c = bb.getCenter(new THREE.Vector3()); const pv = new THREE.Group(); pv.position.copy(w.worldToLocal(c.clone())); w.add(pv); pv.updateMatrixWorld(true); for (const nd of nodes) pv.attach(nd); this.planeProps.push(pv); }
+      buildCabin(w, inner);
       w.scale.setScalar(1.25); res(w);
     }, undefined, () => res(null)));
   }
@@ -104,9 +106,10 @@ export class CombatScene {
     const R = this.R, g = R.me.model && R.me.model.group; d.t += dt;
     if (this.plane && this.planeProps) for (const pv of this.planeProps) pv.rotation.z += dt * 38;
     if (d.ph === 'plane') {
-      this.placeDrop(d.t); b.grounded = false; if (g) g.visible = false; this.dropPose = 0;
+      this.placeDrop(d.t); b.grounded = false; this.dropPose = 3; if (g) g.visible = true; { const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; } }
+      { const w = this.plane && this.plane.children[0], st = w && w.userData.seat; if (st) { this.plane.updateMatrixWorld(true); const v = st.getWorldPosition(new THREE.Vector3()); b.x = v.x; b.y = v.y - 0.1; b.z = v.z; b.yaw = d.a + Math.PI / 2; } }   // sit on the left bench, facing the aisle
       const dist = d.v * d.t; if ((inp.jumpPressed && dist > 40) || dist > d.L - 20) {   // out of the plane
-        d.ph = 'fall'; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; if (g) g.visible = true; b.y -= 1; R.camInit = false; }
+        d.ph = 'fall'; { const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = true; w.userData.cabin.visible = false; } } b.y += 1.2; d.vx = d.hd[0] * d.v * 0.7; d.vz = d.hd[1] * d.v * 0.7; b.vy = 0; R.camInit = false; }
       return;
     }
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
@@ -121,8 +124,8 @@ export class CombatScene {
     this.chuteVis(d.ph === 'chute', b, dt);
   }
   chuteVis(on, b, dt) {
-    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ec5b2b', roughness: 0.8, side: THREE.DoubleSide })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
-      const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, 0, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f5f1e8', roughness: 0.8, side: THREE.DoubleSide })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st);
+    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ec5b2b', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
+      const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, 0, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f5f1e8', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st);
       const lm = new THREE.MeshBasicMaterial({ color: '#d8d8d8' }); for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 3.6, 3), lm); l.position.set(x / 2, 1.7, z / 2); l.rotation.set(z * 0.1, 0, -x * 0.1); g.add(l); }
       this.chute = g; this.group.add(g); }
     const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
