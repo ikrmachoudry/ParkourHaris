@@ -1411,6 +1411,19 @@ class Race {
     const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
     el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
   }
+  // the point the crosshair (screen centre) looks at: along the camera ray, down to the ground when it points down, 40+ m ahead otherwise
+  crosshairPoint(range) {
+    const cam = this.camera; if (!cam) return null; const d = new THREE.Vector3(); cam.getWorldDirection(d); const cp = cam.position, gy = this.world && this.world.terrain ? this.world.terrain(cp.x + d.x * 20, cp.z + d.z * 20) : 0;
+    let t = d.y < -0.02 ? Math.min((cp.y - gy) / -d.y, range + 20) : Math.min(60, range + 20); t = Math.max(6, t);
+    return new THREE.Vector3(cp.x + d.x * t, cp.y + d.y * t, cp.z + d.z * t);
+  }
+  // the tip of the barrel in the world (null when the gun is not in the hand yet)
+  muzzleWorld() {
+    try { const m = this.me.model, W = m && m.ch && m.ch.wmesh && m.ch.wmesh[this.weapon]; if (!W || !m.ch.gun || !m.ch.gun.visible) return null;
+      W.updateWorldMatrix(true, true); const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(W.getWorldQuaternion(new THREE.Quaternion())), o = W.getWorldPosition(new THREE.Vector3()), box = new THREE.Box3().setFromObject(W);
+      let far = 0; for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) far = Math.max(far, (x - o.x) * dir.x + (y - o.y) * dir.y + (z - o.z) * dir.z);
+      return o.add(dir.multiplyScalar(Math.max(0.2, far))); } catch { return null; }
+  }
   fire() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
     if (OPT.ammo && this.wallet.s) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
@@ -1418,7 +1431,8 @@ class Race {
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
     this.wallet.shoot(w); this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
-    let ang = b.yaw + (Math.random() - 0.5) * 2 * W.spread;
+    const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
+    let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + (Math.random() - 0.5) * 2 * W.spread;   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
@@ -1457,8 +1471,12 @@ class Race {
     if (this.wanted) { const wh = this.wanted.shoot(ox, oz, fx, fz, len, W.dmg); if (wh >= 0 && wh < len) len = Math.max(0.5, wh); }
     if (this.copGhosts && this.multi) { const gh = this.copGhosts.shoot(ox, oz, fx, fz, len); if (gh && gh.d < len) { len = Math.max(0.5, gh.d); this.hitGhostCop(gh, W.dmg); } }
     // tracer + muzzle flash + bang
-    const q = this.tracers.find((t) => t.t <= 0) || this.tracers[0]; if (q) { q.t = 0.07; q.m.visible = true; q.m.position.set(ox + fx * len / 2, oy, oz + fz * len / 2); q.m.rotation.set(0, Math.atan2(fx, fz), 0); q.m.scale.set(1, 1, Math.min(len, 60)); }
-    this.particles.emit(ox, oy, oz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'sniper' ? 0.16 : w === 'ak' ? 0.07 : 0.05);
+    // the streak starts AT THE BARREL (the flame comes out of the gun) and points at the crosshair, up or down as well
+    const sx = mz ? mz.x : ox, sy = mz ? mz.y : oy, sz = mz ? mz.z : oz, ex = ox + fx * len, ez = oz + fz * len, hd = Math.max(0.5, Math.hypot(ex - sx, ez - sz));
+    let ey = sy; if (aimP) { const ah = Math.max(1, Math.hypot(aimP.x - sx, aimP.z - sz)); ey = sy + (aimP.y - sy) / ah * hd; } ey = Math.max(this.world && this.world.terrain ? this.world.terrain(ex, ez) + 0.05 : 0.05, Math.min(sy + 40, ey));
+    const tl = Math.max(0.5, Math.hypot(ex - sx, ey - sy, ez - sz)), q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
+    if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
+    this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'sniper' ? 0.16 : w === 'ak' ? 0.07 : 0.05);
     w === 'sniper' ? A.sfx.sniperShot() : w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
     if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' || w === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
@@ -2186,9 +2204,10 @@ async function boot() {
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
+  A.setCommentary(OPT.punjabi !== false);
   document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick3 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
+    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
   { const HRS = { morning: 8, noon: 12, afternoon: 17, night: 23 };
     const paintT = () => { document.querySelectorAll('#tsel button').forEach((b) => b.classList.toggle('on', b.dataset.t === OPT.time)); document.querySelectorAll('#hsel button').forEach((b) => b.classList.toggle('on', b.dataset.h === (OPT.haze || (IS_TOUCH ? 'normal' : 'clear')))); };

@@ -29,6 +29,8 @@ export function initAudio() {
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
 }
+let commentary = true;
+export function setCommentary(v) { commentary = !!v; }   // the Punjabi commentary switch in Settings (weapon names, punch shouts and every voice line added later go through say())
 export function setMuted(m) { muted = m; if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.05); }
 export function isMuted() { return muted; }
 
@@ -99,7 +101,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 // a gunshot = the sharp crack + a low, lowpassed body (the chest thump) + a short room tail; a little random detune so full auto does not sound like one looped file
 const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
 let sayAt = 0, sayCur = null;
-const say = (name, vol = 1) => { const b = bank[name]; if (!b || !ctx) return false; const n = performance.now(); if (n - sayAt < (sayCur ? sayCur.dur : 0) * 1000 * 0.85) { return false; } sayAt = n; sayCur = { dur: b.duration }; return play(name, vol, 1, 0, 0, 0, 0.05); };
+const say = (name, vol = 1) => { const b = bank[name]; if (!commentary || !b || !ctx) return false; const n = performance.now(); if (n - sayAt < (sayCur ? sayCur.dur : 0) * 1000 * 0.85) { return false; } sayAt = n; sayCur = { dur: b.duration }; return play(name, vol, 1, 0, 0, 0, 0.05); };
 export const voice = {
   scream(vol = 0.8) { return play(pick(['u_scared0', 'u_scared1', 'u_scared2']), Math.min(1.2, vol * 1.2), rnd(0.92, 1.12), 0, 0, 0, 0.2) || play(pick(['scream1', 'scream2']), Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
   death(vol = 0.9) { return play('u_death', Math.min(1.2, vol * 1.1), rnd(0.93, 1.07), 0, 0, 0, 0.2) || play('death', vol, rnd(0.9, 1.1)); },

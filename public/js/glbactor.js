@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { HeroActor } from './actor.js';
+// each of the four players is a little different in height (no facial hair: it looked wrong on these heads)
+const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 1.79 }];
 
 const cache = new Map();
 export function loadGlb(url) {
@@ -95,7 +97,7 @@ function zombieMat(src) {
 export class GlbActor extends HeroActor {
   // url: GLB path.  opts: { look, height, map (override bone map), flip (180 deg if the model faces -z) }
   constructor(id, url, opts = {}) {
-    super(id, opts.look);
+    super(id, opts.look); this.heroId = id | 0;
     this.opts = opts; this.ready = false; this.failed = false; this.shell = null;
     Promise.all([loadGlb(url), loadClips()]).then(([g]) => this.attach(g), (e) => { this.failed = true; console.warn('GLB failed', url, e && e.message); });
   }
@@ -111,7 +113,7 @@ export class GlbActor extends HeroActor {
     // normalise size: feet on the floor, standing height = 1.78 m
     model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(model, true);
-    const h = box.max.y - box.min.y, s = (this.opts.height || 1.78) / h;
+    const h = box.max.y - box.min.y, s = (this.opts.height || (this.opts.facial !== false && FACIAL[this.heroId] && !this.opts.zombie ? FACIAL[this.heroId].height : 1.78)) / h;
     shell.scale.setScalar(s); shell.position.y = -box.min.y * s;
     if (this.opts.zombie) model.traverse((o) => { if (o.isMesh) o.material = zombieMat(o.material); });
     this.group.add(shell); shell.updateMatrixWorld(true);
@@ -217,7 +219,7 @@ export class GlbActor extends HeroActor {
     const ce = CLIP_FOR[this.pose], clip = ce && CLIPS && rt.Qm && CLIPS.clips[ce.c];
     if (clip) {
       const sp = st.speed || 0; let fi;
-      if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 6 - t * 2.5 : 6 - t * 1.0)); }   // only the first leg lift of the clip (frames 3-7): the clip's second leg swing (8-19) read as a double jump   // jump: rising -> apex -> falling, driven by the real vertical speed
+      if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 11 - t * 6 : 11 - t * 8)); }   // Haris's own Jump_1 clip: frames 5-11 = rising (knees up), 11 = apex, 11-19 = coming down; driven by the real vertical speed
       else if (ce.zp) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.zp || 0) * (clip.n - 1))); }   // zombie death: 0..1 progress from the scene
       else if (ce.nade) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.nade || 0) * (clip.n - 1))); }   // the grenade throw: the game's own 0..1 progress (release at clip.rel)
       else if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
@@ -285,4 +287,4 @@ export class GlbActor extends HeroActor {
 // the four player characters (ids 0..3) are MakeHuman bodies (tools/mh_build.py); the procedural human shows while loading and is the fallback if a file is missing
 export const HERO_GLB = ['models/hero0.glb', 'models/hero1.glb', 'models/hero2.glb', 'models/hero3.glb', 'models/hero4.glb'];
 export const ZOMBIE_LOOK = { role: 'civilian', top: '#d3a794', pants: '#262b33', shoes: '#d3a794', skinTone: '#d3a794', hair: '#0d0a08', hat: null, sleeve: 5 };   // the procedural stand-in while hero4.glb loads
-export const makeHero = (id, look) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look }) : new HeroActor(id, look);
+export const makeHero = (id, look, facial = true) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look, facial }) : new HeroActor(id, look);

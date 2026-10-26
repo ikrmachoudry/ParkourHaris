@@ -165,7 +165,7 @@ export class Peds {
   // The animation needs the skinned model: it is made at the moment of death (the first time it is not ready yet, the old fall plays instead).
   deathStep(p, dt) {
     if (!p.dk) { p.dk = p.blast ? 'dFly' : 'dReact'; p.dT = (p.st === 'lie' || p.st === 'gone') ? 99 : 0; }
-    if (!p.dActor) { p.dActor = makeHero(Math.abs(p.i | 0) % 4); p.dActor.group.visible = false; this.scene.add(p.dActor.group); }
+    if (!p.dActor) { p.dActor = makeHero(Math.abs(p.i | 0) % 4, undefined, false); p.dActor.group.visible = false; this.scene.add(p.dActor.group); }
     const A = p.dActor; if (!A.ready) return false;
     p.dT += dt; const dur = p.dk === 'dFly' ? 3.03 : 3.5, fl = this.ground ? this.ground(p.x, p.z) : 0;
     A.group.visible = true; A.group.position.set(p.x, fl + p.y, p.z); A.group.rotation.set(0, p.yaw, 0);

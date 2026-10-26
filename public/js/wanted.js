@@ -9,6 +9,7 @@
 //   BUSTED      arrested: a small fine, the police drop you off at the station, and the stars are gone.
 import * as THREE from 'three';
 import { HeroActor } from './actor.js';
+import { makeHero } from './glbactor.js';
 import { buildTrafficMesh } from './cityvis.js';
 import { GT, POLICE } from './gta.js';
 import * as A from './audio.js';
@@ -129,8 +130,26 @@ export class Wanted {
   }
   stepFoot(o, dt, px, pz, onFoot, car) {
     const R = this.R;
-    if (o.dead) { o.t += dt; o.actor.group.rotation.set(-Math.PI / 2, o.yaw, 0, 'YXZ'); o.actor.group.position.set(o.x, this.ground(o.x, o.z) + 0.22, o.z); o.actor.update(dt, { seated: false, speed: 0, grounded: true }); return; }
+    if (o.dead) {
+      o.t += dt;
+      // a dead officer plays the same real death animations as the pedestrians (an explosion throws him back, otherwise he drops); it needs the skinned model, made at the moment of death
+      if (!o.da) { o.dk = o.fly ? 'dFly' : 'dReact'; o.da = makeHero(Math.abs(o.nid | 0) % 4, undefined, false); o.da.group.visible = false; this.group.add(o.da.group);
+        o.da.group.traverse((m) => { if (m.isMesh && m.material && m.material.color) { m.material = m.material.clone(); m.material.color.multiply(new THREE.Color('#8a9cc2')); } }); }   // a bluish tint: it is a police uniform
+      if (o.da.ready) {
+        const dur = o.dk === 'dFly' ? 3.03 : 3.5; o.actor.group.visible = false; o.da.group.visible = true; o.da.group.position.set(o.x, this.ground(o.x, o.z), o.z); o.da.group.rotation.set(0, o.yaw, 0);
+        o.da.update(dt, { seated: false, speed: 0, grounded: true, vy: 0, stun: 0, zpose: o.dk, zp: Math.min(1, o.t / dur) }); return;
+      }
+      o.actor.group.rotation.set(-Math.PI / 2, o.yaw, 0, 'YXZ'); o.actor.group.position.set(o.x, this.ground(o.x, o.z) + 0.22, o.z); o.actor.update(dt, { seated: false, speed: 0, grounded: true }); return;
+    }
     if (o.down > 0) { o.down -= dt; o.actor.update(dt, { seated: false, speed: 0, grounded: true, stun: 1 }); o.actor.group.position.set(o.x, this.ground(o.x, o.z), o.z); return; }
+    if (o.clm) {   // climbing over a wall / fence / car roof: up, across, down (the same jump clip as the player)
+      const c = o.clm; c.t += dt; const u = Math.min(1, c.t / c.dur), up = u < 0.35 ? u / 0.35 : u > 0.7 ? 1 - (u - 0.7) / 0.3 : 1, e = up * up * (3 - 2 * up);
+      o.x = c.x0 + (c.x1 - c.x0) * u; o.z = c.z0 + (c.z1 - c.z0) * u; o.yaw = Math.atan2(c.x1 - c.x0, c.z1 - c.z0);
+      const gy = this.ground(o.x, o.z); o.actor.group.rotation.set(0, o.yaw, 0, 'YXZ'); o.actor.group.position.set(o.x, gy + c.h * e, o.z);
+      o.actor.update(dt, { seated: false, speed: 2, grounded: false, vy: u < 0.5 ? 4 : -4, weapon: undefined, aiming: false, crouch: false });
+      if (u >= 1) { o.clm = null; o.clmCd = 1.2; } return;
+    }
+    if (o.clmCd > 0) o.clmCd -= dt;
     const tx = this.seen || this.unseenT < 6 ? px : this.search ? this.search.x : px, tz = this.seen || this.unseenT < 6 ? pz : this.search ? this.search.z : pz;
     const dx = tx - o.x, dz = tz - o.z, d = Math.hypot(dx, dz) || 1, ddirect = Math.hypot(px - o.x, pz - o.z);
     let sp = 0;
@@ -142,6 +161,10 @@ export class Wanted {
       let mx = o.x + nx * step, mz = o.z + nz * step;
       // slide along building walls
       let hit = null; for (const b of this.boxes()) { if (b.h < 1.5) continue; if (mx > b.x0 - 0.5 && mx < b.x1 + 0.5 && mz > b.z0 - 0.5 && mz < b.z1 + 0.5) { hit = b; break; } }
+      if (hit && hit.h <= 3.4 && !(o.clmCd > 0)) {   // low enough to climb: over it, to the far side
+        let ex = o.x, ez = o.z; const bs = this.boxes(); for (let k = 0; k < 40; k++) { ex += nx * 0.5; ez += nz * 0.5; if (!bs.some((b) => b.h >= 1.5 && ex > b.x0 - 0.4 && ex < b.x1 + 0.4 && ez > b.z0 - 0.4 && ez < b.z1 + 0.4)) break; }
+        const L = Math.hypot(ex - o.x, ez - o.z); if (L < 12) { o.clm = { t: 0, x0: o.x, z0: o.z, x1: ex, z1: ez, h: Math.min(hit.h, 3.0) * 0.55 + 0.35, dur: 0.7 + L * 0.12 }; return; }
+      }
       if (hit) { const cx = (hit.x0 + hit.x1) / 2, cz = (hit.z0 + hit.z1) / 2, ex = (hit.x1 - hit.x0) / 2 + 0.5, ez = (hit.z1 - hit.z0) / 2 + 0.5; const ox = ex - Math.abs(mx - cx), oz = ez - Math.abs(mz - cz); if (ox < oz) { mx = o.x; mz += Math.sign(nz || (cz > o.z ? -1 : 1)) * step * 0.7; } else { mz = o.z; mx += Math.sign(nx || (cx > o.x ? -1 : 1)) * step * 0.7; } }
       o.x = mx; o.z = mz; o.yaw = Math.atan2(nx, nz);
     } else { o.yaw = Math.atan2(px - o.x, pz - o.z); }
@@ -183,11 +206,11 @@ export class Wanted {
     for (const o of this.foot) {
       if (o.dead) continue; const d = Math.hypot(o.x - x, o.z - z); if (d > r) continue; const k = 1 - 0.55 * d / r;
       o.hp -= dmg * k * 1.2; o.down = Math.max(o.down, 1.6); this.R.particles.emit(o.x, 1.2 + this.ground(o.x, o.z), o.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
-      if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); } else { this.hurtFoot(o); this.crime('copHit', o.x, o.z); }
+      if (o.hp <= 0) { this.killFoot(o, true); this.crime('copKill', o.x, o.z); } else { this.hurtFoot(o); this.crime('copHit', o.x, o.z); }
     }
     for (const c of this.cars) { const cs = c.st, d = Math.hypot(c.x - x, c.z - z); if (!cs || cs.wreck || d > r + 1.5) continue; cs.hp = Math.max(0, (cs.hp === undefined ? 100 : cs.hp) - 70 * (1 - d / (r + 2))); this.crime('car', c.x, c.z); }
   }
-  killFoot(o) { o.dead = true; o.t = 0; try { A.voice.death(0.9); } catch (e) { /* noop */ } }
+  killFoot(o, fly) { o.dead = true; o.t = 0; o.fly = !!fly; try { A.voice.death(0.9); } catch (e) { /* noop */ } }
   hurtFoot(o) { const n = performance.now(); if (n - (o.hAt || 0) < 450) return; o.hAt = n; try { const cp = this.R.camera.position, d = Math.hypot(o.x - cp.x, o.z - cp.z); if (d < 40) A.voice.grunt(0.95 * Math.max(0.3, 1 - d / 40)); } catch (e) { /* noop */ } }
   melee(x, z, fx, fz) {
     for (const o of this.foot) {
@@ -244,10 +267,14 @@ export class Wanted {
     }
     for (let i = this.foot.length - 1; i >= 0; i--) {
       const o = this.foot[i]; this.stepFoot(o, dt, px, pz, onFoot, car);
-      if (o.dead && o.t > 9) { this.group.remove(o.actor.group); o.actor.dispose(); this.foot.splice(i, 1); continue; }
+      if (o.dead && o.t > 9) { this.group.remove(o.actor.group); o.actor.dispose(); if (o.da) { this.group.remove(o.da.group); o.da.dispose(); } this.foot.splice(i, 1); continue; }
       // run over by the player's car
       if (car && !o.dead && o.down <= 0 && speed > 6) { const dx = o.x - car.x, dz = o.z - car.z, f = Math.sin(car.yaw), g = Math.cos(car.yaw), lz = dx * f + dz * g, lx = -dx * g + dz * f; if (Math.abs(lz) < 2.5 && Math.abs(lx) < 1.3) { o.hp -= 3; o.down = 2.2; this.hurtFoot(o); R.particles.emit(o.x, 1, o.z, 10, { color: '#ff5a4a', speed: 4, up: 3, life: 0.4, size: 0.22 }); if (o.hp <= 0) { this.killFoot(o); this.crime('copKill', o.x, o.z); } else this.crime('copHit', o.x, o.z); } }
     }
+    // officers never stand inside each other (they used to arrive and walk as ONE body): push every close pair apart, and keep them out of the patrol cars too
+    for (let a = 0; a < this.foot.length; a++) { const A1 = this.foot[a]; if (A1.dead || A1.clm) continue;
+      for (let b = a + 1; b < this.foot.length; b++) { const B1 = this.foot[b]; if (B1.dead || B1.clm) continue; let dx = B1.x - A1.x, dz = B1.z - A1.z, d = Math.hypot(dx, dz); if (d >= 0.95) continue; if (d < 1e-3) { dx = Math.cos(a * 2.4 + b); dz = Math.sin(a * 2.4 + b); d = 1; } const k = (0.95 - d) / 2 / d; A1.x -= dx * k; A1.z -= dz * k; B1.x += dx * k; B1.z += dz * k; }
+      for (const c of this.cars) { const dx = A1.x - c.x, dz = A1.z - c.z, f = Math.sin(c.yaw || 0), g = Math.cos(c.yaw || 0), lz = dx * f + dz * g, lx = -dx * g + dz * f; if (Math.abs(lz) < 2.5 && Math.abs(lx) < 1.15) { const px = Math.abs(lx) < 0.01 ? 1 : Math.sign(lx); A1.x += -g * px * (1.15 - Math.abs(lx)) * 0.6; A1.z += f * px * (1.15 - Math.abs(lx)) * 0.6; } } }
 
     // arrest
     let near = false;
@@ -274,7 +301,7 @@ export class Wanted {
     // stars are gone: the patrol cars drive off and the officers walk away; they vanish once they are away from you
     const p = this.R.me.body;
     for (let i = this.cars.length - 1; i >= 0; i--) { const c = this.cars[i], d = Math.hypot(c.x - p.x, c.z - p.z); c.parked = false; this.stepCar(c, dt || 0.016, c.x + c.dx * 200, c.z + c.dz * 200, 1e5, 1e5); if (now || d > 130 || (this.cool > 7 && d > 45)) this.removeCar(i); }
-    for (let i = this.foot.length - 1; i >= 0; i--) { const o = this.foot[i], d = Math.hypot(o.x - p.x, o.z - p.z); o.speed = 0; if (now || d > 45 || (this.cool > 7 && d > 22) || this.cool > 22) { this.group.remove(o.actor.group); o.actor.dispose(); this.foot.splice(i, 1); } else if (!o.dead) { o.actor.group.position.set(o.x, this.ground(o.x, o.z), o.z); o.actor.update(dt || 0.016, { seated: false, speed: 0, grounded: true }); } }
+    for (let i = this.foot.length - 1; i >= 0; i--) { const o = this.foot[i], d = Math.hypot(o.x - p.x, o.z - p.z); o.speed = 0; if (now || d > 45 || (this.cool > 7 && d > 22) || this.cool > 22) { this.group.remove(o.actor.group); o.actor.dispose(); if (o.da) { this.group.remove(o.da.group); o.da.dispose(); } this.foot.splice(i, 1); } else if (!o.dead) { o.actor.group.position.set(o.x, this.ground(o.x, o.z), o.z); o.actor.update(dt || 0.016, { seated: false, speed: 0, grounded: true }); } }
   }
   busted() {
     const R = this.R, W = R.wallet; this.bust = 0;
