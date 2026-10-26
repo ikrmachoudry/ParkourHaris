@@ -7,6 +7,7 @@ import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 import { CombatSim, CMB, COMBAT_MS, layout } from './combat.js';
 import { LOBBY } from './gta.js';
+import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const LOOT_COL = { pistol: '#7fd0ff', ak: '#ffb347', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c' };
@@ -44,7 +45,8 @@ export class CombatScene {
   }
   // ---------------------------------------------------------------- start / stop
   begin(m, seat) {
-    this.clear(); const R = this.R, b = R.me.body; this.on = true; this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
+    this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
+ this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
     this.sim = new CombatSim((m.round * 7919 + 13) | 0, 8); this.group.visible = true; this.pay = 0;
     if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.showHud(true); this.updateHud(); this.syncLoot();
@@ -56,7 +58,7 @@ export class CombatScene {
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
-    this.sim = null; this.on = false; this.group.visible = false; this.showHud(false);
+    this.sim = null; this.on = false; this.group.visible = false; this.showHud(false); A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {

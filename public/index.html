@@ -32,10 +32,11 @@
   <section id="s-title" class="screen">
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v149</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v150</span></div>
     </div>
     <div class="menu">
       <button class="btn big green" id="b-single"><b>1 PLAYER</b><small>Race the clock</small></button>
+      <button class="btn big orange" id="b-combat"><b>COMBAT MISSION</b><small>Loot, shoot, survive &ndash; solo or with your team</small></button>
       <button class="btn big pink" id="b-multi"><b>MULTIPLAYER</b><small>Play with friends online</small></button>
       <div class="row">
         <button class="btn blue" id="b-help">HOW TO PLAY</button>
@@ -68,6 +69,17 @@
     </div>
   </section>
 
+  <!-- ============ COMBAT MISSION: solo or team up ============ -->
+  <section id="s-cmb" class="screen panel-screen">
+    <div class="panel">
+      <h2>Combat Mission</h2>
+      <p class="note" style="margin:0 0 10px">A hidden battle map with rooms, jungle and roads. Find weapons, shoot the soldiers, survive 5 minutes.</p>
+      <button class="btn big green" id="b-cmb-solo"><b>PLAY SOLO</b><small>Just you &ndash; nobody else on the map</small></button>
+      <button class="btn big pink" id="b-cmb-team"><b>TEAM UP</b><small>Create or join a team room &ndash; only your team is on the map</small></button>
+      <div class="row end"><button class="btn grey" id="b-cmb-back">BACK</button></div>
+    </div>
+  </section>
+
   <!-- ============ MULTIPLAYER MENU ============ -->
   <section id="s-mp" class="screen panel-screen">
     <div class="panel">
@@ -91,7 +103,7 @@
     <div class="lobby-bottom">
       <div class="lobby-block"><h3>Players <em id="lobby-count">1/3</em></h3><div id="lobby-players" class="slots"></div></div>
       <div class="lobby-block"><h3>Your character</h3><div id="lobby-chars" class="cards chars small"></div></div>
-      <div class="lobby-block"><h3>Level <em id="lobby-level-note"></em></h3><div id="lobby-levels" class="cards levels small"></div></div>
+      <div class="lobby-block" id="lobby-level-block"><h3>Level <em id="lobby-level-note"></em></h3><div id="lobby-levels" class="cards levels small"></div></div>
       <div class="lobby-block start"><button class="btn big green" id="b-start"><b>START</b></button><div id="lobby-hint" class="note"></div></div>
     </div>
   </section>

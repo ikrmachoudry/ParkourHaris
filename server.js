@@ -65,7 +65,7 @@ function genCode() {
 
 function lobbyMsg(room) {
   return {
-    t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase,
+    t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat,
     players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, zom: !!p.zom })),
   };
 }
@@ -131,6 +131,10 @@ function startRound(room) {
   });
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
+  if (room.combat) room.timers.push(setTimeout(() => {   // TEAM UP COMBAT: once everybody has loaded the city the mission starts by itself, with the whole team in it
+    if (room.phase !== 'race' || !room.players.size) return; const h = hubOf(room), ids = [...room.players.keys()];
+    if (h.phase !== 'idle') return; for (const id of ids) h.lobby(id, true, ids); h.pick(room.hostId, 'combat', ids); h.start(room.hostId, ids);
+  }, 7000));
 }
 
 function removePlayer(p) {
@@ -189,7 +193,7 @@ wss.on('connection', (ws, req) => {
 
     switch (m.t) {
       case 'ping': send(ws, { t: 'pong', c: m.c, s: Date.now() }); break;
-      case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
+      case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS && !!x.combat === !!m.combat); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
 
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
@@ -197,7 +201,7 @@ wss.on('connection', (ws, req) => {
         if (want && rooms.has(want) && !(room && room.code === want)) return send(ws, { t: 'err', msg: `A room named ${want} already exists. Tap JOIN ROOM to enter it, or choose another name.` });
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
-        const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0 };
+        const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0, combat: !!m.combat };   // combat: a TEAM UP room for the COMBAT MISSION (the match starts by itself when the host presses START)
         rooms.set(r.code, r);
         joinRoom(p, r);
         break;
@@ -207,9 +211,10 @@ wss.on('connection', (ws, req) => {
         const want = roomKey(m.room || m.code);
         if (want) {
           r = rooms.get(want);
+          if (r && !!r.combat !== !!m.combat) return send(ws, { t: 'err', msg: r.combat ? 'That room is a COMBAT team room. Use COMBAT MISSION on the main menu to join it.' : 'That is a normal room. Use MULTIPLAYER on the main menu to join it.' });
           if (!r) return send(ws, { t: 'err', msg: `No room named ${want} yet. Ask the host to create it first (same name), then tap JOIN ROOM.` });
         } else {
-          const all = [...rooms.values()];
+          const all = [...rooms.values()].filter((x) => !!x.combat === !!m.combat);
           if (all.length > 1) return send(ws, { t: 'err', msg: 'There is more than one room open - type the room name your friend made, then tap JOIN ROOM.' });
           r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < MAX_PLAYERS) || all.find((x) => x.players.size < MAX_PLAYERS);
           if (!r) {

@@ -1025,7 +1025,7 @@ class Race {
   drawBigMap() { if (!this.minimap) return; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
     this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
   /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
-  toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
+  toggleMap(on) { if (!this.meta.city || (this.mission && this.mission.cs && this.mission.cs.on)) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
     if (this.bigMapOpen && !was) { this.mapLocked = document.pointerLockElement === canvas; try { document.exitPointerLock(); } catch {}   // laptop: give the mouse back (visible cursor, trackpad pinch works)
  if (!this.multi && !this.paused) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
     if (!this.bigMapOpen && was && this.mapLocked && !IS_TOUCH && !this.menuOpen) { this.mapLocked = false; setTimeout(() => tryLock(), 60); }
@@ -1830,7 +1830,7 @@ class Race {
 }
 
 // ------------------------------------------------------------------ UI / flow
-const screens = ['title', 'profile', 'levels', 'mp', 'lobby', 'results', 'help'];
+const screens = ['title', 'profile', 'levels', 'mp', 'cmb', 'lobby', 'results', 'help'];
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   app.screen = name;
@@ -1892,7 +1892,7 @@ function makeThumbs() {
 
 // ---- profile screen
 function openProfile(mode) {
-  app.mode = mode;
+  app.mode = mode; if (mode !== 'combat') app.combat = false;
   $('inp-name').value = app.name;
   $('profile-title').textContent = mode === 'single' ? 'Choose your player' : 'Choose your player';
   charCards($('char-cards'), { onPick: (id) => { app.char = id; markChars($('char-cards'), id); stage.sel = id; A.sfx.select(); stage.burst(id); } });
@@ -1958,7 +1958,7 @@ $('b-res-next').onclick = () => {
 function leaveToTitle() {
   if (race) { race.destroy(); race = null; }
   if (app.net && app.room) { app.net.send({ t: 'leave' }); }
-  app.room = null; exitLock();
+  app.room = null; app.combat = false; exitLock();
   stage.setTitle(); show('title'); A.initAudio(); A.startMusic(99);
 }
 
@@ -2011,7 +2011,7 @@ async function startRoomPoll() {
   { const inp = $('mp-room'); if (inp && !inp.value) { let v = new URLSearchParams(location.search).get('room') || ''; if (!v) try { v = localStorage.getItem('ph_room') || ''; } catch { /* noop */ } inp.value = v; } }
   try {
     const net = await ensureNet();
-    const q = () => { if (app.screen !== 'mp' || app.room || !net.connected) { if (app.screen !== 'mp') { clearInterval(roomPoll); roomPoll = null; } return; } net.send({ t: 'rooms' }); };
+    const q = () => { if (app.screen !== 'mp' || app.room || !net.connected) { if (app.screen !== 'mp') { clearInterval(roomPoll); roomPoll = null; } return; } net.send({ t: 'rooms', combat: !!app.combat }); };
     q(); roomPoll = setInterval(q, 2000);
   } catch (e) { $('mp-status').textContent = 'Could not connect to the game server.'; }
 }
@@ -2023,8 +2023,8 @@ async function mpAction(kind) {
   const st = $('mp-status'); st.textContent = 'Connecting...';
   try {
     const net = await ensureNet();
-    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom, room: roomName() });
-    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom, room: roomName() });   // same room NAME -> same room
+    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom, room: roomName(), combat: !!app.combat });
+    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom, room: roomName(), combat: !!app.combat });   // same room NAME -> same room
     st.textContent = kind === 'create' ? '' : 'Looking for a room...';
   } catch (e) { st.textContent = 'Could not connect to the game server. Is it running?'; gtoast('Could not connect to the game server'); }
 }
@@ -2060,9 +2060,9 @@ function renderLobby() {
   const host = m.hostId === app.myId;
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
-  $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)';
+  $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)'; { const lb = $('lobby-level-block'); if (lb) lb.style.display = m.combat ? 'none' : ''; }
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
-  $('lobby-hint').textContent = host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
+  $('lobby-hint').textContent = m.combat ? (host ? 'COMBAT TEAM ROOM: tell your team the room name. Press START when everybody is in - the match begins by itself.' : 'COMBAT TEAM ROOM: the host will start the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
   stage.setLobby(m.players);
 }
 function onGo(m) {
@@ -2072,6 +2072,7 @@ function onGo(m) {
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
   race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed }); race.syncAct();
+  if (room.combat) { race.combatOnly = true; race.onCombatDone = leaveToTitle; }   // TEAM UP COMBAT: the server starts the mission by itself; at the end everybody goes back to the menu
   resize(); show('none'); tryLock();
 }
 
@@ -2241,9 +2242,13 @@ async function boot() {
   A.initAudio(); A.startMusic(99);
   { const un = () => { A.initAudio(); if (!app.screen || app.screen === 'title' || app.screen === 'profile') A.startMusic(99); for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, un, true); }; for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, un, true); }
   $('b-profile-back').onclick = () => { A.sfx.back(); stage.setTitle(); show('title'); };
-  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else openMp(); };
+  $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
+  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; startSingle(0); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } };
+  $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
+  $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
+  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };
-  $('b-mp-back').onclick = () => { A.sfx.back(); stopJoin(); openProfile('multi'); };
+  $('b-mp-back').onclick = () => { A.sfx.back(); stopJoin(); if (app.combat) show('cmb'); else openProfile('multi'); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };

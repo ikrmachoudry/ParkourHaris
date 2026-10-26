@@ -48,6 +48,8 @@ export class MissionClient {
     const id = this.race.localId, h = this.hub;
     if (m.t === 'm_in') h.lobby(id, !!m.on, this.all); else if (m.t === 'm_pick') h.pick(id, String(m.mission), this.all); else if (m.t === 'm_start') h.start(id, this.all, m.role); else if (m.t === 'm_res') h.result(id, !!m.ok, m.why, m.round | 0); else if (m.t === 'm_hit') h.hit(id, +m.dmg || 1); else if (m.t === 'm_zh') h.zhit(id, m.z | 0, +m.d || 1); else if (m.t === 'm_pr') h.rick(id, m);
   }
+  // COMBAT MISSION from the main menu (alone): press the invisible pad for the player
+  autoCombat() { setTimeout(() => { if (this.phase !== 'idle') return; this.send({ t: 'm_in', on: true }); this.send({ t: 'm_pick', mission: 'combat' }); this.send({ t: 'm_start' }); }, 1200); }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
   localP() {
@@ -104,7 +106,7 @@ export class MissionClient {
       this.hold = false; this.freeze = false; this.showFin(false); if (this.mission === 'zombie' || this.mission === 'poli') { this.zs.clear(); if (m.pass) this.endZombie(); }
       if (m.pass) { this.phase = 'done'; if (this.race.wallet) this.race.wallet.add(MISSION_PAY[this.mission] || MISSION_PAY_DEFAULT, 'mission'); this.big('MISSION PASSED', 5000, '#5ef0a0'); this.sub(this.mission === 'thief' ? 'THE THIEF IS DOWN - REWARD PAID' : this.mission === 'snipe' ? 'THE THIEF IS IN CUSTODY - REWARD PAID' : this.mission === 'zombie' ? 'THE HOUSE IS SAFE - $5,000 EACH' : this.mission === 'poli' ? 'THE OFFICER IS SAFE AT THE STATION - $4,000 EACH' : 'GREAT JUMPING!', 5000); A.sfx.pickup(); this.chips(true); }
       else { this.phase = 'retry'; this.finished = true; this.big('MISSION FAILED', 3800, '#ff5a5a'); this.sub((this.mission === 'snipe' ? this.snipeWhy(m) : (REASON[m.why] || 'TRY AGAIN') + (m.who === R.localId ? ' (YOU)' : '')) + ' - RESTARTING FOR EVERYBODY', 7500, true); this.big('MISSION FAILED', 6500, '#ff5a5a'); A.sfx.bonk(); }
-    } else if (m.t === 'm_idle') { this.endZombie(); this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
+    } else if (m.t === 'm_idle') { if (this.race.combatOnly && this.race.onCombatDone) setTimeout(() => { if (this.race.onCombatDone) this.race.onCombatDone(); }, 1200); this.endZombie(); this.showFin(false); this.parkT = 1; this.parkAll = true; this.phase = 'idle'; this.hold = false; this.res = {}; this.big('', 1); this.sub('', 1); this.chips(); this.ts.clear(); this.ss.clear(); this.freeze = false; this.lobby = { in: [], total: this.lobby.total }; this.panelClosed = false; this.inPad = false; }
   }
   onGo(m) {
     this.freeze = false; this.ss.clear(); this.chased = false;

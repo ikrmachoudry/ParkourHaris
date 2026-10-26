@@ -40,6 +40,7 @@ canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block;
 .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--sh), 0 4px 8px rgba(0,0,0,.4), inset 0 3px 0 rgba(255,255,255,.3); }
 .btn:disabled { filter: grayscale(.9) brightness(.7); cursor: not-allowed; transform: none; }
 .btn.green { --bg: linear-gradient(#52e58b, #20b85d); --sh: #11803f; }
+.btn.orange { --bg: linear-gradient(#ffc15c, #f08a1c); --sh: #a65a0b; }
 .btn.pink { --bg: linear-gradient(#ff8ccb, #f0409b); --sh: #a31e69; }
 .btn.blue { --bg: linear-gradient(#5fc2ff, #2b7fe8); --sh: #1a4fa3; }
 .btn.purple { --bg: linear-gradient(#b48bff, #7a4be0); --sh: #4b2a9e; }

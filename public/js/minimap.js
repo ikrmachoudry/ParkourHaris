@@ -1,6 +1,7 @@
 // MINI-MAP: a round GTA-style radar in the bottom-left corner. The city is drawn once into an offscreen canvas (roads, blocks, parks, the mountain road,
 // the highway, houses and the repair shop); every frame a rotated window of it is blitted so your view direction is always "up".
 import { PORT } from './port.js';
+import { CMB, BUILDINGS as CB, ROADS as CR, layout as cmbLayout } from './combat.js';
 import { GT, HILLS, BLK, RING_HW, ringPath, gtaBuildings, mtRoad, PARKS, REPAIR, HOMES, LOBBY, STUNT, PARK, parkPath, BANK, POLICE, ARMS, AUTOS, SNIPE } from './gta.js';
 
 const W = 1100, O = 550;   // 1 px = 1 m, world -550..550
@@ -38,6 +39,20 @@ function drawStatic() {
   return cv;
 }
 
+// the hidden COMBAT map (240 x 240 m, drawn once; sits at CMB.x / CMB.z in the world so teammates' dots land on it)
+function drawCombat() {
+  const S = 2 * CMB.half + 20, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), o = S / 2, L = cmbLayout();
+  g.fillStyle = '#4f7f3c'; g.fillRect(0, 0, S, S); g.fillStyle = '#3a6a30'; g.fillRect(0, 0, o - 6, S);
+  g.strokeStyle = '#d8d4c4'; g.lineCap = 'butt'; for (const [x0, z0, x1, z1, w] of CR) { g.lineWidth = w + 2; g.beginPath(); g.moveTo(o + x0, o + z0); g.lineTo(o + x1, o + z1); g.stroke(); }
+  g.strokeStyle = '#555a62'; for (const [x0, z0, x1, z1, w] of CR) { g.lineWidth = w; g.beginPath(); g.moveTo(o + x0, o + z0); g.lineTo(o + x1, o + z1); g.stroke(); }
+  g.fillStyle = '#1f4a22'; for (const t of L.trees) { g.beginPath(); g.arc(o + t.x, o + t.z, 1.6, 0, 7); g.fill(); }
+  g.fillStyle = '#8b8b84'; for (const r of L.rocks) g.fillRect(o + r.x - r.s, o + r.z - r.s, 2 * r.s, 2 * r.s);
+  for (const b of CB) { g.fillStyle = b.c; g.fillRect(o + b.x - b.w / 2, o + b.z - b.d / 2, b.w, b.d); }
+  g.fillStyle = '#2e2b26'; for (const s of L.solids) if (s.k === 'wall') g.fillRect(o + s.x0, o + s.z0, Math.max(0.8, s.x1 - s.x0), Math.max(0.8, s.z1 - s.z0));
+  g.fillStyle = '#6a645b'; for (const s of L.solids) if (s.k === 'cliff') g.fillRect(o + s.x0, o + s.z0, s.x1 - s.x0, s.z1 - s.z0);
+  return cv;
+}
+
 // a mission route is either one red line (a list of points) or { lines: [{ pts, color }] }
 const routeLines = (r) => (!r ? [] : Array.isArray(r) ? (r.length > 1 ? [{ pts: r, color: 'rgba(230,30,30,.95)' }] : []) : (r.lines || []).filter((l) => l.pts && l.pts.length > 1));
 
@@ -55,7 +70,7 @@ export class Minimap {
     const k = S / 2 / this.R, th = view.head - Math.PI, c = Math.cos(th), s = Math.sin(th);
     g.save(); g.clearRect(0, 0, S, S); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip();
     g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
-    g.translate(S / 2, S / 2); g.scale(k, k); g.rotate(th); g.translate(-view.x, -view.z); g.drawImage(this.map, -O, -O); g.restore();
+    g.translate(S / 2, S / 2); g.scale(k, k); g.rotate(th); g.translate(-view.x, -view.z); g.drawImage(this.map, -O, -O); g.drawImage(this.cmap || (this.cmap = drawCombat()), CMB.x - CMB.half - 10, CMB.z - CMB.half - 10); g.restore();
     const toScr = (x, z) => { const dx = x - view.x, dz = z - view.z; return [S / 2 + (dx * c - dz * s) * k, S / 2 + (dx * s + dz * c) * k]; };
     const icon = (x, z, bg, glyph, r) => {   // landmark badge, pinned to the rim when it is far away
       let [px, py] = toScr(x, z); const dx = px - S / 2, dy = py - S / 2, d = Math.hypot(dx, dy), lim = S / 2 - r - 3;
