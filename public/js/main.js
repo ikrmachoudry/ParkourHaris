@@ -344,7 +344,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.15, 1.2); this.lookT = 1.6;
+    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.8, 1.25); this.lookT = 1.6;
   }
 
   update(dt) {
@@ -1237,7 +1237,8 @@ class Race {
     if (this.aimT > 0) this.aimT -= dt;
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
-    if (this.fireHeld && (this.weapon === 'ak' || this.weapon === 'pistol')) this.fire();   // hold the fire button: AK and pistol keep firing
+    if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, 1.25); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
+    if (this.fireHeld && (this.weapon === 'ak' || this.weapon === 'pistol') && !(this.single && this.weapon === 'ak')) this.fire();   // hold the fire button: AK and pistol keep firing
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
@@ -1411,6 +1412,13 @@ class Race {
     const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
     el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
   }
+  // R: reload now, any time (also in the middle of shooting) when the magazine is not full and there is a spare one
+  reload() {
+    const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || this.drive || this.over || this.reloadT > 0) return false;
+    if (this.wallet.mag(w) >= W.mag || this.wallet.reserve(w) <= 0) return false;
+    this.reloadT = W.reload || 1.5; this.fireHeld = false; A.sfx.click(); this.updateAmmoHud(); return true;
+  }
+  toggleFireMode() { const w = this.weapon, W = w && WEAPONS[w]; if (!W || !W.auto) { this.toast('Single shot only on this weapon'); return; } this.single = !this.single; this.toast(this.single ? 'FIRE MODE: SINGLE' : 'FIRE MODE: AUTO'); const b = $('a-fmode'); if (b) b.classList.toggle('on', !!this.single); }
   // the point the crosshair (screen centre) looks at: along the camera ray, down to the ground when it points down, 40+ m ahead otherwise
   crosshairPoint(range) {
     const cam = this.camera; if (!cam) return null; const d = new THREE.Vector3(); cam.getWorldDirection(d); const cp = cam.position, gy = this.world && this.world.terrain ? this.world.terrain(cp.x + d.x * 20, cp.z + d.z * 20) : 0;
@@ -1429,7 +1437,7 @@ class Race {
     if (OPT.ammo && this.wallet.s) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
-    this.wallet.shoot(w); this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
+    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
     let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + (Math.random() - 0.5) * 2 * W.spread;   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
@@ -1716,7 +1724,8 @@ class Race {
     { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
-    let dist = this.camDist; const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
+    let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);   // looking up: the camera swings in close under the player, like PUBG
+    const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
@@ -2096,9 +2105,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
-  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.toggleAim(); else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
+  if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
-  if (e.code === 'KeyB' && race && !race.menuOpen) { race.swing(); }
+  if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.meta.city && isGun(race.weapon)) race.toggleFireMode(); else race.swing(); }
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
@@ -2321,6 +2330,8 @@ window.__ph = { A, rend: renderer, app, Remote, stepBody, newBody, startSingle: 
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
   act('a-weapon', () => { if (race && !race.over && !race.menuOpen) race.toggleWheel(); });
+  act('a-reload', () => { if (race && !race.over && !race.menuOpen) race.reload(); });
+  act('a-fmode', () => { if (race && !race.over && !race.menuOpen) race.toggleFireMode(); });
   act('a-aim', () => { if (race && !race.over && !race.menuOpen) race.toggleAim(); });
   act('a-punch', () => { if (race && !race.over && !race.menuOpen) { race.fireHeld = true; race.punch(); } }, () => { if (race) race.fireHeld = false; });
   btn('t-jump', () => { if (race && !race.over) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });

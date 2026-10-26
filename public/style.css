@@ -677,3 +677,14 @@ body.standalone #b-auto { top: calc(max(8px, env(safe-area-inset-top)) + 52px); 
   .m-card button { padding: 9px; font-size: 14px; margin-top: 5px; }
   #m-start { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -6px 10px #14122b; }
 }
+
+/* v148: PUBG-style extra buttons */
+body.touch #a-reload { right: calc(var(--pad-big) + var(--pad-size) + var(--pad-gap) * 2); bottom: 0; top: auto; width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-fmode { right: calc(var(--pad-big) + var(--pad-size) + var(--pad-gap) * 2); bottom: calc(var(--pad-size) + var(--pad-gap)); top: auto; width: var(--pad-size); height: var(--pad-size); }
+body.touch #a-reload::after, body.touch #a-fmode::after { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 900 9px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+body.touch #a-reload::after { content: 'RELOAD'; }
+body.touch #a-fmode::after { content: 'FIRE'; }
+body:not(.touch) #a-reload, body:not(.touch) #a-fmode { display: none; }
+#kb-hint { display: none; position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; z-index: 15; pointer-events: none; font: 600 11px system-ui, sans-serif; color: #fff; background: rgba(10,10,25,.55); padding: 4px 10px; border-radius: 8px; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+#kb-hint b { background: rgba(255,255,255,.9); color: #111; border-radius: 4px; padding: 0 5px; margin: 0 3px 0 8px; text-shadow: none; }
+body:not(.touch).in-race.city-mode:not(.driving) #kb-hint { display: block; }
