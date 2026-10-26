@@ -104,6 +104,11 @@ export class CombatScene {
   }
   placeDrop(t) { const d = this.drop, b = this.R.me.body; const x = d.sx + d.hd[0] * d.v * t, z = d.sz + d.hd[1] * d.v * t;
     if (this.plane) { this.plane.position.set(x, d.alt, z); this.plane.rotation.y = d.a; }
+    if (d.ph === 'plane') { b.x = x; b.y = d.alt - 1.2; b.z = z; b.yaw = d.a; } }
+  stepDrop(dt, inp, b) {   // called by the main loop instead of the ground physics while dropping
+    const d = this.drop; if (!d) { this.dropping = false; return; }
+    const R = this.R, g = R.me.model && R.me.model.group; d.t += dt;
+    if (this.plane && this.planeProps) for (const pv of this.planeProps) pv.rotation.z += dt * 38;
     if (d.ph === 'plane') {
       this.placeDrop(d.t); if (g) g.visible = true; const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; }
       const ml = Math.hypot(inp.mx, inp.mz), sd = w && w.userData.seat;

@@ -213,7 +213,7 @@ export class MissionClient {
     this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
     this.cover(true); if (R.world && R.world.group) R.world.group.visible = false;
-    setTimeout(() => { this.cs.begin(m, this.seat); setTimeout(() => this.cover(false), 700); }, 120);
+    setTimeout(() => { try { this.cs.begin(m, this.seat); } catch (e) { console.error(e); this.cover(true, 'ERROR: ' + (e && e.message || e)); setTimeout(() => this.cover(false), 5000); return; } setTimeout(() => this.cover(false), 700); }, 120);
     this.big('COMBAT MISSION', 2600, '#ffb347'); this.sub('FIND WEAPONS ON THE GROUND - SHOOT THE SOLDIERS - SURVIVE 5 MINUTES  (R = RELOAD)', 7000); this.chips();
   }
   // leaves the zombie mission: the free kit goes back, the zombies disappear
