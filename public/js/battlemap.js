@@ -220,7 +220,8 @@ export function buildBattleMap(quality = 1) {
   meshes.push(...B.finish(group, true));
 
   // ================================================================ instanced vegetation
-  const matInst = (o) => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...o });
+  const FADE = { v: new THREE.Vector2(120, 140) };
+  const matInst = (o, fade) => { const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, ...o }); if (fade) m.onBeforeCompile = (sh) => { sh.uniforms.uFade = { value: fade }; sh.vertexShader = 'varying float vFd;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvFd = length(mvPosition.xyz);'); sh.fragmentShader = 'varying float vFd;\nuniform vec2 uFade;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n float dt = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\n if (vFd > uFade.x && (vFd - uFade.x) / (uFade.y - uFade.x) > dt) discard;'); }; return m; };
   const colorize = (g, fn) => { const p = g.attributes.position, c = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const cc = fn(p.getX(i), p.getY(i), p.getZ(i)); c[i * 3] = cc[0]; c[i * 3 + 1] = cc[1]; c[i * 3 + 2] = cc[2]; } g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; };
   const lerpc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   const part = (g, y, fn) => { g.translate(0, y, 0); return colorize(g.toNonIndexed(), fn); };
@@ -232,16 +233,21 @@ export function buildBattleMap(quality = 1) {
   const bushG = (() => { const gs = []; for (const [x, z, r] of [[0, 0, 0.55], [0.5, 0.2, 0.4], [-0.4, 0.3, 0.42]]) { const b = new THREE.IcosahedronGeometry(r, 0); gs.push(colorize(b.translate(x, r * 0.8, z).toNonIndexed(), (px, py) => lerpc([0.05, 0.12, 0.04], [0.16, 0.27, 0.08], py / (r * 1.6 + 0.2)))); } return mergeGeometries(gs); })();
   const rockG = (() => { const g = new THREE.DodecahedronGeometry(1, 0); const p = g.attributes.position, rr = rngS(17); for (let i = 0; i < p.count; i++) { const k = 0.8 + rr() * 0.35; p.setXYZ(i, p.getX(i) * k * 1.15, p.getY(i) * k * 0.8, p.getZ(i) * k); } g.computeVertexNormals(); return colorize(g.toNonIndexed(), (x, y) => lerpc([0.2, 0.19, 0.17], [0.34, 0.33, 0.3], (y + 1) / 2)); })();
   const VEG = []; const dummy = new THREE.Object3D(), tcol = new THREE.Color();
-  const makeInst = (geo, mat, items, cull, cast, setCol) => {   // items: [{x,y,z,s,r}] -> chunked InstancedMeshes (120 m cells)
+  const makeInst = (geo, mat, items, cull, cast, setCol, farGeo, farMat, farCull) => {   // items: [{x,y,z,s,r}] -> chunked InstancedMeshes (120 m cells)
     const cells = new Map(); for (const it of items) { const k = Math.floor((it.x + H) / 120) + ',' + Math.floor((it.z + H) / 120); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(it); }
     for (const a of cells.values()) {
       const im = new THREE.InstancedMesh(geo, mat, a.length); a.forEach((it, i) => { dummy.position.set(it.x, it.y, it.z); dummy.rotation.set(0, it.r, 0); dummy.scale.set(it.s * (it.sx || 1), it.s * (it.sy || 1), it.s * (it.sx || 1)); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); if (setCol) { setCol(tcol, it); im.setColorAt(i, tcol); } });
       im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.castShadow = cast; im.receiveShadow = true; im.userData.c = [im.boundingSphere.center.x, im.boundingSphere.center.z]; im.userData.cull = cull + im.boundingSphere.radius; group.add(im); VEG.push(im);
+      if (farGeo) { const fm = new THREE.InstancedMesh(farGeo, farMat, a.length); fm.instanceMatrix = im.instanceMatrix; if (im.instanceColor) fm.instanceColor = im.instanceColor; fm.count = a.length; fm.boundingSphere = im.boundingSphere; fm.castShadow = false; fm.receiveShadow = false; fm.frustumCulled = true; fm.userData.c = im.userData.c; fm.userData.near = cull - 20; fm.userData.cull = farCull + im.boundingSphere.radius; fm.visible = false; group.add(fm); VEG.push(fm); }
     }
   };
-  const treeCull = q === 0 ? 140 : q === 1 ? 200 : 260;
-  makeInst(pineG, matInst({ flatShading: false }), L.trees.filter((t) => t.pine).map((t) => ({ ...t, s: t.s * 0.95, r: t.r })), treeCull, true, (c, it) => c.setScalar(0.85 + ((it.x * 12.9898 + it.z * 78.233) % 1 + 1) % 1 * 0.3));
-  makeInst(oakG, matInst({}), L.trees.filter((t) => !t.pine).map((t) => ({ ...t, s: t.s * 0.9 })), treeCull, true, (c, it) => { const k = ((it.x * 3.1 + it.z * 7.7) % 1 + 1) % 1; c.setRGB(0.85 + k * 0.3, 0.85 + (1 - k) * 0.25, 0.8 + k * 0.1); });
+const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.3, 2.5, 4).translate(0, 1.25, 0).toNonIndexed(), () => [0.28, 0.2, 0.13]), colorize(new THREE.ConeGeometry(2.3, 6.5, 5, 1, true).translate(0, 5.2, 0).toNonIndexed(), (x, y) => lerpc([0.025, 0.085, 0.04], [0.07, 0.17, 0.07], (y - 2) / 6.5))]; return mergeGeometries(gs); })();
+  const farOak = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.25, 0.35, 3, 4).translate(0, 1.5, 0).toNonIndexed(), () => [0.3, 0.22, 0.15]), colorize(new THREE.IcosahedronGeometry(2.6, 0).translate(0, 4.8, 0).toNonIndexed(), (x, y) => lerpc([0.05, 0.13, 0.04], [0.16, 0.27, 0.08], (y - 2) / 5))]; return mergeGeometries(gs); })();
+  const treeCull = q === 0 ? 140 : q === 1 ? 200 : 260, farCull = q === 0 ? 330 : q === 1 ? 430 : 520;
+  FADE.v.set(treeCull - 25, treeCull);
+  const farMatT = matInst({ roughness: 1 }, new THREE.Vector2(farCull - 60, farCull));
+  makeInst(pineG, matInst({ flatShading: false }, FADE.v), L.trees.filter((t) => t.pine).map((t) => ({ ...t, s: t.s * 0.95, r: t.r })), treeCull, true, (c, it) => c.setScalar(0.85 + ((it.x * 12.9898 + it.z * 78.233) % 1 + 1) % 1 * 0.3), farPine, farMatT, farCull);
+  makeInst(oakG, matInst({}, FADE.v), L.trees.filter((t) => !t.pine).map((t) => ({ ...t, s: t.s * 0.9 })), treeCull, true, (c, it) => { const k = ((it.x * 3.1 + it.z * 7.7) % 1 + 1) % 1; c.setRGB(0.85 + k * 0.3, 0.85 + (1 - k) * 0.25, 0.8 + k * 0.1); }, farOak, farMatT, farCull);
   makeInst(rockG, matInst({ roughness: 1 }), L.rocks.map((r) => ({ ...r, y: r.y + r.s * 0.2, s: r.s })), q === 0 ? 170 : 260, true, (c, it) => c.setScalar(0.85 + ((it.x * 5.3 + it.z) % 1 + 1) % 1 * 0.25));
   // bushes: scattered near forests and along roads / rivers
   { const items = [], br = rngS(31), want = q === 0 ? 900 : q === 1 ? 1800 : 3000; for (let tries = 0; items.length < want && tries < want * 5; tries++) { const x = (br() * 2 - 1) * (H - 16), z = (br() * 2 - 1) * (H - 16), y = cmbH(x, z); if (y < 0 || distRoad(x, z) < 1.5 || onPad(x, z, 3) || fbm(x * 0.013 + 5, z * 0.013 - 3, 41, 3) < 0.38 + br() * 0.15) continue; items.push({ x, y, z, s: 0.8 + br() * 1.0, r: br() * 6.28 }); }
@@ -265,10 +271,11 @@ export function buildBattleMap(quality = 1) {
   const NC = Math.ceil(2 * H / GR.cell);
 
   // ================================================================ per-frame: wind, draw-distance culling, grass streaming
-  let tAcc = 0;
+  let tAcc = 0, fAcc = 0, fN = 0, ov = null;
+  const stats = (dt) => { fAcc += dt; fN++; if (fAcc < 0.5) return; const r = window.__ph && window.__ph.rend, on = /[?&]stats/.test(location.search) || window.__showStats; if (on) { if (!ov) { ov = document.createElement('div'); ov.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px monospace;color:#0f0;background:#0008;padding:3px 6px;pointer-events:none;white-space:pre'; document.body.appendChild(ov); } ov.textContent = (fN / fAcc).toFixed(0) + ' fps  ' + (fAcc / fN * 1000).toFixed(1) + ' ms' + (r ? '\n' + (r.info.render.triangles / 1000).toFixed(0) + 'k tris  ' + r.info.render.calls + ' calls' : ''); } else if (ov) { ov.remove(); ov = null; } fAcc = 0; fN = 0; };
   const update = (dt, camPos) => {
-    uni.time.value += dt; const cx = camPos.x - CMB.x, cz = camPos.z - CMB.z; tAcc += dt;
-    for (const m of VEG) { const c = m.userData.c, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < m.userData.cull; }
+    uni.time.value += dt; stats(dt); const cx = camPos.x - CMB.x, cz = camPos.z - CMB.z; tAcc += dt;
+    for (const m of VEG) { const c = m.userData.c, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < m.userData.cull && d >= (m.userData.near || 0); }
     for (const m of meshes) { const c = m.userData.chunk, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < (q === 0 ? 300 : 460) + CH; }
     const ci0 = Math.floor((cx - GR.range + H) / GR.cell), ci1 = Math.floor((cx + GR.range + H) / GR.cell), cj0 = Math.floor((cz - GR.range + H) / GR.cell), cj1 = Math.floor((cz + GR.range + H) / GR.cell);
     for (const [k, v] of GR.done) { if (!v) continue; const [ci, cj] = k.split(',').map(Number), mx = -H + (ci + 0.5) * GR.cell, mz = -H + (cj + 0.5) * GR.cell; v.visible = Math.hypot(mx - cx, mz - cz) < GR.range + GR.cell * 0.75; }
