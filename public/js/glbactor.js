@@ -21,8 +21,10 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
+const CLIP_FOR = { dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] }, nadeThrow: { c: 'nadeThrow', nade: 1 }, nadeToss: { c: 'nadeToss', nade: 1 }, nadeStand: { c: 'nadeStand', nade: 1 } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
+const FORE = { ak: [0, -0.04, 0.27], m4: [0, -0.04, 0.25], smg: [0, -0.07, 0.14], shotgun: [0, -0.06, 0.38], sniper: [0, -0.04, 0.48] };   // where the left hand holds each gun (gun frame: +z barrel, origin = grip)
+const _ik = { pa: new THREE.Vector3(), pb: new THREE.Vector3(), pc: new THREE.Vector3(), t: new THREE.Vector3(), d: new THREE.Vector3(), ac: new THREE.Vector3(), pole: new THREE.Vector3(), pb2: new THREE.Vector3(), q: new THREE.Quaternion(), wq: new THREE.Quaternion(), pq: new THREE.Quaternion() };
 const _aimD = new THREE.Vector3(), _aimT = new THREE.Vector3(), _aimQ = new THREE.Quaternion(), _aimE = new THREE.Quaternion(), _aimI = new THREE.Quaternion(), AIM_BONES = ['spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R'];
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
@@ -278,6 +280,29 @@ export class GlbActor extends HeroActor {
     // hips: bounce / lean / sitting height (driver offset or Mixamo hips travel) scaled to this body, in the hips parent's local space
     _v.copy(rt.curOff).applyQuaternion(_q.copy(rt.hipsParentQ).invert()).divideScalar(rt.hipsParentS);
     rt.hips.position.copy(rt.hipsRestLocal).add(_v);
+    if (!this.ikOff) try { this.gripIK(dt, st); } catch (e) { this.ikOff = true; console.warn('grip IK off', e); }
+  }
+  // LEFT HAND ON THE GUN: after the pose is set, a two-bone IK reaches the left hand to the gun's fore-grip point (per gun, in the gun frame), so ANY gun is held right, whatever the clip did
+  gripIK(dt, st) {
+    const rt = this.rt, W = this.ch.wmesh && st.weapon && this.ch.wmesh[st.weapon], fg = FORE[st.weapon];
+    const want = !!(W && fg && this.ch.gun.visible && /^rifle/.test(this.pose || '') && !st.seated);
+    this.ikK = (this.ikK || 0) + ((want ? 1 : 0) - (this.ikK || 0)) * Math.min(1, dt * 9);
+    if (this.ikK < 0.02 || !W) return;
+    const gg = W.children[0]; if (!gg) return;
+    this.group.updateMatrixWorld(true);
+    const A = rt.T['upperarm.L'].bone, B = rt.T['forearm.L'].bone, C = rt.T['hand.L'].bone;
+    const pa = A.getWorldPosition(_ik.pa), pb = B.getWorldPosition(_ik.pb), pc = C.getWorldPosition(_ik.pc), t = gg.localToWorld(_ik.t.set(fg[0], fg[1], fg[2]));
+    const l1 = pa.distanceTo(pb), l2 = pb.distanceTo(pc); if (l1 < 1e-4 || l2 < 1e-4) return;
+    const k = this.ikK; t.lerpVectors(pc, t, k);   // blend the target from where the hand already is
+    const dir = _ik.d.subVectors(t, pa), dist = Math.min(Math.max(dir.length(), Math.abs(l1 - l2) + 1e-3), l1 + l2 - 1e-3); dir.normalize();
+    const ac = _ik.ac.subVectors(pc, pa).normalize(), pole = _ik.pole.subVectors(pb, pa); pole.addScaledVector(ac, -pole.dot(ac));   // the elbow keeps bending the way the clip had it
+    if (pole.lengthSq() < 1e-8) pole.set(0, -1, 0); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+    const ca = (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), sa = Math.sqrt(Math.max(0, 1 - ca * ca));
+    const pb2 = _ik.pb2.copy(pa).addScaledVector(dir, ca * l1).addScaledVector(pole, sa * l1);
+    const rot = (bone, from, to) => { _ik.q.setFromUnitVectors(from.clone().normalize(), to.clone().normalize()); const par = bone.parent, wq = bone.getWorldQuaternion(_ik.wq).premultiply(_ik.q), pq = par.getWorldQuaternion(_ik.pq); bone.quaternion.copy(pq.invert().multiply(wq)); bone.updateMatrixWorld(true); };
+    rot(A, pb.clone().sub(pa), pb2.clone().sub(pa));
+    const pcN = C.getWorldPosition(_ik.pc), pbN = B.getWorldPosition(_ik.pb);
+    rot(B, pcN.clone().sub(pbN), t.clone().sub(pbN));
   }
   dispose() {
     this.disposed = true;

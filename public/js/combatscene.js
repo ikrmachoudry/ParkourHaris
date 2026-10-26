@@ -177,7 +177,7 @@ export class CombatScene {
       if (s.alive) {
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z);
         a.m.update(dt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 });
-      } else { a.g.rotation.set(-Math.PI / 2, s.yaw, 0, 'YXZ'); a.g.position.set(CMB.x + s.x, g0(s.x, s.z) + 0.22, CMB.z + s.z); a.m.update(dt, { seated: false, speed: 0, grounded: true }); a.g.visible = s.dieT < 4; }
+      } else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z); a.m.update(dt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < 6; }   // a real death animation (front / back / left / right) that ends on the ground
     }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
     if (this.vig && this.vig.style.opacity > 0) this.vig.style.opacity = Math.max(0, this.vig.style.opacity - dt * 1.6);
