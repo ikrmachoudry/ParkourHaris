@@ -2,6 +2,7 @@
 // but it is the realistic procedural human from hchar.js.  Poses are blended so there are no pops.
 import * as THREE from 'three';
 import { buildHeroChar, poseChar } from './hchar.js';
+import { wcls } from './economy.js';
 
 // four player looks (character ids 0..3): each wears a cap in the player's own colour (matches the map dot) - no pedestrian wears one, so players stand out in a crowd, plus a cop and a few pedestrians for later
 export const HERO_LOOKS = [
@@ -35,11 +36,12 @@ export class HeroActor {
     if (st.grounded || st.swim || st.seated) this.inAir = false;
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
     if (st.stun > 0 && !st.seated) name = 'fall';
-    const w = st.weapon && !st.seated ? st.weapon : null;   // 'bat' | 'pistol' | 'ak'
+    const w = st.weapon && !st.seated ? st.weapon : null;   // 'bat' | 'pistol' | 'ak' | (combat guns)
+    const wc = w ? wcls(w) : null;   // the pose family
     if (w && (name === 'idle' || name === 'walk' || name === 'crouch' || name === 'crouchwalk')) {
       const mv = sp > 0.25;
-      if (w === 'pistol') name = st.aiming ? 'pistolAim' : mv ? 'pistolWalk' : 'pistolIdle';
-      else if (w === 'ak' || w === 'sniper') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
+      if (wc === 'pistol') name = st.aiming ? 'pistolAim' : mv ? 'pistolWalk' : 'pistolIdle';
+      else if (wc === 'ak' || wc === 'sniper') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
     }
     if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }

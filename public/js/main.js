@@ -20,7 +20,7 @@ import { OPT, saveOpts } from './opts.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { ShopPreview } from './shopprev.js';
-import { Wallet, WEAPONS, WEAPON_ORDER, PAY, carPrice, money as fmtMoney } from './economy.js';
+import { Wallet, WEAPONS, WEAPON_ORDER, wcls, PAY, carPrice, money as fmtMoney } from './economy.js';
 import { findRoute } from './nav.js';
 import { Minimap } from './minimap.js';
 import { MissionClient } from './missionui.js';
@@ -106,7 +106,7 @@ const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (
 const WNAME = [null, 'bat', 'pistol', 'ak'];
 const wnameOf = (w) => ((w & 16) && !(w & 3) ? 'grenade' : (w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // (bit 16 with no weapon bits = a grenade in the hand)   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
 const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in degrees): wide -> very tight
-const isGun = (w) => w === 'pistol' || w === 'ak' || w === 'sniper';
+const isGun = (w) => !!w && w !== 'bat' && w !== 'grenade' && !!WEAPONS[w] && !WEAPONS[w].melee;
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
 const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4) | (((f >> 29) & 1) << 5);
@@ -1056,13 +1056,14 @@ class Race {
     // the wheel sits right beside the weapon button (2 x 2, tight), so the thumb barely moves
     let cx = window.innerWidth * 0.8, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
-    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER', grenade: 'x' + this.wallet.nades };
-    ['fist', 'bat', 'pistol', 'ak', 'sniper', 'grenade'].forEach((k, i) => {
+    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER', grenade: 'x' + this.wallet.nades, revolver: 'REVOLVER', smg: 'SMG', m4: 'M4', shotgun: 'SHOTGUN' };
+    const SLOTS = ['fist', 'bat', 'pistol', 'ak', 'sniper', 'grenade', ...['revolver', 'smg', 'm4', 'shotgun'].filter((x) => this.wallet.owns(x))], ROWS = Math.ceil(SLOTS.length / 2);
+    SLOTS.forEach((k, i) => {
       const owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button'), col = i % 2, row = i >> 1, gap = 6;
-      let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row - 1) * (ws + gap);
+      let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row - (ROWS - 1) / 2) * (ws + gap);
       px = Math.max(ws / 2 + 4, Math.min(window.innerWidth - ws / 2 - 4, px)); py = Math.max(ws / 2 + 4, Math.min(window.innerHeight - ws / 2 - 4, py));
       s.className = 'ws' + (cur === k ? ' sel' : '') + (owned ? '' : ' lock'); s.style.left = Math.round(px) + 'px'; s.style.top = Math.round(py) + 'px';
-      s.innerHTML = WEAPON_ICON[k] + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'LOCKED') + '</small>';
+      s.innerHTML = (WEAPON_ICON[k] || WEAPON_ICON[wcls(k)]) + '<small>' + (owned ? (W && !W.melee ? this.wallet.mag(k) + '/' + this.wallet.reserve(k) : NAMES[k]) : 'LOCKED') + '</small>';
       const pick = (e) => { e.preventDefault(); e.stopPropagation(); if (!owned) return; this.equip(k); A.sfx.click(); this.toggleWheel(false); };
       s.addEventListener('pointerdown', pick); el.appendChild(s);
     });
@@ -1113,7 +1114,7 @@ class Race {
   // ================= SHARED CITY (multiplayer) =================
   // The room host simulates the pedestrians and the traffic and streams them (6 times a second); the other players show them as puppets and
   // send what they do to them (punch, shot, horn, carjack) to the host as 'ev' events. Weapons and stolen cars travel in the position snapshots.
-  weaponCode() { const wn = this.drive ? null : this.weapon; return (wn === 'sniper' ? 3 | 16 : wn === 'grenade' ? 16 : WNAME.indexOf(wn) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0); }
+  weaponCode() { const wn = this.drive ? null : this.weapon; const wk = wn ? wcls(wn) : wn; return (wk === 'sniper' ? 3 | 16 : wk === 'grenade' ? 16 : WNAME.indexOf(wk) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0); }
   get simHost() { return !this.multi || !app.room || app.room.hostId === this.localId; }
   evt(o) { if (this.multi && !this.simHost) app.net.send({ t: 'ev', ...o }); }
   remoteCar(r) {   // a stolen traffic car another player is driving: build its model once
@@ -1238,7 +1239,7 @@ class Race {
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
     if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, 1.25); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
-    if (this.fireHeld && (this.weapon === 'ak' || this.weapon === 'pistol') && !(this.single && this.weapon === 'ak')) this.fire();   // hold the fire button: AK and pistol keep firing
+    if (this.fireHeld && this.weapon && this.weapon !== 'sniper' && isGun(this.weapon) && !(this.single && WEAPONS[this.weapon].auto)) this.fire();   // hold the fire button: AK and pistol keep firing
     if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
@@ -1486,9 +1487,9 @@ class Race {
     let ey = sy; if (aimP) { const ah = Math.max(1, Math.hypot(aimP.x - sx, aimP.z - sz)); ey = sy + (aimP.y - sy) / ah * hd; } ey = Math.max(this.world && this.world.terrain ? this.world.terrain(ex, ez) + 0.05 : 0.05, Math.min(sy + 40, ey));
     const tl = Math.max(0.5, Math.hypot(ex - sx, ey - sy, ez - sz)), q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
-    this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); this.shake = Math.max(this.shake || 0, w === 'sniper' ? 0.16 : w === 'ak' ? 0.07 : 0.05);
-    w === 'sniper' ? A.sfx.sniperShot() : w === 'ak' ? A.sfx.akShot() : A.sfx.shot();
-    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: w === 'ak' || w === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
+    this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
+    wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
+    if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: wcls(w) === 'ak' || wcls(w) === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
   }
   // ---- the weapon store: step on the pad inside
@@ -1512,6 +1513,7 @@ class Race {
   renderShop() {
     const W = this.wallet, list = $('shop-list'); if (!list) return; $('shop-cash').textContent = fmtMoney(W.money); list.innerHTML = '';
     for (const k of WEAPON_ORDER) {
+      if (WEAPONS[k].combatOnly) continue;
       const d = WEAPONS[k], owned = W.owns(k), row = document.createElement('div'); row.className = 'shop-row' + (this.shopSel === k ? ' sel' : ''); row.dataset.k = k; row.addEventListener('pointerdown', () => this.shopSelect(k)); row.addEventListener('pointerenter', () => { if (this.shopSel !== k) this.shopSelect(k); });
       const t = document.createElement('b'); t.textContent = d.name; const sm = document.createElement('small'); sm.textContent = d.desc + (owned && !d.melee ? '  •  ' + W.mag(k) + ' loaded, ' + W.reserve(k) + ' spare' : ''); const bx = document.createElement('span'); bx.className = 'sb';
       const btn = (label, fn, dis, alt) => { const e = document.createElement('button'); e.textContent = label; e.disabled = !!dis; if (alt) e.className = 'alt'; e.onclick = () => { fn(); this.renderShop(); }; bx.appendChild(e); };

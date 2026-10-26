@@ -10,7 +10,13 @@ export const WEAPONS = {
 };
 // the grenade is a throwable: you buy them one at a time ($15 each) and carry a stack (wallet.nades); one is used up per throw
 WEAPONS.grenade = { name: 'GRENADE', price: 15, grenade: true, melee: true, dmg: 4, radius: 7, fuse: 2.6, desc: 'Pull, throw, run: it goes off 2.6 s after it leaves your hand. Buy as many as you need.' };
-export const WEAPON_ORDER = ['bat', 'pistol', 'ak', 'sniper', 'grenade'];
+// guns found on the COMBAT map only (not in the shop): cls = which of the three hand poses / sounds they use
+WEAPONS.revolver = { name: 'REVOLVER', cls: 'pistol', combatOnly: true, mag: 6, ammoPack: 12, dmg: 2.6, rate: 0.55, range: 55, spread: 0.025, auto: false, recoil: 0.05, reload: 2.2, desc: 'Six heavy rounds.' };
+WEAPONS.smg = { name: 'SMG', cls: 'ak', combatOnly: true, mag: 25, ammoPack: 50, dmg: 0.85, rate: 0.065, range: 38, spread: 0.1, auto: true, recoil: 0.009, reload: 1.8, desc: 'Fast and close.' };
+WEAPONS.m4 = { name: 'M4 RIFLE', cls: 'ak', combatOnly: true, mag: 30, ammoPack: 60, dmg: 1.4, rate: 0.085, range: 85, spread: 0.045, auto: true, recoil: 0.011, reload: 2.1, desc: 'Accurate full auto.' };
+WEAPONS.shotgun = { name: 'SHOTGUN', cls: 'ak', combatOnly: true, mag: 6, ammoPack: 12, dmg: 3.4, rate: 0.85, range: 28, spread: 0.07, auto: false, recoil: 0.06, reload: 2.8, desc: 'Devastating up close.' };
+export const wcls = (w) => (WEAPONS[w] && WEAPONS[w].cls) || w;   // the pose / sound family of a weapon: pistol | ak | sniper
+export const WEAPON_ORDER = ['bat', 'pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper', 'grenade'];
 
 // Real US prices (2026): Louisville Slugger ash bat about $34, Glock 19 Gen5 about $626, Zastava ZPAP M70 (AK-47) about $1,420, 9mm about $0.33 and 7.62x39 about $0.67 a round.
 // Pay is small on purpose: the game will have many missions, so a pistol takes a few of them and an AK-47 a good evening.

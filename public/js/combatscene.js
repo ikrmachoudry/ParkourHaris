@@ -10,8 +10,8 @@ import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', ak: '#ffb347', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c' };
-const LOOT_NAME = { pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID' };
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID' };
 const MY_DMG = 100;   // hit points of the player
 
 export class CombatScene {
@@ -73,7 +73,7 @@ export class CombatScene {
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = LOOT_COL[it.k];
       let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.34), new THREE.MeshStandardMaterial({ color: '#3d5a2a', roughness: 0.7 }))); const s = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.36), new THREE.MeshStandardMaterial({ color: '#ffd23f' })); s.position.y = 0.04; mdl.add(s); }
       else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.38), new THREE.MeshStandardMaterial({ color: '#f4f4f4' }))); const rm = new THREE.MeshStandardMaterial({ color: '#e0242b' }); const a = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.06), rm), c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
-      else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : 1.9); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
+      else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
       const pivot = new THREE.Group(); pivot.add(mdl); g.add(pivot); g.userData.pivot = pivot;
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; g.add(ring);
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28, depthWrite: false })); beam.position.y = 2.6; g.add(beam);
@@ -138,10 +138,10 @@ export class CombatScene {
   pickup(it) {
     const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
     const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = S.mag; cb.ammo[w] = S.ammoPack; if (!R.weapon || R.weapon === 'bat') R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
-    if (k === 'pistol' || k === 'ak' || k === 'sniper') gun(k);
+    if (WEAPONS[k] && !WEAPONS[k].melee && !WEAPONS[k].grenade) gun(k);
     else if (k === 'bat') { if (!cb.owned.bat) { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); } else A_('YOU ALREADY HAVE A BAT'); }
     else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('GRENADE  x' + cb.nades); }
-    else if (k === 'ammo') { let n = 0; for (const w of ['pistol', 'ak', 'sniper']) if (cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO FOR ALL YOUR GUNS' : 'AMMO - FIND A GUN FIRST'); if (!n) { /* put it back for later */ } }
+    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO FOR ALL YOUR GUNS' : 'AMMO - FIND A GUN FIRST'); if (!n) { /* put it back for later */ } }
     else if (k === 'med') { this.hp = Math.min(MY_DMG, this.hp + 50); A_('FIRST AID  +50 HEALTH'); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud();
   }

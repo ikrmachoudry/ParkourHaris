@@ -1,6 +1,7 @@
 // HCHAR: a realistic-proportion human built entirely in code (no downloads).  One SkinnedMesh (~8-10k triangles) with a real
 // skeleton, so legs / arms bend smoothly.  Faces +z; character RIGHT hand is at -x.  Metres.
 import * as THREE from 'three';
+import { gunMesh } from './weaponmodels.js';
 import { MOCAP, MOCAP_BONES } from './mocapdata.js';   // real recorded human movement (CMU mocap) baked onto this skeleton: tools/mocap_bake.mjs
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -292,10 +293,14 @@ export function buildHeroChar(opts = {}) {
     const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), gm2); lev.position.set(0.034, 0.085, 0.07); lev.rotation.z = -0.5; gr.add(lev); }
   bat.visible = ak.visible = sn.visible = gr.visible = false;
   for (const o of [bat, ak, sn, gr]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  // the real guns (Quaternius pack): the code-built pistol / AK / sniper are replaced, four more guns are added (they use the same hand frame)
+  const basis = () => new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)), extra = {};
+  for (const [k, grp] of [['pistol', gp], ['ak', ak], ['sniper', sn]]) { const q = gunMesh(k); if (q) { grp.clear(); grp.add(q); } }
+  for (const k of ['revolver', 'smg', 'm4', 'shotgun']) { const q = gunMesh(k); if (!q) continue; const grp = new THREE.Group(); grp.add(q); grp.quaternion.setFromRotationMatrix(basis()); grp.visible = false; extra[k] = grp; gun.add(grp); }
   gun.add(bat, ak, sn, gr);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;
-  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn, grenade: gr }, tris: Math.round(tris), outfit: o };
+  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn, grenade: gr, ...extra }, tris: Math.round(tris), outfit: o };
   ch.pose = (name, t = 0, k = 1) => poseChar(ch, name, t, k);
   return ch;
 }

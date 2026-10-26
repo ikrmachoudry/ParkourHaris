@@ -1,5 +1,6 @@
 // Standalone 3D weapon models (baseball bat, pistol, AK-47) for the shop walls. Gun frame: +z = barrel, +y = up, origin = grip.
 import * as THREE from 'three';
+import GUNS from './guns.json' with { type: 'json' };   // the seven real low-poly guns (Ultimate Gun Pack by Quaternius, CC0), pre-converted to flat-coloured triangles in millimetres
 
 const M = {};
 const mat = (k, o) => M[k] || (M[k] = new THREE.MeshStandardMaterial(o));
@@ -11,6 +12,7 @@ const part = (g, w, h, d, x, y, z, m, rx = 0) => { const q = new THREE.Mesh(new 
 const cyl = (g, r0, r1, len, x, y, z, m, axis = 'z') => { const q = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, 10), m); if (axis === 'z') q.rotation.x = Math.PI / 2; q.position.set(x, y, z); g.add(q); return q; };
 
 export function makeWeaponModel(kind) {
+  { const gm = gunMesh(kind); if (gm) return gm; }
   const g = new THREE.Group();
   if (kind === 'pistol') {
     part(g, 0.032, 0.04, 0.2, 0, 0.074, 0.03, steel()); part(g, 0.028, 0.03, 0.14, 0, 0.044, 0.01, black()); part(g, 0.032, 0.11, 0.046, 0, 0, -0.012, black(), -0.12);
@@ -34,5 +36,14 @@ export function makeWeaponModel(kind) {
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), wood()); tip.position.y = 0.7; g.add(tip);
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.0185, 0.0185, 0.2, 10), black()); grip.position.y = -0.0; g.add(grip);
   }
+  return g;
+}
+
+// a gun from the pack as a THREE group: gun frame +z = barrel, +y = up, origin = grip; null when the pack has no such gun.  kind: pistol revolver smg ak m4 shotgun sniper
+const GEO = {}, GMAT = {};
+export function gunMesh(kind) {
+  const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();
+  if (!GEO[kind]) GEO[kind] = d.g.map(([r, gg, b, s, k]) => { const geo = new THREE.BufferGeometry(); const a = new Float32Array(k * 3); for (let i = 0; i < k * 3; i++) a[i] = d.p[s * 3 + i] / 1000; geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); geo.computeVertexNormals(); return { geo, key: r + ',' + gg + ',' + b, c: [r, gg, b] }; });
+  for (const { geo, key, c } of GEO[kind]) { const m = GMAT[key] || (GMAT[key] = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(Math.min(1, c[0] * 1.5 + 0.03), Math.min(1, c[1] * 1.5 + 0.03), Math.min(1, c[2] * 1.5 + 0.03), THREE.LinearSRGBColorSpace), roughness: 0.55, metalness: 0.25, flatShading: true })); const me = new THREE.Mesh(geo, m); me.castShadow = true; g.add(me); }
   return g;
 }

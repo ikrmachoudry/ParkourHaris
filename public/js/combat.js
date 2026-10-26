@@ -119,7 +119,7 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
-export const LOOT_KINDS = ['pistol', 'pistol', 'pistol', 'ak', 'ak', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med'];
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med'];
 export const LOOT_COUNT = 34, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
