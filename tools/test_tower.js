@@ -9,8 +9,8 @@ for (const t of L.towers) {
   const w = new World(); for (const q of L.solids) if (Math.abs((q.x0 + q.x1) / 2 - t.x) < 8 && Math.abs((q.z0 + q.z1) / 2 - t.z) < 8) w.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: 'building' });
   w.terrain = () => t.gy;
   const b = newBody(); b.x = CMB.x + t.x - 0.4; b.z = CMB.z + t.z + 6; b.y = t.gy; b.grounded = true;
-  const a = 2.0, ring = (s) => { const u = ((s % 16) + 16) % 16; if (u < 2) return [u, a]; if (u < 6) return [a, a - (u - 2)]; if (u < 10) return [a - (u - 6), -a]; if (u < 14) return [-a, -a + (u - 10)]; return [-a + (u - 14), a]; };
-  const way = [[CMB.x + t.x - 0.4, CMB.z + t.z + 3.4], [CMB.x + t.x - 0.4, CMB.z + t.z + 2.0]]; for (let i = 0; i < t.n; i++) { const [x, z] = ring(i * 0.5); way.push([CMB.x + t.x + x, CMB.z + t.z + z]); }
+  const a = t.a, q = a / 2, ring = (s) => { const u = ((s % 16) + 16) % 16; if (u < 2) return [u * q, a]; if (u < 6) return [a, a - (u - 2) * q]; if (u < 10) return [a - (u - 6) * q, -a]; if (u < 14) return [-a, -a + (u - 10) * q]; return [-a + (u - 14) * q, a]; };
+  const way = [[CMB.x + t.x - 0.4, CMB.z + t.z + 3.4], [CMB.x + t.x - 0.4, CMB.z + t.z + t.a]]; for (let i = 0; i < t.n; i++) { const [x, z] = ring(i * 0.5); way.push([CMB.x + t.x + x, CMB.z + t.z + z]); }
   way.push([CMB.x + t.x + 0.6, CMB.z + t.z - 0.5]);
   let wi = 0, maxy = 0, f = 0;
   for (; f < 60 * 120 && wi < way.length; f++) {

@@ -1772,11 +1772,12 @@ class Race {
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
           for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
             for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;
-              let t0 = 0, t1 = tmax, hit = true;
-              for (const [o, d, lo, hi] of [[lx, dx, s.x0 - M, s.x1 + M], [lz, dz, s.z0 - M, s.z1 + M], [oy, dy, s.y0 - M, s.y1 + M]]) {
-                if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
-                let p = (lo - o) / d, q = (hi - o) / d; if (p > q) { const w2 = p; p = q; q = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); if (t0 > t1) { hit = false; break; } }
-              if (hit && t0 < tmax && t0 > 0) tmax = t0; } } } } }
+              for (const MM of [M, 0.1]) {   // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
+                let t0 = 0, t1 = tmax, hit = true;
+                for (const [o, d, lo, hi] of [[lx, dx, s.x0 - MM, s.x1 + MM], [lz, dz, s.z0 - MM, s.z1 + MM], [oy, dy, s.y0 - MM, s.y1 + MM]]) {
+                  if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
+                  let p = (lo - o) / d, q = (hi - o) / d; if (p > q) { const w2 = p; p = q; q = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); if (t0 > t1) { hit = false; break; } }
+                if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } } } } } } }
       for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
       this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out

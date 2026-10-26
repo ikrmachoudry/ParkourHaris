@@ -256,7 +256,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     B.box('wall', X - 3, gy - 1, Z + 2.6, X - 1.2, py + 1.2, Z + 3, wc, 0.04); B.box('wall', X + 1.2, gy - 1, Z + 2.6, X + 3, py + 1.2, Z + 3, wc, 0.04); B.box('wall', X - 1.2, gy + 2.7, Z + 2.6, X + 1.2, py + 1.2, Z + 3, wc, 0.04);
     for (let y = gy + 3.4; y < py; y += 3.4) B.box('trim', X - 3.06, y, Z - 3.06, X + 3.06, y + 0.22, Z + 3.06, '#8d8d87', 0);   // bands round the shaft
     B.box('trim', X - 3.08, py + 0.8, Z - 3.08, X + 3.08, py + 0.95, Z + 3.08, '#8d8d87', 0); B.box('trim', X - 1.3, gy + 2.7, Z + 3.0, X + 1.3, gy + 2.85, Z + 3.1, '#6a6a66', 0);
-    B.box('wall', X - 1.4, py - 0.3, Z - 2.6, X + 2.6, py, Z + 1.4, '#94948e', 0.03);
+    B.box('wall', X - 1.3, gy - 1, Z - 1.3, X + 1.3, py - 0.3, Z + 1.3, wc, 0.04);   // the solid core the stairs wind round
+    for (const [x0, z0, x1, z1] of [[-2.6, -2.6, 2.6, -0.8], [-1.3, -0.8, 2.6, 1.3], [-0.2, 1.3, 2.6, 2.6], [-1.3, -1.3, 1.3, 1.3]]) B.box('wall', X + x0, py - 0.3, Z + z0, X + x1, py, Z + z1, '#94948e', 0.03);
     for (const s of L.solids) if (s.k === 'step' && s.x0 > X - 3 && s.x1 < X + 3 && s.z0 > Z - 3 && s.z1 < Z + 3) B.box('wall', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8a8a84', 0.05);
     B.box('metal', X + 2.0, py, Z - 2.2, X + 2.2, py + 7.5, Z - 2.0, '#cfcfcf', 0);   // the flag mast
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex(t.flag), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
