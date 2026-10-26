@@ -109,6 +109,7 @@ const wnameOf = (w) => ((w & 16) && !(w & 3) ? 'grenade' : (w & 3) === 3 && (w &
 const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in degrees): wide -> very tight
 const isGun = (w) => !!w && w !== 'bat' && w !== 'grenade' && !!WEAPONS[w] && !WEAPONS[w].melee;
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
+const USEFLAG = 1073741824;   // net flag bit 30: using a heal item / pills (everybody sees the hand-to-face pose)
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
 const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4) | (((f >> 29) & 1) << 5);
 
@@ -229,7 +230,7 @@ class Remote {
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
     const WR = race && race.world, swimming = !!(WR && WR.terrain && WR.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR.waterY + 0.1 && WR.terrain(this.x, this.z) < WR.waterY - 0.3);
     if (this.nadeA) { this.nadeT = (performance.now() - this.nadeA) / 1000 / (NADE_DUR[this.nadeToss | 0] || 1.12); if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; } }   // somebody else is throwing a grenade (started by his 'gr' message)
-    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), prone: !!(this.flags & 16777216), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
+    this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), prone: !!(this.flags & 16777216), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX | USEFLAG)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, gesture: (this.flags & USEFLAG) ? 'phone' : undefined, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
 }
@@ -385,7 +386,7 @@ class Race {
     if (this.meta.city) {
       if (this.crouch && press.jump) this.crouch = false;
       if (this.drive) this.crouch = false;
-      if (this.drive) this.prone = false; if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5);
+      if (this.drive) this.prone = false; if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5); { const cs = this.mission && this.mission.cs; if (cs && cs.on) { if (cs.using) b.speedMul *= 0.7; if (cs.boostT > 0) b.speedMul *= 1.2; } }
     }
     press.jump = false; press.dive = false;
 
@@ -986,7 +987,7 @@ class Race {
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
-    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.prone && !this.drive ? 16777216 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0);
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.prone && !this.drive ? 16777216 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0) | (!this.drive && this.mission && this.mission.cs && this.mission.cs.using ? USEFLAG : 0);
     app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +Math.atan2(Math.sin(b.yaw), Math.cos(b.yaw)).toFixed(2), a: flags, w: this.weaponCode(), vm: this.drive && this.drive.local ? this.drive.st.id : 0, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
@@ -1247,7 +1248,7 @@ class Race {
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
   throwNade() {
-    const b = this.me.body; if (this.nadeT > 0 || !this.wallet || this.wallet.nades <= 0 || this.drive || b.stun > 0) return false;
+    const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || !this.wallet || (this.nadeKind === 'smoke' ? !(cbk && cbk.inv && cbk.inv.smoke > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
     if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
@@ -1263,7 +1264,7 @@ class Race {
     if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(2, m.toss | 0)); return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
     if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
-    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; } A.sfx.swing && A.sfx.swing(false);
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; if (n.smoke) n.t = 1.3; } A.sfx.swing && A.sfx.swing(false);
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
@@ -1296,18 +1297,19 @@ class Race {
     mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7));
   }
   updateNades(dt, b) {
-    this.nadeMarkTick();
+    this.nadeMarkTick(); this.smokeTick(dt);
     if (this.nadeT > 0) {   // the throw animation: 0..1 (the same clip lengths as the baked clips, a little sped up)
       const mode = this.nadeToss | 0, dur = NADE_DUR[mode], rel = NADE_REL[mode];
       this.nadeT += dt / dur;
       if (!this.nadeRel && this.nadeT >= rel) {
         this.nadeRel = true;
-        if (this.wallet.useNade()) {
+        const smk = this.nadeKind === 'smoke', cbk = this.wallet.cb; this.nadeKind = null;
+        if (smk ? !!(cbk && cbk.inv && cbk.inv.smoke-- > 0) : this.wallet.useNade()) {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
           const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
           const T = clamp(0.45 + d * 0.03, 0.5, 1.5), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
-          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; this.updateAmmoHud();
-          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
+          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; if (smk) n.t = 1.3; this.updateAmmoHud();
+          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }
       }
@@ -1324,8 +1326,19 @@ class Race {
         if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
-      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); this.grenadeBoom(n.x, n.y, n.z, n.mine); }
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
     }
+  }
+  // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
+  smokeBoom(x, y, z, mine = true) {
+    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) { cs.sim.addSmoke(x - CMB.x, z - CMB.z, 6.5, 15); }
+    const grp = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: '#c9ced3', transparent: true, opacity: 0.0, depthWrite: false, fog: true, side: THREE.DoubleSide }); const geo = new THREE.IcosahedronGeometry(1, 1);
+    for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(geo, mat), a = i * 2.4, r = i ? 2.6 : 0; m.position.set(Math.cos(a) * r, 1.0 + (i % 3) * 0.7, Math.sin(a) * r); m.scale.setScalar(i ? 3.3 : 4.2); grp.add(m); }
+    grp.position.set(x, y, z); this.scene.add(grp); (this.smokeFx || (this.smokeFx = [])).push({ grp, mat, t: 0 }); A.sfx.click && A.sfx.click();
+  }
+  smokeTick(dt) {
+    if (!this.smokeFx || !this.smokeFx.length) return;
+    for (let i = this.smokeFx.length - 1; i >= 0; i--) { const s = this.smokeFx[i]; s.t += dt; const k = Math.min(1, s.t / 1.5); s.grp.scale.setScalar(0.3 + 0.7 * k); s.mat.opacity = (s.t > 12 ? Math.max(0, 1 - (s.t - 12) / 3) : 1) * 0.82 * k; s.grp.rotation.y += dt * 0.15; if (s.t >= 15) { this.scene.remove(s.grp); s.mat.dispose(); this.smokeFx.splice(i, 1); } }
   }
   grenadeBoom(x, y, z, mine = true) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
@@ -1729,7 +1742,7 @@ class Race {
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    { const scoped = this.weapon === 'sniper' && this.aiming && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
+    { const scoped = ((this.weapon === 'sniper' && this.aiming) || this.telescope) && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);   // looking up: the camera swings in close under the player, like PUBG
@@ -2109,11 +2122,13 @@ function exitLock() { if (document.pointerLockElement) document.exitPointerLock(
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (locked) hadLock = true;
-  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !race.bigMapOpen && !document.body.classList.contains('m-open')) openPause(); // Esc releases the mouse -> show the menu
+  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !race.bigMapOpen && !document.body.classList.contains('m-open') && !invOpen()) openPause(); // Esc releases the mouse -> show the menu
   if (!locked) hadLock = false;
-  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !race.bigMapOpen && !locked && !document.body.classList.contains('m-open'));
+  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !race.bigMapOpen && !invOpen() && !locked && !document.body.classList.contains('m-open'));
 });
 let hadLock = false;
+const invOpen = () => { const cs = race && race.mission && race.mission.cs; return !!(cs && cs.inv && cs.inv.isOpen()); };
+document.addEventListener('inv-closed', () => { if (!IS_TOUCH) tryLock(); });
 let dragging = false;
 canvas.addEventListener('mousedown', (e) => { dragging = true; if (race && !race.over) {
   if (race.meta.city && !race.hunt && document.pointerLockElement === canvas && !race.menuOpen) { if (e.button === 0) { race.fireHeld = true; race.punch(); } else if (e.button === 2) race.aimHold(true); return; }   // laptop: LEFT click fires (or punches), hold RIGHT click to aim
@@ -2134,6 +2149,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
+  { const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.inv) { if (e.code === 'Escape' && cs.inv.isOpen()) { cs.inv.toggle(false); return; } if (!e.repeat && !race.menuOpen && !race.over) { if (e.code === 'KeyI') { cs.inv.toggle(); return; } if (e.code === 'KeyE') { cs.swapPick(); return; } const k = { Digit6: 'med', Digit7: 'pills', Digit8: 'inject', Digit9: 'smoke', Digit0: 'scope' }[e.code]; if (k) { cs.useItem(k); return; } } } }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
   if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if ((e.code === 'ControlLeft' || e.code === 'KeyX') && !e.repeat) race.toggleProne(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }

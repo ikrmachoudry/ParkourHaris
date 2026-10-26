@@ -8,20 +8,25 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 import { CombatSim, CMB, COMBAT_MS, layout, cmbH, supportY, hitsSolid } from './combat.js';
+import { Inventory, CAP } from './inventory.js';
 import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c' };
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID' };
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE' };
+const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0 } });
+const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope'];
+const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
+const USE = { med: { dur: 4, hp: 50, name: 'FIRST AID' }, pills: { dur: 3, hp: 25, name: 'PAIN PILLS' }, inject: { dur: 1.8, hp: 20, name: 'ADRENALINE', boost: 6 } };
 const MY_DMG = 100;   // hit points of the player
 
 export class CombatScene {
   constructor(race) {
     this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
     this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
-    this.tmpV = new THREE.Vector3();
+    this.tmpV = new THREE.Vector3(); this.using = null; this.boostT = 0; this.promptIt = null; this.inv = new Inventory(this);
   }
   get active() { return this.on && !this.over && !!this.sim && this.R.mission && this.R.mission.phase === 'run' && this.deadT <= 0; }
   // ---------------------------------------------------------------- HUD
@@ -42,7 +47,7 @@ export class CombatScene {
       const jd = (e) => { e.preventDefault(); e.stopPropagation(); this.jumpReq = true; }; jb.addEventListener('pointerdown', jd); jb.addEventListener('touchstart', jd, { passive: false });
       document.body.appendChild(jb); this.jumpBtn = jb;
     }
-    this.hud.style.display = on ? 'block' : 'none'; this.hpBar.style.display = on ? 'block' : 'none'; if (!on) { this.vig.style.opacity = 0; this.ov.style.display = 'none'; this.jumpBtn.style.display = 'none'; }
+    this.inv.showBag(on); this.hud.style.display = on ? 'block' : 'none'; this.hpBar.style.display = on ? 'block' : 'none'; if (!on) { this.using = null; this.R.telescope = false; this.promptIt = null; if (this.useBar) this.useBar.style.display = 'none'; if (this.pickBtn) this.pickBtn.style.display = 'none'; this.vig.style.opacity = 0; this.ov.style.display = 'none'; this.jumpBtn.style.display = 'none'; }
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
@@ -57,7 +62,7 @@ export class CombatScene {
     this.sim = new CombatSim((m.round * 7919 + 13) | 0, 8); this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
-    if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
+    if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
     this.startDrop();
   }
@@ -158,8 +163,13 @@ export class CombatScene {
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = LOOT_COL[it.k];
       let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.34), new THREE.MeshStandardMaterial({ color: '#3d5a2a', roughness: 0.7 }))); const s = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.36), new THREE.MeshStandardMaterial({ color: '#ffd23f' })); s.position.y = 0.04; mdl.add(s); }
       else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.38), new THREE.MeshStandardMaterial({ color: '#f4f4f4' }))); const rm = new THREE.MeshStandardMaterial({ color: '#e0242b' }); const a = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.06), rm), c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
+      else if (ITEM_K.includes(it.k)) { mdl = new THREE.Group(); const M = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
+        if (it.k === 'inject') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
+        else if (it.k === 'pills') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
+        else if (it.k === 'smoke') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
+        else { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
       else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
-      const gunish = it.k !== 'ammo' && it.k !== 'med', lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
+      const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.46, 0.52, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }
@@ -185,10 +195,11 @@ export class CombatScene {
     if (run) {
       this.time -= dt;
       // the ammo / health / weapons on the ground
-      if (P.alive) { const it = sim.take(P.x, P.z); if (it) this.pickup(it); }
+      if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
+      if (P.alive && !this.dropping) { const it = sim.take(P.x, P.z, (q) => this.canTake(q)); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
       sim.tick(dt, P);
       for (const e of sim.drain()) this.event(e, b);
-      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.respawn(); if (R.wallet) { R.wallet.cb = { owned: {}, mag: {}, ammo: {}, nades: 0 }; R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
+      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
     }
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
@@ -224,15 +235,65 @@ export class CombatScene {
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
     if (this.hp <= 0) { this.hp = 0; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   }
+  // ---------------------------------------------------------------- inventory: 1 bat + 2 guns in the hands, everything else in the backpack
+  guns() { const cb = this.R.wallet && this.R.wallet.cb; return cb ? Object.keys(cb.owned).filter((w) => cb.owned[w] && isGunK(w)) : []; }
+  count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
+  canTake(it) {
+    const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
+    if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press E to swap
+    if (k === 'bat') return !cb.owned.bat;
+    if (k === 'ammo') return this.guns().length > 0;
+    return this.count(k) < (CAP[k] || 4);
+  }
+  // E: swap the gun in your hands (or the first one) for the gun on the ground in front of you
+  promptTick(P) {
+    const it = this.sim.near(P.x, P.z); this.promptIt = it && isGunK(it.k) && !this.canTake(it) ? it : null;
+    if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
+    const on = !!this.promptIt && !this.inv.isOpen(); if (on) { const t = 'E  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k]; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
+  }
+  swapPick() {
+    const R = this.R, cb = R.wallet && R.wallet.cb, it = this.promptIt; if (!cb || !it || !it.alive || !this.active) return false;
+    const held = R.weapon && cb.owned[R.weapon] && isGunK(R.weapon) ? R.weapon : this.guns()[0]; if (!held) return false;
+    this.dropGun(held, true);
+    it.alive = false; if (it.spot >= 0) this.sim.used.delete(it.spot); this.sim.events.push({ k: 'lootgone', id: it.id }); this.pickup(it, true); this.promptIt = null; return true;
+  }
+  dropGun(w, silent) {
+    const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !cb.owned[w]) return false;
+    const am = { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 }, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), x = b.x - CMB.x + fx * 1.2, z = b.z - CMB.z + fz * 1.2;
+    const it = this.sim.dropLoot(w, x, z); it.am = am; cb.owned[w] = false; delete cb.mag[w]; delete cb.ammo[w];
+    if (R.weapon === w) { const left = this.guns()[0]; R.equip(left || (cb.owned.bat ? 'bat' : 'fist')); }
+    if (!silent) { R.toast && R.toast('DROPPED ' + LOOT_NAME[w]); A.sfx.click && A.sfx.click(); }
+    R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.syncLoot(); if (this.inv) this.inv.render(); return true;
+  }
   pickup(it) {
-    const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
-    const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = S.mag; cb.ammo[w] = S.ammoPack; if (!R.weapon || R.weapon === 'bat') R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
-    if (WEAPONS[k] && !WEAPONS[k].melee && !WEAPONS[k].grenade) gun(k);
-    else if (k === 'bat') { if (!cb.owned.bat) { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); } else A_('YOU ALREADY HAVE A BAT'); }
-    else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('GRENADE  x' + cb.nades); }
-    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO FOR ALL YOUR GUNS' : 'AMMO - FIND A GUN FIRST'); if (!n) { /* put it back for later */ } }
-    else if (k === 'med') { this.hp = Math.min(MY_DMG, this.hp + 50); A_('FIRST AID  +50 HEALTH'); }
-    R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud();
+    const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
+    const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = it.am ? it.am.res : S.ammoPack; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
+    if (isGunK(k)) gun(k);
+    else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
+    else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('GRENADE  x' + cb.nades + '  (BACKPACK)'); }
+    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO FOR ALL YOUR GUNS' : 'AMMO - FIND A GUN FIRST'); }
+    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; A_(LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
+    R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud(); if (this.inv) this.inv.render();
+  }
+  // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
+  useItem(k) {
+    const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb || !this.active || this.dropping || R.drive || this.over) return false; const have = this.count(k);
+    if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
+    if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
+    if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
+    if (k === 'smoke') { R.nadeKind = 'smoke'; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
+    const U = USE[k]; if (!U) return false; if (this.using) { this.using = null; R.toast && R.toast('CANCELLED'); return false; }
+    if (this.hp >= MY_DMG) { R.toast && R.toast('HEALTH IS FULL'); return false; }
+    this.using = { k, t: 0, dur: U.dur, given: 0 }; R.aiming = false; if (this.inv) this.inv.toggle(false); return true;
+  }
+  useTick(dt) {
+    if (this.boostT > 0) this.boostT -= dt;
+    const u = this.using, R = this.R, cb = R.wallet && R.wallet.cb; if (!u) { if (this.useBar && this.useBar.style.display !== 'none') this.useBar.style.display = 'none'; return; }
+    if (!cb || this.hp <= 0 || R.drive) { this.using = null; return; }
+    const U = USE[u.k]; u.t += dt; const f = Math.min(1, u.t / u.dur), give = U.hp * f - u.given; if (give > 0) { this.hp = Math.min(MY_DMG, this.hp + give); u.given += give; }
+    if (!this.useBar) { const b = document.createElement('div'); b.id = 'c-use'; b.innerHTML = '<span></span><i></i>'; document.body.appendChild(b); this.useBar = b; }
+    this.useBar.style.display = 'block'; this.useBar.firstChild.textContent = 'USING ' + U.name + '  ' + Math.round(f * 100) + '%'; this.useBar.lastChild.style.width = (f * 100) + '%';
+    if (u.t >= u.dur) { cb.inv[u.k] = Math.max(0, (cb.inv[u.k] | 0) - 1); if (U.boost) { this.boostT = U.boost; R.toast && R.toast(U.name + ' - SPEED BOOST!'); } else R.toast && R.toast(U.name + '  +' + U.hp + ' HEALTH'); A.sfx.pickup && A.sfx.pickup(); this.using = null; this.updateHud(); if (this.inv) this.inv.render(); }
   }
   finish() {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;

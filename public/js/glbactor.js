@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HeroActor } from './actor.js';
 // each of the four players is a little different in height (no facial hair: it looked wrong on these heads)
 const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 1.79 }];
@@ -182,8 +183,18 @@ export class GlbActor extends HeroActor {
     hr.bone.add(gun); gun.quaternion.copy(rel); gun.position.copy(gp); gun.scale.setScalar(1 / S);
     model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     this.shell = shell; this.ch.mesh.visible = false; this.ready = true;
+    if (!this.opts.zombie && this.opts.pack !== false) { try { this.addPack(T.chest.bone, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('backpack', e); } }   // every survivor carries a backpack
     this.height = this.opts.height || 1.78;
     this.tris = 0; model.traverse((o) => { if (o.isMesh && o.geometry.index) this.tris += o.geometry.index.count / 3; });
+  }
+  // a backpack on the back, parented to the chest bone so it moves with every animation (one merged mesh = one draw call)
+  addPack(chestBone, rightL, shell) {
+    shell.updateMatrixWorld(true); const up = new THREE.Vector3(0, 1, 0), fwdW = new THREE.Vector3().crossVectors(up, rightL.setY(0).normalize()).transformDirection(shell.matrixWorld).setY(0).normalize();
+    const parts = [[0.34, 0.42, 0.17, 0, 0, 0, '#4d5b3a'], [0.36, 0.1, 0.19, 0, 0.23, 0, '#3d4a2e'], [0.26, 0.15, 0.09, 0, -0.1, -0.12, '#5b6b40'], [0.07, 0.2, 0.07, -0.2, -0.04, 0, '#2f3b2a'], [0.07, 0.2, 0.07, 0.2, -0.04, 0, '#2f3b2a'], [0.05, 0.44, 0.04, -0.11, 0.0, 0.1, '#232a20'], [0.05, 0.44, 0.04, 0.11, 0.0, 0.1, '#232a20']];
+    const geos = parts.map(([w, h, d, x, y, z, c]) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); const col = new THREE.Color(c), n = g.attributes.position.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b; } g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return g.toNonIndexed(); });
+    const merged = mergeGeometries(geos, false), pack = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
+    const cw = chestBone.getWorldPosition(new THREE.Vector3()); pack.position.copy(cw).addScaledVector(fwdW, -0.165); pack.position.y -= 0.11; pack.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), fwdW); pack.updateMatrixWorld(true);
+    pack.castShadow = true; pack.frustumCulled = false; chestBone.attach(pack); this.pack = pack;
   }
   update(dt, st) {
     super.update(dt, st);

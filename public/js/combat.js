@@ -388,7 +388,7 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med'];
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'smoke', 'scope'];
 export const LOOT_COUNT = 64, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
@@ -411,10 +411,17 @@ export class CombatSim {
     } return null;
   }
   // the player walks over loot: returns the item (and removes it; a new one appears somewhere else after LOOT_RESPAWN seconds)
-  take(px, pz) {
-    for (const it of this.loot) { if (!it.alive) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.5 * 1.5) { it.alive = false; this.used.delete(it.spot); this.events.push({ k: 'lootgone', id: it.id }); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); return it; } }
+  take(px, pz, can) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
+    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.5 * 1.5) { if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
     return null;
   }
+  // the nearest item within reach that take() refused (for the "E - swap" prompt)
+  near(px, pz) { let best = null, bd = 2.2 * 2.2; for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; const d = (it.x - px) ** 2 + (it.z - pz) ** 2; if (d < bd) { bd = d; best = it; } } return best; }
+  // the player drops something: it lies on the ground (it cannot be picked up again for 1.5 s) and never respawns
+  dropLoot(k, x, z) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
+  // smoke clouds block the bots' sight
+  addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
+  smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
   // a bullet from (ox,oz) along (fx,fz): the nearest bot it reaches before a wall.  returns the distance or -1
   shoot(ox, oz, fx, fz, range, dmg) {
     const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3); let best = null, bd = Math.min(range, wall);
@@ -433,13 +440,14 @@ export class CombatSim {
   }
   tick(dt, P) {   // P = { x, z, hp, alive } of the player (map-local)
     this.t += dt; const L = this.L;
+    if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {
       if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const p = this.spawnPoint(P), w = b.weapon; Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz) || 1;
-      let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && los(L, b.x, b.z, P.x, P.z);
+      let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && los(L, b.x, b.z, P.x, P.z) && !this.smoked(b.x, b.z, P.x, P.z);
       if (sees && b.alert <= 0) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da > 1.9 && d > 10) sees = false; }
       if (sees && !b.seen) { b.seen = true; b.react = 0.55 + this.R() * 0.4; } else if (!sees && b.seen) { b.seen = false; b.alert = Math.max(b.alert, 6); b.path = null; }
       let mx = 0, mz = 0, sp = 0;
