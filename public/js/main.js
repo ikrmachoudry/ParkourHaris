@@ -247,6 +247,8 @@ const WEAPON_ICON = { grenade: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#ff
   bat: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"><g transform="rotate(42 16 16)"><path d="M14.7 27 L14.7 17.5 C14.7 14.5 12.2 12.5 12.2 9 L12.2 5.5 C12.2 1.8 19.8 1.8 19.8 5.5 L19.8 9 C19.8 12.5 17.3 14.5 17.3 17.5 L17.3 27 Z"/><ellipse cx="16" cy="28.3" rx="2.6" ry="1.5"/></g></svg>',
   pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
   ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
+const ICON_ALT = { revolver: 'pistol', smg: 'ak', m4: 'ak', shotgun: 'ak' };
+const wIcon = (k) => WEAPON_ICON[k] || WEAPON_ICON[ICON_ALT[k]] || WEAPON_ICON.fist;
 const BULLET_ICON = '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"><path d="M16 2.5c3.4 3 5 7 5 11.5v9H11v-9c0-4.5 1.6-8.5 5-11.5z"/><path d="M10 25.5h12v3.5H10z"/><path d="M10 22.5h12" stroke="#d6463c" stroke-width="1.6" fill="none"/></svg>';
 let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the world
 const keys = new Set();
@@ -1050,7 +1052,7 @@ class Race {
   toggleCrouch() { if (this.over || this.drive) return; if (this.prone) { this.prone = false; this.crouch = true; } else this.crouch = !this.crouch; this.syncAct(); }
   toggleProne() { if (this.over || this.drive || !this.meta.city) return; this.prone = !this.prone; if (this.prone) { this.crouch = false; this.aiming = this.aiming && !!this.weapon; } this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
-  equip(k) { if (this.over || this.drive || !this.wallet) return false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
+  equip(k) { if (this.over || this.drive || !this.wallet) return false; this.telescope = false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
   // PUBG style weapon wheel: a ring of the four weapons round the middle of the screen; tap one to swap at once
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
@@ -1079,12 +1081,12 @@ class Race {
     const k = this.weapon || 'fist'; if (this._wv === undefined) { this._wv = k; return; } if (k === this._wv) return; this._wv = k;
     if (this.over || this.finished) return; try { A.voice.weapon(k); } catch { /* noop */ }
   }
-  cycleWeapon() { if (this.over || this.drive || !this.wallet) return; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
+  cycleWeapon() { if (this.over || this.drive || !this.wallet) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
   zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, SCOPE_FOV.length - 1); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
   aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
   toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
-  syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = WEAPON_ICON[this.weapon || 'fist'];
+  syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = wIcon(this.weapon || 'fist');
     { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
