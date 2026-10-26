@@ -173,35 +173,53 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     else { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;
-      const brown = '#7d5036', white = '#eee7d6', zf = b.z + hz, bx = b.x, capY = fy + tri + 0.85;
-      // -- a copy of Dr. Ikrma's real house: sandstone walls, brown bands, arched windows with black iron grilles, a balustrade round the roof, a raised arch over the door
-      for (const [yy, ov, hh] of [[fy + fh - 0.05, 0.16, 0.34], [fy + tri, 0.34, 0.3]]) for (const [x0, z0, x1, z1] of [[-hx - ov, -hz - ov, hx + ov, -hz + 0.1], [-hx - ov, hz - 0.1, hx + ov, hz + ov], [-hx - ov, -hz - ov, -hx + 0.1, hz + ov], [hx - 0.1, -hz - ov, hx + ov, hz + ov]]) B.box('trim', b.x + x0, yy, b.z + z0, b.x + x1, yy + hh, b.z + z1, brown, 0);
-      for (const sx of [-1, 1]) B.box('trim', bx + sx * hx - 0.35 - (sx > 0 ? 0 : -0.7) * 0, fy, zf - 0.02, bx + sx * hx + (sx > 0 ? -0.7 : 0.7), fy + tri + 0.3, zf + 0.22, brown, 0);   // corner pilasters
+      const zf = b.z + hz, bx = b.x, capY = fy + tri + 0.85;
+      // -- a copy of Dr. Ikrma's real house (the Danial Clinic photo): sandstone walls, arched windows with black iron grilles, blind arches at both ends,
+      //    spiked balusters on the roof, a tall arched tower bay over the door with a white sign board, shop shutters + boards under a brown awning
+      const tan = '#b88f66', cream = '#e8d3ae', dark = '#1b1a1a', iron = '#141414', zO = zf + 0.2;
+      for (const [yy, ov, hh] of [[fy + fh - 0.05, 0.16, 0.34], [fy + tri, 0.34, 0.3]]) for (const [x0, z0, x1, z1] of [[-hx - ov, -hz - ov, hx + ov, -hz + 0.1], [-hx - ov, hz - 0.1, hx + ov, hz + ov], [-hx - ov, -hz - ov, -hx + 0.1, hz + ov], [hx - 0.1, -hz - ov, hx + ov, hz + ov]]) B.box('trim', b.x + x0, yy, b.z + z0, b.x + x1, yy + hh, b.z + z1, tan, 0);
+      for (const sx of [-1, 1]) B.box('trim', bx + sx * (hx - 0.35) - 0.35, fy, zf - 0.02, bx + sx * (hx - 0.35) + 0.35, fy + tri + 0.3, zf + 0.22, tan, 0);   // corner pilasters
+      const half = (cx, yy, r, z0, z1, col) => { const g = new THREE.CylinderGeometry(r, r, z1 - z0, 18, 1, false, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.translate(cx, yy, (z0 + z1) / 2); B.add('trim', g, col, 0); };
       for (const o of b.openings) if (o.k === 'win') {
-        const alongX = o.s === 'N' || o.s === 'S', sg = o.s === 'N' || o.s === 'W' ? -1 : 1, f = (alongX ? b.d : b.w) / 2 * sg, ex = alongX ? b.x + o.c : b.x + f, ez = alongX ? b.z + f : b.z + o.c, y0 = fy + o.y0, y1 = fy + o.y1, hw = o.hw;
+        const alongX = o.s === 'N' || o.s === 'S', sg = o.s === 'N' || o.s === 'W' ? -1 : 1, f = (alongX ? b.d : b.w) / 2 * sg, ex = alongX ? b.x + o.c : b.x + f, ez = alongX ? b.z + f : b.z + o.c, y0 = fy + o.y0, y1 = fy + o.y1, hw = o.hw, up = o.y0 > fh;
         const arch = (r, th, dz, col, yy) => { const g = new THREE.CylinderGeometry(r, r, th, 14, 1, false, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); if (!alongX) g.rotateY(Math.PI / 2); g.translate(ex + (alongX ? 0 : sg * dz), yy, ez + (alongX ? sg * dz : 0)); B.add('trim', g, col, 0); };
-        arch(hw + 0.2, 0.2, 0.2, brown, y1); arch(hw + 0.02, 0.26, 0.2, '#1b1a1a', y1);   // the arched surround and its dark fanlight
-        for (let i = -2; i <= 2; i++) { const xx = i * hw / 2.2; if (alongX) B.box('trim', ex + xx - 0.02, y0, ez + sg * 0.3 - 0.02, ex + xx + 0.02, y1 + hw * 0.7, ez + sg * 0.3 + 0.02, '#141414', 0); else B.box('trim', ex + sg * 0.3 - 0.02, y0, ez + xx - 0.02, ex + sg * 0.3 + 0.02, y1 + hw * 0.7, ez + xx + 0.02, '#141414', 0); }   // black iron grille bars
-        if (alongX) B.box('trim', ex - hw, (y0 + y1) / 2, ez + sg * 0.3 - 0.03, ex + hw, (y0 + y1) / 2 + 0.05, ez + sg * 0.3 + 0.03, '#141414', 0); else B.box('trim', ex + sg * 0.3 - 0.03, (y0 + y1) / 2, ez - hw, ex + sg * 0.3 + 0.03, (y0 + y1) / 2 + 0.05, ez + hw, '#141414', 0);
+        if (up) { arch(hw + 0.22, 0.2, 0.2, tan, y1); arch(hw + 0.02, 0.26, 0.2, dark, y1); }   // the arched surround and its dark fanlight
+        else if (alongX) B.box('trim', ex - hw - 0.25, y1 + 0.05, ez + sg * 0.2 - 0.1, ex + hw + 0.25, y1 + 0.3, ez + sg * 0.2 + 0.1, tan, 0); else B.box('trim', ex + sg * 0.2 - 0.1, y1 + 0.05, ez - hw - 0.25, ex + sg * 0.2 + 0.1, y1 + 0.3, ez + hw + 0.25, tan, 0);
+        const top = up ? y1 + hw * 0.7 : y1;
+        for (let i = -3; i <= 3; i++) { const xx = i * hw / 3.2; if (alongX) B.box('trim', ex + xx - 0.02, y0, ez + sg * 0.3 - 0.02, ex + xx + 0.02, top, ez + sg * 0.3 + 0.02, iron, 0); else B.box('trim', ex + sg * 0.3 - 0.02, y0, ez + xx - 0.02, ex + sg * 0.3 + 0.02, top, ez + xx + 0.02, iron, 0); }   // black iron grille bars
+        if (alongX) B.box('trim', ex - hw, (y0 + y1) / 2, ez + sg * 0.3 - 0.03, ex + hw, (y0 + y1) / 2 + 0.05, ez + sg * 0.3 + 0.03, iron, 0); else B.box('trim', ex + sg * 0.3 - 0.03, (y0 + y1) / 2, ez - hw, ex + sg * 0.3 + 0.03, (y0 + y1) / 2 + 0.05, ez + hw, iron, 0);
       }
-      // balustrade (white posts + rail) on top of the parapet, all round
-      B.box('trim', bx - hx - 0.34, capY, b.z - hz - 0.34, bx + hx + 0.34, capY + 0.1, b.z + hz + 0.34, brown, 0);
-      for (const [x0, z0, x1, z1, al] of [[-hx, -hz, hx, -hz, 1], [-hx, hz, hx, hz, 1], [-hx, -hz, -hx, hz, 0], [hx, -hz, hx, hz, 0]]) {
-        const len = al ? x1 - x0 : z1 - z0; for (let u = 0.3; u < len; u += 0.55) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; B.box('trim', px - 0.06, capY + 0.1, pz - 0.06, px + 0.06, capY + 0.58, pz + 0.06, white, 0); }
-        if (al) B.box('trim', bx + x0 - 0.1, capY + 0.58, b.z + z0 - 0.09, bx + x1 + 0.1, capY + 0.7, b.z + z0 + 0.09, white, 0); else B.box('trim', bx + x0 - 0.09, capY + 0.58, b.z + z0 - 0.1, bx + x0 + 0.09, capY + 0.7, b.z + z1 + 0.1, white, 0); }
-      // the raised arch over the entrance (roof level)
-      { const py = capY + 0.1, bz0 = zf - 1.1, bz1 = zf + 0.1, ar = (r, yy, z0, z1, col) => { const g = new THREE.CylinderGeometry(r, r, z1 - z0, 18, 1, false, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.translate(bx, yy, (z0 + z1) / 2); B.add('trim', g, col, 0); };
-        B.box('wall', bx - 3.2, py, bz0, bx + 3.2, py + 2.8, bz1, b.c, 0.02); ar(3.2, py + 2.8, bz0, bz1, b.c); ar(3.35, py + 2.8, bz1 - 0.05, bz1 + 0.12, brown);
-        B.box('trim', bx - 1.7, py + 0.15, bz1 - 0.04, bx + 1.7, py + 2.0, bz1 + 0.04, '#1b1a1a', 0); ar(1.7, py + 2.0, bz1 - 0.04, bz1 + 0.04, '#1b1a1a');
-        for (const sx of [-1, 1]) { B.box('trim', bx + sx * 3.45 - 0.28, py, bz0, bx + sx * 3.45 + 0.28, py + 3.5, bz1 + 0.15, brown, 0); B.box('trim', bx + sx * 3.45 - 0.36, py + 3.5, bz0 - 0.08, bx + sx * 3.45 + 0.36, py + 3.7, bz1 + 0.23, white, 0); } }
-      // the red sign board over the door and the white plaque with the calligraphy above it
-      { const sg1 = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 1.15), new THREE.MeshBasicMaterial({ map: signTex('SUPERIOR GRAMMAR SCHOOL', '#c8352b', '#ffffff', 620, 115, 1) })); sg1.position.set(bx, fy + 3.65, zf + 0.3); group.add(sg1);
-        B.box('trim', bx - 3.2, fy + 3.0, zf + 0.22, bx + 3.2, fy + 3.08, zf + 0.3, '#f1f1f1', 0); B.box('trim', bx - 3.2, fy + 4.22, zf + 0.22, bx + 3.2, fy + 4.3, zf + 0.3, '#f1f1f1', 0);
-        const pl = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 1.35), new THREE.MeshBasicMaterial({ map: signTex('', '#f4f1ea', '#1d1d1d', 270, 135, 2) })); pl.position.set(bx, fy + 5.4, zf + 0.26); group.add(pl); B.box('trim', bx - 1.45, fy + 4.65, zf + 0.2, bx + 1.45, fy + 6.15, zf + 0.25, brown, 0); }
-      // two blue doors, an air conditioner and a couple of wires, like the real front
-      for (const sx of [-1, 1]) { B.box('trim', bx + sx * 9.3 - 0.95, fy, zf - 0.01, bx + sx * 9.3 + 0.95, fy + 2.6, zf + 0.12, white, 0); B.box('trim', bx + sx * 9.3 - 0.8, fy + 0.05, zf + 0.1, bx + sx * 9.3 + 0.8, fy + 2.5, zf + 0.16, '#2a6fb8', 0); B.box('trim', bx + sx * 9.3 - 0.02, fy + 0.05, zf + 0.16, bx + sx * 9.3 + 0.02, fy + 2.5, zf + 0.19, '#103a66', 0); }
+      const plane = (w, h, x, y, z, map, alpha) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial(alpha ? { map, transparent: true, alphaTest: 0.5 } : { map })); m.position.set(x, y, z); group.add(m); return m; };
+      // blind arches with the cracked stone pattern at both ends of the upper floor
+      for (const sx of [-1, 1]) { const cx = bx + sx * 12.3, hw2 = 1.3, ya = fy + 3.95, sp = fy + 5.7, hh = sp - ya + hw2;
+        B.box('trim', cx - hw2 - 0.15, ya - 0.1, zO, cx + hw2 + 0.15, sp, zO + 0.06, tan, 0); half(cx, sp, hw2 + 0.15, zO, zO + 0.06, tan);
+        plane(hw2 * 2, hh, cx, ya + hh / 2, zO + 0.08, signTex('', '', '', 160, 188, 5), true); }
+      // roof: a balustrade of spiked balusters between square posts, all round
+      B.box('trim', bx - hx - 0.34, capY, b.z - hz - 0.34, bx + hx + 0.34, capY + 0.1, b.z + hz + 0.34, tan, 0);
+      { const sp = new THREE.OctahedronGeometry(0.2); sp.scale(0.5, 2.1, 0.5); const geos = []; const posts = [];
+        for (const [x0, z0, x1, z1, al] of [[-hx, -hz, hx, -hz, 1], [-hx, hz, hx, hz, 1], [-hx, -hz, -hx, hz, 0], [hx, -hz, hx, hz, 0]]) {
+          const len = al ? x1 - x0 : z1 - z0; for (let u = 0.3; u < len; u += 0.5) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; const g = sp.clone(); g.translate(px, capY + 0.1 + 0.42, pz); geos.push(g); }
+          for (let u = 0; u <= len + 0.01; u += 2.4) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; B.box('trim', px - 0.11, capY + 0.1, pz - 0.11, px + 0.11, capY + 0.86, pz + 0.11, cream, 0); }
+          if (al) B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x1 + 0.1, capY + 0.96, b.z + z0 + 0.1, cream, 0); else B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); }
+        if (geos.length) B.add('trim', mergeGeometries(geos), cream, 0); }
+      // the tall arched tower bay over the door: the white sign board, a ledge, and the niche with two tall blue windows
+      { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.6, bzf = zO + 0.2, yb = fy + 3.7;
+        B.box('wall', bx - bw, yb, bzb, bx + bw, spr, bzf, b.c, 0.02); half(bx, spr, bw, bzb, bzf, b.c);
+        for (const sx of [-1, 1]) B.box('trim', bx + sx * bw - (sx > 0 ? 0 : 0.18), yb, bzf - 0.05, bx + sx * bw + (sx > 0 ? 0.18 : 0), spr, bzf + 0.12, tan, 0); half(bx, spr, bw + 0.18, bzf - 0.05, bzf + 0.12, tan);
+        B.box('trim', bx - bw - 0.3, fy + 6.0, bzf - 0.05, bx + bw + 0.3, fy + 6.16, bzf + 0.4, tan, 0);   // the ledge under the niche
+        B.box('trim', bx - 1.45, fy + 6.45, bzf, bx + 1.45, spr, bzf + 0.04, dark, 0); half(bx, spr, 1.45, bzf, bzf + 0.04, dark);
+        for (const sx of [-1, 1]) { const x0 = sx > 0 ? 0.32 : -1.28, x1 = sx > 0 ? 1.28 : -0.32; B.box('trim', bx + x0, fy + 6.65, bzf + 0.04, bx + x1, fy + 8.6, bzf + 0.07, '#46658f', 0); half(bx + (x0 + x1) / 2, fy + 8.6, 0.48, bzf + 0.04, bzf + 0.07, '#46658f'); B.box('trim', bx + (x0 + x1) / 2 - 0.02, fy + 6.65, bzf + 0.07, bx + (x0 + x1) / 2 + 0.02, fy + 9.05, bzf + 0.09, iron, 0); }
+        B.box('trim', bx - 0.3, fy + 6.45, bzf + 0.04, bx + 0.3, spr + 0.9, bzf + 0.1, cream, 0); B.box('trim', bx - 0.18, fy + 7.4, bzf + 0.1, bx + 0.18, fy + 7.8, bzf + 0.13, '#3f5d46', 0);
+        B.box('trim', bx - 1.38, fy + 4.0, bzf, bx + 1.38, fy + 5.7, bzf + 0.05, tan, 0);
+        plane(2.5, 1.55, bx, fy + 4.85, bzf + 0.07, signTex('ساڈا گھر', '', '', 400, 248, 3)); }
+      // shop shutters + boards on the ground floor, under a brown awning
+      B.box('trim', bx - hx - 0.1, fy + 3.12, zO, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#8a6347', 0); B.box('trim', bx - hx - 0.1, fy + 3.02, zO + 0.9, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#6d4c35', 0);
+      for (const sx of [-1, 1]) { plane(3.3, 2.35, bx + sx * 11.95, fy + 1.22, zO + 0.04, signTex('', '', '', 160, 170, 4));
+        plane(3.3, 0.55, bx + sx * 11.95, fy + 2.78, zO + 0.04, signTex('', sx > 0 ? '#2d6b57' : '#f4f0e2', sx > 0 ? '#ffffff' : '#1d2f6e', 330, 56, 2));
+        plane(1.7, 0.95, bx + sx * 3.05, fy + 2.0, zO + 0.04, signTex('', sx > 0 ? '#e8c040' : '#f4f0e2', '#1d1d1d', 170, 96, 2));
+        B.box('trim', bx + sx * 3.05 - 0.9, fy + 1.48, zO, bx + sx * 3.05 + 0.9, fy + 2.52, zO + 0.03, tan, 0); }
       B.box('trim', bx + 6.4, fy + fh + 2.0, zf, bx + 7.5, fy + fh + 2.55, zf + 0.45, '#ecebe7', 0.01); B.box('trim', bx + 6.5, fy + fh + 2.1, zf + 0.44, bx + 7.4, fy + fh + 2.14, zf + 0.46, '#8a8a8a', 0); B.box('trim', bx + 6.5, fy + fh + 2.3, zf + 0.44, bx + 7.4, fy + fh + 2.34, zf + 0.46, '#8a8a8a', 0);
-      for (const yy of [fy + fh - 1.3, fy + fh - 1.55]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
+      for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
       const tx = b.x + 10, tz = b.z - 5; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
       B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);
       for (const [px, pz] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) B.box('metal', tx + px - 0.07, roofY, tz + pz - 0.07, tx + px + 0.07, roofY + 2.6, tz + pz + 0.07, '#8d8d90', 0);
@@ -333,10 +351,25 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
 const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95); return c; };
 const flags = [];
-const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = kind === 1 ? '#ffffff' : '#b0a890'; g.lineWidth = 4; g.strokeRect(5, 5, w - 10, h - 10);
+const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
+const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const tex = () => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  if (kind === 3) {   // a white sign board with Urdu writing (right to left), redrawn once the fonts are ready
+    const t = tex(), draw = () => { g.clearRect(0, 0, w, h); g.fillStyle = '#f7f4ec'; g.fillRect(0, 0, w, h); g.strokeStyle = '#1a2f73'; g.lineWidth = 7; g.strokeRect(4, 4, w - 8, h - 8); g.lineWidth = 2; g.strokeRect(16, 16, w - 32, h - 32);
+      g.fillStyle = '#10256b'; g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle'; let px = Math.round(h * 0.66); g.font = 'bold ' + px + 'px ' + urduFam; while (g.measureText(txt).width > w - 70 && px > 20) { px -= 4; g.font = 'bold ' + px + 'px ' + urduFam; }
+      g.fillText(txt, w / 2, h / 2 + h * 0.03); t.needsUpdate = true; };
+    draw(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw); return t; }
+  if (kind === 4) {   // grey rolling shutter
+    g.fillStyle = '#8b939b'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 7) { g.fillStyle = y % 14 ? '#7d858d' : '#9aa2aa'; g.fillRect(0, y, w, 3); } g.fillStyle = '#5d646b'; g.fillRect(0, h - 8, w, 8); return tex(); }
+  if (kind === 5) {   // an arched panel with a cracked stone pattern (transparent outside the arch)
+    const r = w / 2; g.beginPath(); g.moveTo(0, h); g.lineTo(0, r); g.arc(r, r, r, Math.PI, 0); g.lineTo(w, h); g.closePath(); g.fillStyle = '#d8bc92'; g.fill(); g.save(); g.clip();
+    g.strokeStyle = '#bd9d72'; g.lineWidth = 1.5; let s = 7; const rn = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    for (let i = 0; i < 34; i++) { g.beginPath(); let x = rn() * w, y = rn() * h; g.moveTo(x, y); for (let k = 0; k < 3; k++) { x += (rn() - 0.5) * 36; y += (rn() - 0.5) * 36; g.lineTo(x, y); } g.stroke(); }
+    g.restore(); g.strokeStyle = '#b08a5c'; g.lineWidth = 5; g.beginPath(); g.moveTo(2, h); g.lineTo(2, r); g.arc(r, r, r - 2, Math.PI, 0); g.lineTo(w - 2, h); g.stroke(); return tex(); }
+  g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = kind === 1 ? '#ffffff' : '#b0a890'; g.lineWidth = 4; g.strokeRect(5, 5, w - 10, h - 10);
   g.fillStyle = fg; g.strokeStyle = fg; if (kind === 1) { g.font = '900 ' + Math.round(h * 0.5) + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 3, w - 30); }
-  else { g.lineWidth = 5; g.lineCap = 'round'; for (let r = 0; r < 2; r++) { g.beginPath(); let x = w - 30; const y = 50 + r * 50; g.moveTo(x, y); while (x > 40) { const l = 14 + ((x * 7 + r * 13) % 22); g.bezierCurveTo(x - l * 0.3, y - 22, x - l * 0.7, y + 18, x - l, y + ((x * 3) % 9) - 4); x -= l; if (((x * 5) | 0) % 4 === 0) { g.moveTo(x + 4, y - 20); g.lineTo(x + 4, y - 30); g.moveTo(x - l * 0.3, y); } } g.stroke(); } }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  else { g.lineWidth = Math.max(3, h * 0.04); g.lineCap = 'round'; const rows = h > 100 ? 2 : 1; for (let r = 0; r < rows; r++) { g.beginPath(); let x = w - 30; const y = h / (rows + 1) * (r + 1); g.moveTo(x, y); while (x > 40) { const l = 14 + ((x * 7 + r * 13) % 22); g.bezierCurveTo(x - l * 0.3, y - h * 0.16, x - l * 0.7, y + h * 0.13, x - l, y + ((x * 3) % 9) - 4); x -= l; if (((x * 5) | 0) % 4 === 0) { g.moveTo(x + 4, y - h * 0.15); g.lineTo(x + 4, y - h * 0.22); g.moveTo(x - l * 0.3, y); } } g.stroke(); } }
+  return tex(); };
 const flagTex = (k) => { const c = document.createElement('canvas'); c.width = 340; c.height = 220; const g = c.getContext('2d'), W = 340, Hh = 220;
   const star = (cx, cy, r, col) => { g.fillStyle = col; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.4 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); };
   if (k === 'pk') { g.fillStyle = '#01411c'; g.fillRect(0, 0, W, Hh); g.fillStyle = '#fff'; g.fillRect(0, 0, W / 4, Hh); g.fillStyle = '#fff'; g.beginPath(); g.arc(W * 0.62, Hh / 2, 62, 0, 7); g.fill(); g.fillStyle = '#01411c'; g.beginPath(); g.arc(W * 0.62 + 20, Hh / 2 - 6, 52, 0, 7); g.fill(); star(W * 0.69, Hh * 0.38, 22, '#fff'); }

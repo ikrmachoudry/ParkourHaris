@@ -51,7 +51,7 @@ const KIND = {
   barracks: { fh: 3.2, win: { ww: 1.2, y0: 1.0, y1: 2.2, gap: 3.6 }, fur: 'barracks', roof: 'gable' },
   shack: { fh: 2.6, win: { ww: 1.0, y0: 1.0, y1: 2.0, gap: 4 }, fur: 'shack', roof: 'pent' },
   cabin: { fh: 2.9, win: { ww: 1.1, y0: 1.0, y1: 2.1, gap: 3.8 }, fur: 'shack', roof: 'gable' },
-  clinic: { fh: 3.4, fl: 2, win: { ww: 1.6, y0: 0.95, y1: 2.4, gap: 4.4 }, fur: 'clinic', roof: 'flat' },
+  clinic: { fh: 3.4, fl: 2, win: { ww: 1.8, y0: 0.95, y1: 2.1, gap: 4.4, csS: [-8.5, -4.9, 4.9, 8.5] }, fur: 'clinic', roof: 'flat' },
   kiosk: { fh: 3.0, win: { ww: 2.2, y0: 0.9, y1: 2.3, gap: 3 }, fur: 'shop', roof: 'flat' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
@@ -66,9 +66,9 @@ function buildSolids(o) {
     const [alongX, sg] = SIDES[s], len = alongX ? o.w : o.d, fixed = sg * (alongX ? hz : hx), cols = [];
     for (const d of (o.doors || []).filter((q) => q.s === s)) { const hw = (d.w || 3.4) / 2, h = d.h || 2.5; cols.push({ c: d.o, hw, holes: [[0, h]] }); openings.push({ s, c: d.o, hw, y0: 0, y1: h, k: 'door' }); }
     if (W.ww && !(o.noWin || []).includes(s)) {
-      const n = Math.floor((len - 3.2) / W.gap) + 1;
+      const cs = s === 'S' && W.csS, n = cs ? cs.length : Math.floor((len - 3.2) / W.gap) + 1;
       for (let i = 0; i < n; i++) {
-        const c = -(n - 1) * W.gap / 2 + i * W.gap; if (cols.some((q) => Math.abs(q.c - c) < q.hw + W.ww / 2 + 0.7)) continue;
+        const c = cs ? cs[i] : -(n - 1) * W.gap / 2 + i * W.gap; if (cols.some((q) => Math.abs(q.c - c) < q.hw + W.ww / 2 + 0.7)) continue;
         const holes = []; for (let f = 0; f < nfl; f++) holes.push([f * (fh + SL) + W.y0, f * (fh + SL) + W.y1]);
         cols.push({ c, hw: W.ww / 2, holes }); for (const [a, b] of holes) openings.push({ s, c, hw: W.ww / 2, y0: a, y1: b, k: 'win' });
       }
@@ -112,6 +112,7 @@ function buildSolids(o) {
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
   } else
     wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
+  if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
   o.openings = openings; o.top = top; o.hole = hole;
   return out;
 }
@@ -132,7 +133,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
   if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
   if (ov.stair) o.stair = ov.stair;
-  if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank;
+  if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank; if (ov.bay) o.bay = ov.bay;
   o.solids = buildSolids(o);
   PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
   BUILDINGS.push(o); return o;
@@ -197,7 +198,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + 28) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ecc994', doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 10, z: -5 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 10, z: -5 },
     inner: [
       { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-4.8, 2.4], [4.8, 1.8]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
@@ -335,6 +336,12 @@ export function hitsSolid(L, x, z, r, gy) {
   if (gy === undefined) gy = cmbH(x, z); const B = L.B, i0 = Math.floor((x - r) / B), i1 = Math.floor((x + r) / B), j0 = Math.floor((z - r) / B), j1 = Math.floor((z + r) / B);
   for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + 0.3 || s.y0 > gy + 1.0) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } }
   return null;
+}
+// the highest roof / floor / crate top under (x,z) that is at or below yTop + 0.35 (what a parachutist can land on); -1e9 when none
+export function supportY(L, x, z, r, yTop) {
+  const B = L.B, i0 = Math.floor((x - r) / B), i1 = Math.floor((x + r) / B), j0 = Math.floor((z - r) / B), j1 = Math.floor((z + r) / B); let best = -1e9;
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.k !== 'roof' && s.k !== 'floor' && s.k !== 'prop' && s.k !== 'step') continue; if (s.y1 > yTop + 0.35 || s.y1 <= best) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) best = s.y1; } }
+  return best;
 }
 // the first distance along a ray (x,z) + t*(dx,dz), t <= len, where it enters a solid at body height (walls, trees...); len when clear
 export function rayWalls(L, x, z, dx, dz, len, hy = 1.3) {
