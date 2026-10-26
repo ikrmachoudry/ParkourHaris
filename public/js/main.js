@@ -439,7 +439,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -1240,7 +1240,8 @@ class Race {
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
     if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, 1.25); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
     if (this.fireHeld && this.weapon && this.weapon !== 'sniper' && isGun(this.weapon) && !(this.single && WEAPONS[this.weapon].auto)) this.fire();   // hold the fire button: AK and pistol keep firing
-    if (this.aimOn && !this.drive && b.stun <= 0 && Number.isFinite(this.camYaw)) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * 14); }   // face where the camera looks
+    { const cs = this.mission && this.mission.cs, armed = !!(this.weapon && isGun(this.weapon)); this.faceCam = !this.drive && b.stun <= 0 && !(b.swim > 0.3) && !(cs && cs.dropping) && !this.hang && Number.isFinite(this.camYaw) && (this.aimOn || armed || !!(cs && cs.on));   // PUBG: with a gun in hand (and always in the match) the body faces where the camera looks and turns with it; you strafe and back-pedal
+      if (this.faceCam) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * (this.aimOn || this.fireHeld ? 16 : 11)); } }
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
   throwNade() {
@@ -1418,7 +1419,7 @@ class Race {
   reload() {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || this.drive || this.over || this.reloadT > 0) return false;
     if (this.wallet.mag(w) >= W.mag || this.wallet.reserve(w) <= 0) return false;
-    this.reloadT = W.reload || 1.5; this.fireHeld = false; A.sfx.click(); this.updateAmmoHud(); return true;
+    this.reloadT = this.reloadTot = W.reload || 1.5; this.fireHeld = false; A.sfx.click(); this.updateAmmoHud(); return true;
   }
   toggleFireMode() { const w = this.weapon, W = w && WEAPONS[w]; if (!W || !W.auto) { this.toast('Single shot only on this weapon'); return; } this.single = !this.single; this.toast(this.single ? 'FIRE MODE: SINGLE' : 'FIRE MODE: AUTO'); const b = $('a-fmode'); if (b) b.classList.toggle('on', !!this.single); }
   // the point the crosshair (screen centre) looks at: along the camera ray, down to the ground when it points down, 40+ m ahead otherwise
@@ -1438,7 +1439,7 @@ class Race {
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
-    if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
+    if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
     this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
@@ -1743,7 +1744,7 @@ class Race {
     this.shoulder += ((NO_TEXT && !this.drive && !spec ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
     const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
-    const f = 1 - Math.exp(-14 * dt);
+    const f = 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
     this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-7 * dt));
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);

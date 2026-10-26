@@ -2,7 +2,7 @@
 import { layout, CombatSim, findPath, los, hitsSolid, rayWalls, cmbH, CMB, BRIDGE, ROADS, distRoad } from '../public/js/combat.js';
 let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL', m); } else console.log('PASS', m); };
 const L = layout(), BUILDINGS = L.buildings;
-ok(L.solids.length > 1000 && L.trees.length > 1500, 'map has walls and forests: ' + L.solids.length + ' solids, ' + L.trees.length + ' trees');
+ok(L.solids.length > 1000 && L.trees.length > 150, 'map has walls and forests: ' + L.solids.length + ' solids, ' + L.trees.length + ' trees');
 ok(BUILDINGS.length >= 45, 'buildings: ' + BUILDINGS.length);
 ok(L.spots.length >= 150, 'loot spots: ' + L.spots.length);
 ok(L.spots.every((s) => !hitsSolid(L, s.x, s.z, 0.9)), 'no loot spot is inside or touching a wall / tree / crate');

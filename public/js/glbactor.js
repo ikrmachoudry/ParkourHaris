@@ -21,9 +21,9 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
+const CLIP_FOR = { reloadR: { c: 'reload', rel: 1 }, rifleBack: { c: 'runBack', v0: 2.6 }, rifleStrafeL: { c: 'strafeL', v0: 1.6 }, rifleStrafeR: { c: 'strafeR', v0: 1.6 }, pistolBack: { c: 'pistolBack', v0: 1.4, lower: 0.55 }, pistolStrafeL: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, pistolStrafeR: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, runBack: { c: 'runBack', v0: 4.0 }, runL: { c: 'runL', v0: 4.2 }, runR: { c: 'runR', v0: 4.2 }, dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleIdle' }, rifleWalk: { c: 'rifleWalk', v0: 1.4 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] }, nadeThrow: { c: 'nadeThrow', nade: 1 }, nadeToss: { c: 'nadeToss', nade: 1 }, nadeStand: { c: 'nadeStand', nade: 1 } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
-const FORE = { ak: [0, -0.04, 0.27], m4: [0, -0.04, 0.25], smg: [0, -0.07, 0.14], shotgun: [0, -0.06, 0.38], sniper: [0, -0.04, 0.48] };   // where the left hand holds each gun (gun frame: +z barrel, origin = grip)
+const FORE = { pistol: [0.05, -0.09, 0.0], revolver: [0.05, -0.1, 0.02], ak: [0, -0.04, 0.27], m4: [0, -0.04, 0.25], smg: [0, -0.07, 0.14], shotgun: [0, -0.06, 0.38], sniper: [0, -0.04, 0.48] };   // where the left hand holds each gun (gun frame: +z barrel, origin = grip)
 const _ik = { pa: new THREE.Vector3(), pb: new THREE.Vector3(), pc: new THREE.Vector3(), t: new THREE.Vector3(), d: new THREE.Vector3(), ac: new THREE.Vector3(), pole: new THREE.Vector3(), pb2: new THREE.Vector3(), q: new THREE.Quaternion(), wq: new THREE.Quaternion(), pq: new THREE.Quaternion() };
 const _aimD = new THREE.Vector3(), _aimT = new THREE.Vector3(), _aimQ = new THREE.Quaternion(), _aimE = new THREE.Quaternion(), _aimI = new THREE.Quaternion(), AIM_BONES = ['spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R'];
 const NEED_ = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
@@ -223,10 +223,11 @@ export class GlbActor extends HeroActor {
       const sp = st.speed || 0; let fi;
       if (ce.air) { const t = Math.max(-1, Math.min(1, (st.vy || 0) / 7)); fi = Math.max(0, Math.min(clip.n - 1.001, t > 0 ? 11 - t * 6 : 11 - t * 8)); }   // Haris's own Jump_1 clip: frames 5-11 = rising (knees up), 11 = apex, 11-19 = coming down; driven by the real vertical speed
       else if (ce.zp) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.zp || 0) * (clip.n - 1))); }   // zombie death: 0..1 progress from the scene
+      else if (ce.rel) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.reload || 0) * (clip.n - 1))); }   // reloading: the clip is stretched over the weapon's reload time
       else if (ce.nade) { fi = Math.max(0, Math.min(clip.n - 1.001, (st.nade || 0) * (clip.n - 1))); }   // the grenade throw: the game's own 0..1 progress (release at clip.rel)
       else if (ce.prog) { fi = Math.max(0, Math.min(clip.n - 1.001, ce.prog[0] + Math.min(1, (st.punch || 0) / 0.95) * (ce.prog[1] - ce.prog[0]))); }
       else { this.ct = (this.ct || 0) + dt * (ce.v0 ? Math.max(0.35, Math.min(2.4, sp / ce.v0)) : 1); fi = (this.ct / clip.dur) % 1 * clip.n; }
-      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air || ce.nade || ce.zp ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
+      const i0 = Math.floor(fi) % clip.n, i1 = ce.prog || ce.air || ce.nade || ce.zp || ce.rel ? Math.min(i0 + 1, clip.n - 1) : (i0 + 1) % clip.n, al = fi - Math.floor(fi);
       const Wm = rt.Wm || (rt.Wm = {}); const sc = hk * 0.01 * (rt.mxHipsY / 100) ** 0;
       NEED.forEach((n, j) => {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
@@ -285,7 +286,7 @@ export class GlbActor extends HeroActor {
   // LEFT HAND ON THE GUN: after the pose is set, a two-bone IK reaches the left hand to the gun's fore-grip point (per gun, in the gun frame), so ANY gun is held right, whatever the clip did
   gripIK(dt, st) {
     const rt = this.rt, W = this.ch.wmesh && st.weapon && this.ch.wmesh[st.weapon], fg = FORE[st.weapon];
-    const want = !!(W && fg && this.ch.gun.visible && /^rifle/.test(this.pose || '') && !st.seated);
+    const want = !!(W && fg && this.ch.gun.visible && /^(rifle|pistol)/.test(this.pose || '') && !st.seated);
     this.ikK = (this.ikK || 0) + ((want ? 1 : 0) - (this.ikK || 0)) * Math.min(1, dt * 9);
     if (this.ikK < 0.02 || !W) return;
     const gg = W.children[0]; if (!gg) return;

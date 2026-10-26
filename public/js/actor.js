@@ -43,13 +43,19 @@ export class HeroActor {
       if (wc === 'pistol') name = st.aiming ? 'pistolAim' : mv ? 'pistolWalk' : 'pistolIdle';
       else if (wc === 'ak' || wc === 'sniper') name = st.aiming ? 'rifleAim' : mv ? 'rifleWalk' : 'rifleIdle';
     }
+    if (st.faceCam && !st.seated && !st.swim && sp > 0.25 && st.grounded) {   // PUBG movement: the body faces where the camera looks, so walking back / sideways plays the back / strafe clips
+      const f = st.mvF === undefined ? 1 : st.mvF, r = st.mvR || 0, side = r > 0 ? 'R' : 'L';
+      if (name === 'rifleWalk' || name === 'pistolWalk') { const p = name === 'rifleWalk' ? 'rifle' : 'pistol'; if (f < -0.4) name = p + 'Back'; else if (Math.abs(r) > 0.6 && f < 0.55) name = p + 'Strafe' + side; }
+      else if (name === 'run' || name === 'walk') { if (f < -0.4) name = 'runBack'; else if (Math.abs(r) > 0.6 && f < 0.55) name = 'run' + side; }
+    }
     if (st.crouch && w && !st.seated && (wc === 'ak' || wc === 'sniper') && (name === 'rifleIdle' || name === 'rifleWalk' || name === 'rifleAim')) name = sp > 0.25 ? 'rifleCrouchWalk' : st.aiming ? 'rifleCrouchAim' : 'rifleCrouchIdle';   // kneeling with the rifle (real Mixamo crouch clips)
+    if (st.reload > 0 && w && !st.seated && !st.swim && wc !== 'bat') { name = 'reloadR'; t = st.reload; }   // the real Mixamo reload
     if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }
     if (st.skydive) { name = st.skydive === 2 ? 'chute' : 'skydive'; t = this.t; }
     if (st.zpose) { name = st.zpose; t = st.zp || 0; }
     if (st.punch > 0 && !st.seated && !st.zpose) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }
-    const DRV = { dieF: 'idle', dieB: 'idle', dieR: 'idle', dieL: 'idle', skydive: 'jump', chute: 'idle', rifleCrouchIdle: 'aimLow', rifleCrouchAim: 'aimLow', rifleCrouchWalk: 'aimLow', zWalk: 'walk', zCrawl: 'walk', zDeath: 'idle', dReact: 'idle', dFly: 'idle', nadeThrow: 'nadeThrow', nadeToss: 'nadeThrow', nadeStand: 'nadeThrow', pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim', pistolAim: 'aim' };
+    const DRV = { reloadR: 'aimLow', rifleBack: 'aimLow', rifleStrafeL: 'aimLow', rifleStrafeR: 'aimLow', pistolBack: 'aimLow', pistolStrafeL: 'aimLow', pistolStrafeR: 'aimLow', runBack: 'run', runL: 'run', runR: 'run', dieF: 'idle', dieB: 'idle', dieR: 'idle', dieL: 'idle', skydive: 'jump', chute: 'idle', rifleCrouchIdle: 'aimLow', rifleCrouchAim: 'aimLow', rifleCrouchWalk: 'aimLow', zWalk: 'walk', zCrawl: 'walk', zDeath: 'idle', dReact: 'idle', dFly: 'idle', nadeThrow: 'nadeThrow', nadeToss: 'nadeThrow', nadeStand: 'nadeThrow', pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim', pistolAim: 'aim' };
     poseChar(this.ch, DRV[name] || name, t, 1);
     { const W = this.ch.wmesh; if (w) { this.ch.gun.visible = true; for (const k in W) W[k].visible = k === w; } else for (const k in W) W[k].visible = k === 'pistol'; }
     // blend from the previous frame's pose (fast, so it still looks crisp)

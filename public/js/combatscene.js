@@ -126,11 +126,16 @@ export class CombatScene {
   chuteVis(on, b, dt) {
     if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ec5b2b', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
       const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, 0, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f5f1e8', roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.55, depthWrite: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st);
-      const lm = new THREE.MeshBasicMaterial({ color: '#d8d8d8' }); for (const [x, z] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 3.6, 3), lm); l.position.set(x / 2, 1.7, z / 2); l.rotation.set(z * 0.1, 0, -x * 0.1); g.add(l); }
+      const lm = new THREE.MeshBasicMaterial({ color: '#e8e4d6' }), hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }), V = THREE.Vector3;
+      const seg = (p, q, r, mat) => { const d = q.clone().sub(p), l = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 5), mat); m.position.copy(p).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); return m; };
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.39, rim = new V(Math.cos(a) * 2.7, 3.2, Math.sin(a) * 2.7), sh = new V(Math.cos(a) > 0 ? 0.24 : -0.24, 1.62, 0); g.add(seg(rim, sh, 0.018, lm)); }   // eight suspension lines down to the two risers on the shoulders
+      for (const sx of [-1, 1]) { g.add(seg(new V(sx * 0.24, 1.62, 0), new V(sx * 0.2, 1.05, 0.05), 0.035, hm)); const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); sb.rotation.z = sx * 0.06; g.add(sb); const lg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), hm); lg.position.set(sx * 0.16, 0.62, 0.02); g.add(lg); }
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.32), hm); belt.position.set(0, 0.98, 0); g.add(belt); const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.31), hm); chest.position.set(0, 1.46, 0); g.add(chest);
+      const pack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: '#3f5d34', roughness: 0.9 })); pack.position.set(0, 1.25, -0.28); g.add(pack);   // the empty pack on the back
       this.chute = g; this.group.add(g); }
     const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;
@@ -157,6 +162,10 @@ export class CombatScene {
     const R = this.R; if (!this.on || !this.sim) return; this.t += dt; const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     const run = M && M.phase === 'run' && !this.over;
+    if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
+      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast('PARACHUTE PACKED - jump off the tower!', 3.5); A.sfx.pickup && A.sfx.pickup(); }
+      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { this.drop = { ph: 'chute', t: 0, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0 }; this.dropping = true; this.dropPose = 2; R.toast && R.toast('PARACHUTE OPEN', 2); }
+    }
     if (run) {
       this.time -= dt;
       // the ammo / health / weapons on the ground
