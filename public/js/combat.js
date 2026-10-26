@@ -91,7 +91,7 @@ function buildSolids(o) {
   }
   let hole = null;
   if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
-    const st = o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.2, dir: 1 }, rise = fh + SL, n = Math.ceil(rise / 0.3), step = rise / n, tread = 0.45, sw = 1.5;
+    const st = o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0;
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
     const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step };
     for (let f = 1; f < nfl; f++) {
@@ -147,14 +147,14 @@ padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); pad
 // ---- Haris Town (centre east): two streets, houses, shops, apartments, a church and the school
 for (const x of [6, 22]) { mk('house', x, 79, 10 + (x === 22 ? 1 : 0), 9, 'S'); mk('house', x, 111, 10 + (x === 22 ? 1 : 0), 9, 'N'); }
 for (const x of [84, 100, 116]) { mk('house', x, 79, 10, 9, 'S'); if (x > 84) mk('house', x, 111, 10, 9, 'N'); }
-mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.2, dir: 1 } });
+mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } });
 mk('shop', 30, 50, 12, 9, 'S'); mk('church', 12, 40, 10, 18, 'S', { win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 } });
-mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.2, dir: 1 } });
-mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: 4, z0: -6 + TH / 2 + 0.2, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
+mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.45, dir: 1 } });
+mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: 4, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
 mk('kiosk', 62, 192, 8, 6, 'W');   // the petrol station on the highway
 // ---- the military base on the hill (north east): barracks, HQ, hangar, sheds
 for (const z of [-176, -158, -140]) mk('barracks', 148, z, 24, 9, 'E', { fy: BASE_Y });
-mk('apart', 198, -150, 14, 12, 'W', { fy: BASE_Y, c: '#9aa38a', stair: { x0: -4, z0: -6 + TH / 2 + 0.2, dir: 1 } }); mk('hangar', 186, -112, 32, 20, 'S', { fy: BASE_Y, c: '#8f9a8a' });
+mk('apart', 198, -150, 14, 12, 'W', { fy: BASE_Y, c: '#9aa38a', stair: { x0: -4, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('hangar', 186, -112, 32, 20, 'S', { fy: BASE_Y, c: '#8f9a8a' });
 mk('shack', 124, -128, 6, 5, 'E', { fy: BASE_Y, c: '#8f9a8a' }); mk('shack', 214, -176, 6, 5, 'W', { fy: BASE_Y, c: '#8f9a8a' });
 // ---- the industrial yard (south east)
 mk('warehouse', 160, 160, 26, 22, 'N', { c: '#a8b0b3' }); mk('warehouse', 196, 160, 26, 22, 'N', { c: '#b5a48c' }); mk('warehouse', 196, 196, 36, 18, 'W', { c: '#9aa6b0' });
@@ -197,7 +197,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + 28) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#f6dfbd', doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.2, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.2 }, tank: { x: 10, z: -5 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ecc994', doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 10, z: -5 },
     inner: [
       { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-4.8, 2.4], [4.8, 1.8]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
@@ -212,7 +212,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
     if (x > 100 && x < 240 && z > -205 && z < -84) continue; if (x > BRIDGE.xb - 14 && x < BRIDGE.xa + 14 && Math.abs(z - BRIDGE.z) < 16) continue;
     if (BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + w) / 2 + m && Math.abs(o.z - z) < (o.d + d) / 2 + m)) continue;
     const h0 = rawH(x, z); if (h0 < 1.5 || h0 > 24) continue; let flat = true; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + sx * w / 2, z + sz * d / 2) - h0) > 1.1) flat = false; if (!flat) continue;
-    mk(kind, x, z, w, d, fr[Math.floor(RX() * 4)], kind === 'apart' ? { stair: { x0: -w / 2 + 2, z0: -d / 2 + TH / 2 + 0.2, dir: 1 } } : {}); n++;
+    mk(kind, x, z, w, d, fr[Math.floor(RX() * 4)], kind === 'apart' ? { stair: { x0: -w / 2 + 2, z0: -d / 2 + TH / 2 + 0.45, dir: 1 } } : {}); n++;
   } }
 
 // ---------------------------------------------------------------- the world: solids, trees, rocks, props, loot spots, spawns, nav grid

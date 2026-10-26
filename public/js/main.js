@@ -1734,7 +1734,7 @@ class Race {
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
-      if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 3.8 : ph === 'fall' ? 6.5 : 7.5; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.8; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
+      if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 7.5; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.8; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
     const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
@@ -1750,6 +1750,9 @@ class Race {
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
     this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-7 * dt));
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
+    { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage (it is a tube, 2 m radius), like PUBG's cabin
+      if (dr && dr.ph === 'plane' && cs.plane) { const P = cs.plane.position, ca = Math.cos(dr.a), sa = Math.sin(dr.a), c = this.camera.position, wx = c.x - P.x, wz = c.z - P.z, lx = wx * ca - wz * sa, lz = wx * sa + wz * ca, ly = c.y - P.y - 0.57, r = Math.hypot(lx, ly), R0 = 1.55;
+        if (r > R0) { const k = R0 / r, nx = lx * k, ny = ly * k; c.x = P.x + nx * ca + lz * sa; c.z = P.z - nx * sa + lz * ca; c.y = P.y + 0.57 + ny; } } }
     if (inHome) this.camera.position.y = Math.min(this.camera.position.y, 3.25);   // stay under the ceiling
     if (this.meta.city) { // the camera can never go inside a building or under the ground: pull it in along the line to the player
       const cam = this.camera.position, T = this.world.terrain, ox = this.camTarget.x, oy = this.camTarget.y, oz = this.camTarget.z;
@@ -1765,7 +1768,7 @@ class Race {
         if (hit && t0 < tmax && t0 > 0) tmax = t0;
       }
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // the match: the camera never goes through a wall, floor or roof (it swings in behind the player instead)
-        const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.2;
+        const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.42;
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
           for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
             for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;

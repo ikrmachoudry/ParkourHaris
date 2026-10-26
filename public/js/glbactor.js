@@ -21,7 +21,7 @@ export function loadGlb(url) {
 let CLIPS = null, clipsP = null;
 const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
-const CLIP_FOR = { crawl: { c: 'crawl', v0: 0.8 }, proneIdle: { c: 'proneIdle' }, reloadR: { c: 'reload', rel: 1 }, rifleBack: { c: 'runBack', v0: 2.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeL: { c: 'strafeL', v0: 1.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeR: { c: 'strafeR', v0: 1.6, up: 'rifleAim', lower: 0.2 }, pistolBack: { c: 'pistolBack', v0: 1.4, lower: 0.55 }, pistolStrafeL: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, pistolStrafeR: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, runBack: { c: 'runBack', v0: 4.0 }, runL: { c: 'runL', v0: 4.2 }, runR: { c: 'runR', v0: 4.2 }, dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
+const CLIP_FOR = { crawl: { c: 'crawl', v0: 0.8 }, proneIdle: { c: 'proneIdle' }, reloadR: { c: 'reload', rel: 1 }, rifleBack: { c: 'runBack', v0: 2.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeL: { c: 'strafeL', v0: 1.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeR: { c: 'strafeR', v0: 1.6, up: 'rifleAim', lower: 0.2 }, pistolBack: { c: 'pistolBack', v0: 1.4, lower: 0.55 }, pistolStrafeL: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, pistolStrafeR: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, runBack: { c: 'runBack', v0: 4.0, up: 'run', live: 1, uv: 4.4 }, runL: { c: 'runL', v0: 4.2, up: 'run', live: 1, uv: 4.4 }, runR: { c: 'runR', v0: 4.2, up: 'run', live: 1, uv: 4.4 }, dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleAim', lower: 0.2 }, rifleWalk: { c: 'walk', v0: 1.45, up: 'rifleAim', lower: 0.2 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] }, nadeThrow: { c: 'nadeThrow', nade: 1 }, nadeToss: { c: 'nadeToss', nade: 1 }, nadeStand: { c: 'nadeStand', nade: 1 } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)
 const FORE = { pistol: [0.05, -0.09, 0.0], revolver: [0.05, -0.1, 0.02], ak: [0, -0.04, 0.27], m4: [0, -0.04, 0.25], smg: [0, -0.07, 0.14], shotgun: [0, -0.06, 0.38], sniper: [0, -0.04, 0.48] };   // where the left hand holds each gun (gun frame: +z barrel, origin = grip)
 const _ik = { pa: new THREE.Vector3(), pb: new THREE.Vector3(), pc: new THREE.Vector3(), t: new THREE.Vector3(), d: new THREE.Vector3(), ac: new THREE.Vector3(), pole: new THREE.Vector3(), pb2: new THREE.Vector3(), q: new THREE.Quaternion(), wq: new THREE.Quaternion(), pq: new THREE.Quaternion() };
@@ -100,8 +100,8 @@ export class GlbActor extends HeroActor {
   // url: GLB path.  opts: { look, height, map (override bone map), flip (180 deg if the model faces -z) }
   constructor(id, url, opts = {}) {
     super(id, opts.look); this.heroId = id | 0;
-    this.opts = opts; this.ready = false; this.failed = false; this.shell = null;
-    Promise.all([loadGlb(url), loadClips()]).then(([g]) => this.attach(g), (e) => { this.failed = true; console.warn('GLB failed', url, e && e.message); });
+    this.opts = opts; this.ready = false; this.failed = false; this.shell = null; this.ch.mesh.visible = false; this.ch.gun.visible = false;   // nothing shows until the real model is in (no stand-in body that gets swapped)
+    Promise.all([loadGlb(url), loadClips()]).then(([g]) => this.attach(g), (e) => { this.failed = true; this.ch.mesh.visible = true; console.warn('GLB failed', url, e && e.message); });
   }
   attach(gltf) {
     if (this.disposed) return;
@@ -109,7 +109,7 @@ export class GlbActor extends HeroActor {
     const bonesByName = {}; model.traverse((o) => { if (o.isBone) bonesByName[o.name] = o; });
     const map = this.opts.map || mapBones(Object.keys(bonesByName));
     const miss = NEED.filter((k) => !map[k]);
-    if (miss.length) { this.failed = true; console.warn('GLB rig is missing bones', miss.join(',')); return; }
+    if (miss.length) { this.failed = true; this.ch.mesh.visible = true; console.warn('GLB rig is missing bones', miss.join(',')); return; }
     const shell = new THREE.Group(); shell.add(model);
     if (this.opts.flip) model.rotation.y = Math.PI;
     // normalise size: feet on the floor, standing height = 1.78 m
@@ -187,7 +187,7 @@ export class GlbActor extends HeroActor {
   }
   update(dt, st) {
     super.update(dt, st);
-    if (!this.ready) return;
+    if (!this.ready) { this.ch.gun.visible = false; return; }
     const rt = this.rt, b = this.ch.bones;
     if (this.shellY0 === undefined) this.shellY0 = this.shell.position.y; this.shell.position.y = this.shellY0 + (this.liftY || 0);
     this.shell.rotation.x = this.ch.group.rotation.x; this.shell.rotation.y = this.ch.group.rotation.y;   // knocked flat (and rolling)
@@ -233,7 +233,7 @@ export class GlbActor extends HeroActor {
         _q.fromArray(clip.G, (i0 * 17 + j) * 4); _q2.fromArray(clip.G, (i1 * 17 + j) * 4); _q.slerp(_q2, al);
         Wm[n] = Wm[n] || new THREE.Quaternion(); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr);
       });
-      if (ce.up && CLIPS.clips[ce.up]) { const uc = CLIPS.clips[ce.up]; NEED.forEach((n, j) => { if (/^(chest|neck|head|upperarm|forearm|hand)/.test(n)) { _q.fromArray(uc.G, j * 4); Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr); } }); }   // upper body from a still frame of another clip (the gun held low-ready) over these legs
+      if (ce.up && CLIPS.clips[ce.up]) { const uc = CLIPS.clips[ce.up]; let u0 = 0, u1 = 0, ua = 0; if (ce.live) { this.ct2 = (this.ct2 || 0) + dt * Math.max(0.35, Math.min(2.4, sp / (ce.uv || 4.4))); const uf = (this.ct2 / uc.dur) % 1 * uc.n; u0 = Math.floor(uf) % uc.n; u1 = (u0 + 1) % uc.n; ua = uf - Math.floor(uf); } NEED.forEach((n, j) => { if (/^(chest|neck|head|upperarm|forearm|hand)/.test(n)) { _q.fromArray(uc.G, (u0 * 17 + j) * 4); if (ua) { _q2.fromArray(uc.G, (u1 * 17 + j) * 4); _q.slerp(_q2, ua); } Wm[n].copy(_q).multiply(rt.Qm[n]).multiply(rt.T[n].Rr); } }); }   // upper body from a still frame of another clip (the gun held low-ready) over these legs
       if (ce.lower) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.lower); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
       if (ce.legBack) { _q.setFromAxisAngle(_v.set(1, 0, 0), ce.legBack); for (const n of ['upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R']) Wm[n].premultiply(_q); }   // swing both whole legs back a little: seen from behind the forward-kicked thighs looked tiny (foreshortened)
       if (ce.yaw) { _q.setFromAxisAngle(_v.set(0, 1, 0), ce.yaw); for (const n of ['upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wm[n].premultiply(_q); }
