@@ -2123,6 +2123,11 @@ function onGo(m) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   const room = app.room; if (!room) return;
+  if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
+    app.level = 0; loadScreen.show('JANG', 'LOADING...');
+    requestAnimationFrame(() => setTimeout(() => { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }, 40));
+    return;
+  }
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
   race = new Race(m.level, players, app.myId, { multi: true, jang: !!(room && room.combat), t0: m.t0, seed: m.seed }); race.syncAct();

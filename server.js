@@ -131,7 +131,7 @@ function startRound(room) {
   });
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
-  if (room.combat) room.timers.push(setTimeout(() => {   // TEAM UP COMBAT: once everybody has loaded the city the mission starts by itself, with the whole team in it
+  if (false && room.combat) room.timers.push(setTimeout(() => {   // v189: off - every player runs Jang alone on their own map; the server starts no shared mission   // TEAM UP COMBAT: once everybody has loaded the city the mission starts by itself, with the whole team in it
     if (room.phase !== 'race' || !room.players.size) return; const h = hubOf(room), ids = [...room.players.keys()];
     if (h.phase !== 'idle') return; for (const id of ids) h.lobby(id, true, ids); h.pick(room.hostId, 'combat', ids); h.start(room.hostId, ids);
   }, 7000));
