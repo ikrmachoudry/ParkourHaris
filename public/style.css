@@ -767,3 +767,13 @@ body.touch #a-jump { right: 3.5vw; bottom: 44vh; }
 body.touch #a-crouch { right: 3.5vw; bottom: calc(44vh - clamp(42px, 11.5vmin, 58px) - 8px); }
 body.touch #a-prone { right: 3.5vw; bottom: calc(44vh - clamp(42px, 11.5vmin, 58px) - clamp(38px, 10vmin, 52px) - 16px); }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone { background: rgba(90,90,90,.14) !important; border-color: rgba(255,255,255,.45) !important; }
+
+/* v174: full-screen on phones with a notch (viewport-fit=cover): the game fills every pixel; the controls keep clear of the notch and rounded corners */
+:root { --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px); }
+body.touch #a-punch { right: calc(3vw + var(--sar)); }
+body.touch #a-aim { right: calc(3vw + var(--sar) + clamp(80px, 23vmin, 112px) + 10px); }
+body.touch #a-jump, body.touch #a-crouch, body.touch #a-prone { right: calc(3.5vw + var(--sar)); }
+body.touch.in-race.city-mode:not(.driving) #a-fire2 { left: calc(max(18px, 3vw) + var(--sal) + 150px + 4vmin); }
+body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: calc(max(18px, 3vw) + var(--sal) + 64px); }
+body.touch.in-race.city-mode #minimap { left: max(12px, var(--sal), 2vw); }
+body.touch.in-race.city-mode #b-gm { right: max(8px, var(--sar)); }
