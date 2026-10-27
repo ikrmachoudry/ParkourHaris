@@ -801,15 +801,28 @@ body.touch.in-race.city-mode:not(.driving) #act-pad button:active, body.touch.in
 body.touch.in-race.city-mode:not(.driving) #act-pad button svg { stroke: #fff; opacity: .92; }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch.gun svg { transform: rotate(45deg); }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone.on svg { stroke: #ffd23f; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch  { --s: clamp(78px, 21vh, 118px); left: 85%; top: 74%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim    { --s: clamp(50px, 13vh, 72px); left: 95.5%; top: 55.5%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump   { --s: clamp(50px, 13vh, 72px); left: 95.5%; top: 71%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch { --s: clamp(48px, 12.5vh, 68px); left: 84.5%; top: 91%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone  { --s: clamp(48px, 12.5vh, 68px); left: 92%; top: 91%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode  { --s: clamp(44px, 11.5vh, 62px); left: 87%; top: 55.5%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-weapon { --s: clamp(44px, 11.5vh, 62px); left: 50%; top: 85%; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-reload { --s: clamp(44px, 11.5vh, 62px); left: 58%; top: 85%; }
-body.touch.in-race #c-bag { --s: clamp(44px, 11.5vh, 62px); left: 42%; top: 85%; right: auto; bottom: auto; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch  { --s: clamp(78px, 21vh, 118px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.85); top: 74%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim    { --s: clamp(50px, 13vh, 72px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.94); top: 55.5%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump   { --s: clamp(50px, 13vh, 72px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.94); top: 71%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch { --s: clamp(48px, 12.5vh, 68px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.845); top: 91%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone  { --s: clamp(48px, 12.5vh, 68px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.92); top: 91%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode  { --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.87); top: 55.5%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-weapon { --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.5); top: 85%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-reload { --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.58); top: 85%; }
+body.touch.in-race #c-bag { --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.42); top: 85%; right: auto; bottom: auto; }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim, body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone, body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode, body.touch.in-race.city-mode:not(.driving) #act-pad #a-weapon, body.touch.in-race.city-mode:not(.driving) #act-pad #a-reload, body.touch.in-race #c-bag { right: auto; bottom: auto; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); }
 body.touch.in-race #c-bag { font-size: calc(var(--s) * .5); }
 body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: 15.8%; top: 72%; }
+
+/* v182: the home screen - two games, PUNJABI GTA and JANG; the GTA menu opens after the first button */
+#s-title #b-combat { display: none !important; }
+#s-title #home-pick { display: none; }
+#s-title #b-home-back { display: none; }
+#s-title.mode-home .menu { right: auto; left: 50%; top: auto; bottom: max(14px, 4vh); transform: translateX(-50%); width: min(720px, 94vw); flex-direction: column; align-items: center; }
+#s-title.mode-home #home-pick { display: flex; gap: 14px; width: 100%; }
+#s-title.mode-home #home-pick .btn { flex: 1; }
+#s-title.mode-home #b-single, #s-title.mode-home #b-multi { display: none; }
+#s-title.mode-gta #b-home-back { display: block; }
+#s-title.mode-home .logo { padding-right: 0; }
+
+body.touch #a-jump.ready, #a-jump.ready { background: rgba(80,220,120,.45) !important; border-color: #6dff8a !important; }

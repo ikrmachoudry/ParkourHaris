@@ -1872,8 +1872,10 @@ class Race {
 
 // ------------------------------------------------------------------ UI / flow
 const screens = ['title', 'profile', 'levels', 'mp', 'cmb', 'lobby', 'results', 'help'];
+function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode-gta', m === 'gta'); t.classList.toggle('mode-home', m !== 'gta'); } }
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
+  if (name === 'title') homeMode('home');
   app.screen = name;
 }
 let toastTimer = 0;
@@ -2290,6 +2292,9 @@ async function boot() {
   A.initAudio(); A.startMusic(99);
   { const un = () => { A.initAudio(); if (!app.screen || app.screen === 'title' || app.screen === 'profile') A.startMusic(99); for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, un, true); }; for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, un, true); }
   $('b-profile-back').onclick = () => { A.sfx.back(); stage.setTitle(); show('title'); };
+  $('b-go-gta').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); homeMode('gta'); };
+  $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
+  $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; startSingle(0); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
