@@ -1752,7 +1752,7 @@ class Race {
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
-      if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 7.5; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.8; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
+      if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 9; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.42; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
     const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
@@ -1805,6 +1805,10 @@ class Race {
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
+    { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // peek: hold a lean button, the body tilts and the camera slides sideways (PUBG Q/E)
+      const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12);
+      if (Math.abs(this.leanV) > 0.01) { const o = this.leanV * 0.75, cx = Math.cos(this.camYaw) * o, cz = -Math.sin(this.camYaw) * o; this.camera.position.x += cx; this.camera.position.z += cz; this.camTarget.x += cx; this.camTarget.z += cz; }
+      if (this.me && this.me.model) this.me.model.group.rotation.z = -this.leanV * 0.32; }
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
@@ -2390,6 +2394,8 @@ window.__ph = { THREE, A, rend: renderer, app, Remote, stepBody, newBody, startS
   const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
+  for (const [id, v] of [['a-leanl', -1], ['a-leanr', 1]]) { const el = $(id); if (!el) continue; const on = (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.leanWant = v; el.classList.add('on'); }, off = (e) => { if (e) e.preventDefault(); if (race && race.leanWant === v) race.leanWant = 0; el.classList.remove('on'); };
+    el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off); el.addEventListener('touchcancel', off); el.addEventListener('mousedown', on); el.addEventListener('mouseup', off); el.addEventListener('mouseleave', off); }
   act('a-prone', () => { if (race && !race.over && !race.menuOpen) race.toggleProne(); });
   act('a-weapon', () => { if (race && !race.over && !race.menuOpen) race.toggleWheel(); });
   act('a-reload', () => { if (race && !race.over && !race.menuOpen) race.reload(); });

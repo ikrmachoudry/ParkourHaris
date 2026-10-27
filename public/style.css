@@ -827,3 +827,19 @@ body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: 15.8%; top: 72%
 
 body.touch #a-jump.ready, #a-jump.ready { background: rgba(80,220,120,.45) !important; border-color: #6dff8a !important; }
 #s-title.mode-home .made { display: none; }
+
+/* v184 PUBG-style filled icons, fire-mode bullets, peek buttons */
+body.touch #act-pad button svg.pi { fill: #fff; stroke: none; width: 74%; height: 74%; }
+body.touch #act-pad #a-aim svg.pi { width: 78%; height: 78%; }
+#act-pad #a-fmode i { display: none; }
+#a-fmode .b1 { display: none; }
+#a-fmode.on .b1 { display: inline; }
+#a-fmode.on .b3 { display: none; }
+body.touch #act-pad #a-crouch.on svg.pi, body.touch #act-pad #a-prone.on svg.pi, body.touch #act-pad #a-leanl.on svg.pi, body.touch #act-pad #a-leanr.on svg.pi { fill: #ffd23f; }
+#a-leanl, #a-leanr { display: none; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { display: block; --s: clamp(40px, 10.5vh, 56px); width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); top: 41%; right: auto; bottom: auto; position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.75); background: rgba(255,255,255,.07) !important; padding: 0; touch-action: none; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.14); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.22); }
+#a-leanl.on .pi, #a-leanr.on .pi { fill: #ffd23f; }
+body.touch.in-race.city-mode:not(.driving) #act-pad button svg.pi { stroke: none; fill: #fff; opacity: .95; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr.on svg.pi { fill: #ffd23f; }
