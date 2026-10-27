@@ -1087,7 +1087,7 @@ class Race {
   toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
   syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = wIcon(this.weapon || 'fist');
-    { const pb = $('a-punch'); if (pb) { const gun = isGun(this.weapon); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
+    { const pb = $('a-punch'); if (pb) { const gun = this.armedNow(); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
   pedHitMe(p) {   // a pedestrian who fights back lands a punch on me
     const b = this.me.body; if (this.drive || b.stun > 0 || b.immune > 0) return;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz) || 1;
@@ -1110,7 +1110,9 @@ class Race {
     if (n) { i.textContent = (n > 0 ? '+' : '-') + fmtMoney(Math.abs(n)); i.classList.toggle('neg', n < 0); i.classList.add('pop'); clearTimeout(this.popT); this.popT = setTimeout(() => i.classList.remove('pop'), 1700); if (n > 0) A.sfx.cash && A.sfx.cash(); }
     if (this.shopOpen) this.renderShop();
   }
+  armedNow() { const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || !isGun(w) || !this.wallet) return false; return (this.wallet.mag(w) + this.wallet.reserve(w)) > 0; }   // v176: the bullet shows only while a gun WITH ammo is in hand; otherwise the button is the fist
   updateAmmoHud() {
+    { const ar = this.armedNow(), pb0 = $('a-punch'); document.body.classList.toggle('armed', ar); if (pb0 && pb0.dataset.gun !== undefined && pb0.dataset.gun !== (ar ? '1' : '0')) this.syncAct(); }
     const el = $('hud-ammo'); if (!el) return; const w = this.weapon, W = w && WEAPONS[w];
     if (this.reloadT > 0 && W) { el.textContent = 'RELOADING'; el.classList.remove('hidden'); }
     else if (W && W.grenade) { el.textContent = 'GRENADES  x' + this.wallet.nades; el.classList.remove('hidden'); }

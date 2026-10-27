@@ -777,3 +777,18 @@ body.touch.in-race.city-mode:not(.driving) #a-fire2 { left: calc(max(18px, 3vw) 
 body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: calc(max(18px, 3vw) + var(--sal) + 64px); }
 body.touch.in-race.city-mode #minimap { left: max(12px, var(--sal), 2vw); }
 body.touch.in-race.city-mode #b-gm { right: max(8px, var(--sar)); }
+
+/* v176: the bullet / left fire button only exist while a gun with ammo is in hand (fist button otherwise); the other action buttons are bigger */
+body.touch.in-race.city-mode:not(.driving) #a-fire2 { display: none; }
+body.touch.in-race.city-mode.armed:not(.driving) #a-fire2 { display: flex; width: clamp(60px, 16vmin, 82px); height: clamp(60px, 16vmin, 82px); }
+body.touch #a-punch { width: clamp(88px, 25vmin, 120px); height: clamp(88px, 25vmin, 120px); }
+body.touch #a-aim { right: calc(3vw + var(--sar) + clamp(88px, 25vmin, 120px) + 10px); width: clamp(54px, 14vmin, 72px); height: clamp(54px, 14vmin, 72px); }
+body.touch #a-jump { width: clamp(54px, 14.5vmin, 72px); height: clamp(54px, 14.5vmin, 72px); bottom: 47vh; }
+body.touch #a-crouch { width: clamp(50px, 13vmin, 66px); height: clamp(50px, 13vmin, 66px); bottom: calc(47vh - clamp(54px, 14.5vmin, 72px) - 8px); }
+body.touch #a-prone { width: clamp(50px, 13vmin, 66px); height: clamp(50px, 13vmin, 66px); bottom: calc(47vh - clamp(54px, 14.5vmin, 72px) - clamp(50px, 13vmin, 66px) - 16px); }
+body.touch #a-weapon, body.touch #a-reload, body.touch #a-fmode, body.touch #c-bag { width: clamp(44px, 11.5vmin, 58px); height: clamp(44px, 11.5vmin, 58px); }
+body.touch #c-bag { left: calc(50% - clamp(44px, 11.5vmin, 58px) * 1.5 - 12px); font-size: 26px; }
+body.touch #a-weapon { left: calc(50% - clamp(44px, 11.5vmin, 58px) * 0.5 - 4px); }
+body.touch #a-reload { left: calc(50% + clamp(44px, 11.5vmin, 58px) * 0.5 + 4px); }
+body.touch #a-fmode { left: calc(50% + clamp(44px, 11.5vmin, 58px) * 1.5 + 12px); }
+body.touch #a-weapon, body.touch #a-reload, body.touch #a-fmode, body.touch #c-bag { bottom: max(34px, 9.5vh); }
