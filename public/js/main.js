@@ -1,4 +1,5 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
+import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
@@ -1973,6 +1974,7 @@ function startSingle(levelIdx, jang) {
   show('none');
   $('s-results').classList.add('hidden');
   tryLock();
+  if (!jang) loadScreen.finish();
 }
 
 // ---- results
@@ -2305,10 +2307,10 @@ async function boot() {
   $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
   $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
-  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } };
+  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }, 40)); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
-  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
+  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };
   $('b-mp-back').onclick = () => { A.sfx.back(); stopJoin(); if (app.combat) show('cmb'); else openProfile('multi'); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
@@ -2346,7 +2348,7 @@ async function boot() {
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

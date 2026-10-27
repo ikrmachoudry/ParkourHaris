@@ -17,5 +17,5 @@ export function buildCabin(w, inner) {
       { const cap = new THREE.Mesh(new THREE.CircleGeometry(2.05, 24), M('#4b5240')); cap.position.set(0, 0.57, 6.4); cap.material.side = THREE.DoubleSide; cap.rotation.y = Math.PI; cab.add(cap); }
       { const rc = new THREE.Mesh(new THREE.CircleGeometry(2.05, 24), M('#3d4336')); rc.name = 'reardoor'; rc.material.side = THREE.DoubleSide; rc.position.set(0, 0.57, -8.05); cab.add(rc); }   // v172: a rear bulkhead too, so turning the camera never shows the outside of the plane   // the cockpit bulkhead; the rear stays OPEN (the ramp): you see the island behind the plane
       { const sh = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 14.9, 24, 1, true), new THREE.MeshStandardMaterial({ color: '#6b7458', roughness: 0.9, side: THREE.DoubleSide })); sh.rotation.x = Math.PI / 2; sh.position.set(0, 0.57, -0.85); cab.add(sh); }   // olive inner wall
-  w.add(cab); const seat = new THREE.Object3D(); seat.position.set(-1.64, -0.17, -1.5); w.add(seat); w.userData.seat = seat; w.userData.cabin = cab; w.userData.door = cab.getObjectByName('reardoor'); w.userData.scan = inner;
+  w.add(cab); const seat = new THREE.Object3D(); seat.position.set(-1.64, -0.17, -0.2); w.add(seat); w.userData.seat = seat; w.userData.cabin = cab; w.userData.door = cab.getObjectByName('reardoor'); w.userData.scan = inner;
 }

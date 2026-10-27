@@ -6,6 +6,7 @@
 // While the GLB is still loading (or if it fails) the procedural body is shown, so the game never breaks.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { track } from './loading.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HeroActor } from './actor.js';
@@ -14,7 +15,7 @@ const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 
 
 const cache = new Map();
 export function loadGlb(url) {
-  if (!cache.has(url)) cache.set(url, new Promise((res, rej) => new GLTFLoader().load(url, res, undefined, rej)));
+  if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(url, res, undefined, rej)), 'CHARACTERS'));
   return cache.get(url);
 }
 

@@ -10,6 +10,7 @@ import { homeSpawnPos } from './zombie.js';
 import { RICK_IDX, RICK_START, RICK_HOME } from './polirick.js';
 import { TRUCK_IDX, START, ZONES, setSoloRole, snipeRole, snipePaths, snipeRoute, snipeAt, SNIPE } from './snipe.js';
 import { MissionHub } from './mission.js';
+import { loadScreen } from './loading.js';
 import { MISSION_PAY, MISSION_PAY_DEFAULT } from './economy.js';
 import { CHARACTERS } from './levelmeta.js';
 
@@ -50,7 +51,7 @@ export class MissionClient {
   }
   // COMBAT MISSION from the main menu (alone): press the invisible pad for the player
   // a black 'loading' cover so the city never shows before the battle map
-  cover(on, txt) { let c = document.getElementById('cmb-cover'); if (!c && on) { c = document.createElement('div'); c.id = 'cmb-cover'; c.style.cssText = 'position:fixed;inset:0;background:#05070a;color:#ffb347;font:700 22px Arial Black,Arial,sans-serif;display:flex;align-items:center;justify-content:center;z-index:50;letter-spacing:3px;transition:opacity .5s'; document.body.appendChild(c); } if (!c) return; if (on) { c.textContent = txt || 'LOADING BATTLE MAP...'; c.style.opacity = 1; c.style.display = 'flex'; } else { c.style.opacity = 0; setTimeout(() => { if (c.style.opacity === '0') c.style.display = 'none'; }, 600); } }
+  cover(on, txt) { if (!txt || !/^ERROR/.test(txt)) { if (on) loadScreen.show('JANG', txt || 'LOADING BATTLE MAP...'); else loadScreen.finish(); return; } loadScreen.show('JANG', txt); }   // v188: the loading screen (wallpaper + progress bar) replaces the black cover
   autoCombat() { this.cover(true); setTimeout(() => { if (this.phase !== 'idle') { this.cover(false); return; } this.send({ t: 'm_in', on: true }); this.send({ t: 'm_pick', mission: 'combat' }); this.send({ t: 'm_start' }); }, 1200); }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { makeHero } from './glbactor.js';
 import { buildCabin } from './planecabin.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { track } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
@@ -85,7 +86,7 @@ export class CombatScene {
   // ---------------------------------------------------------------- the drop: a transport plane flies over the island, you jump, free-fall and open the parachute
   loadPlane() {
     if (this.planeP) return this.planeP;
-    return this.planeP = new Promise((res) => new GLTFLoader().load('models/c130.glb', (g) => {
+    return this.planeP = track(new Promise((res) => new GLTFLoader().load('models/c130.glb', (g) => {
       const inner = g.scene; inner.position.set(3.83, 0, -4.73); const w = new THREE.Group(); w.add(inner); w.rotation.y = 0.9235; this.planeProps = [];   // the scan faces the wrong way: turn the nose to +Z, centre it
       const COL = (n) => /FUZEL/.test(n) ? '#e4e9f2' : /KRIL|OPER|Object05|NGon|Box09/.test(n) ? '#27478a' : /KIL/.test(n) ? '#27478a' : /Cylinder0[12]/.test(n) ? '#aab3c4' : '#c9d0dd';
       inner.updateMatrixWorld(true);
@@ -96,7 +97,7 @@ export class CombatScene {
         const bb = new THREE.Box3().setFromObject(nodes[0]), c = bb.getCenter(new THREE.Vector3()); const pv = new THREE.Group(); pv.position.copy(w.worldToLocal(c.clone())); w.add(pv); pv.updateMatrixWorld(true); for (const nd of nodes) pv.attach(nd); this.planeProps.push(pv); }
       buildCabin(w, inner);
       w.scale.setScalar(1.25); res(w);
-    }, undefined, () => res(null)));
+    }, undefined, () => res(null))), 'PLANE');
   }
   startDrop() {
     const R = this.R, b = R.me.body, a = Math.random() * Math.PI * 2, hd = [Math.sin(a), Math.cos(a)], off = (Math.random() - 0.5) * 240, L = 760;
