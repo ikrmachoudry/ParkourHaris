@@ -1810,7 +1810,7 @@ class Race {
     { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // peek: hold a lean button, the body tilts and the camera slides sideways (PUBG Q/E)
       const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12);
       if (Math.abs(this.leanV) > 0.01) { const o = this.leanV * 0.75, cx = Math.cos(this.camYaw) * o, cz = -Math.sin(this.camYaw) * o; this.camera.position.x += cx; this.camera.position.z += cz; this.camTarget.x += cx; this.camTarget.z += cz; }
-      if (this.me && this.me.model) this.me.model.group.rotation.z = -this.leanV * 0.32; }
+      if (this.me && this.me.model) this.me.model.group.rotation.z = this.leanV * 0.32; }
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
@@ -2206,7 +2206,7 @@ function closePause() {
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
 $('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
-$('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
+$('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
 $('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
