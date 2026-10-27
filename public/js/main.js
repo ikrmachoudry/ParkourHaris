@@ -264,7 +264,7 @@ class Race {
     this.phase = 'countdown'; this.finished = false; this.over = false; this.finishTime = 0; this.finishedMap = new Map();
     this.camYaw = 0; this.camPitch = NO_TEXT ? 0.17 : 0.34; this.camDist = NO_TEXT ? 3.5 : 8.2; this.shoulder = 0; this.camPos = new THREE.Vector3(); this.camTarget = new THREE.Vector3(); this.camInit = false;
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
-    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.weapon = null; this.aiming = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
+    this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.weapon = null; this.telescope = false; this.aiming = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
@@ -1744,7 +1744,7 @@ class Race {
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
-    { const want = ((this.weapon === 'sniper' && this.aiming) || this.telescope) && !this.drive && !this.over && !(this.mission && this.mission.freeze); if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
+    { const want = !!(((this.weapon === 'sniper' && this.aiming) || this.telescope) && !this.drive && !this.over && !(this.mission && this.mission.freeze));   // !! matters: classList.toggle(x, undefined) FLIPS the class every frame - that was the flashing if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
       const scoped = this._scW >= 0.6 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
