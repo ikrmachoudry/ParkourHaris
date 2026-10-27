@@ -278,7 +278,7 @@ export class CombatScene {
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
   useItem(k) {
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb || !this.active || this.dropping || R.drive || this.over) return false; const have = this.count(k);
-    if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
+    if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
     if (k === 'smoke') { R.nadeKind = 'smoke'; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
