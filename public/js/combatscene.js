@@ -34,11 +34,11 @@ export class CombatScene {
     if (!this.hud) {
       if (!on) return;
       const e = document.createElement('div'); e.id = 'c-hud';
-      e.style.cssText = 'position:fixed;left:50%;top:92px;transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:800 15px/1.25 system-ui,sans-serif;color:#ffe8c8;background:rgba(30,16,6,.68);border:1px solid #ffb34788;border-radius:12px;padding:8px 16px;min-width:230px;text-shadow:0 1px 3px #000';
-      e.innerHTML = '<div class="ch-t" style="font-size:22px;letter-spacing:1px">15:00</div><div class="ch-s"></div>';
+      e.style.cssText = 'position:fixed;left:50%;top:max(6px,env(safe-area-inset-top));transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:800 12px/1 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.35);border-radius:10px;padding:4px 10px;text-shadow:0 1px 2px #000';
+      e.innerHTML = '<div class="ch-t" style="font-size:12px;letter-spacing:1px">15:00</div><div class="ch-s" style="display:none"></div>';
       document.body.appendChild(e); this.hud = e;
-      const hb = document.createElement('div'); hb.id = 'c-hp'; hb.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:30;pointer-events:none;width:min(46vw,420px);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center';
-      hb.innerHTML = '<div style="display:flex;justify-content:space-between;margin:0 4px 4px"><span>HEALTH</span><span class="cp-n">100</span></div><div style="height:16px;background:#000a;border:2px solid #fffb;border-radius:9px;overflow:hidden"><i class="cp-b" style="display:block;height:100%;width:100%;background:#4ade80;transition:width .2s"></i></div>';
+      const hb = document.createElement('div'); hb.id = 'c-hp'; hb.style.cssText = 'position:fixed;left:50%;bottom:max(8px,2.5vh);transform:translateX(-50%);z-index:30;pointer-events:none;width:min(26vw,260px);font:800 11px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center';
+      hb.innerHTML = '<div style="display:flex;justify-content:space-between;margin:0 4px 4px"><span></span><span class="cp-n">100</span></div><div style="height:8px;background:#0008;border:1px solid #fff9;border-radius:5px;overflow:hidden"><i class="cp-b" style="display:block;height:100%;width:100%;background:#4ade80;transition:width .2s"></i></div>';
       document.body.appendChild(hb); this.hpBar = hb;
       const vg = document.createElement('div'); vg.style.cssText = 'position:fixed;inset:0;z-index:29;pointer-events:none;opacity:0;transition:opacity .2s;background:radial-gradient(ellipse at center,transparent 45%,rgba(220,0,0,.8) 100%)'; document.body.appendChild(vg); this.vig = vg;
       const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:40;display:none;place-items:center;pointer-events:none;background:rgba(0,0,0,.55);color:#fff;font:800 20px/1.5 system-ui,sans-serif;text-align:center;text-shadow:0 2px 6px #000'; document.body.appendChild(ov); this.ov = ov;

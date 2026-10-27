@@ -1767,7 +1767,7 @@ class Race {
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage (it is a tube, 2 m radius), like PUBG's cabin
       if (dr && dr.ph === 'plane' && cs.plane) { const P = cs.plane.position, ca = Math.cos(dr.a), sa = Math.sin(dr.a), c = this.camera.position, wx = c.x - P.x, wz = c.z - P.z, lx = wx * ca - wz * sa, lz = wx * sa + wz * ca, ly = c.y - P.y - 0.57, r = Math.hypot(lx, ly), R0 = 1.55;
-        { const k = r > R0 ? R0 / r : 1, nx = Math.max(-1.0, Math.min(1.0, lx * k)), ny = Math.min(1.3, ly * k); c.x = P.x + nx * ca + lz * sa; c.z = P.z - nx * sa + lz * ca; c.y = P.y + 0.57 + ny; } } }   // keep the camera in the aisle, below the ceiling lights
+        { const k = r > R0 ? R0 / r : 1, nx = Math.max(-1.0, Math.min(1.0, lx * k)), ny = Math.min(1.3, ly * k); const nz = Math.max(-5.9, Math.min(5.9, lz)); c.x = P.x + nx * ca + nz * sa; c.z = P.z - nx * sa + nz * ca; c.y = P.y + 0.57 + ny; } } }   // keep the camera in the aisle, below the ceiling lights
     if (inHome) this.camera.position.y = Math.min(this.camera.position.y, 3.25);   // stay under the ceiling
     if (this.meta.city) { // the camera can never go inside a building or under the ground: pull it in along the line to the player
       const cam = this.camera.position, T = this.world.terrain, ox = this.camTarget.x, oy = this.camTarget.y, oz = this.camTarget.z;
@@ -2381,6 +2381,7 @@ window.__ph = { A, rend: renderer, app, Remote, stepBody, newBody, startSingle: 
   };
   // on-screen action buttons (laptop: mouse, phone: touch)
   const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
+  act('a-fire2', () => { if (race && !race.over && !race.menuOpen) { race.fireHeld = true; race.punch(); } }, () => { if (race) race.fireHeld = false; });
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
   act('a-prone', () => { if (race && !race.over && !race.menuOpen) race.toggleProne(); });

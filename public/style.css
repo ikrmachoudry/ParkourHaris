@@ -732,3 +732,29 @@ body.touch #c-jump { display: none !important; }
 #c-use { position: fixed; left: 50%; bottom: 17%; transform: translateX(-50%); z-index: 46; display: none; width: min(300px, 70vw); text-align: center; color: #fff; font: 800 13px system-ui, sans-serif; pointer-events: none; text-shadow: 0 1px 3px #000; }
 #c-use i { display: block; height: 8px; margin-top: 4px; border-radius: 5px; background: #4ade80; width: 0; box-shadow: 0 0 0 2px rgba(0,0,0,.55); }
 @media (max-height: 460px) and (min-width: 701px) { #c-inv .iv-hands { flex: .8; } #c-inv .iv-col:not(.iv-hands) { flex: 1.5; } #c-inv .iv-list[data-l="items"] { display: grid; grid-template-columns: 1fr 1fr; } #c-inv .iv-row em { font-size: 15px; } #c-inv .iv-row small { font-size: 10px; } #c-inv .iv-hint { display: none; } }
+
+/* ===== v172: roomier PUBG-style phone HUD. Small see-through buttons at the screen edges, a left AND right fire button, stance stack on the far right,
+   weapon / reload / fire-mode / bag in one slim row at the bottom centre, a thin health bar, a tiny timer, no auto-aim button. ===== */
+#a-fire2 { display: none; }
+body.touch.in-race.city-mode:not(.driving) #a-fire2 { display: flex; position: fixed; align-items: center; justify-content: center; left: calc(max(18px, 3vw) + 150px + 4vmin); bottom: 36vh; width: clamp(48px, 13vmin, 68px); height: clamp(48px, 13vmin, 68px); }
+body.touch.in-race.city-mode:not(.driving) #act-pad button { background: rgba(90,90,90,.26) !important; border: 1.5px solid rgba(255,255,255,.55) !important; }
+body.touch.in-race.city-mode:not(.driving) #act-pad button:active, body.touch.in-race.city-mode:not(.driving) #act-pad button.on { background: rgba(255,255,255,.42) !important; }
+body.touch #a-punch  { right: calc(5vw + 4vmin); bottom: 12vh; width: clamp(66px, 19vmin, 96px); height: clamp(66px, 19vmin, 96px); }
+body.touch #a-aim    { right: calc(5vw + 4vmin + clamp(66px, 19vmin, 96px) + 10px); bottom: 22vh; width: clamp(42px, 11vmin, 58px); height: clamp(42px, 11vmin, 58px); }
+body.touch #a-jump   { right: 2vw; bottom: 40vh; width: clamp(42px, 11.5vmin, 58px); height: clamp(42px, 11.5vmin, 58px); }
+body.touch #a-crouch { right: 2vw; bottom: calc(40vh - clamp(42px, 11.5vmin, 58px) - 8px); width: clamp(38px, 10vmin, 52px); height: clamp(38px, 10vmin, 52px); }
+body.touch #a-prone  { right: 2vw; bottom: calc(40vh - clamp(42px, 11.5vmin, 58px) - clamp(38px, 10vmin, 52px) - 16px); width: clamp(38px, 10vmin, 52px); height: clamp(38px, 10vmin, 52px); }
+body.touch #a-weapon, body.touch #a-reload, body.touch #a-fmode { top: auto; right: auto; bottom: max(30px, 8.5vh); width: clamp(34px, 9vmin, 44px); height: clamp(34px, 9vmin, 44px); }
+body.touch #a-weapon { left: calc(50% - clamp(34px, 9vmin, 44px) * 0.5 - 4px); }
+body.touch #a-reload { left: calc(50% + clamp(34px, 9vmin, 44px) * 0.5 + 4px - 0px); }
+body.touch #a-fmode  { left: calc(50% + clamp(34px, 9vmin, 44px) * 1.5 + 12px); }
+body.touch #c-bag { top: auto; right: auto; bottom: max(30px, 8.5vh); left: calc(50% - clamp(34px, 9vmin, 44px) * 1.5 - 12px); width: clamp(34px, 9vmin, 44px); height: clamp(34px, 9vmin, 44px); font-size: 20px; background: rgba(90,90,90,.26); border-width: 1.5px; border-color: rgba(255,255,255,.55); }
+body.touch #c-bag svg, body.touch #c-bag img { width: 62%; height: 62%; }
+body.touch #b-auto { display: none !important; }
+body.touch.in-race.city-mode #b-gm, body.touch.in-race.city-mode #b-full { width: 34px; height: 34px; }
+body.touch.in-race.city-mode #b-gm { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
+body.touch.in-race.city-mode #b-full { display: none; }
+body.touch.in-race.city-mode #minimap { width: clamp(78px, 17vmin, 112px); height: clamp(78px, 17vmin, 112px); opacity: .92; }
+body.touch #joy { width: 128px; height: 128px; margin: -64px 0 0 -64px; background: rgba(110,110,110,.28); }
+body.touch #joy-knob { width: 50px; height: 50px; background: rgba(255,255,255,.4); }
+body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: calc(max(18px, 3vw) + 64px); top: calc(100vh - 12vh - 64px); }
