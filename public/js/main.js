@@ -2384,7 +2384,6 @@ window.__ph = { THREE, A, rend: renderer, app, Remote, stepBody, newBody, startS
   };
   // on-screen action buttons (laptop: mouse, phone: touch)
   const act = (id, fn, up) => { btn(id, fn, up); const el = $(id); if (el) { el.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); if (up) { el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up); } } };
-  act('a-fire2', () => { if (race && !race.over && !race.menuOpen) { race.fireHeld = true; race.punch(); } }, () => { if (race) race.fireHeld = false; });
   act('a-jump', () => { if (race && !race.over && !race.menuOpen) { press.jump = true; touch.jump = true; } }, () => { touch.jump = false; });
   act('a-crouch', () => { if (race && !race.over && !race.menuOpen) race.toggleCrouch(); });
   act('a-prone', () => { if (race && !race.over && !race.menuOpen) race.toggleProne(); });

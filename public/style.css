@@ -792,3 +792,24 @@ body.touch #a-weapon { left: calc(50% - clamp(44px, 11.5vmin, 58px) * 0.5 - 4px)
 body.touch #a-reload { left: calc(50% + clamp(44px, 11.5vmin, 58px) * 0.5 + 4px); }
 body.touch #a-fmode { left: calc(50% + clamp(44px, 11.5vmin, 58px) * 1.5 + 12px); }
 body.touch #a-weapon, body.touch #a-reload, body.touch #a-fmode, body.touch #c-bag { bottom: max(34px, 9.5vh); }
+
+/* ===== v178: PUBG Mobile layout, button for button. Positions are the same screen fractions as the PUBG screenshot (landscape): right thumb = FIRE low right, SCOPE and JUMP stacked above/right of it, CROUCH + PRONE along the bottom edge;
+   bottom centre = bag, weapon, reload, fire mode; left thumb = stick. Thin white rings on almost clear discs, like PUBG. No left fire button. ===== */
+body.touch.in-race.city-mode:not(.driving) #a-fire2 { display: none !important; }
+body.touch.in-race.city-mode:not(.driving) #act-pad button, body.touch.in-race #c-bag { background: rgba(255,255,255,.07) !important; border: 2px solid rgba(255,255,255,.72) !important; box-shadow: none !important; }
+body.touch.in-race.city-mode:not(.driving) #act-pad button:active, body.touch.in-race.city-mode:not(.driving) #act-pad button.on { background: rgba(255,255,255,.3) !important; }
+body.touch.in-race.city-mode:not(.driving) #act-pad button svg { stroke: #fff; opacity: .92; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch.gun svg { transform: rotate(45deg); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone.on svg { stroke: #ffd23f; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch  { --s: clamp(78px, 21vh, 118px); left: 85%; top: 74%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim    { --s: clamp(50px, 13vh, 72px); left: 95.5%; top: 55.5%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump   { --s: clamp(50px, 13vh, 72px); left: 95.5%; top: 71%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch { --s: clamp(48px, 12.5vh, 68px); left: 84.5%; top: 91%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone  { --s: clamp(48px, 12.5vh, 68px); left: 92%; top: 91%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode  { --s: clamp(44px, 11.5vh, 62px); left: 87%; top: 55.5%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-weapon { --s: clamp(44px, 11.5vh, 62px); left: 50%; top: 85%; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-reload { --s: clamp(44px, 11.5vh, 62px); left: 58%; top: 85%; }
+body.touch.in-race #c-bag { --s: clamp(44px, 11.5vh, 62px); left: 42%; top: 85%; right: auto; bottom: auto; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim, body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone, body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode, body.touch.in-race.city-mode:not(.driving) #act-pad #a-weapon, body.touch.in-race.city-mode:not(.driving) #act-pad #a-reload, body.touch.in-race #c-bag { right: auto; bottom: auto; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); }
+body.touch.in-race #c-bag { font-size: calc(var(--s) * .5); }
+body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: 15.8%; top: 72%; }
