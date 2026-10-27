@@ -2210,6 +2210,9 @@ $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menu
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
 $('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
+// touch: act on touchend itself (preventDefault also stops the synthesized click, so it cannot fire twice), so RESUME and the gear always answer a finger
+$('p-resume').addEventListener('touchend', (e) => { e.preventDefault(); A.sfx.click(); closePause(); }, { passive: false });
+$('b-gm').addEventListener('touchend', (e) => { e.preventDefault(); A.sfx.click(); if (race && race.menuOpen) closePause(); else if (race) openPause(); }, { passive: false });
 $('p-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
 $('p-gfx').onclick = () => { Q.low = !Q.low; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); };
 $('p-full').onclick = () => {
