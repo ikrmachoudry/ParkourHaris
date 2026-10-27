@@ -301,6 +301,8 @@ class Race {
     scene.add(sun, sun.target);
     this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
+    this.jang = !!o.jang;   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
+    if (this.jang) { for (const c of scene.children) if (c !== this.sky && c !== this.water && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
     this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
     this.ambient = new Ambient(this.meta.key, 320); scene.add(this.ambient.points);
@@ -464,7 +466,7 @@ class Race {
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
       if (this.bigMapOpen) this.drawBigMap();
       this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
-    if (this.peds) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.sfx.thud(Math.min(1, 0.5 + sp * 0.05)); A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
+    if (this.peds && !this.jang) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.sfx.thud(Math.min(1, 0.5 + sp * 0.05)); A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
     this.updateLights();
@@ -1962,11 +1964,11 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startSingle(levelIdx) {
+function startSingle(levelIdx, jang) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, zom: app.zom }], 1, { multi: false, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -2121,7 +2123,7 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
   app.level = m.level;
-  race = new Race(m.level, players, app.myId, { multi: true, t0: m.t0, seed: m.seed }); race.syncAct();
+  race = new Race(m.level, players, app.myId, { multi: true, jang: !!(room && room.combat), t0: m.t0, seed: m.seed }); race.syncAct();
   if (room.combat) { race.combatOnly = true; race.onCombatDone = leaveToTitle; }   // TEAM UP COMBAT: the server starts the mission by itself; at the end everybody goes back to the menu
   resize(); show('none'); tryLock();
 }
@@ -2300,7 +2302,7 @@ async function boot() {
   $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
   $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
-  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; startSingle(0); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } };
+  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
   $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); startSingle(0); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
