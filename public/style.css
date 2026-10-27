@@ -758,3 +758,12 @@ body.touch.in-race.city-mode #minimap { width: clamp(78px, 17vmin, 112px); heigh
 body.touch #joy { width: 128px; height: 128px; margin: -64px 0 0 -64px; background: rgba(110,110,110,.28); }
 body.touch #joy-knob { width: 50px; height: 50px; background: rgba(255,255,255,.4); }
 body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: calc(max(18px, 3vw) + 64px); top: calc(100vh - 12vh - 64px); }
+
+/* v172b: bigger see-through FIRE button at the bottom right, stance buttons above it */
+body.touch #a-punch  { right: 3vw; bottom: 5vh; width: clamp(80px, 23vmin, 112px); height: clamp(80px, 23vmin, 112px); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch { background: rgba(90,90,90,.16) !important; border-color: rgba(255,255,255,.5) !important; }
+body.touch #a-aim { right: calc(3vw + clamp(80px, 23vmin, 112px) + 10px); bottom: 14vh; }
+body.touch #a-jump { right: 3.5vw; bottom: 44vh; }
+body.touch #a-crouch { right: 3.5vw; bottom: calc(44vh - clamp(42px, 11.5vmin, 58px) - 8px); }
+body.touch #a-prone { right: 3.5vw; bottom: calc(44vh - clamp(42px, 11.5vmin, 58px) - clamp(38px, 10vmin, 52px) - 16px); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone { background: rgba(90,90,90,.14) !important; border-color: rgba(255,255,255,.45) !important; }
