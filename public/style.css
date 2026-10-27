@@ -843,3 +843,37 @@ body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { left: calc(var(--
 #a-leanl.on .pi, #a-leanr.on .pi { fill: #ffd23f; }
 body.touch.in-race.city-mode:not(.driving) #act-pad button svg.pi { stroke: none; fill: #fff; opacity: .95; }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr.on svg.pi { fill: #ffd23f; }
+
+/* v190: home screen - dark glass, steel white + one crimson accent (no yellow / blue), the background is real gameplay */
+#s-title .home-bg { display: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #07090b; pointer-events: none; }
+#s-title.mode-home .home-bg, #s-title.mode-gta .home-bg { display: block; }
+#s-title .hb { position: absolute; inset: 0; background-size: cover; background-position: center; transition: opacity .6s; }
+#s-title .hb-j { background-image: url(img/home-jang.jpg); }
+#s-title .hb-g { background-image: url(img/home-gta.jpg); opacity: 0; }
+#s-title.hl-g .hb-g { opacity: 1; }
+#s-title .home-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4,6,8,.55) 0%, rgba(4,6,8,0) 22%, rgba(4,6,8,0) 46%, rgba(4,6,8,.88) 100%), radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%); }
+#s-title .logo, #s-title .menu { position: relative; z-index: 2; }
+#s-title.mode-home .logo, #s-title.mode-gta .logo { position: absolute; left: max(2.2vw, env(safe-area-inset-left)); top: max(2.2vh, env(safe-area-inset-top)); text-align: left; animation: none; padding: 0; margin: 0; }
+#s-title.mode-home .logo-main, #s-title.mode-gta .logo-main { font-size: clamp(22px, 5.4vh, 40px); letter-spacing: .32em; line-height: 1; background: none; -webkit-text-fill-color: #fff; color: #fff; -webkit-text-stroke: 0; text-shadow: 0 2px 12px rgba(0,0,0,.7); font-weight: 800; }
+#s-title.mode-home .logo-main::after, #s-title.mode-gta .logo-main::after { content: ''; display: block; width: 56px; height: 3px; background: #d93a3a; margin-top: 8px; }
+#s-title.mode-home .logo-by, #s-title.mode-gta .logo-by { font-size: 11px; letter-spacing: .3em; color: #aab2ba; text-shadow: none; -webkit-text-stroke: 0; margin-top: 8px; }
+#s-title.mode-home .logo-by b, #s-title.mode-gta .logo-by b { color: #fff; }
+/* the two game cards */
+#s-title.mode-home .menu { left: 0; right: 0; margin: 0 auto; transform: none; width: min(880px, 94vw); bottom: max(16px, 4.5vh); }
+#s-title.mode-home #home-pick { gap: 16px; }
+#s-title.mode-home #home-pick .btn { position: relative; overflow: hidden; height: clamp(104px, 31vh, 200px); border-radius: 2px; border: 1px solid rgba(255,255,255,.3) !important; box-shadow: 0 14px 34px rgba(0,0,0,.6) !important; text-align: left; justify-items: start; align-content: end; padding: 14px 20px 16px; text-shadow: none; clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%); transition: transform .25s, border-color .25s; }
+#s-title.mode-home #b-go-gta { background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.88)), url(img/home-gta.jpg) center / cover !important; }
+#s-title.mode-home #b-go-jang { background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.88)), url(img/home-jang.jpg) center / cover !important; }
+#s-title.mode-home #home-pick .btn:hover { transform: translateY(-4px); border-color: #fff !important; filter: none; }
+#s-title.mode-home #home-pick .btn::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 38%; background: #d93a3a; transition: width .3s; }
+#s-title.mode-home #home-pick .btn:hover::after { width: 100%; }
+#s-title.mode-home #home-pick .btn b { font-size: clamp(20px, 4.6vh, 34px); letter-spacing: .16em; font-weight: 800; }
+#s-title.mode-home #home-pick .btn small { font-size: clamp(10px, 1.9vh, 13px); letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
+#s-title.mode-home #home-pick .btn em { position: absolute; left: 0; top: 16px; font: 700 clamp(9px, 1.7vh, 12px)/1 system-ui, sans-serif; font-style: normal; letter-spacing: .22em; padding: 5px 12px 5px 18px; background: #e6eaee; color: #0b0d0f; }
+/* help + settings: small glass buttons at the top right */
+#s-title.mode-home .menu .row { position: fixed; top: max(2.2vh, env(safe-area-inset-top)); right: max(2.2vw, env(safe-area-inset-right)); display: flex; gap: 8px; }
+#s-title.mode-home .menu .row .btn { font-size: 12px; letter-spacing: .18em; padding: 9px 14px; }
+/* every plain button on the title / GTA menu: dark glass tab, white on hover */
+#s-title .btn:not(#home-pick .btn) { background: rgba(10,12,14,.74) !important; color: #fff; border: 1px solid rgba(255,255,255,.28) !important; border-left: 4px solid #d93a3a !important; border-radius: 2px; box-shadow: none !important; text-shadow: none; text-transform: uppercase; letter-spacing: .16em; text-align: left; backdrop-filter: blur(4px); }
+#s-title .btn:not(#home-pick .btn):hover { background: #e9edf0 !important; color: #0b0d0f; filter: none; transform: translateX(4px); }
+#s-title.mode-gta .menu { left: max(2.2vw, env(safe-area-inset-left)); right: auto; top: 26%; width: min(320px, 46vw); }

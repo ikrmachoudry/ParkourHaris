@@ -1879,7 +1879,7 @@ class Race {
 
 // ------------------------------------------------------------------ UI / flow
 const screens = ['title', 'profile', 'levels', 'mp', 'cmb', 'lobby', 'results', 'help'];
-function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode-gta', m === 'gta'); t.classList.toggle('mode-home', m !== 'gta'); const lg = t.querySelector('.logo-main'); if (lg) lg.textContent = m === 'gta' ? 'PUNJABI GTA' : 'HARIS GAMES'; } }
+function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode-gta', m === 'gta'); t.classList.toggle('mode-home', m !== 'gta'); t.classList.toggle('hl-g', m === 'gta'); const lg = t.querySelector('.logo-main'); if (lg) lg.textContent = m === 'gta' ? 'PUNJABI GTA' : 'HARIS GAMES'; } }
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
@@ -2310,7 +2310,8 @@ async function boot() {
   $('b-profile-back').onclick = () => { A.sfx.back(); stage.setTitle(); show('title'); };
   $('b-go-gta').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); homeMode('gta'); };
   $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
-  $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
+  { const t = $('s-title'); for (const [id, g] of [['b-go-gta', true], ['b-go-jang', false]]) { const e = $(id); if (!e) continue; const f = () => t.classList.toggle('hl-g', g); e.addEventListener('mouseenter', f); e.addEventListener('focus', f); e.addEventListener('touchstart', f, { passive: true }); } }   // v190: the big background follows the card you point at
+$('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }, 40)); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
@@ -2347,7 +2348,7 @@ async function boot() {
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
     if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); race.render(); }
-    else { stage.update(dt); renderer.render(stage.scene, stage.camera); }
+    else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
 }
