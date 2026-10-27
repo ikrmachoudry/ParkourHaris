@@ -1872,7 +1872,7 @@ class Race {
 
 // ------------------------------------------------------------------ UI / flow
 const screens = ['title', 'profile', 'levels', 'mp', 'cmb', 'lobby', 'results', 'help'];
-function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode-gta', m === 'gta'); t.classList.toggle('mode-home', m !== 'gta'); } }
+function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode-gta', m === 'gta'); t.classList.toggle('mode-home', m !== 'gta'); const lg = t.querySelector('.logo-main'); if (lg) lg.textContent = m === 'gta' ? 'PUNJABI GTA' : 'HARIS GAMES'; } }
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');

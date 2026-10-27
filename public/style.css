@@ -826,3 +826,4 @@ body.touch.in-race.city-mode:not(.driving) #joy:not(.on) { left: 15.8%; top: 72%
 #s-title.mode-home .logo { padding-right: 0; }
 
 body.touch #a-jump.ready, #a-jump.ready { background: rgba(80,220,120,.45) !important; border-color: #6dff8a !important; }
+#s-title.mode-home .made { display: none; }
