@@ -3,10 +3,10 @@
 export const MAX_PLAYERS = 4;
 
 export const CHARACTERS = [
-  { id: 0, name: 'Haris', tag: '', color: '#ff5fb4' },
-  { id: 1, name: 'Hannan', tag: '', color: '#3b82f6' },
-  { id: 2, name: 'Hanbal', tag: '', color: '#3ddc84' },
-  { id: 3, name: 'Dawood', tag: '', color: '#ffc233' },
+  { id: 0, name: 'Blaze', tag: '', color: '#ff5fb4' },
+  { id: 1, name: 'Scout', tag: '', color: '#3b82f6' },
+  { id: 2, name: 'Commando', tag: '', color: '#3ddc84' },
+  { id: 3, name: 'Viper', tag: '', color: '#ffc233' },
 ];
 
 // every look a player can pick: 0..3 = the four GTA heroes, 4..7 = the four Jang soldiers (also allowed in GTA). char = the slot (0..3) the game logic uses.

@@ -24,20 +24,21 @@ const SVG = `<svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" xm
 <rect width="1600" height="720" fill="url(#lsVig)"/></svg>`;
 const CSS = `#loadscr{position:fixed;inset:0;z-index:100;background:#050b16;color:#fff;font-family:"Lilita One","Fredoka One",Arial Black,Arial,sans-serif;opacity:1;transition:opacity .45s;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 #loadscr.out{opacity:0;pointer-events:none}#loadscr>svg{position:absolute;inset:0;width:100%;height:100%}
-#loadscr .ls-t{position:absolute;left:max(18px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));font-size:clamp(34px,9vh,72px);letter-spacing:4px;line-height:1;color:#ffd23f;text-shadow:0 3px 0 #7a4a00,0 6px 18px rgba(0,0,0,.7)}
-#loadscr .ls-t small{display:block;font-size:.3em;letter-spacing:6px;color:#fff;margin-top:6px;text-shadow:0 2px 6px #000}
-#loadscr .ls-b{position:absolute;left:12%;right:12%;bottom:max(18px,env(safe-area-inset-bottom) + 10px)}
+#loadscr .ls-t{position:absolute;left:calc(max(env(safe-area-inset-left),0px) + 22px);top:calc(max(env(safe-area-inset-top),0px) + 16px);right:22px;font:800 clamp(20px,6vh,38px)/1.05 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase;white-space:nowrap;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+#loadscr .ls-t::after{content:"";display:block;width:56px;height:3px;background:#d93a3a;margin-top:8px}
+#loadscr .ls-t small{display:block;font-size:.34em;font-weight:700;letter-spacing:.34em;color:#c4ccd4;margin-top:6px}
+#loadscr .ls-b{position:absolute;left:calc(max(env(safe-area-inset-left),0px) + 22px);right:calc(max(env(safe-area-inset-right),0px) + 22px);bottom:calc(max(env(safe-area-inset-bottom),0px) + 16px)}
 #loadscr .ls-tip{font:700 clamp(11px,2.8vh,16px)/1.2 system-ui,sans-serif;letter-spacing:1.5px;color:#cfd8e6;text-align:center;margin-bottom:8px;text-shadow:0 1px 4px #000}
 #loadscr .ls-m{font:600 clamp(13px,3.4vh,20px)/1.2 system-ui,sans-serif;text-align:center;margin-bottom:6px;text-shadow:0 1px 5px #000}
-#loadscr .ls-bar{height:12px;border:1.5px solid rgba(255,255,255,.7);background:rgba(0,0,0,.55);border-radius:3px;overflow:hidden}
-#loadscr .ls-fill{height:100%;width:0;background:linear-gradient(#ffe56a,#e6b800);box-shadow:0 0 10px rgba(255,210,63,.7)}
+#loadscr .ls-bar{height:12px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.6);border-radius:2px;overflow:hidden}
+#loadscr .ls-fill{height:100%;width:0;background:linear-gradient(90deg,#8d1f1f,#d93a3a);box-shadow:0 0 10px rgba(217,58,58,.6)}
 #loadscr .ls-n{font:700 12px system-ui,sans-serif;text-align:center;margin-top:5px;color:#fff;text-shadow:0 1px 4px #000}`;
 function build() {
   if (L.el || typeof document === 'undefined') return;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'loadscr'; el.className = 'out';
-  el.innerHTML = SVG + '<div class="ls-t"><span class="ls-ti">JANG</span><small>BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div>';
-  document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.tip = el.querySelector('.ls-tip');
+  el.innerHTML = SVG + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div>';
+  document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip');
 }
 function frame() {
   L.raf = 0; if (!L.shown) return;
@@ -56,7 +57,7 @@ export const loadScreen = {
   show(title, label) {
     if (typeof document === 'undefined') return; build(); if (!L.el) return;
     if (!L.shown) { L.shown = true; L.wantHide = false; L.t0 = performance.now(); L.pct = 0; L.tipT = 0; L.done = Math.min(L.done, L.total); }
-    L.wantHide = false; if (title) L.title.textContent = title; L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
+    L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
   say(label) { if (L.msg && label) L.msg.textContent = label; },
