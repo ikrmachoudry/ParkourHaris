@@ -1,6 +1,7 @@
 // The only level: Punjabi GTA (an open city). buildLevel(0) builds it; the layout itself lives in gta.js / gtaworld.js.
 import { World } from './world.js';
 import { buildGta } from './gtaworld.js';
+import { layout as cmbLayout, CMB, cmbInside, cmbH } from './combat.js';
 
 export const THEMES = {
   gta: {
@@ -27,6 +28,10 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
 // v197: JANG is separate from the GTA city - it gets this empty World (no buildings, roads, traffic, scenery): flat ground and nothing else, so it loads fast and stays light
 export function buildEmptyLevel() {
   const th = THEMES.gta, world = new World(th, false);
-  world.key = 'gta'; world.waterY = -40; world.killY = -60; world.terrain = () => 0; world.finalize();
-  return { world, info: { key: 'gta', spawn: { x: 0, y: 0, z: 1.5 }, signs: [], pads: [], cars: [], track: { terrain: () => 0 }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
+  world.key = 'gta'; world.waterY = -40; world.killY = -60;
+  // the battle island's ground and every wall / roof / tree is what the player walks on (physics) - without it the player walks on a flat y=0 plane UNDER the hills and sinks through the map
+  const T = (x, z) => (cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : 0); world.terrain = T;
+  { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building' }); }
+  world.finalize();
+  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: [], track: { terrain: T }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
 }
