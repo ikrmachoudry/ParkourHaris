@@ -72,9 +72,9 @@ export class Voice {
     this.actx();
     let st = null, e1 = null;
     for (const c of [{ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // the second try: a plain mic, in case the phone refuses the fancy settings
-      try { st = await navigator.mediaDevices.getUserMedia({ audio: c, video: false }); break; } catch (e) { e1 = e; if (e && e.name === 'NotAllowedError') break; }
+      try { st = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: c, video: false }), new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { name: 'Timeout' })), 15000))]); break; } catch (e) { e1 = e; if (e && e.name === 'NotAllowedError') break; }
     }
-    if (!st) { this.want = false; this.mic = false; this.err = e1 && (e1.name === 'NotAllowedError' || e1.name === 'SecurityError') ? 'Mic blocked: allow the microphone for this site in your browser settings' : 'Could not open the mic (' + ((e1 && e1.name) || 'error') + ')'; this.changed(); return false; }
+    if (!st) { this.want = false; this.mic = false; this.err = e1 && (e1.name === 'NotAllowedError' || e1.name === 'SecurityError') ? 'Mic is blocked. Browser menu > Site settings > Microphone > Allow, then reload' : e1 && e1.name === 'Timeout' ? 'The phone did not answer the mic request. Tap the mic again' : e1 && e1.name === 'NotFoundError' ? 'No microphone found on this device' : 'Could not open the mic (' + ((e1 && e1.name) || 'error') + ')'; this.changed(); return false; }
     if (!this.want) { for (const t of st.getTracks()) t.stop(); return false; }   // the player tapped it off again while the phone was asking
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = st; this.mic = true;

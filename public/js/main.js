@@ -2129,10 +2129,17 @@ function voiceUI(speakOnly) {
   if (!speakOnly && list.dataset.k !== key) { list.dataset.k = key; list.innerHTML = rows.map((p) => { const st = voice.peers.has(p.id) ? voice.peers.get(p.id).pc.connectionState : 'new'; return `<div class="vr${voice.muted.has(p.id) ? ' mu' : ''}" data-id="${p.id}"><span class="vd ${st === 'connected' ? 'ok' : st === 'failed' ? 'bad' : ''}"></span><em>${String(p.name).replace(/[<>&"]/g, '').slice(0, 12)}</em></div>`; }).join(''); }
   for (const r of list.children) r.classList.toggle('talk', voice.speaking.has(+r.dataset.id));
 }
-$('vc-mic').addEventListener('click', async (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); if (voice._tapBusy) return; voice._tapBusy = true; setTimeout(() => { voice._tapBusy = false; }, 350); await voice.setMic(!voice.want); voiceUI(); });
-$('vc-spk').addEventListener('click', (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
-$('vc-msg').addEventListener('click', (e) => { e.stopPropagation(); if (voice) { voice.resumeAudio(); voiceUI(); } });
-$('vc-list').addEventListener('click', (e) => { const r = e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } e.stopPropagation(); });
+// act on touchend itself (like the game's other buttons): a finger always answers, the synthesized click is dropped so it cannot fire twice
+const vcTap = (el, fn) => { let lt = 0; el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); lt = Date.now(); fn(e); }, { passive: false }); el.addEventListener('click', (e) => { e.stopPropagation(); if (Date.now() - lt < 700) return; fn(e); }); };
+vcTap($('vc-mic'), async () => {
+  if (!voice) return; A.sfx.click(); voice.resumeAudio(); if (voice._tapBusy) return; voice._tapBusy = true; setTimeout(() => { voice._tapBusy = false; }, 350);
+  const want = !voice.want; $('vc-mic').classList.toggle('wait', want);   // pulses while the phone asks for the microphone
+  const ok = await voice.setMic(want); $('vc-mic').classList.remove('wait'); voiceUI();
+  if (want && !ok && voice.err) gtoast(voice.err);
+});
+vcTap($('vc-spk'), () => { if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
+vcTap($('vc-msg'), () => { if (voice) { voice.resumeAudio(); voiceUI(); } });
+vcTap($('vc-list'), (e) => { const r = e.target.closest && e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } });
 for (const ev of ['touchstart', 'pointerdown', 'mousedown']) vcEl.addEventListener(ev, (e) => e.stopPropagation());   // taps on the voice buttons never turn the camera or fire
 for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { if (voice && voice._needTap) { voice.resumeAudio(); voiceUI(); } }, { capture: true, passive: true });   // any tap after the browser blocked the sound starts it
 document.addEventListener('visibilitychange', () => { if (voice) voice.visibility(document.hidden); });   // v216: the mic stays ON (button too) when you switch apps; it is only paused while the page is hidden

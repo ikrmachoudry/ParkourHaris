@@ -1161,7 +1161,7 @@ body.jang-mode #kb-hint { display: none !important; }
 body.touch.in-race.driving #joy.locked { display: none !important; }
 
 /* ---- v215 team voice chat: mic + speaker under the minimap (same place on phone and laptop), teammate list with a green ring while they talk */
-#vc { display: none; position: absolute; z-index: 6; left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(88px, 19vmin, 142px) + 10px); top: max(10px, env(safe-area-inset-top), 2vh); font-family: system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+#vc { display: none; position: fixed; z-index: 45; pointer-events: auto; left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(88px, 19vmin, 142px) + 10px); top: max(10px, env(safe-area-inset-top), 2vh); font-family: system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 body.touch #vc { left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(78px, 17vmin, 112px) + 10px); }
 body.vc-on.in-race.city-mode:not(.jang-mode):not(.driving) #vc, body.vc-on.in-race.city-mode.driving:not(.jang-mode) #vc { display: block; }
 #vc-btns { display: flex; gap: 8px; }
@@ -1182,3 +1182,7 @@ body.touch #vc button { width: 44px; height: 44px; }
 .vr.talk { border-color: #7dff9f; box-shadow: 0 0 8px rgba(125,255,159,.8); }
 .vr.mu { opacity: .45; text-decoration: line-through; }
 #vc-msg { display: none; position: absolute; left: 100px; top: 2px; width: 170px; font-size: 11px; font-weight: 700; color: #ffd23f; background: rgba(20,24,30,.7); padding: 4px 8px; border-radius: 10px; }
+
+#vc-mic.wait { animation: vcw .8s infinite alternate; }
+@keyframes vcw { from { box-shadow: 0 0 0 0 rgba(255,210,63,.9); } to { box-shadow: 0 0 0 6px rgba(255,210,63,.2); } }
+#vc-msg { z-index: 7; }
