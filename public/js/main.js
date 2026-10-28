@@ -332,7 +332,7 @@ class Race {
     setTimeout(() => { if (race === this) this.warmUp(); }, 1200);   // upload every vehicle / player model to the GPU now, not the first time somebody walks into view
     this.victory = 0; this.hopT = 0;
     this.buildProgress(); this.buildBoxes();
-    document.body.classList.add('in-race');
+    document.body.classList.add('in-race'); document.body.classList.toggle('jang-mode', !!o.jang);
     $('hud-level').textContent = this.meta.name;
     $('hud').classList.remove('hidden');
     $('hud-hint').classList.remove('fade'); this.hintT = 8;
@@ -1880,7 +1880,7 @@ class Race {
     if (this.copGhosts) { this.copGhosts.dispose(); this.copGhosts = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race', 'jang-mode'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);
@@ -2371,6 +2371,10 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   requestAnimationFrame(loop);
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
+// v202: every BACK / LEAVE / DONE button of the project sits in the SAME place (top-left corner of its page) and looks the same
+for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-levels-back, #b-cmb-back, #b-mp-back, #b-leave, #pset-back, #b-about-close, #b-settings-close, #b-help-close')) {
+  const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
+}
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
 window.__ph = { renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 

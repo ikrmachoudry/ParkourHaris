@@ -1086,3 +1086,15 @@ body.touch #act-pad button svg.pubg { width: 84%; height: 84%; }
 @media (max-width: 760px) { #s-lobby .lobby-bottom { grid-template-columns: 1fr 1.2fr .8fr; } #s-lobby .lobby-bottom .lobby-block:nth-child(3) { grid-column: auto; order: 0; } }
 #s-lobby .lobby-top { gap: 70px; } #s-lobby .code-box { max-width: calc(100% - 150px); overflow: hidden; white-space: nowrap; } #s-lobby .code-box .note { overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 #s-lobby .slot .you { font-size: 9px; padding: 1px 4px; }
+
+/* v202: ONE place for every BACK button - top-left corner of the page, same size and look everywhere */
+.navback, #s-title .btn.navback, #s-profile .btn.navback, #s-about .btn.navback { position: absolute !important; left: max(12px, env(safe-area-inset-left)) !important; top: max(10px, env(safe-area-inset-top)) !important; right: auto !important; bottom: auto !important; z-index: 80; width: auto !important; flex: none !important; margin: 0 !important; font: 800 12px var(--ui) !important; letter-spacing: .18em !important; padding: 9px 16px !important; text-align: center !important; transform: none !important; background: rgba(10,12,14,.78) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.4) !important; border-left: 4px solid #d93a3a !important; border-radius: 2px !important; }
+.navback:hover { background: #e9edf0 !important; color: #0b0d0f !important; }
+#s-title.mode-gta .logo { margin-top: 46px; }
+#s-lobby .lobby-top { padding-left: 112px; }
+#s-lobby .lobby-top > .code-box { margin-left: 0; }
+/* Jang has no police and no cheats from the city: hide the city-only switches */
+body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"] { display: none !important; }
+#s-title.mode-gta .menu { margin-top: 34px; }
+#s-help, #s-about, #s-settings, #s-mp, #s-levels, #s-cmb, #s-profile { padding-top: 48px; box-sizing: border-box; }
+#s-help .panel, #s-about .panel.about, #s-settings .panel, #s-mp .panel, #s-profile .panel { max-height: calc(100vh - 58px) !important; }
