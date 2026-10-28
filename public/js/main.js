@@ -2116,25 +2116,26 @@ const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.in
 const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
 $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
 const voiceOn = () => !!(voice && app.room && !app.room.combat && app.room.players.length > 1);
-function voiceSync() { if (!voice) return; const on = !!(app.room && !app.room.combat && app.room.players.length > 1); voice.setRoom(app.myId, app.room ? app.room.players : [], on); }
+function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); return; } const on = !!(app.room && !app.room.combat && app.room.players.length > 1); voice.setRoom(app.myId, app.room ? app.room.players : [], on); }
 function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
 function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn();
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
-  $('vc-mic').classList.toggle('on', voice.mic); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = (app.room ? app.room.players : []).filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
   if (!speakOnly && list.dataset.k !== key) { list.dataset.k = key; list.innerHTML = rows.map((p) => { const st = voice.peers.has(p.id) ? voice.peers.get(p.id).pc.connectionState : 'new'; return `<div class="vr${voice.muted.has(p.id) ? ' mu' : ''}" data-id="${p.id}"><span class="vd ${st === 'connected' ? 'ok' : st === 'failed' ? 'bad' : ''}"></span><em>${String(p.name).replace(/[<>&"]/g, '').slice(0, 12)}</em></div>`; }).join(''); }
   for (const r of list.children) r.classList.toggle('talk', voice.speaking.has(+r.dataset.id));
 }
-$('vc-mic').addEventListener('click', async (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); await voice.setMic(!voice.mic); voiceUI(); });
+$('vc-mic').addEventListener('click', async (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); if (voice._tapBusy) return; voice._tapBusy = true; setTimeout(() => { voice._tapBusy = false; }, 350); await voice.setMic(!voice.want); voiceUI(); });
 $('vc-spk').addEventListener('click', (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
 $('vc-msg').addEventListener('click', (e) => { e.stopPropagation(); if (voice) { voice.resumeAudio(); voiceUI(); } });
 $('vc-list').addEventListener('click', (e) => { const r = e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } e.stopPropagation(); });
 for (const ev of ['touchstart', 'pointerdown', 'mousedown']) vcEl.addEventListener(ev, (e) => e.stopPropagation());   // taps on the voice buttons never turn the camera or fire
-document.addEventListener('visibilitychange', () => { if (document.hidden && voice && voice.mic) { voice.setMic(false).then(voiceUI); } });   // leaving the app closes the mic
+for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { if (voice && voice._needTap) { voice.resumeAudio(); voiceUI(); } }, { capture: true, passive: true });   // any tap after the browser blocked the sound starts it
+document.addEventListener('visibilitychange', () => { if (voice) voice.visibility(document.hidden); });   // v216: the mic stays ON (button too) when you switch apps; it is only paused while the page is hidden
 
 // ---- multiplayer
 async function ensureNet() {

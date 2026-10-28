@@ -7,12 +7,12 @@ export class Voice {
   constructor(net) {
     this.net = net; this.me = 0; this.peers = new Map(); this.names = new Map(); this.mic = false; this.spk = true; this.stream = null;
     this.ice = STUN; this.iceLoaded = false; this.ctx = null; this.ana = null; this.level = new Map(); this.speaking = new Set(); this.timer = 0;
-    this.vol = 1; this.muted = new Set(); this.onChange = null; this.holdMode = false; this.err = '';
+    this.want = false; this.vol = 1; this.muted = new Set(); this.onChange = null; this.holdMode = false; this.err = '';
   }
   // ---- room membership: call with everybody in the room (including me) whenever the lobby changes
   setRoom(myId, players, on) {
     this.me = myId; this.names = new Map(players.map((p) => [p.id, p.name]));
-    if (!on || !window.RTCPeerConnection) { this.stopAll(); return; }
+    if (!on || !window.RTCPeerConnection) { for (const id of [...this.peers.keys()]) this.drop(id); this.changed(); return; }   // alone in the room: connections close, but the mic button keeps its state
     const want = new Set(players.map((p) => p.id).filter((id) => id !== myId));
     for (const id of [...this.peers.keys()]) if (!want.has(id)) this.drop(id);
     (this.iceP || (this.iceP = this.loadIce())).then(() => { if (this.me !== myId) return; for (const id of want) if (this.names.has(id) && !this.peers.has(id)) this.connect(id); this.changed(); });
@@ -57,20 +57,36 @@ export class Voice {
   }
   // ---- mic / speaker
   actx() { if (!this.ctx) { const C = window.AudioContext || window.webkitAudioContext; this.ctx = new C(); } if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return this.ctx; }
+  // The mic is STICKY: once the player taps it on it stays on until the player taps it off. The browser or phone may cut the microphone (call, other app,
+  // audio switch): then it is quietly opened again, the button never flips by itself. Only a refused permission turns it off (with a message).
   async setMic(on) {
-    if (on === this.mic) return true; this.err = '';
-    if (!on) { this.mic = false; this.releaseMic(); this.changed(); return true; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.err = 'Voice needs a secure (https) page'; this.changed(); return false; }
-    try {
-      this.actx();
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }, video: false });
-    } catch (e) { this.err = e && e.name === 'NotAllowedError' ? 'Mic blocked: allow the microphone in your browser' : 'No microphone found'; this.mic = false; this.changed(); return false; }
-    this.mic = true;
-    const t = this.stream.getAudioTracks()[0];
+    this.err = '';
+    if (!on) { this.want = false; this.mic = false; this.releaseMic(); this.changed(); return true; }
+    this.want = true;
+    if (this.mic && this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live')) return true;
+    if (this._opening) return this._opening;
+    return (this._opening = this.openMic().finally(() => { this._opening = null; }));
+  }
+  async openMic() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.want = false; this.err = 'Voice needs a secure (https) page'; this.changed(); return false; }
+    this.actx();
+    let st = null, e1 = null;
+    for (const c of [{ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // the second try: a plain mic, in case the phone refuses the fancy settings
+      try { st = await navigator.mediaDevices.getUserMedia({ audio: c, video: false }); break; } catch (e) { e1 = e; if (e && e.name === 'NotAllowedError') break; }
+    }
+    if (!st) { this.want = false; this.mic = false; this.err = e1 && (e1.name === 'NotAllowedError' || e1.name === 'SecurityError') ? 'Mic blocked: allow the microphone for this site in your browser settings' : 'Could not open the mic (' + ((e1 && e1.name) || 'error') + ')'; this.changed(); return false; }
+    if (!this.want) { for (const t of st.getTracks()) t.stop(); return false; }   // the player tapped it off again while the phone was asking
+    if (this.stream) for (const t of this.stream.getTracks()) t.stop();
+    this.stream = st; this.mic = true;
+    const t = st.getAudioTracks()[0]; t.enabled = !document.hidden;
+    t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) this.reopenSoon(); this.changed(); };
     for (const o of this.peers.values()) o.sender.replaceTrack(t).catch(() => {});
-    try { const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(this.stream).connect(this.selfAn); } catch { /* no meter */ }
+    try { const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
     this.changed(); return true;
   }
+  reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
+  // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it
+  visibility(hidden) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t) t.enabled = !hidden; if (!hidden && this.want) this.reopenSoon(); }
   releaseMic() { for (const o of this.peers.values()) o.sender.replaceTrack(null).catch(() => {}); if (this.stream) { for (const t of this.stream.getTracks()) t.stop(); this.stream = null; } this.selfAn = null; this.speaking.delete(this.me); }
   setSpk(on) { this.spk = on; for (const [id, o] of this.peers) if (o.audio) o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; this.changed(); }
   setVol(v) { this.vol = Math.max(0, Math.min(1, v)); this.setSpk(this.spk); }
@@ -90,5 +106,5 @@ export class Voice {
     if (ch) this.changed(true);
   }
   changed(speakOnly) { if (this.onChange) this.onChange(speakOnly); }
-  stopAll() { for (const id of [...this.peers.keys()]) this.drop(id); this.mic = false; this.releaseMic(); if (this.timer) { clearInterval(this.timer); this.timer = 0; } this.speaking.clear(); this.changed(); }
+  stopAll() { for (const id of [...this.peers.keys()]) this.drop(id); this.want = false; this.mic = false; this.releaseMic(); if (this.timer) { clearInterval(this.timer); this.timer = 0; } this.speaking.clear(); this.changed(); }
 }
