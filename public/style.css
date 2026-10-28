@@ -1005,3 +1005,28 @@ input[type=range] { accent-color: var(--crim); padding: 0; border: 0; background
 .vols input[type=range] { accent-color: #d93a3a; }
 #hud-progress .track { background: rgba(10,12,14,.7); border: 1px solid rgba(255,255,255,.4); }
 #hud-progress .track .fill, #hud-progress .fill { background: #d93a3a; }
+
+/* v194: game cards at the TOP (left, under the logo); Haris card is a real clickable button above everything */
+#s-title.mode-home .menu { position: absolute; left: max(2.4vw, env(safe-area-inset-left)); right: auto; transform: none; bottom: auto; top: clamp(84px, 21vh, 150px); width: min(560px, 62vw); margin: 0; z-index: 3; }
+#s-title.mode-home #home-pick { gap: 16px; }
+#s-title .dev { display: none; position: absolute; z-index: 6; pointer-events: auto !important; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+#s-title.mode-home .dev { display: block; }
+#s-title .dev * { pointer-events: none; }
+@media (orientation: portrait) {
+  #s-title.mode-home .menu { left: 4vw; right: 4vw; width: auto; top: clamp(110px, 17vh, 160px); }
+  #s-title.mode-home #home-pick { gap: 10px; }
+  #s-title .dev { top: auto; bottom: max(16px, 3vh); right: 4vw; width: clamp(96px, 26vw, 140px); }
+}
+@media (orientation: portrait) {
+  #s-title.mode-home .logo-main { font-size: 6.4vw; letter-spacing: .2em; white-space: nowrap; }
+  #s-title.mode-home .menu .row { position: absolute; left: 4vw; right: auto; top: 88px; }
+  #s-title.mode-home .menu { top: 138px; }
+  #s-title.mode-home #home-pick .btn { height: 96px; }
+  #s-title.mode-home #home-pick .btn b { font-size: 15px; letter-spacing: .1em; }
+  #s-title.mode-home #home-pick .btn small { font-size: 9px; letter-spacing: .1em; }
+}
+@media (orientation: portrait) {
+  #s-title.mode-home .menu .row { position: static; margin-top: 12px; justify-content: flex-start; }
+  #s-title.mode-home .logo-main { font-size: 5.2vw; }
+  #s-title .verbadge { font-size: 10px; padding: 5px 9px; }
+}
