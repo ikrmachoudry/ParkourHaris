@@ -8,6 +8,7 @@ import { cityVeh } from './cityveh.js';
 import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
 import { buildTruck, TRUCK } from './htruck.js';
+import { buildJeep, JEEP } from './hjeep.js';
 import { buildBus, BUS } from './hbus.js';
 import { buildBoat, BOATS } from './hboat.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -69,7 +70,7 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
-const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR],
+const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR], jeep: [buildJeep, JEEP, 0.78, 1, JEEP.seatR],
   speedboat: [(o) => buildBoat({ ...o, hull: 'speedboat' }), BOATS.speedboat, BOATS.speedboat.seatTop - 0.15, 1, BOATS.speedboat.seatR], fishboat: [(o) => buildBoat({ ...o, hull: 'fishboat' }), BOATS.fishboat, BOATS.fishboat.seatTop - 0.15, 1, BOATS.fishboat.seatR], yacht: [(o) => buildBoat({ ...o, hull: 'yacht' }), BOATS.yacht, BOATS.yacht.seatTop - 0.15, 1, BOATS.yacht.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
   const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];

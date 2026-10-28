@@ -327,4 +327,8 @@ export class GlbActor extends HeroActor {
 // the four player characters (ids 0..3) are MakeHuman bodies (tools/mh_build.py); the procedural human shows while loading and is the fallback if a file is missing
 export const HERO_GLB = ['models/hero0.glb', 'models/hero1.glb', 'models/hero2.glb', 'models/hero3.glb', 'models/hero4.glb'];
 export const ZOMBIE_LOOK = { role: 'civilian', top: '#d3a794', pants: '#262b33', shoes: '#d3a794', skinTone: '#d3a794', hair: '#0d0a08', hat: null, sleeve: 5 };   // the procedural stand-in while hero4.glb loads
-export const makeHero = (id, look, facial = true) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look, facial }) : new HeroActor(id, look);
+// JANG has its own four soldiers (Mixamo bodies, ~9k triangles each); GTA keeps the MakeHuman ones
+export const JANG_GLB = ['models/jang0.glb', 'models/jang1.glb', 'models/jang2.glb', 'models/jang3.glb'];
+let jangSet = false;
+export const setJangSet = (v) => { jangSet = !!v; };
+export const makeHero = (id, look, facial = true) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : jangSet && JANG_GLB[id | 0] ? new GlbActor(id, JANG_GLB[id | 0], { look, facial: false }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look, facial }) : new HeroActor(id, look);

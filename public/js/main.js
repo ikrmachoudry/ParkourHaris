@@ -10,7 +10,7 @@ import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { layout as cmbLayout, CMB } from './combat.js';
-import { makeHero } from './glbactor.js';
+import { makeHero, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
 import { flashPolice } from './hcar.js';
@@ -302,7 +302,7 @@ class Race {
     scene.add(sun, sun.target);
     this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
-    this.jang = !!o.jang;   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
+    this.jang = !!o.jang; setJangSet(this.jang);   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
     if (this.jang) { for (const c of scene.children) if (c !== this.sky && c !== this.water && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
     this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
@@ -498,7 +498,7 @@ class Race {
 
   // ================= swimming pool fx + cars =================
   // seats in a vehicle (driver included): bike 2, rickshaw 2, truck 2, tractor 1, every car 4
-  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m ? 2 : 4; }
+  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m === 'jeep' ? 4 : m ? 2 : 4; }
   seatModel(g, car, pax, pseat = 0) {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.bike) {   // a motorbike: the rider straddles it and leans with it (about the road line)
@@ -1861,6 +1861,7 @@ class Race {
   render() { renderer.render(this.scene, this.camera); }
 
   destroy() {
+    setJangSet(false);
     try { this.toggleWheel(false); } catch (e) { /* ignore */ }
     if (this.mission) { this.mission.destroy(); this.mission = null; }
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
