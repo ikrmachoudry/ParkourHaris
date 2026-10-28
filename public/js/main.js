@@ -9,7 +9,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { layout as cmbLayout, CMB } from './combat.js';
+import { layout as cmbLayout, CMB, TW } from './combat.js';
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
@@ -1807,7 +1807,11 @@ class Race {
       const scoped = this._scW >= 0.6 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
-    let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);   // looking up: the camera swings in close under the player, like PUBG
+    let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
+    { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
+        const b0 = this.me.body, Lm = cmbLayout(); let tw = false;
+        for (const t of Lm.towers) if (Math.abs(b0.x - CMB.x - t.x) < TW.O && Math.abs(b0.z - CMB.z - t.z) < TW.O && b0.y < t.py - 0.4 && b0.y > t.gy - 0.5) { tw = true; break; }
+        this.twK = (this.twK || 0) + ((tw ? 1 : 0) - (this.twK || 0)) * Math.min(1, dt * 6); if (this.twK > 0.01) dist = dist * (1 - this.twK) + Math.min(dist, 1.5) * this.twK; } }   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
       if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 9; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.42; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
     const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);

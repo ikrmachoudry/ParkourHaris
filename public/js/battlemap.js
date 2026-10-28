@@ -4,7 +4,7 @@
 // quality 0 = phones (fewer / shorter things), 1 = middle, 2 = laptops.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -252,13 +252,14 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   for (const p of L.props) { if (mp[p.k]) mp[p.k](p); else if (p.k === 'round') round(p); else if (p.k === 'tower') {
     const t = L.towers.find((q) => Math.abs(q.x - p.x) < 0.1 && Math.abs(q.z - p.z) < 0.1), py = t.py, gy = p.y, X = p.x, Z = p.z, wc = '#a5a59f';
-    B.box('wall', X - 3, gy - 1, Z - 3, X + 3, py + 0.8, Z - 2.6, wc, 0.04); B.box('wall', X - 3, gy - 1, Z - 2.6, X - 2.6, py + 1.2, Z + 2.6, wc, 0.04); B.box('wall', X + 2.6, gy - 1, Z - 2.6, X + 3, py + 1.2, Z + 2.6, wc, 0.04);
-    B.box('wall', X - 3, gy - 1, Z + 2.6, X - 1.2, py + 1.2, Z + 3, wc, 0.04); B.box('wall', X + 1.2, gy - 1, Z + 2.6, X + 3, py + 1.2, Z + 3, wc, 0.04); B.box('wall', X - 1.2, gy + 2.7, Z + 2.6, X + 1.2, py + 1.2, Z + 3, wc, 0.04);
-    for (let y = gy + 3.4; y < py; y += 3.4) B.box('trim', X - 3.06, y, Z - 3.06, X + 3.06, y + 0.22, Z + 3.06, '#8d8d87', 0);   // bands round the shaft
-    B.box('trim', X - 3.08, py + 0.8, Z - 3.08, X + 3.08, py + 0.95, Z + 3.08, '#8d8d87', 0); B.box('trim', X - 1.3, gy + 2.7, Z + 3.0, X + 1.3, gy + 2.85, Z + 3.1, '#6a6a66', 0);
-    B.box('wall', X - 1.3, gy - 1, Z - 1.3, X + 1.3, py - 0.3, Z + 1.3, wc, 0.04);   // the solid core the stairs wind round
-    for (const [x0, z0, x1, z1] of [[-2.6, -2.6, 2.6, -0.8], [-1.3, -0.8, 2.6, 1.3], [-0.2, 1.3, 2.6, 2.6], [-1.3, -1.3, 1.3, 1.3]]) B.box('wall', X + x0, py - 0.3, Z + z0, X + x1, py, Z + z1, '#94948e', 0.03);
-    for (const s of L.solids) if (s.k === 'step' && s.x0 > X - 3 && s.x1 < X + 3 && s.z0 > Z - 3 && s.z1 < Z + 3) B.box('wall', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8a8a84', 0.05);
+    const O = TW.O, S2 = TW.S2, K = TW.K;
+    B.box('wall', X - O, gy - 1, Z - O, X + O, py + 0.8, Z - S2, wc, 0.04); B.box('wall', X - O, gy - 1, Z - S2, X - S2, py + 1.2, Z + S2, wc, 0.04); B.box('wall', X + S2, gy - 1, Z - S2, X + O, py + 1.2, Z + S2, wc, 0.04);
+    B.box('wall', X - O, gy - 1, Z + S2, X - 1.4, py + 1.2, Z + O, wc, 0.04); B.box('wall', X + 1.4, gy - 1, Z + S2, X + O, py + 1.2, Z + O, wc, 0.04); B.box('wall', X - 1.4, gy + 2.9, Z + S2, X + 1.4, py + 1.2, Z + O, wc, 0.04);
+    for (let y = gy + 3.4; y < py; y += 3.4) B.box('trim', X - O - 0.06, y, Z - O - 0.06, X + O + 0.06, y + 0.22, Z + O + 0.06, '#8d8d87', 0);   // bands round the shaft
+    B.box('trim', X - O - 0.08, py + 0.8, Z - O - 0.08, X + O + 0.08, py + 0.95, Z + O + 0.08, '#8d8d87', 0); B.box('trim', X - 1.5, gy + 2.9, Z + O - 0.05, X + 1.5, gy + 3.05, Z + O + 0.05, '#6a6a66', 0);
+    B.box('wall', X - K, gy - 1, Z - K, X + K, py - 0.3, Z + K, wc, 0.04);   // the solid core the stairs wind round
+    for (const [x0, z0, x1, z1] of [[-S2, -S2, S2, -0.8], [-K, -0.8, S2, K], [-0.2, K, S2, S2], [-K, -K, K, K]]) B.box('wall', X + x0, py - 0.3, Z + z0, X + x1, py, Z + z1, '#94948e', 0.03);
+    for (const s of L.solids) if (s.k === 'step' && s.x0 > X - O && s.x1 < X + O && s.z0 > Z - O && s.z1 < Z + O) B.box('wall', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8a8a84', 0.05);
     B.box('metal', X + 2.0, py, Z - 2.2, X + 2.2, py + 7.5, Z - 2.0, '#cfcfcf', 0);   // the flag mast
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex(t.flag), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // the parachute pack on the roof, with a marker you can see from far off

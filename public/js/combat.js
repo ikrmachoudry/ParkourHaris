@@ -1,6 +1,7 @@
 // COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
+export const TW = { ST: 0.3, n: 96, a: 2.7, K: 1.4, S2: 4.0, O: 4.4 };   // the three parachute towers: 96 steps x 0.3 m = 29 m
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
 export const COMBAT_MS = 900000;                        // a match lasts 15 minutes
 export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
@@ -269,17 +270,18 @@ function build() {
   for (const [x, z] of [[118, -108], [214, -110], [124, -178], [220, -184]]) { crate(x, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); crate(x + 1.8, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); }
   // three concrete towers: closed shaft, a door at the bottom, a spiral staircase inside, a flat roof with a parachute and a flag
   const tower = (x, z, flag) => {
-    const y0 = Math.round(rawH(x, z) * 10) / 10; padRect(x - 6, z - 6, x + 6, z + 6, y0);
-    const gy = y0, ST = 0.3, n = 64, H2 = n * ST, py = gy + H2, a = 1.95, K = 1.3, S2 = 2.6;   // a = the middle of the stair corridor, K = the half width of the solid core, S2 = the inner half width of the shaft
+    const y0 = Math.round(rawH(x, z) * 10) / 10; padRect(x - 7, z - 7, x + 7, z + 7, y0);
+    const gy = y0, ST = TW.ST, n = TW.n, H2 = n * ST, py = gy + H2, a = TW.a, K = TW.K, S2 = TW.S2, O = TW.O;   // v211: 29 m high (was 19) and a WIDE stair corridor (2.6 m, was 1.3) so the camera fits inside; a = the middle of the stair corridor, K = the half width of the solid core, S2 = the inner half width of the shaft, O = the outer half width
     const W = (x0, z0, x1, z1, ya, yb, k = 'prop') => addS({ x0: x + x0, z0: z + z0, x1: x + x1, z1: z + z1, y0: ya, y1: yb, k });
-    W(-3, -3, 3, -2.6, gy - 1, py + 0.8); W(-3, -2.6, -2.6, 2.6, gy - 1, py + 1.2); W(2.6, -2.6, 3, 2.6, gy - 1, py + 1.2);
-    W(-3, 2.6, -1.2, 3, gy - 1, py + 1.2); W(1.2, 2.6, 3, 3, gy - 1, py + 1.2); W(-1.2, 2.6, 1.2, 3, gy + 2.7, py + 1.2);   // the door is on the south side
+    W(-O, -O, O, -S2, gy - 1, py + 0.8); W(-O, -S2, -S2, S2, gy - 1, py + 1.2); W(S2, -S2, O, S2, gy - 1, py + 1.2);
+    W(-O, S2, -1.4, O, gy - 1, py + 1.2); W(1.4, S2, O, O, gy - 1, py + 1.2); W(-1.4, S2, 1.4, O, gy + 2.9, py + 1.2);   // the door is on the south side
     W(-K, -K, K, K, gy - 1, py - 0.3);   // a solid core in the middle: the stairs are a walled corridor round it, nobody can fall into a well
     for (const [x0, z0, x1, z1] of [[-S2, -S2, S2, -0.8], [-K, -0.8, S2, K], [-0.2, K, S2, S2]]) W(x0, z0, x1, z1, py - 0.3, py, 'floor');   // the roof: open over the last steps (west side + south-west corner)
     W(-K, -K, K, K, py - 0.3, py, 'floor');
     const ring = (s) => { const u = ((s % 16) + 16) % 16, q = a / 2, al = u > 2 && u <= 6 ? 0 : u > 6 && u <= 10 ? 1 : u > 10 && u <= 14 ? 0 : 1; if (u < 2) return [u * q, a, al]; if (u < 6) return [a, a - (u - 2) * q, al]; if (u < 10) return [a - (u - 6) * q, -a, al]; if (u < 14) return [-a, -a + (u - 10) * q, al]; return [-a + (u - 14) * q, a, al]; };   // a corner step is turned like the leg it comes from
-    for (let i = 0; i < n; i++) { const [px, pz, alongX] = ring(i * 0.5), top = gy + (i + 1) * ST, hx = alongX ? 0.25 : 0.66, hz = alongX ? 0.66 : 0.25; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); }
-    props.push({ x, z, y: gy, w: 6, d: 6, h: H2, c: '#a5a59f', k: 'tower', flag });
+    const hw = (S2 - K) / 2, ht = a / 2 * 0.5 * 0.5 + 0.04;   // half the corridor width, half the tread depth
+    for (let i = 0; i < n; i++) { const [px, pz, alongX] = ring(i * 0.5), top = gy + (i + 1) * ST, hx = alongX ? ht : hw, hz = alongX ? hw : ht; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); }
+    props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
     return { x, z, gy, py, n, step: ST, flag, a };
   };
   const towers = [tower(116, -186, 'pk'), tower(212, -128, 'us'), tower(0, -120, 'ps')];
