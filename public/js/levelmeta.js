@@ -14,6 +14,7 @@ export const SKINS = [
   ...CHARACTERS.map((c) => ({ skin: c.id, name: c.name, color: c.color, char: c.id, jang: false })),
   { skin: 4, name: 'Agent', color: '#cfd6dd', char: 0, jang: true }, { skin: 5, name: 'Racer', color: '#e0313d', char: 1, jang: true },
   { skin: 6, name: 'Rigger', color: '#f59e0b', char: 2, jang: true }, { skin: 7, name: 'Ghost', color: '#9aa4ae', char: 3, jang: true },
+  { skin: 8, name: 'Army', color: '#8a9a5b', char: 0, jang: true },   // the camo soldier (the first FBX character), now also a Jang soldier
 ];
 
 export const LEVEL_META = [

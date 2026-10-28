@@ -114,6 +114,22 @@ const USEFLAG = 1073741824;   // net flag bit 30: using a heal item / pills (eve
 const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit in
 const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4) | (((f >> 29) & 1) << 5);
 
+const PV_BG = new THREE.Color('#0b0d10');
+// v204: the animations the player can try on the profile page. To add a new fun animation later: add ONE line here ( run(t) returns the actor state + an optional height y ).
+const jumpArc = (t) => { const k = (t % 1.5) / 1.5; if (k > 0.9) return { st: { grounded: true } }; const u = k / 0.9, y = Math.sin(u * Math.PI) * 1.05; return { y, st: { grounded: false, vy: Math.cos(u * Math.PI) * 6.5 } }; };
+const ANIMS = [
+  { id: 'idle', label: 'IDLE', run: () => ({}) },
+  { id: 'walk', label: 'WALK', run: () => ({ st: { speed: 1.6 } }) },
+  { id: 'run', label: 'RUN', run: () => ({ st: { speed: 5.2 } }) },
+  { id: 'jump', label: 'JUMP', run: jumpArc },
+  { id: 'crouch', label: 'CROUCH', run: () => ({ st: { crouch: true } }) },
+  { id: 'cwalk', label: 'CROUCH WALK', run: () => ({ st: { crouch: true, speed: 1.2 } }) },
+  { id: 'prone', label: 'PRONE', run: () => ({ st: { prone: true } }) },
+  { id: 'crawl', label: 'CRAWL', run: () => ({ st: { prone: true, speed: 0.7 } }) },
+  { id: 'aim', label: 'RIFLE AIM', run: () => ({ st: { weapon: 'ak', aiming: true } }) },
+  { id: 'rifle', label: 'RIFLE WALK', run: () => ({ st: { weapon: 'ak', speed: 1.6 } }) },
+  { id: 'punch', label: 'PUNCH', run: (t) => ({ st: { punch: (t % 0.9) / 0.9 } }) },
+];
 class Stage {
   constructor() {
     const v = VIS.fun;
@@ -128,8 +144,8 @@ class Stage {
     this.scene.add(sun); this.sun = sun;
     // podium
     const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.35 });
-    const floor = new THREE.Mesh(new THREE.CylinderGeometry(15, 14, 2, 48), mat('#ff9ccf')); floor.position.y = -1; floor.receiveShadow = true; this.scene.add(floor);
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(13, 13, 0.1, 48), mat('#fff3fb')); ring.position.y = 0.02; ring.receiveShadow = true; this.scene.add(ring);
+    const floor = this.floorM = new THREE.Mesh(new THREE.CylinderGeometry(15, 14, 2, 48), mat('#ff9ccf')); floor.position.y = -1; floor.receiveShadow = true; this.scene.add(floor);
+    const ring = this.ringM = new THREE.Mesh(new THREE.CylinderGeometry(13, 13, 0.1, 48), mat('#fff3fb')); ring.position.y = 0.02; ring.receiveShadow = true; this.scene.add(ring);
     this.tops = [0.8, 1.25, 1.25, 0.8];
     [[-4.5, 0.8, '#7be8a0'], [-1.5, 1.25, '#5fc2ff'], [1.5, 1.25, '#ffd23f'], [4.5, 0.8, '#ff9ccf']].forEach(([x, h, c]) => {
       const p = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, h, 32), mat(c)); p.position.set(x, h / 2, -0.5); p.castShadow = p.receiveShadow = true; this.scene.add(p); (this.pods = this.pods || []).push(p);
@@ -137,13 +153,18 @@ class Stage {
     this.slotPos = [[-4.5, 0.8, -0.5], [-1.5, 1.25, -0.5], [1.5, 1.25, -0.5], [4.5, 0.8, -0.5]];
     // HARIS floor decal + sky banner
     const tex = harisTexture('HARIS');
-    const dm = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    const dm = this.decalM = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     dm.rotation.x = -Math.PI / 2; dm.position.set(0, 0.1, 4.4); this.scene.add(dm);
 
     this.chars = [0, 1, 2, 3].map((id) => { const c = makeHero(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0, skin: id }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(360); this.scene.add(this.particles.points);
-    this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = [];
+    // v204: the player PREVIEW (profile page): a dark studio with ONE player doing the animation picked with the buttons, on the left of the screen
+    this.pdisc = new THREE.Group();
+    { const d = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.2, 0.08, 40), new THREE.MeshStandardMaterial({ color: '#1b1f24', roughness: 0.6, metalness: 0.2 })), r = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.12, 48), new THREE.MeshBasicMaterial({ color: '#d93a3a', side: THREE.DoubleSide }));
+      d.position.y = -0.04; r.rotation.x = -Math.PI / 2; r.position.y = 0.006; this.pdisc.add(d, r); this.pdisc.visible = false; this.scene.add(this.pdisc); }
+    this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = []; this.pv = { slot: 0, anim: 'idle', t: 0 };
+    this.bgNormal = this.scene.background;
   }
   // the look of slot i (0..3 = GTA heroes, 4..7 = Jang soldiers): swap the 3D model when it changes
   setSkin(i, skin) {
@@ -163,11 +184,27 @@ class Stage {
   setLobby(players) { this.mode = 'lobby'; this.lobby = players; players.forEach((p) => this.setSkin(p.char, p.skin === undefined ? p.char : p.skin)); this.chars.forEach((o, i) => { const idx = players.findIndex((p) => p.char === i); o.show = idx >= 0; o.slot = idx; this.setName(i, idx >= 0 ? players[idx].name : null); }); }
   burst(i) { const p = this.slotPos[this.slotOf(i)]; this.particles.emit(p[0], p[1] + 1.4, p[2] + 0.5, 40, { rainbow: true, speed: 4, up: 6, life: 1.0, size: 0.35, gravity: 7 }); }
   slotOf(i) { if (this.mode === 'lobby') return [1, 2, 0, 3][Math.max(0, this.chars[i].slot) % 4]; return i; }
+  setPreview(slot, skin) { this.setSkin(slot, skin); this.mode = 'preview'; this.sel = slot; this.pv.slot = slot; this.pv.t = 0; this.chars.forEach((o, i) => { o.show = i === slot; this.setName(i, null); }); }
+  updatePreview(dt, cam) {
+    const pv = this.pv, o = this.chars[pv.slot]; pv.t += dt; this.t += dt;
+    const d = 5.0; cam.position.set(0, 1.05, d); cam.lookAt(0, 0.6, 0); this.sky.position.copy(cam.position);
+    const halfW = Math.tan(cam.fov * Math.PI / 360) * d * cam.aspect, px = -halfW * 0.5;   // the middle of the LEFT half of the screen
+    this.chars.forEach((c, i) => { c.c.group.visible = i === pv.slot; });
+    this.pdisc.position.set(px, 0, 0);
+    const an = ANIMS.find((a) => a.id === pv.anim) || ANIMS[0], r = an.run(pv.t) || {};
+    o.c.group.visible = true; o.scale = 1; o.c.group.scale.setScalar(1);
+    o.c.group.position.set(px, r.y || 0, 0); o.c.group.rotation.y = lerpAngle(o.c.group.rotation.y, (pv.turn === undefined ? 0.45 : pv.turn) + Math.sin(this.t * 0.5) * 0.12, Math.min(1, dt * 5));
+    o.c.update(dt, Object.assign({ speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false }, r.st || {}));
+    this.ambient.points.visible = false;
+  }
   update(dt) {
     this.t += dt;
     const cam = this.camera;
     this.camX = lerp(this.camX === undefined ? 0 : this.camX, this.mode === 'title' && cam.aspect > 1.2 ? 2.3 : 0, Math.min(1, dt * 3));   // on the title page the menu buttons sit on the right: slide the whole podium to the left so nobody hides behind them
-    if (this.pods) for (const pd of this.pods) pd.visible = this.mode !== 'lobby';
+    const pvOn = this.mode === 'preview';
+    if (this.pods) for (const pd of this.pods) pd.visible = this.mode !== 'lobby' && !pvOn;
+    if (this.floorM) { this.floorM.visible = this.ringM.visible = this.decalM.visible = !pvOn; this.sky.visible = this.water.visible = !pvOn; this.pdisc.visible = pvOn; this.ambient.points.visible = !pvOn; this.scene.background = pvOn ? PV_BG : this.bgNormal; }
+    if (pvOn) { this.updatePreview(dt, cam); return; }
     if (this.mode === 'lobby') { cam.position.set(Math.sin(this.t * 0.3) * 0.5, 1.4, 5.3); cam.lookAt(0, 0.8, 0); }   // v200: the lobby: everybody stands close and BIG, no podium
     else {    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);}
     this.sky.position.copy(cam.position);
@@ -1908,19 +1945,19 @@ $('b-zom').onclick = () => { A.initAudio(); A.sfx.click(); app.zom = !app.zom; t
 // ---- character cards
 function charCards(container, opts) {
   container.innerHTML = '';
-  SKINS.filter((c) => !opts.jang || c.jang).forEach((c) => {
+  SKINS.filter((c) => opts.jang ? c.jang : c.skin !== 8).forEach((c) => {
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = c.skin;
     d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.skin] || ''}"><b style="color:${c.color}">${c.name}</b>`;
     d.onclick = () => opts.onPick(c.skin);
     container.appendChild(d);
   });
-  container.classList.toggle('many', !opts.jang);
+  container.classList.toggle('many', !opts.jang); container.classList.toggle('five', !!opts.jang);
 }
-function markChars(container, sel, takenSet) {
+function markChars(container, sel, takenSlots, takenSkins) {   // GTA heroes (0..3) are taken by slot, the Jang soldiers (4..8) by look
   container.querySelectorAll('.card').forEach((d) => {
     const id = +d.dataset.id;
     d.classList.toggle('sel', id === sel);
-    d.classList.toggle('taken', !!(takenSet && takenSet.has(id % 4) && id !== sel));
+    d.classList.toggle('taken', id !== sel && !!(id < 4 ? takenSlots && takenSlots.has(id) : takenSkins && takenSkins.has(id)));
   });
 }
 function levelCards(container, opts) {
@@ -1961,13 +1998,16 @@ async function makeThumbs(skins = [0, 1, 2, 3]) {
 function openProfile(mode) {
   app.mode = mode; if (mode !== 'combat') app.combat = false;
   const jang = mode === 'combat';
-  if (jang && app.skin < 4) { app.skin = 4 + (app.skin % 4); app.char = app.skin % 4; }
+  if (jang && app.skin < 4) { app.skin = app.skin === 2 ? 8 : 4 + (app.skin % 4); app.char = app.skin % 4; }
   $('inp-name').value = app.name;
   $('profile-title').textContent = 'Choose your player';
   $('s-profile').classList.toggle('mode-jang', jang);
-  charCards($('char-cards'), { jang, onPick: (skin) => { app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.sel = app.char; stage.setSkin(app.char, skin); A.sfx.select(); } });
+  const pvName = () => { const c = SKINS.find((k) => k.skin === app.skin); $('pv-name').textContent = c ? c.name : ''; $('pv-name').style.setProperty('--c', c ? c.color : '#fff'); };
+  charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
-  stage.setSkin(app.char, app.skin); stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char; setZomBtn();
+  stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();
+  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
+    stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
 function readName() {
@@ -2125,9 +2165,12 @@ function renderLobby() {
     d.innerHTML = p ? `<i style="background:${CHARACTERS[p.char].color}"></i><span>${p.name.replace(/[<>&]/g, '')}</span>${p.id === m.hostId ? '<span>\u{1F451}</span>' : ''}${p.id === app.myId ? '<span class="you">YOU</span>' : ''}` : '<i style="background:#888"></i><span>Waiting for player...</span>';
     slots.appendChild(d);
   }
-  const taken = new Set(m.players.filter((p) => p.id !== app.myId).map((p) => p.char));
-  charCards($('lobby-chars'), { small: true, jang: !!m.combat, onPick: (skin) => { if (taken.has(skin % 4)) return; A.sfx.select(); app.net.send({ t: 'char', char: skin % 4, skin }); } });
-  markChars($('lobby-chars'), app.skin, taken);
+  const others = m.players.filter((p) => p.id !== app.myId), taken = new Set(others.map((p) => p.char)), takenSkin = new Set(others.map((p) => p.skin | 0));
+  charCards($('lobby-chars'), { small: true, jang: !!m.combat, onPick: (skin) => {
+    if (skin < 4 ? taken.has(skin) : takenSkin.has(skin)) return;
+    const slot = skin < 4 ? skin : !taken.has(app.char) ? app.char : [0, 1, 2, 3].find((i) => !taken.has(i));
+    if (slot === undefined) return; A.sfx.select(); app.net.send({ t: 'char', char: slot, skin }); } });
+  markChars($('lobby-chars'), app.skin, taken, takenSkin);
   const host = m.hostId === app.myId;
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
@@ -2289,7 +2332,7 @@ $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); 
 async function boot() {
   await ensureFont();
   stage = new Stage();
-  thumbs = ['', '', '', '', 'img/sk4.png', 'img/sk5.png', 'img/sk6.png', 'img/sk7.png'];
+  thumbs = ['', '', '', '', 'img/sk4.png', 'img/sk5.png', 'img/sk6.png', 'img/sk7.png', 'img/sk8.png'];
   makeThumbs().then((t) => { thumbs = t.concat(thumbs.slice(4)); document.querySelectorAll('.card[data-id] img').forEach((im) => { const u = t[+im.parentNode.dataset.id]; if (u) im.src = u; }); }).catch((e) => console.error(e));
   resize();
   stage.setTitle();
@@ -2366,7 +2409,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
     if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); race.render(); }
-    else if (app.screen !== 'title' && app.screen !== 'profile') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
+    else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
 }
@@ -2376,7 +2419,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

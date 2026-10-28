@@ -155,7 +155,8 @@ function removePlayer(p) {
 
 function joinRoom(p, room) {
   p.room = room;
-  p.char = freeChar(room, p.char, p.id); if (!(p.skin >= 0 && p.skin < 8) || p.skin % 4 !== p.char) p.skin = p.char;   // the look must belong to the slot
+  p.char = freeChar(room, p.char, p.id); if (!(p.skin >= 0 && p.skin < 9) || (p.skin < 4 && p.skin !== p.char)) p.skin = p.char;   // a GTA hero look belongs to its slot; the Jang soldiers (4..8) can sit in any slot
+  if (p.skin >= 4) { const used = new Set([...room.players.values()].filter((q) => q.id !== p.id).map((q) => q.skin)); if (used.has(p.skin)) { let k = 4; while (k < 9 && used.has(k)) k++; p.skin = k < 9 ? k : p.char; } }
   room.players.set(p.id, p);
   p.finished = false; p.finTime = 0; p.x = 0; p.y = 0; p.z = 0;
   send(p.ws, { t: 'joined', id: p.id, code: room.code }); sendBusy(room, p);
@@ -238,7 +239,8 @@ wss.on('connection', (ws, req) => {
         const c = m.char | 0;
         const taken = [...room.players.values()].some((q) => q.id !== p.id && q.char === c);
         if (taken || c < 0 || c >= CHARACTERS.length) return;
-        p.char = c; const sk = m.skin | 0; p.skin = sk >= 0 && sk < 8 && sk % 4 === c ? sk : c;
+        const sk = m.skin | 0; if (sk >= 4 && sk < 9 && [...room.players.values()].some((q) => q.id !== p.id && q.skin === sk)) return;   // two players never wear the same soldier
+        p.char = c; p.skin = sk >= 4 && sk < 9 ? sk : c;
         bcast(room, lobbyMsg(room));
         break;
       }

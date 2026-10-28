@@ -334,4 +334,4 @@ export const isJangSet = () => jangSet;
 export const setJangSet = (v) => { jangSet = !!v; };
 export const makeHero = (id, look, facial = true) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : jangSet && JANG_GLB[id | 0] ? new GlbActor(id, JANG_GLB[id | 0], { look, facial: false }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look, facial }) : new HeroActor(id, look);
 // a look 0..7: 0..3 the GTA heroes, 4..7 the Jang soldiers (usable in GTA too)
-export const makeSkin = (skin, look, facial = true) => (skin | 0) >= 4 && (skin | 0) < 8 ? new GlbActor(skin | 0, JANG_GLB[(skin | 0) - 4], { look, facial: false }) : makeHero(skin, look, facial);
+export const makeSkin = (skin, look, facial = true) => (skin | 0) === 8 ? new GlbActor(8, HERO_GLB[2], { look, facial: false }) : (skin | 0) >= 4 && (skin | 0) < 8 ? new GlbActor(skin | 0, JANG_GLB[(skin | 0) - 4], { look, facial: false }) : makeHero(skin, look, facial);
