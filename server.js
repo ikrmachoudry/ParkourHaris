@@ -16,6 +16,21 @@ const app = express();
 app.disable('x-powered-by');
 app.use(compression());
 app.get('/health', (_q, r) => r.send('ok'));
+// voice chat: the phones connect to each other (WebRTC); this tells them which relay servers to use when a direct line is blocked by the mobile network.
+// Free relay: set TURN_URL (comma separated, e.g. turn:global.relay.metered.ca:80,turns:global.relay.metered.ca:443?transport=tcp) + TURN_USER + TURN_PASS, or METERED_APP + METERED_KEY (metered.ca free plan)
+let iceCache = null, iceAt = 0;
+app.get('/ice', async (_q, r) => {
+  r.set('Cache-Control', 'no-store');
+  const base = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+  try {
+    if (process.env.METERED_APP && process.env.METERED_KEY) {
+      if (!iceCache || Date.now() - iceAt > 3600e3) { const x = await fetch(`https://${process.env.METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_KEY}`); const j = await x.json(); if (Array.isArray(j) && j.length) { iceCache = j; iceAt = Date.now(); } }
+      if (iceCache) return r.json({ iceServers: [...base, ...iceCache] });
+    }
+    if (process.env.TURN_URL) return r.json({ iceServers: [...base, { urls: process.env.TURN_URL.split(',').map((u) => u.trim()), username: process.env.TURN_USER || '', credential: process.env.TURN_PASS || '' }] });
+  } catch { /* fall back to STUN only */ }
+  r.json({ iceServers: base });
+});
 // the page itself is never cached, and its script / style links carry the build time: a phone (or a home-screen shortcut) can never keep running an old copy
 const pubDir = path.join(__dirname, 'public');
 app.get(['/', '/index.html'], (_q, r) => {
@@ -29,7 +44,7 @@ app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: true, setHeaders: (res, f) => { if (/\.(js|css|html)$/.test(f)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); } })); // always re-check with ETag: players get new versions right after a deploy, 304 keeps it cheap
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096, perMessageDeflate: false });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192, perMessageDeflate: false });
 
 // ---------------------------------------------------------------- rooms
 const rooms = new Map();
@@ -194,6 +209,12 @@ wss.on('connection', (ws, req) => {
 
     switch (m.t) {
       case 'ping': send(ws, { t: 'pong', c: m.c, s: Date.now() }); break;
+      case 'vc': {   // voice chat connect message (offer / answer / network candidate): relayed to one player of the same room, nothing is stored
+        if (!room || (m.k !== 'o' && m.k !== 'a' && m.k !== 'i') || !m.d || typeof m.d !== 'object') return;
+        const q = room.players.get(m.to | 0); if (!q || q.id === p.id || !q.ws) return;
+        const out = { t: 'vc', from: p.id, k: m.k, d: m.d }, js = JSON.stringify(out); if (js.length > 7000) return;
+        if (q.ws.readyState === 1) q.ws.send(js); break;
+      }
       case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS && !!x.combat === !!m.combat); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
 
       case 'create': {

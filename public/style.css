@@ -1159,3 +1159,26 @@ body.jang-mode #kb-hint { display: none !important; }
 #joy.arm #joy-lock, #joy.locked #joy-lock { background: #f5b301; border-color: #fff; }
 #joy.locked { display: block !important; }
 body.touch.in-race.driving #joy.locked { display: none !important; }
+
+/* ---- v215 team voice chat: mic + speaker under the minimap (same place on phone and laptop), teammate list with a green ring while they talk */
+#vc { display: none; position: absolute; z-index: 6; left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(88px, 19vmin, 142px) + 10px); top: max(10px, env(safe-area-inset-top), 2vh); font-family: system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+body.touch #vc { left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(78px, 17vmin, 112px) + 10px); }
+body.vc-on.in-race.city-mode:not(.jang-mode):not(.driving) #vc, body.vc-on.in-race.city-mode.driving:not(.jang-mode) #vc { display: block; }
+#vc-btns { display: flex; gap: 8px; }
+#vc button { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.75); background: rgba(20,24,30,.55); padding: 0; display: grid; place-items: center; position: relative; -webkit-tap-highlight-color: transparent; }
+body.touch #vc button { width: 44px; height: 44px; }
+#vc button svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#vc-mic:not(.on) svg { opacity: .55; }
+#vc-mic:not(.on)::after { content: ''; position: absolute; width: 26px; height: 3px; background: #ff5a4a; border-radius: 2px; transform: rotate(-45deg); }
+#vc-mic.on { background: rgba(40,170,90,.65); border-color: #7dff9f; }
+#vc-mic.talk { box-shadow: 0 0 0 3px rgba(125,255,159,.85); }
+#vc-spk.off { opacity: .6; }
+#vc-spk.off::after { content: ''; position: absolute; width: 26px; height: 3px; background: #ff5a4a; border-radius: 2px; transform: rotate(-45deg); }
+#vc-list { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.vr { display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 5px; border-radius: 12px; background: rgba(20,24,30,.5); color: #fff; font-size: 12px; font-weight: 700; max-width: 120px; border: 2px solid transparent; }
+.vr em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr .vd { width: 8px; height: 8px; border-radius: 50%; background: #9aa; flex: none; }
+.vr .vd.ok { background: #7dff9f; } .vr .vd.bad { background: #ff5a4a; }
+.vr.talk { border-color: #7dff9f; box-shadow: 0 0 8px rgba(125,255,159,.8); }
+.vr.mu { opacity: .45; text-decoration: line-through; }
+#vc-msg { display: none; position: absolute; left: 100px; top: 2px; width: 170px; font-size: 11px; font-weight: 700; color: #ffd23f; background: rgba(20,24,30,.7); padding: 4px 8px; border-radius: 10px; }

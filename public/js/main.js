@@ -31,6 +31,7 @@ import * as A from './audio.js';
 import { bodyHalf } from './hitbox.js';
 import { hitCode, addHit } from './cardamage.js';
 import { Net } from './net.js';
+import { Voice } from './voice.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 
@@ -2102,11 +2103,38 @@ $('b-res-next').onclick = () => {
 };
 
 function leaveToTitle() {
+  voiceStop();
   if (race) { race.destroy(); race = null; }
   if (app.net && app.room) { app.net.send({ t: 'leave' }); }
   app.room = null; app.combat = false; exitLock();
   stage.setTitle(); show('title'); A.initAudio(); A.startMusic(99);
 }
+
+// ---- team voice chat (v215): GTA rooms first. Mic is OFF until the player taps it. Buttons sit under the minimap, same place on every screen size.
+let voice = null;
+const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
+const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
+$('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
+const voiceOn = () => !!(voice && app.room && !app.room.combat && app.room.players.length > 1);
+function voiceSync() { if (!voice) return; const on = !!(app.room && !app.room.combat && app.room.players.length > 1); voice.setRoom(app.myId, app.room ? app.room.players : [], on); }
+function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
+function voiceUI(speakOnly) {
+  if (!voice) return; const on = voiceOn();
+  if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
+  if (!on) return;
+  $('vc-mic').classList.toggle('on', voice.mic); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
+  const list = $('vc-list'), rows = (app.room ? app.room.players : []).filter((p) => p.id !== app.myId);
+  const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
+  if (!speakOnly && list.dataset.k !== key) { list.dataset.k = key; list.innerHTML = rows.map((p) => { const st = voice.peers.has(p.id) ? voice.peers.get(p.id).pc.connectionState : 'new'; return `<div class="vr${voice.muted.has(p.id) ? ' mu' : ''}" data-id="${p.id}"><span class="vd ${st === 'connected' ? 'ok' : st === 'failed' ? 'bad' : ''}"></span><em>${String(p.name).replace(/[<>&"]/g, '').slice(0, 12)}</em></div>`; }).join(''); }
+  for (const r of list.children) r.classList.toggle('talk', voice.speaking.has(+r.dataset.id));
+}
+$('vc-mic').addEventListener('click', async (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); await voice.setMic(!voice.mic); voiceUI(); });
+$('vc-spk').addEventListener('click', (e) => { e.stopPropagation(); if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
+$('vc-msg').addEventListener('click', (e) => { e.stopPropagation(); if (voice) { voice.resumeAudio(); voiceUI(); } });
+$('vc-list').addEventListener('click', (e) => { const r = e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } e.stopPropagation(); });
+for (const ev of ['touchstart', 'pointerdown', 'mousedown']) vcEl.addEventListener(ev, (e) => e.stopPropagation());   // taps on the voice buttons never turn the camera or fire
+document.addEventListener('visibilitychange', () => { if (document.hidden && voice && voice.mic) { voice.setMic(false).then(voiceUI); } });   // leaving the app closes the mic
 
 // ---- multiplayer
 async function ensureNet() {
@@ -2114,6 +2142,7 @@ async function ensureNet() {
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
   net.on('lobby', onLobby);
+  net.on('vc', (m) => { if (voice) voice.onSignal(m); });
   net.on('err', (m) => {
     $('mp-status').textContent = m.msg;
     stopJoin(); gtoast(m.msg);   // no auto-retry: you can only join a room that already exists
@@ -2138,9 +2167,9 @@ async function ensureNet() {
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_sn', 'm_zb', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
-  net.on('close', () => { gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
+  net.on('close', () => { voiceStop(); gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();
-  app.net = net;
+  app.net = net; voice = new Voice(net); voice.onChange = voiceUI;
   return net;
 }
 // JOIN ROOM is only available while a room exists: ask the server every 2 s while the multiplayer screen is open
@@ -2178,6 +2207,7 @@ function onLobby(m) {
   stopJoin();
   const first = !app.room;
   const prev = app.room; app.room = m;
+  voiceSync();
   if (race && race.multi) { // someone joined / left mid-session: just refresh the room data
     for (const p of m.players) if (p.id !== app.myId && !race.remotes.has(p.id) && (m.phase === 'race' || m.phase === 'countdown')) race.addRemote(p);
     if (m.phase === 'lobby' && app.screen !== 'lobby') { race.destroy(); race = null; exitLock(); renderLobby(); show('lobby'); A.startMusic(99); }
@@ -2260,6 +2290,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
+  if (e.code === 'KeyV' && voiceOn() && !e.repeat) { $('vc-mic').click(); return; }
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
@@ -2455,7 +2486,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { get voice() { return voice; }, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls
