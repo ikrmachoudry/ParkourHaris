@@ -877,3 +877,12 @@ body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg.pi, body.to
 #s-title .btn:not(#home-pick .btn) { background: rgba(10,12,14,.74) !important; color: #fff; border: 1px solid rgba(255,255,255,.28) !important; border-left: 4px solid #d93a3a !important; border-radius: 2px; box-shadow: none !important; text-shadow: none; text-transform: uppercase; letter-spacing: .16em; text-align: left; backdrop-filter: blur(4px); }
 #s-title .btn:not(#home-pick .btn):hover { background: #e9edf0 !important; color: #0b0d0f; filter: none; transform: translateX(4px); }
 #s-title.mode-gta .menu { left: max(2.2vw, env(safe-area-inset-left)); right: auto; top: 26%; width: min(320px, 46vw); }
+
+/* v190: army jeep driving across the home screen (one small PNG, CSS-only motion: no cost while playing) */
+#s-title .home-jeep { position: absolute; left: 0; bottom: 3%; width: 22vmax; max-width: 260px; z-index: 1; animation: jeepRun 13s linear infinite; will-change: transform; }
+#s-title .home-jeep img { display: block; width: 100%; animation: jeepBob .42s ease-in-out infinite alternate; filter: drop-shadow(0 6px 6px rgba(0,0,0,.55)); }
+#s-title .home-jeep .dust { position: absolute; left: -18%; bottom: 6%; width: 40%; height: 40%; background: radial-gradient(ellipse at 80% 60%, rgba(200,190,170,.5), rgba(200,190,170,0) 70%); animation: jeepDust .6s ease-out infinite; }
+@keyframes jeepRun { from { transform: translateX(-30vw); } to { transform: translateX(110vw); } }
+@keyframes jeepBob { from { transform: translateY(0) rotate(-.4deg); } to { transform: translateY(-3px) rotate(.4deg); } }
+@keyframes jeepDust { from { opacity: .8; transform: scale(.7); } to { opacity: 0; transform: scale(1.5) translateX(-20px); } }
+@media (prefers-reduced-motion: reduce) { #s-title .home-jeep { animation: none; left: 10%; } }
