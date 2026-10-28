@@ -39,6 +39,11 @@ const $ = (id) => document.getElementById(id);
 const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches && matchMedia('(hover: hover)').matches && !matchMedia('(pointer: coarse)').matches;   // a laptop / PC with a mouse (even a touchscreen laptop): keyboard + mouse only
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
+let sprintLock = false;   // v213: PUBG-style SPRINT LOCK on a phone: push the stick all the way up into the lock icon and let go - the character keeps sprinting forward until you touch the stick again
+function setSprintLock(on) {
+  sprintLock = !!on; const j = document.getElementById('joy'), k = document.getElementById('joy-knob'); if (j) { j.classList.toggle('locked', sprintLock); if (!sprintLock) j.classList.remove('arm'); }
+  if (sprintLock) { touch.x = 0; touch.y = 1; if (k) k.style.transform = 'translate(-50%, calc(-50% - 56px))'; } else { if (touch.x === 0 && touch.y === 1) touch.y = 0; if (k && j && !j.classList.contains('on')) k.style.transform = 'translate(-50%, -50%)'; }
+}
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const NADE_DUR = [1.12, 1.3, 1.4], NADE_REL = [0.64, 0.75, 0.643];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -356,7 +361,7 @@ class Race {
     this.dn = null; if (this.meta.city && !o.jang) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
     this.jang = !!o.jang; setJangSet(this.jang);   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
-    if (this.jang) { for (const c of scene.children) if (c !== this.sky && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
+    if (this.jang) { for (const c of scene.children) if (c !== this.sky && !c.isLight && c !== sun.target && !this.cars.some((q) => q.mesh === c)) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
     this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
     this.ambient = new Ambient(this.meta.key, 320); if (!this.meta.city) scene.add(this.ambient.points);   // v197: no floating white specks (they looked like snow) in the city or in Jang
@@ -816,11 +821,21 @@ class Race {
     for (const c of this.rolling.slice()) {
       const st = c.st;
       if (c === this.drive) { this.rolling.splice(this.rolling.indexOf(c), 1); continue; }
-      const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
+      if (this.jang) this.jangBoxes(st);
+    const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
       for (let i = 0; i < 2; i++) { const e = stepCar(st, dt / 2, { gas: -0.35, steer: 0 }, this.info.track, others, Math.max(0, this.levelTime)); if (e && i === 0) { A.crashSfx(st.crash || 5); this.particles.emit(st.x, st.y + 0.8, st.z, 12, { color: '#ffd9a0', speed: 5, up: 3, life: 0.4, size: 0.2 }); st.crash = 0; } }
       const hero = c.mesh.userData.hero; if (hero && st.dmgQ && st.dmgQ.length) { for (const q of st.dmgQ) hero.dent(q.lx, q.lz, Math.min(0.3, 0.07 + q.d * 0.012)); st.dmgQ.length = 0; hero.hurtLook(st.hp); }
       if (Math.abs(st.speed) < 0.4 && !st.air && Math.abs(st.vy || 0) < 0.5 && !((st.wet || 0) > 0 && !st.sunk)) { st.yr = 0; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
     }
+  }
+  // JANG: the walls, towers, trees and props of the island that are near the jeep (a few boxes, not all 4900) - the car physics bumps against them like against the GTA buildings
+  jangBoxes(st) {
+    const L = cmbLayout(), lx = st.x - CMB.x, lz = st.z - CMB.z, Bk = L.B, ci = Math.floor(lx / Bk), cj = Math.floor(lz / Bk), out = [], seen = new Set();
+    for (let i = ci - 2; i <= ci + 2; i++) for (let j = cj - 2; j <= cj + 2; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue;
+      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (!(k === 'wall' || k === 'tree' || k === 'rock' || (k === 'prop' && q.y1 - q.y0 > 0.5))) continue;
+        out.push(q._cb || (q._cb = { x0: CMB.x + q.x0, x1: CMB.x + q.x1, z0: CMB.z + q.z0, z1: CMB.z + q.z1, h: q.y1 })); } }
+    this.info.track.boxes = out; this.info.track._all = null;
+    const lim = CMB.half - 10; st.x = CMB.x + Math.max(-lim, Math.min(lim, st.x - CMB.x)); st.z = CMB.z + Math.max(-lim, Math.min(lim, st.z - CMB.z));
   }
   updateDrive(dt, canMove) {
     const c = this.drive, st = c.st, b = this.me.body;
@@ -2263,7 +2278,7 @@ function openPause() {
   if (race.bigMapOpen) race.toggleMap(false);
   race.menuOpen = true;
   if (!race.multi && !race.paused) { race.paused = true; race.pauseAt = performance.now(); }
-  exitLock(); keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0;
+  exitLock(); keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0;
   $('p-title').textContent = race.multi ? 'Menu' : 'Paused';
   $('p-info').textContent = race.meta.name + (race.multi ? '  \u2022  race goes on!' : '');
   syncGfx();
@@ -2312,7 +2327,7 @@ $('p-full').onclick = () => {
   });
 }
 { const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
-  const open = () => { if (race && !race.over) { keys.clear(); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
+  const open = () => { if (race && !race.over) { keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
   if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; open(); });
   if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
@@ -2441,12 +2456,15 @@ window.__ph = { openProfile: (m) => openProfile(m), renderLobby: () => renderLob
   let joyId = null, camId = null, ox = 0, oy = 0, lx = 0, ly = 0;
   const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
   const joyReset = () => { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; knob.style.transform = 'translate(-50%, -50%)'; };   /* knob back to the middle every time it is let go */
-  window.addEventListener('blur', joyReset); document.addEventListener('visibilitychange', () => { if (document.hidden) joyReset(); });
-  setInterval(() => { if (joyId !== null && document.body.classList.contains('driving')) joyReset(); }, 200);
+  window.addEventListener('blur', () => { setSprintLock(false); joyReset(); }); document.addEventListener('visibilitychange', () => { if (document.hidden) { setSprintLock(false); joyReset(); } });
+  setInterval(() => { if (document.body.classList.contains('driving')) { if (joyId !== null) joyReset(); if (sprintLock) setSprintLock(false); } }, 200);
+  { const lk = document.createElement('i'); lk.id = 'joy-lock'; lk.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>'; joy.appendChild(lk); }
+  let lockArm = false;
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
       if (t.clientX < window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) && joyId === null && !document.body.classList.contains('driving')) {   // the joystick lives in the LEFT third only (left fifth while scoped): the rest of the screen only turns the camera
+        if (sprintLock) setSprintLock(false);
         joyId = t.identifier; ox = t.clientX; oy = t.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
       } else if (camId === null && (t.clientX >= window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
     }
@@ -2460,13 +2478,15 @@ window.__ph = { openProfile: (m) => openProfile(m), renderLobby: () => renderLob
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       const nx = dx / RAD, ny = dy / RAD, mag = Math.hypot(nx, ny), k = mag < 0.14 ? 0 : (mag - 0.14) / 0.86 / mag; // dead zone, then analog 0..1
       touch.x = nx * k; touch.y = -ny * k;
+      { const arm = ny <= -0.9 && Math.abs(nx) < 0.5 && !document.body.classList.contains('driving'); if (arm !== lockArm) { lockArm = arm; joy.classList.toggle('arm', arm); } }
     }
     const c = camId !== null ? find(e.touches, camId) : null;
     if (c) { if (race && !race.over) race.look((c.clientX - lx) * 1.7, (c.clientY - ly) * 1.7); lx = c.clientX; ly = c.clientY; }
   }, { passive: false });
   const end = (e) => {
     for (const t of e.changedTouches) {
-      if (t.identifier === joyId) joyReset();
+      if (t.identifier === joyId && lockArm) { lockArm = false; joy.classList.remove('arm'); joyId = null; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; setSprintLock(true); continue; }
+      if (t.identifier === joyId) { lockArm = false; joy.classList.remove('arm'); joyReset(); }
       if (t.identifier === camId) camId = null;
     }
     if (joyId !== null && !find(e.touches, joyId)) joyReset();   /* safety: the finger is gone, so the stick must be centred */

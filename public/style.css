@@ -1152,3 +1152,10 @@ body.jang-mode #hud-money { display: none !important; }
 #lobby-emotes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 #lobby-emotes .pv-b { padding: 5px 9px; font-size: 11px; }
 body.jang-mode #kb-hint { display: none !important; }
+
+/* v213: sprint lock icon above the joystick (push the stick all the way up into it and let go) */
+#joy-lock { position: absolute; left: 50%; top: -30px; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; background: rgba(10,12,14,.62); border: 2px solid rgba(255,255,255,.65); display: none; align-items: center; justify-content: center; pointer-events: none; }
+#joy.on #joy-lock, #joy.locked #joy-lock { display: flex; }
+#joy.arm #joy-lock, #joy.locked #joy-lock { background: #f5b301; border-color: #fff; }
+#joy.locked { display: block !important; }
+body.touch.in-race.driving #joy.locked { display: none !important; }

@@ -1,7 +1,8 @@
 // The only level: Punjabi GTA (an open city). buildLevel(0) builds it; the layout itself lives in gta.js / gtaworld.js.
 import { World } from './world.js';
 import { buildGta } from './gtaworld.js';
-import { layout as cmbLayout, CMB, cmbInside, cmbH } from './combat.js';
+import { layout as cmbLayout, CMB, cmbInside, cmbH, ROADS } from './combat.js';
+import { jangJeeps } from './jangcars.js';
 
 export const THEMES = {
   gta: {
@@ -33,5 +34,5 @@ export function buildEmptyLevel() {
   const T = (x, z) => (cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : 0); world.terrain = T;
   { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building' }); }
   world.finalize();
-  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: [], track: { terrain: T }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
+  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: jangJeeps(3), track: { terrain: T, boxes: [], edge: 1900, waterY: -40, plazas: [], segs: ROADS.flatMap((r) => r.pts.slice(0, -1).map((p, i) => ({ ax: CMB.x + p[0], az: CMB.z + p[1], bx: CMB.x + r.pts[i + 1][0], bz: CMB.z + r.pts[i + 1][1], hw: r.w / 2 + 1 }))) }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
 }
