@@ -129,6 +129,11 @@ const ANIMS = [
   { id: 'aim', label: 'RIFLE AIM', run: () => ({ st: { weapon: 'ak', aiming: true } }) },
   { id: 'rifle', label: 'RIFLE WALK', run: () => ({ st: { weapon: 'ak', speed: 1.6 } }) },
   { id: 'punch', label: 'PUNCH', run: (t) => ({ st: { punch: (t % 0.9) / 0.9 } }) },
+  { id: 'wave', label: 'WAVE', run: () => ({ st: { gesture: 'wave' } }) },
+  { id: 'hi', label: 'SAY HI', run: () => ({ st: { gesture: 'hi' } }) },
+  { id: 'salute', label: 'SALUTE', run: () => ({ st: { gesture: 'salute' } }) },
+  { id: 'cheer', label: 'CHEER', run: () => ({ st: { gesture: 'cheer' } }) },
+  { id: 'flex', label: 'FLEX', run: () => ({ st: { gesture: 'flex' } }) },
 ];
 class Stage {
   constructor() {
@@ -220,7 +225,7 @@ class Stage {
       o.hop = 0;
       o.c.group.position.set(p[0], p[1] + o.hop, p[2]);
       o.c.group.rotation.y = lerpAngle(o.c.group.rotation.y, this.mode === 'lobby' ? Math.sin(this.t * 0.7 + i) * 0.3 : Math.sin(this.t * 0.6 + i * 2) * 0.35, Math.min(1, dt * 4));
-      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: selected ? 'thumbs' : GESTURES[i] });
+      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: (this.emote && this.emote.slot === i && this.t < this.emote.until) ? this.emote.g : selected ? 'thumbs' : GESTURES[i] });
       if (o.tag) { o.tag.scale.set(2.4, 0.6, 1); }
     });
     this.ambient.update(this.t, cam.position);
@@ -351,7 +356,7 @@ class Race {
     this.dn = null; if (this.meta.city && !o.jang) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
     this.jang = !!o.jang; setJangSet(this.jang);   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
-    if (this.jang) { for (const c of scene.children) if (c !== this.sky && c !== this.water && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
+    if (this.jang) { for (const c of scene.children) if (c !== this.sky && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
     this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
     this.ambient = new Ambient(this.meta.key, 320); if (!this.meta.city) scene.add(this.ambient.points);   // v197: no floating white specks (they looked like snow) in the city or in Jang
@@ -2383,6 +2388,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };
+  { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER'], ['flex', 'FLEX']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emote = { slot: app.char, g, until: stage.t + 4 }; }; box.appendChild(b); }); } }
   $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { A.sfx.click(); app.net.send({ t: 'start' }); } };
   $('b-copy').onclick = async () => {
     const link = `${location.origin}${location.pathname}?room=${app.room ? app.room.code : ''}`;

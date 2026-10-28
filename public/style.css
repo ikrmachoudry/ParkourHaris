@@ -1140,3 +1140,14 @@ body.touch.jang-mode #act-pad #a-jump svg, body.touch.jang-mode #act-pad #a-crou
 body.touch.jang-mode #c-slots { bottom: 46px; }
 body.touch.jang-mode #c-bag { left: auto !important; right: calc(50% + 120px) !important; top: auto !important; bottom: max(30px, 8.5vh) !important; }
 body.jang-mode #hud-money { display: none !important; }
+
+/* v207: multiplayer page: plain dark background (no sea), wider and more compact panel */
+#s-mp { background: radial-gradient(ellipse at 50% 30%, #1c222c 0%, #0a0c10 72%); pointer-events: auto; }
+#s-mp .panel { width: min(900px, 96vw); display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; align-content: start; padding: 16px 22px; }
+#s-mp .panel > h2, #s-mp .panel > .note, #s-mp .panel > input, #s-mp .panel > #mp-rooms, #s-mp .panel > #mp-status, #s-mp .panel > .row { grid-column: 1 / -1; }
+#s-mp .panel > h2 { margin: 0; font-size: clamp(18px, 4.5vh, 26px); }
+#s-mp .panel > .note { font-size: clamp(11px, 2.8vh, 14px); margin: 0; }
+#s-mp .panel > .btn.big { margin: 0; }
+@media (max-height: 460px) { #s-mp .panel > .btn.big small { display: none; } #s-mp .panel { padding: 10px 18px; } }
+#lobby-emotes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+#lobby-emotes .pv-b { padding: 5px 9px; font-size: 11px; }

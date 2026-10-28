@@ -419,6 +419,28 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.1, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
     R(b['upperarm.R'], -0.1, 0, -1.0); R(b['forearm.R'], 0, 0, -1.3 + w * 0.55); R(b['hand.R'], 0, 0, -w * 0.3); curl('R', 0.15);   // a normal wave: elbow out at the SIDE of the body, forearm up, the hand sways beside the head
     R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
+  } else if (name === 'hi') {   // SAY HI: one arm high over the head, big wave
+    const w = Math.sin(t * 7) * 0.4, br = Math.sin(t * 1.5) * 0.01;
+    R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.15, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
+    R(b['upperarm.R'], 0, 0, -2.5); R(b['forearm.R'], 0, 0, -0.3 + w); R(b['hand.R'], 0, 0, -w * 0.4); curl('R', 0.05);
+    R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
+  } else if (name === 'cheer') {   // both arms up, bouncing
+    const bo = Math.abs(Math.sin(t * 5));
+    b.hips.position.y = rest.hips.y + bo * 0.06; R(b.head, -0.15, 0, 0); R(b.chest, -0.05, 0, 0);
+    R(b['upperarm.R'], 0, 0, -2.6 + Math.sin(t * 10) * 0.12); R(b['upperarm.L'], 0, 0, 2.6 - Math.sin(t * 10) * 0.12); R(b['forearm.R'], 0, 0, -0.2); R(b['forearm.L'], 0, 0, 0.2); curl('R', 1.0); curl('L', 1.0);
+    R(b['upperleg.L'], -0.05 * bo, 0, 0.1); R(b['upperleg.R'], -0.05 * bo, 0, -0.1);
+  } else if (name === 'salute') {   // a sharp military salute
+    const br = Math.sin(t * 1.4) * 0.008;
+    R(b.chest, br, -0.04, 0); R(b.head, -0.04, 0.05, 0); R(b['upperleg.L'], 0, 0, 0.04); R(b['upperleg.R'], 0, 0, -0.04);
+    R(b['upperarm.R'], -0.25, 0, -1.3); R(b['forearm.R'], 0, 0, -2.5); R(b['hand.R'], 0, 0, 0.2); curl('R', 0.05);
+    R(b['upperarm.L'], 0.05, 0, -0.1); R(b['forearm.L'], -0.2, 0, 0); curl('L', 0.5);
+  } else if (name === 'flex') {   // show off the muscles
+    const br = Math.sin(t * 2) * 0.012;
+    R(b.chest, -0.06 + br, 0, 0); R(b.head, -0.05, Math.sin(t * 0.8) * 0.2, 0); R(b['upperleg.L'], 0, 0, 0.1); R(b['upperleg.R'], 0, 0, -0.1);
+    R(b['upperarm.R'], 0, 0, -1.45); R(b['forearm.R'], 0, 0, -2.2); R(b['upperarm.L'], 0, 0, 1.45); R(b['forearm.L'], 0, 0, 2.2); curl('R', 1.3); curl('L', 1.3);
+  } else if (name === 'clap') {   // clapping
+    const c = (Math.sin(t * 9) + 1) * 0.5;
+    R(b.chest, 0.05, 0, 0); R(b['upperarm.R'], -1.15, 0, -0.35); R(b['upperarm.L'], -1.15, 0, 0.35); R(b['forearm.R'], 0, 0, -1.0 - c * 0.5); R(b['forearm.L'], 0, 0, 1.0 + c * 0.5); curl('R', 0.2); curl('L', 0.2);
   } else if (name === 'phone') {  // checking the phone
     const br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, 0.06 + br, 0, 0); R(b.head, 0.38, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
