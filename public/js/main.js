@@ -2115,8 +2115,10 @@ let voice = null;
 const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
 const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
 $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
-const voiceOn = () => !!(voice && app.room && !app.room.combat && app.room.players.length > 1);
-function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); return; } const on = !!(app.room && !app.room.combat && app.room.players.length > 1); voice.setRoom(app.myId, app.room ? app.room.players : [], on); }
+// who is on my voice channel: GTA = everybody in the room; JANG team room = the room IS the team (rooms never see each other). If players ever carry a team number, only the same team is connected.
+const voiceMates = () => { const ps = app.room ? app.room.players : [], me = ps.find((p) => p.id === app.myId); return ps.filter((p) => p.id === app.myId || me == null || me.team == null || p.team == null || p.team === me.team); };
+const voiceOn = () => !!(voice && app.room && voiceMates().length > 1);
+function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); return; } const on = voiceOn(); voice.setRoom(app.myId, voiceMates(), on); }
 function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
 function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn();
@@ -2124,7 +2126,7 @@ function voiceUI(speakOnly) {
   if (!on) return;
   $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
-  const list = $('vc-list'), rows = (app.room ? app.room.players : []).filter((p) => p.id !== app.myId);
+  const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
   if (!speakOnly && list.dataset.k !== key) { list.dataset.k = key; list.innerHTML = rows.map((p) => { const st = voice.peers.has(p.id) ? voice.peers.get(p.id).pc.connectionState : 'new'; return `<div class="vr${voice.muted.has(p.id) ? ' mu' : ''}" data-id="${p.id}"><span class="vd ${st === 'connected' ? 'ok' : st === 'failed' ? 'bad' : ''}"></span><em>${String(p.name).replace(/[<>&"]/g, '').slice(0, 12)}</em></div>`; }).join(''); }
   for (const r of list.children) r.classList.toggle('talk', voice.speaking.has(+r.dataset.id));

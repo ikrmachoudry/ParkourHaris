@@ -212,6 +212,7 @@ wss.on('connection', (ws, req) => {
       case 'vc': {   // voice chat connect message (offer / answer / network candidate): relayed to one player of the same room, nothing is stored
         if (!room || (m.k !== 'o' && m.k !== 'a' && m.k !== 'i') || !m.d || typeof m.d !== 'object') return;
         const q = room.players.get(m.to | 0); if (!q || q.id === p.id || !q.ws) return;
+        if (p.team != null && q.team != null && p.team !== q.team) return;   // different teams never hear each other (teams are not used yet: a room is one team)
         const out = { t: 'vc', from: p.id, k: m.k, d: m.d }, js = JSON.stringify(out); if (js.length > 7000) return;
         if (q.ws.readyState === 1) q.ws.send(js); break;
       }
