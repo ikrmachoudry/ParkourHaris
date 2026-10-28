@@ -330,6 +330,7 @@ export const ZOMBIE_LOOK = { role: 'civilian', top: '#d3a794', pants: '#262b33',
 // JANG has its own four soldiers (Mixamo bodies, ~9k triangles each); GTA keeps the MakeHuman ones
 export const JANG_GLB = ['models/jang0.glb', 'models/jang1.glb', 'models/jang2.glb', 'models/jang3.glb'];
 let jangSet = false;
+export const isJangSet = () => jangSet;
 export const setJangSet = (v) => { jangSet = !!v; };
 export const makeHero = (id, look, facial = true) => (id | 0) === 4 ? new GlbActor(4, HERO_GLB[4], { look: look || ZOMBIE_LOOK, zombie: true }) : jangSet && JANG_GLB[id | 0] ? new GlbActor(id, JANG_GLB[id | 0], { look, facial: false }) : HERO_GLB[id | 0] ? new GlbActor(id, HERO_GLB[id | 0], { look, facial }) : new HeroActor(id, look);
 // a look 0..7: 0..3 the GTA heroes, 4..7 the Jang soldiers (usable in GTA too)

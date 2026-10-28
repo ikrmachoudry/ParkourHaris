@@ -1040,3 +1040,4 @@ input[type=range] { accent-color: var(--crim); padding: 0; border: 0; background
 @media (orientation: portrait) { #s-title.mode-home .menu { width: auto; top: 128px; } #s-title.mode-home #home-pick .btn { height: 78px; } }
 #s-title.mode-home #home-pick .btn { padding-top: clamp(20px, 4.6vh, 30px); height: clamp(66px, 16vh, 104px); }
 @media (orientation: portrait) { #s-title.mode-home #home-pick .btn { height: 86px; } }
+#s-profile.mode-jang #b-zom { display: none !important; }

@@ -4,13 +4,13 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { LEVEL_META, CHARACTERS, SKINS, MAX_PLAYERS } from './levelmeta.js';
 const GESTURES = ['relaxed', 'pocket', 'thumbs', 'phone'];
-import { buildLevel } from './levels.js';
+import { buildLevel, buildEmptyLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { layout as cmbLayout, CMB } from './combat.js';
-import { makeHero, makeSkin, setJangSet } from './glbactor.js';
+import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
 import { flashPolice } from './hcar.js';
@@ -62,7 +62,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const MAXDPR = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2);
-const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 480 : 1100 };   // far = draw distance (m) of the city
+const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.25), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 700 };   // far = draw distance (m) of the city
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
@@ -237,7 +237,7 @@ class Remote {
 }
 
 // ------------------------------------------------------------------ the race
-const makeActor = (id, zom, skin) => zom ? makeHero(4) : (skin | 0) >= 4 ? makeSkin(skin) : makeHero(id);
+const makeActor = (id, zom, skin) => zom && !isJangSet() ? makeHero(4) : (skin | 0) >= 4 ? makeSkin(skin) : makeHero(id);
 let _beamTex = null;
 function beamTexture() {
   if (_beamTex) return _beamTex; const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const g = cv.getContext('2d');
@@ -257,7 +257,7 @@ const press = { jump: false, dive: false, grab: false };
 
 class Race {
   constructor(levelIdx, players, localId, o) {
-    this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
+    this.jang = !!o.jang; this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
     Object.assign(P, P0);
     if (NO_TEXT) Object.assign(P, { R: 0.3, H: 1.78, G: 15, RUN: 4.4, JUMP: 4.58, ACC: 20, DEC: 34, AIR: 2.5, AIR_DEC: 0.4, TERM: -55 });  // real-world walking / jumping
     this.multi = o.multi; this.localId = localId; this.players = players;
@@ -273,13 +273,14 @@ class Race {
     scene.environment = envTex; scene.environmentIntensity = v.env;
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1800);
 
-    const { world, info } = buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
+    // v197: JANG has NOTHING to do with the GTA city - it gets an empty stand-in world (flat ground, no city, no scenery, no pedestrians, no police, no day/night), so it loads fast and uses little memory
+    const { world, info } = o.jang ? buildEmptyLevel() : buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
     this.world = world; this.info = info; scene.add(world.group);
     world.onEvent = null;
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
-    this.scenery = buildScenery(scene, this.meta.key, info, world);
-    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'hurt') { if (dd > 40) return; A.voice.grunt(0.95 * Math.max(0.3, 1 - dd / 40)); } else if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 30 || nw - (this._scrT || 0) < 1400) return; { const cp = this.camera.position, fw = this._fw || (this._fw = new THREE.Vector3()); this.camera.getWorldDirection(fw); const dx = p.x - cp.x, dz = p.z - cp.z, dl = Math.hypot(dx, dz) || 1; if (!(p.actor && p.actor.group.visible) || (dx * fw.x + dz * fw.z) / dl < 0.3) return; }   /* people you cannot see never scream at you */ this._scrT = nw; A.voice.scream(0.8 * Math.max(0.35, 1 - dd / 30)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
+    this.scenery = o.jang ? { update() {}, dispose() {} } : buildScenery(scene, this.meta.key, info, world);
+    if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, o.jang ? 0 : IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'hurt') { if (dd > 40) return; A.voice.grunt(0.95 * Math.max(0.3, 1 - dd / 40)); } else if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 30 || nw - (this._scrT || 0) < 1400) return; { const cp = this.camera.position, fw = this._fw || (this._fw = new THREE.Vector3()); this.camera.getWorldDirection(fw); const dx = p.x - cp.x, dz = p.z - cp.z, dl = Math.hypot(dx, dz) || 1; if (!(p.actor && p.actor.group.visible) || (dx * fw.x + dz * fw.z) / dl < 0.3) return; }   /* people you cannot see never scream at you */ this._scrT = nw; A.voice.scream(0.8 * Math.max(0.35, 1 - dd / 30)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
     for (const pl of world.pools) {
@@ -300,13 +301,13 @@ class Race {
     sun.castShadow = Q.shadows; sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
     const sc = sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 5; sc.far = 220; sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
     scene.add(sun, sun.target);
-    this.dn = null; if (this.meta.city) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
+    this.dn = null; if (this.meta.city && !o.jang) { this.dn = new DayNight({ scene, sky: this.sky, water: this.water, sun, hemi, world, pools: this.poolMeshes, vis: v, race: this }); this.weather = new Weather({ scene, race: this, mobile: IS_TOUCH }); this.dn.update(0); }
 
     this.jang = !!o.jang; setJangSet(this.jang);   // JANG: its own map. The GTA city, cars, pedestrians and scenery are hidden (not drawn at all); only sky, sea, lights and the battle island remain
     if (this.jang) { for (const c of scene.children) if (c !== this.sky && c !== this.water && !c.isLight && c !== sun.target) c.visible = false; if (this.scenery && this.scenery.update) { const u = this.scenery.update; this.scenery.update = () => {}; this.scenery._u = u; } }
     this.particles = new Particles(IS_TOUCH ? 700 : 1200); scene.add(this.particles.points); this.particles.setScale(renderer.domElement.height);
     this.fxP = new Particles(IS_TOUCH ? 380 : 800, { additive: true }); scene.add(this.fxP.points); this.fxP.setScale(renderer.domElement.height);   // flames / embers (additive glow)
-    this.ambient = new Ambient(this.meta.key, 320); scene.add(this.ambient.points);
+    this.ambient = new Ambient(this.meta.key, 320); if (!this.meta.city) scene.add(this.ambient.points);   // v197: no floating white specks (they looked like snow) in the city or in Jang
 
     // players
     this.remotes = new Map();
@@ -616,7 +617,8 @@ class Race {
   // draw distance: the fog closes in just before it and the far parts of the city (map chunks, cars) are not drawn at all
   setFar() {
     const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); if (!this.meta.city) return;
-    const clear = (OPT.haze || (IS_TOUCH ? 'normal' : 'clear')) === 'clear'; this.scene.fog.far = clear ? (this.fogFarBase || 950) * 2.2 : Math.min(this.fogFarBase || 950, f * 0.98); this.scene.fog.near = clear ? (this.fogNearBase || 180) * 1.8 : Math.min(this.fogNearBase || 180, f * 0.35);
+    // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
+    const D = this.jang ? (IS_TOUCH ? 420 : 760) : f; this.scene.fog.far = D; this.scene.fog.near = D * 0.85;
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }

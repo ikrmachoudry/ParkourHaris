@@ -23,3 +23,10 @@ export function buildLevel(idx, headless = false, arrow = null, seed = 1) {
   info.endZ = info.finishPlat.far;
   return { world, info };
 }
+
+// v197: JANG is separate from the GTA city - it gets this empty World (no buildings, roads, traffic, scenery): flat ground and nothing else, so it loads fast and stays light
+export function buildEmptyLevel() {
+  const th = THEMES.gta, world = new World(th, false);
+  world.key = 'gta'; world.waterY = -40; world.killY = -60; world.terrain = () => 0; world.finalize();
+  return { world, info: { key: 'gta', spawn: { x: 0, y: 0, z: 1.5 }, signs: [], pads: [], cars: [], track: { terrain: () => 0 }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
+}
