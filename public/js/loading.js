@@ -11,10 +11,6 @@ const SVG = `<svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" xm
 <g fill="#fff" opacity=".8"><circle cx="120" cy="60" r="1.6"/><circle cx="300" cy="140" r="1.2"/><circle cx="520" cy="40" r="1.8"/><circle cx="760" cy="110" r="1.2"/><circle cx="980" cy="50" r="1.5"/><circle cx="1180" cy="150" r="1.2"/><circle cx="1380" cy="70" r="1.8"/><circle cx="1500" cy="190" r="1.2"/><circle cx="640" cy="210" r="1"/><circle cx="1260" cy="30" r="1"/></g>
 <circle cx="1240" cy="150" r="46" fill="#dfe8f5" opacity=".9"/><circle cx="1258" cy="140" r="40" fill="#10243c" opacity=".35"/>
 <polygon points="150,720 90,0 210,0" fill="url(#lsBeam)"/><polygon points="1450,720 1390,0 1520,0" fill="url(#lsBeam)"/>
-<g fill="#06090f"><path d="M300 250 L620 214 L664 222 L690 206 L706 210 L690 238 L760 246 L760 258 L690 262 L650 282 L560 292 L330 286 Z"/><path d="M560 224 L620 150 L650 150 L640 222Z"/><rect x="418" y="288" width="8" height="26"/><rect x="498" y="290" width="8" height="26"/></g>
-<g fill="#06090f" opacity=".7"><circle cx="396" cy="316" r="14"/><circle cx="476" cy="318" r="14"/></g>
-<g><path d="M820 300 a64 50 0 0 1 128 0 Z" fill="#3b4b32"/><path d="M820 300 a64 50 0 0 1 42 -44 L884 300Z M906 256 a64 50 0 0 1 42 44 L906 300 Z" fill="#c8b568"/><g stroke="#cfd6c8" stroke-width="1.4"><line x1="820" y1="300" x2="878" y2="420"/><line x1="948" y1="300" x2="890" y2="420"/><line x1="884" y1="300" x2="884" y2="420"/></g><path d="M870 420 h28 l4 18 h-8 l-2 28 h-8 l-2 -28 h-8 Z" fill="#06090f"/><circle cx="884" cy="412" r="9" fill="#06090f"/></g>
-<g transform="translate(1090 360) scale(.8)"><path d="M0 0 a64 50 0 0 1 128 0 Z" fill="#46523a"/><path d="M0 0 a64 50 0 0 1 42 -44 L64 0Z M86 -44 a64 50 0 0 1 42 44 L86 0Z" fill="#9a8f58"/><g stroke="#cfd6c8" stroke-width="1.4"><line x1="0" y1="0" x2="58" y2="120"/><line x1="128" y1="0" x2="70" y2="120"/></g><path d="M50 120 h28 l4 18 h-8 l-2 28 h-8 l-2 -28 h-8 Z" fill="#06090f"/><circle cx="64" cy="112" r="9" fill="#06090f"/></g>
 <path d="M0 560 L120 500 L260 540 L420 470 L600 530 L760 480 L940 540 L1120 470 L1300 530 L1460 490 L1600 530 L1600 720 L0 720Z" fill="#0a0f14"/>
 <ellipse cx="800" cy="590" rx="420" ry="120" fill="url(#lsFire)"/>
 <g fill="#05080c"><path d="M0 640 L0 720 L1600 720 L1600 650 L1500 660 L1440 610 L1400 660 L1300 650 L1220 600 L1150 650 L1040 640 L960 600 L880 650 L700 650 L640 590 L560 650 L440 640 L380 600 L300 650 L180 640 L120 610 L60 650Z"/>
@@ -23,7 +19,7 @@ const SVG = `<svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" xm
 <g fill="#05080c"><path d="M690 720 L700 640 q4 -34 28 -42 l8 -14 q12 -20 30 -8 l6 16 l60 -30 l8 12 l-56 34 l-2 60 l8 42 h-26 l-6 -34 l-12 34 h-26 Z"/><rect x="780" y="566" width="96" height="9" rx="3" transform="rotate(-18 780 566)"/></g>
 <rect width="1600" height="720" fill="url(#lsVig)"/></svg>`;
 const CSS = `#loadscr{position:fixed;inset:0;z-index:100;background:#050b16;color:#fff;font-family:"Lilita One","Fredoka One",Arial Black,Arial,sans-serif;opacity:1;transition:opacity .45s;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
-#loadscr.out{opacity:0;pointer-events:none}#loadscr>svg{position:absolute;inset:0;width:100%;height:100%}
+#loadscr.out{opacity:0;pointer-events:none}#loadscr>.ls-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}#loadscr.jang>.ls-bg{display:block}#loadscr.jang>svg{display:none}#loadscr>.ls-sh{position:absolute;inset:0;display:none;background:linear-gradient(180deg,rgba(5,8,14,.55) 0%,rgba(5,8,14,0) 28%,rgba(5,8,14,0) 55%,rgba(5,8,14,.88) 100%)}#loadscr.jang>.ls-sh{display:block}#loadscr>svg{position:absolute;inset:0;width:100%;height:100%}
 #loadscr .ls-t{position:absolute;left:calc(max(env(safe-area-inset-left),0px) + 22px);top:calc(max(env(safe-area-inset-top),0px) + 16px);right:22px;font:800 clamp(20px,6vh,38px)/1.05 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase;white-space:nowrap;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8)}
 #loadscr .ls-t::after{content:"";display:block;width:56px;height:3px;background:#d93a3a;margin-top:8px}
 #loadscr .ls-t small{display:block;font-size:.34em;font-weight:700;letter-spacing:.34em;color:#c4ccd4;margin-top:6px}
@@ -37,7 +33,7 @@ function build() {
   if (L.el || typeof document === 'undefined') return;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'loadscr'; el.className = 'out';
-  el.innerHTML = SVG + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div>';
+  el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div>';
   document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip');
 }
 function frame() {
@@ -57,7 +53,7 @@ export const loadScreen = {
   show(title, label) {
     if (typeof document === 'undefined') return; build(); if (!L.el) return;
     if (!L.shown) { L.shown = true; L.wantHide = false; L.t0 = performance.now(); L.pct = 0; L.tipT = 0; L.done = Math.min(L.done, L.total); }
-    L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
+    L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
   say(label) { if (L.msg && label) L.msg.textContent = label; },
