@@ -1825,8 +1825,15 @@ class Race {
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
         const b0 = this.me.body, Lm = cmbLayout(); let tw = false;
-        for (const t of Lm.towers) if (Math.abs(b0.x - CMB.x - t.x) < TW.O && Math.abs(b0.z - CMB.z - t.z) < TW.O && b0.y < t.py - 0.4 && b0.y > t.gy - 0.5) { tw = true; break; }
-        this.twK = (this.twK || 0) + ((tw ? 1 : 0) - (this.twK || 0)) * Math.min(1, dt * 6); if (this.twK > 0.01) dist = dist * (1 - this.twK) + Math.min(dist, 1.5) * this.twK; } }   // looking up: the camera swings in close under the player, like PUBG
+        let twT = null; for (const t of Lm.towers) if (Math.abs(b0.x - CMB.x - t.x) < TW.O && Math.abs(b0.z - CMB.z - t.z) < TW.O && b0.y < t.py - 0.4 && b0.y > t.gy - 0.5) { tw = true; twT = t; break; }
+        this.twK = (this.twK || 0) + ((tw ? 1 : 0) - (this.twK || 0)) * Math.min(1, dt * 6);
+        // v214 corridor assist (like Uncharted / Tomb Raider stair cams): while you climb and are not touching the look control, the camera swings round behind you, along the stairs
+        { const yw = this.camYaw, moved = Math.abs(Math.atan2(Math.sin(yw - (this._twYaw === undefined ? yw : this._twYaw)), Math.cos(yw - (this._twYaw === undefined ? yw : this._twYaw)))) > 0.003; this._twIdle = moved ? 0 : (this._twIdle || 0) + dt;
+          const mv = Math.hypot(b0.vx, b0.vz) > 0.8 || Math.hypot(touch.x, touch.y) > 0.25 || keys.has('KeyW') || keys.has('ArrowUp');
+          if (tw && twT && this._twIdle > 0.7 && mv && this.twK > 0.8) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ax = Math.abs(rx), az = Math.abs(rz);
+            const dx = az >= ax ? (rz > 0 ? 1 : -1) : 0, dz = az >= ax ? 0 : (rx > 0 ? -1 : 1);   // the leg of the spiral you are on: south leg goes east, east leg north, north leg west, west leg south
+            const want = Math.atan2(-dx, -dz), df = Math.atan2(Math.sin(want - this.camYaw), Math.cos(want - this.camYaw)); this.camYaw += df * (1 - Math.exp(-2.2 * dt)); this.camPitch += (0.22 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
+          this._twYaw = this.camYaw; } if (this.twK > 0.01) dist = dist * (1 - this.twK) + Math.min(dist, 1.5) * this.twK; } }   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
       if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 9; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.42; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
     const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
@@ -1837,12 +1844,12 @@ class Race {
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
-    this.shoulder += ((NO_TEXT && !this.drive && !spec ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);
+    this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
     const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const f = 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
-    this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-7 * dt));
+    this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-(this.twK > 0.3 ? 22 : 7) * dt));   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage tube (radius 2, in the cabin's OWN frame - it is turned 53 degrees against the plane group)
       const w = dr && dr.ph === 'plane' && cs.plane && cs.plane.children[0]; if (w && w.userData.cabin) { w.updateMatrixWorld(true); const c = this.camera.position, L = w.worldToLocal(c.clone()), ly = L.y - 0.57, r = Math.hypot(L.x, ly), k = r > 1.6 ? 1.6 / r : 1; L.x = clamp(L.x * k, -1.2, 1.2); L.y = 0.57 + Math.min(1.3, ly * k); L.z = clamp(L.z, -7.3, 6.0); c.copy(w.localToWorld(L)); } }   // keep the camera in the aisle, below the ceiling lights
@@ -1864,7 +1871,7 @@ class Race {
         const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.42;
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
           for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
-            for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;
+            for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'step' && this.twK > 0.3) || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;
               for (const MM of [M, 0.1]) {   // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
                 let t0 = 0, t1 = tmax, hit = true;
                 for (const [o, d, lo, hi] of [[lx, dx, s.x0 - MM, s.x1 + MM], [lz, dz, s.z0 - MM, s.z1 + MM], [oy, dy, s.y0 - MM, s.y1 + MM]]) {
@@ -1879,6 +1886,9 @@ class Race {
         const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
         if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { this.camK = 0.06; cam.set(ox + dx * 0.06, oy + dy * 0.06, oz + dz * 0.06); break; } } } }
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
+      { const cs = this.mission && this.mission.cs, g = this.me && this.me.model && this.me.model.group;   // v214 (PUBG): squeezed against a wall / in a stair shaft the camera ends up almost inside the head: hide the body then (first-person view) instead of staring into it
+        if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); if (g.visible && dd < 0.7) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > 0.95) { g.visible = true; this._bodyHid = false; } }
+        else if (g && this._bodyHid) { g.visible = true; this._bodyHid = false; } }
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
     { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // peek: hold a lean button, the body tilts and the camera slides sideways (PUBG Q/E)
@@ -2046,6 +2056,7 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
+function startJang() { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
@@ -2083,7 +2094,7 @@ app.showResults = function (r) {
   show('results');
 };
 $('b-res-menu').onclick = () => { A.sfx.back(); leaveToTitle(); };
-$('b-res-retry').onclick = () => { A.sfx.click(); startSingle(app.level); };
+$('b-res-retry').onclick = () => { A.sfx.click(); if (race && race.jang) startJang(); else startSingle(app.level); };
 $('b-res-next').onclick = () => {
   A.sfx.click();
   if (app.resMode === 'single') { if (app.level < LEVEL_META.length - 1) startSingle(app.level + 1); else { race && race.destroy(); race = null; openLevels(); } }
@@ -2209,7 +2220,7 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
     app.level = 0; loadScreen.show('JANG', 'LOADING...');
-    requestAnimationFrame(() => setTimeout(() => { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }, 40));
+    requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40));
     return;
   }
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
@@ -2349,7 +2360,7 @@ $('p-full').onclick = () => {
   }
   const zb = (id, f) => { const el = $(id); if (el) el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.minimap.bigZoom(f, race.minimap.bS / 2, race.minimap.bS / 2); }); };
   zb('bz-in', 1.5); zb('bz-out', 1 / 1.5); }
-$('p-retry').onclick = () => { A.sfx.click(); const l = app.level; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; startSingle(l); };
+$('p-retry').onclick = () => { A.sfx.click(); const l = app.level, j = race && race.jang; $('pause').classList.add('hidden'); if (race) race.menuOpen = false; if (j) startJang(); else startSingle(l); };
 $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); leaveToTitle(); };
 
 // ------------------------------------------------------------------ boot
@@ -2398,7 +2409,7 @@ async function boot() {
   { const t = $('s-title'); for (const [id, g] of [['b-go-gta', true], ['b-go-jang', false]]) { const e = $(id); if (!e) continue; const f = () => t.classList.toggle('hl-g', g); e.addEventListener('mouseenter', f); e.addEventListener('focus', f); e.addEventListener('touchstart', f, { passive: true }); } }   // v190: the big background follows the card you point at
 $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
-  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }, 40)); };
+  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
   $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
