@@ -132,7 +132,7 @@ class Stage {
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(13, 13, 0.1, 48), mat('#fff3fb')); ring.position.y = 0.02; ring.receiveShadow = true; this.scene.add(ring);
     this.tops = [0.8, 1.25, 1.25, 0.8];
     [[-4.5, 0.8, '#7be8a0'], [-1.5, 1.25, '#5fc2ff'], [1.5, 1.25, '#ffd23f'], [4.5, 0.8, '#ff9ccf']].forEach(([x, h, c]) => {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, h, 32), mat(c)); p.position.set(x, h / 2, -0.5); p.castShadow = p.receiveShadow = true; this.scene.add(p);
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, h, 32), mat(c)); p.position.set(x, h / 2, -0.5); p.castShadow = p.receiveShadow = true; this.scene.add(p); (this.pods = this.pods || []).push(p);
     });
     this.slotPos = [[-4.5, 0.8, -0.5], [-1.5, 1.25, -0.5], [1.5, 1.25, -0.5], [4.5, 0.8, -0.5]];
     // HARIS floor decal + sky banner
@@ -140,10 +140,17 @@ class Stage {
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     dm.rotation.x = -Math.PI / 2; dm.position.set(0, 0.1, 4.4); this.scene.add(dm);
 
-    this.chars = [0, 1, 2, 3].map((id) => { const c = makeHero(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0 }; });
+    this.chars = [0, 1, 2, 3].map((id) => { const c = makeHero(id); this.scene.add(c.group); return { c, tag: null, name: null, show: true, scale: 1, hop: 0, skin: id }; });
     this.ambient = new Ambient('fun', 160); this.scene.add(this.ambient.points);
     this.particles = new Particles(360); this.scene.add(this.particles.points);
     this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = [];
+  }
+  // the look of slot i (0..3 = GTA heroes, 4..7 = Jang soldiers): swap the 3D model when it changes
+  setSkin(i, skin) {
+    const o = this.chars[i]; skin = skin | 0; if (!o || o.skin === skin) return;
+    const keepName = o.name; this.setName(i, null);
+    this.scene.remove(o.c.group); if (o.c.dispose) o.c.dispose();
+    o.c = makeActor(i, false, skin); o.skin = skin; this.scene.add(o.c.group); o.name = undefined; this.setName(i, keepName);
   }
   setName(i, name) {
     const o = this.chars[i];
@@ -153,20 +160,23 @@ class Stage {
     if (name) { o.tag = makeNameTag(name, CHARACTERS[i].color); o.tag.position.set(0, o.c.height + 0.55, 0); o.c.group.add(o.tag); }
   }
   setTitle(sel = -1) { this.mode = 'title'; this.sel = sel; this.lobby = []; this.chars.forEach((o, i) => { o.show = true; this.setName(i, null); }); }
-  setLobby(players) { this.mode = 'lobby'; this.lobby = players; this.chars.forEach((o, i) => { const idx = players.findIndex((p) => p.char === i); o.show = idx >= 0; o.slot = idx; this.setName(i, idx >= 0 ? players[idx].name : null); }); }
+  setLobby(players) { this.mode = 'lobby'; this.lobby = players; players.forEach((p) => this.setSkin(p.char, p.skin === undefined ? p.char : p.skin)); this.chars.forEach((o, i) => { const idx = players.findIndex((p) => p.char === i); o.show = idx >= 0; o.slot = idx; this.setName(i, idx >= 0 ? players[idx].name : null); }); }
   burst(i) { const p = this.slotPos[this.slotOf(i)]; this.particles.emit(p[0], p[1] + 1.4, p[2] + 0.5, 40, { rainbow: true, speed: 4, up: 6, life: 1.0, size: 0.35, gravity: 7 }); }
   slotOf(i) { if (this.mode === 'lobby') return [1, 2, 0, 3][Math.max(0, this.chars[i].slot) % 4]; return i; }
   update(dt) {
     this.t += dt;
     const cam = this.camera;
     this.camX = lerp(this.camX === undefined ? 0 : this.camX, this.mode === 'title' && cam.aspect > 1.2 ? 2.3 : 0, Math.min(1, dt * 3));   // on the title page the menu buttons sit on the right: slide the whole podium to the left so nobody hides behind them
-    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);
+    if (this.pods) for (const pd of this.pods) pd.visible = this.mode !== 'lobby';
+    if (this.mode === 'lobby') { cam.position.set(Math.sin(this.t * 0.3) * 0.5, 1.4, 5.3); cam.lookAt(0, 0.8, 0); }   // v200: the lobby: everybody stands close and BIG, no podium
+    else {    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);}
     this.sky.position.copy(cam.position);
     this.water.material.uniforms.time.value = this.t;
     this.chars.forEach((o, i) => {
       o.c.group.visible = o.show;
       if (!o.show) return;
-      const p = this.slotPos[this.slotOf(i)];
+      let p = this.slotPos[this.slotOf(i)];
+      if (this.mode === 'lobby') { const n = this.lobby.length || 1, k = Math.max(0, o.slot | 0); p = [(k - (n - 1) / 2) * 2.4, 0, 0]; }
       const selected = this.mode === 'title' ? ((Math.floor(this.t / 3) % 4) === i) : (this.mode !== 'lobby' && this.sel === i);
       o.scale = lerp(o.scale, selected ? 1.18 : 1, Math.min(1, dt * 8));
       o.c.group.scale.setScalar(o.scale);
@@ -1955,9 +1965,9 @@ function openProfile(mode) {
   $('inp-name').value = app.name;
   $('profile-title').textContent = 'Choose your player';
   $('s-profile').classList.toggle('mode-jang', jang);
-  charCards($('char-cards'), { jang, onPick: (skin) => { app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.sel = app.char; A.sfx.select(); } });
+  charCards($('char-cards'), { jang, onPick: (skin) => { app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.sel = app.char; stage.setSkin(app.char, skin); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
-  stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char; setZomBtn();
+  stage.setSkin(app.char, app.skin); stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char; setZomBtn();
   show('profile');
 }
 function readName() {
@@ -2362,7 +2372,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

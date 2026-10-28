@@ -1063,3 +1063,26 @@ body.touch #act-pad button:active, body.touch #act-pad button.on { background: r
 #pause .panel > *, #pset .panel > * { flex: none; }
 #pause .panel > .pgrid { display: grid; }
 body.touch #act-pad button svg.pubg { width: 84%; height: 84%; }
+
+/* v200: LOBBY like the main page - the characters stand BIG in the middle of the screen, small dark-glass panels along the bottom edge */
+#s-lobby .code-box { border-radius: 2px; background: rgba(10,12,14,.7); border: 1px solid rgba(255,255,255,.25); border-left: 4px solid #d93a3a; font-family: var(--ui); }
+#s-lobby .code-box b { color: #fff; text-shadow: none; }
+#s-lobby .lobby-bottom { grid-template-columns: 1.3fr 1.5fr .8fr; gap: 8px; margin-top: auto; align-items: end; }
+#s-lobby .lobby-bottom:has(#lobby-level-block:not([style*="none"])) { grid-template-columns: 1.1fr 1.3fr 1.2fr .7fr; }
+#s-lobby .lobby-block { padding: 6px 8px 8px; border-radius: 2px; background: rgba(10,12,14,.62); border: 1px solid rgba(255,255,255,.22); border-top: 2px solid #d93a3a; backdrop-filter: blur(5px); }
+#s-lobby .lobby-block h3 { margin: 0 0 5px; font: 800 11px var(--ui); letter-spacing: .22em; text-transform: uppercase; color: #fff; display: flex; justify-content: space-between; }
+#s-lobby .lobby-block h3 em { font-style: normal; color: #aab2ba; }
+#s-lobby .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+#s-lobby .slot { font: 700 12px var(--ui); padding: 4px 8px; gap: 6px; border-radius: 2px; min-width: 0; }
+#s-lobby .slot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#s-lobby .slot i { width: 9px; height: 9px; }
+#s-lobby .cards.chars.small { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#s-lobby .cards.small .card { padding: 3px 2px 4px; border-radius: 2px; }
+#s-lobby .cards.small.chars img { max-width: 100%; max-height: 13vh; aspect-ratio: auto; }
+#s-lobby .cards.small b { font: 800 10px var(--ui); letter-spacing: .08em; }
+#s-lobby .lobby-block.start { gap: 6px; }
+#s-lobby .lobby-block.start .btn.big { font-size: 15px; padding: 10px; text-align: center; }
+#s-lobby .lobby-block.start .note { font-size: 10px; line-height: 1.25; }
+@media (max-width: 760px) { #s-lobby .lobby-bottom { grid-template-columns: 1fr 1.2fr .8fr; } #s-lobby .lobby-bottom .lobby-block:nth-child(3) { grid-column: auto; order: 0; } }
+#s-lobby .lobby-top { gap: 70px; } #s-lobby .code-box { max-width: calc(100% - 150px); overflow: hidden; white-space: nowrap; } #s-lobby .code-box .note { overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+#s-lobby .slot .you { font-size: 9px; padding: 1px 4px; }
