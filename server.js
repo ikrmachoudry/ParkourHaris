@@ -26,7 +26,7 @@ app.get(['/', '/index.html'], (_q, r) => {
   } catch (e) { r.set('Cache-Control', 'no-store').sendFile(path.join(pubDir, 'index.html')); }
 });
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three'), { maxAge: '7d' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: true })); // always re-check with ETag: players get new versions right after a deploy, 304 keeps it cheap
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: true, setHeaders: (res, f) => { if (/\.(js|css|html)$/.test(f)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); } })); // always re-check with ETag: players get new versions right after a deploy, 304 keeps it cheap
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096, perMessageDeflate: false });

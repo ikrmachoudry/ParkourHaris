@@ -1151,3 +1151,4 @@ body.jang-mode #hud-money { display: none !important; }
 @media (max-height: 460px) { #s-mp .panel > .btn.big small { display: none; } #s-mp .panel { padding: 10px 18px; } }
 #lobby-emotes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 #lobby-emotes .pv-b { padding: 5px 9px; font-size: 11px; }
+body.jang-mode #kb-hint { display: none !important; }
