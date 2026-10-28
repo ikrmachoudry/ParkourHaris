@@ -923,3 +923,33 @@ body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg.pi, body.to
 #s-profile #b-profile-next:hover { background: #fff !important; color: #d93a3a; }
 #s-title .logo-main::before { display: none !important; }
 #s-title.mode-home .menu .row { right: calc(max(2.2vw, env(safe-area-inset-right)) + 58px); }
+
+/* v191: smaller game cards (more background + the jeep show), visible version, About Haris page */
+#s-title.mode-home .menu { width: min(640px, 80vw); bottom: max(14px, 3.5vh); }
+#s-title.mode-home #home-pick { gap: 28px; }
+#s-title.mode-home #home-pick .btn { height: clamp(66px, 19vh, 118px); padding: 10px 16px 12px; }
+#s-title.mode-home #home-pick .btn b { font-size: clamp(15px, 3.4vh, 24px); }
+#s-title.mode-home #home-pick .btn em { top: 10px; }
+#s-title .verbadge { position: absolute; right: max(2.4vw, env(safe-area-inset-right)); top: max(1.6vh, env(safe-area-inset-top)); display: none; z-index: 2; font: 800 11px system-ui, sans-serif; letter-spacing: .22em; color: #fff; background: rgba(217,58,58,.85); padding: 5px 10px; }
+#s-title.mode-home .verbadge { display: block; }
+#s-title.mode-home .menu .row { top: calc(max(1.6vh, env(safe-area-inset-top)) + 30px); }
+#s-title .dev { cursor: pointer; top: 27%; } #s-title .dev u { display: block; margin-top: 5px; text-decoration: none; font: 800 clamp(7px, 1.4vh, 9px)/1 system-ui, sans-serif; letter-spacing: .2em; color: #d93a3a; }
+#s-title .dev:hover { transform: rotate(0deg) scale(1.04); }
+#s-about { z-index: 60; background: rgba(4,6,8,.78); }
+#s-about .panel.about { width: min(980px, 96vw); max-height: 94vh; overflow: auto; background: rgba(10,12,14,.94); border: 1px solid rgba(255,255,255,.22); border-top: 3px solid #d93a3a; border-radius: 2px; padding: 16px 22px 14px; color: #e6eaee; font-family: system-ui, sans-serif; }
+#s-about h2 { font: 800 clamp(20px, 4vh, 30px)/1 system-ui, sans-serif; letter-spacing: .28em; text-transform: uppercase; color: #fff; margin: 0 0 4px; text-shadow: none; -webkit-text-stroke: 0; }
+#s-about h3 { font: 800 11px system-ui, sans-serif; letter-spacing: .22em; color: #d93a3a; margin: 0 0 6px; }
+#s-about .ab-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 10px; }
+#s-about .ab-head img { width: clamp(64px, 16vh, 110px); aspect-ratio: 3/4; object-fit: cover; object-position: 50% 12%; border: 1px solid rgba(255,255,255,.35); border-bottom: 4px solid #d93a3a; }
+#s-about .ab-sub { font: 700 10px system-ui, sans-serif; letter-spacing: .24em; color: #aab2ba; margin: 0 0 6px; }
+#s-about p { font-size: clamp(12px, 2.2vh, 15px); line-height: 1.4; margin: 0 0 6px; }
+#s-about .ab-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 22px; margin: 8px 0; }
+#s-about ul { margin: 0; padding-left: 16px; font-size: clamp(11px, 2vh, 14px); line-height: 1.4; }
+#s-about li { margin-bottom: 3px; } #s-about li b { color: #fff; }
+#s-about .ab-tm { font-size: 11px; color: #8d96a0; letter-spacing: .04em; border-top: 1px solid rgba(255,255,255,.14); padding-top: 8px; margin-top: 8px; }
+#s-about .note { font-size: clamp(11px, 2vh, 14px); color: #cfd6dd; }
+#s-about .btn { background: #d93a3a !important; color: #fff; border: 0 !important; border-radius: 2px; letter-spacing: .2em; font: 800 13px system-ui, sans-serif; padding: 10px 24px; box-shadow: none !important; }
+@media (max-width: 640px) { #s-about .ab-grid { grid-template-columns: 1fr; } }
+#s-title.mode-home .logo-main, #s-title.mode-gta .logo-main { filter: none !important; }
+#s-title .verbadge { right: calc(max(2.4vw, env(safe-area-inset-right)) + 58px); }
+#s-title.mode-home .menu .row { right: calc(max(2.2vw, env(safe-area-inset-right)) + 58px); }

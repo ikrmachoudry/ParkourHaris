@@ -2286,6 +2286,7 @@ async function boot() {
   $('b-single').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('single'); };
   $('b-multi').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('multi'); };
   $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
+  { const so = () => { A.initAudio(); A.sfx.click(); $('s-about').classList.remove('hidden'); $('s-about').classList.add('active'); }; $('b-dev').onclick = so; $('b-dev').addEventListener('touchend', (e) => { e.preventDefault(); so(); }); $('b-about-close').onclick = () => { A.sfx.back(); $('s-about').classList.remove('active'); $('s-about').classList.add('hidden'); }; }
   $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
   A.setCommentary(OPT.punjabi !== false);
