@@ -1125,3 +1125,18 @@ body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"] {
 #s-profile .card img { max-height: none; height: clamp(54px, 15vh, 150px); width: 100%; max-width: none; aspect-ratio: auto; object-fit: contain; transform: scale(1.5); transform-origin: 50% 38%; margin: 0 auto 2px; }
 #s-profile .card img { height: clamp(44px, 11.5vh, 140px); transform: scale(1.3); transform-origin: 50% 40%; }
 #s-profile .card b { position: relative; z-index: 1; text-shadow: 0 1px 3px #000; }
+
+/* v206 Jang: nothing combat-related before the fight starts, PUBG slot bar, bigger stance icons */
+body.jang-mode:not(.jang-fight) #a-punch, body.jang-mode:not(.jang-fight) #a-weapon, body.jang-mode:not(.jang-fight) #a-reload, body.jang-mode:not(.jang-fight) #a-fmode, body.jang-mode:not(.jang-fight) #a-aim, body.jang-mode:not(.jang-fight) #c-bag, body.jang-mode:not(.jang-fight) #c-pick, body.jang-mode:not(.jang-fight) #a-crouch, body.jang-mode:not(.jang-fight) #a-prone { display: none !important; }
+body.jang-mode #a-weapon, body.jang-mode #wheel { display: none !important; }
+#c-slots { position: fixed; left: 50%; transform: translateX(-50%); bottom: 54px; z-index: 46; display: none; gap: 6px; }
+#c-slots button { min-width: 74px; height: 38px; padding: 2px 8px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,.35); background: rgba(10,12,14,.55); color: #fff; font: 800 11px system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; position: relative; touch-action: manipulation; }
+#c-slots button u { position: absolute; left: 4px; top: 1px; font-size: 9px; color: #f5b301; text-decoration: none; }
+#c-slots button small { font-size: 9px; color: #cfd6dc; font-weight: 700; }
+#c-slots button.sel { border-color: #f5b301; background: rgba(245,179,1,.28); }
+#c-slots button.empty { opacity: .35; min-width: 50px; }
+body.touch.jang-mode #act-pad #a-jump, body.touch.jang-mode #act-pad #a-crouch, body.touch.jang-mode #act-pad #a-prone { --s: clamp(58px, 15vh, 78px); width: var(--s) !important; height: var(--s) !important; border-width: 2.5px; background: rgba(10,12,14,.5) !important; }
+body.touch.jang-mode #act-pad #a-jump svg, body.touch.jang-mode #act-pad #a-crouch svg, body.touch.jang-mode #act-pad #a-prone svg { width: 90%; height: 90%; }
+body.touch.jang-mode #c-slots { bottom: 46px; }
+body.touch.jang-mode #c-bag { left: auto !important; right: calc(50% + 120px) !important; top: auto !important; bottom: max(30px, 8.5vh) !important; }
+body.jang-mode #hud-money { display: none !important; }
