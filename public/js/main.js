@@ -2,7 +2,7 @@
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { LEVEL_META, CHARACTERS, MAX_PLAYERS } from './levelmeta.js';
+import { LEVEL_META, CHARACTERS, SKINS, MAX_PLAYERS } from './levelmeta.js';
 const GESTURES = ['relaxed', 'pocket', 'thumbs', 'phone'];
 import { buildLevel } from './levels.js';
 import { newBody, stepBody, knock, respawn } from './physics.js';
@@ -10,7 +10,7 @@ import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { layout as cmbLayout, CMB } from './combat.js';
-import { makeHero, setJangSet } from './glbactor.js';
+import { makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
 import { flashPolice } from './hcar.js';
@@ -97,7 +97,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 // ------------------------------------------------------------------ app state
-const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), zom: localStorage.getItem('ph_zom') === '1', level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
+const app = { screen: 'title', mode: 'single', name: localStorage.getItem('ph_name') || '', char: +(localStorage.getItem('ph_char') || 0), skin: +(localStorage.getItem('ph_skin') || localStorage.getItem('ph_char') || 0), zom: localStorage.getItem('ph_zom') === '1', level: 0, net: null, room: null, myId: null, pendingJoin: null, muted: false };
 let race = null, stage = null, thumbs = [];
 const best = (l) => +(localStorage.getItem('ph_best_' + l) || 0);
 
@@ -185,7 +185,7 @@ class Stage {
 class Remote {
   constructor(info, scene) {
     this.info = info; this.id = info.id; this.name = info.name;
-    this.model = makeActor(info.char, info.zom); scene.add(this.model.group);
+    this.model = makeActor(info.char, info.zom, info.skin); scene.add(this.model.group);
     this.tag = null; if (!NO_TEXT) { this.tag = makeNameTag(info.name, CHARACTERS[info.char].color); this.tag.position.set(0, this.model.height + 0.7, 0); this.model.group.add(this.tag); }
     this.snaps = []; this.x = 0; this.y = -50; this.z = 0; this.yaw = Math.PI; this.speed = 0; this.flags = 0; this.vy = 0; this.vx = 0; this.vz = 0; this.sw = 0; this.ds = []; this.dMin = 0; this.jit = 0; this.rs = 0; this.has = false; this.finished = false; this.lastLanded = false; this.rxAt = Date.now(); this.stunT = 0;
   }
@@ -237,7 +237,7 @@ class Remote {
 }
 
 // ------------------------------------------------------------------ the race
-const makeActor = (id, zom) => makeHero(zom ? 4 : id);
+const makeActor = (id, zom, skin) => zom ? makeHero(4) : (skin | 0) >= 4 ? makeSkin(skin) : makeHero(id);
 let _beamTex = null;
 function beamTexture() {
   if (_beamTex) return _beamTex; const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const g = cv.getContext('2d');
@@ -313,7 +313,7 @@ class Race {
     const idx = players.findIndex((p) => p.id === localId);
     this.slot = Math.max(0, idx);
     const me = players[this.slot] || { name: 'Player', char: 0 };
-    this.me = { body: newBody(), model: makeActor(me.char, me.zom), name: me.name, char: me.char };
+    this.me = { body: newBody(), model: makeActor(me.char, me.zom, me.skin), name: me.name, char: me.char };
     scene.add(this.me.model.group); this.me.model.group.rotation.order = 'YXZ';
     this.me.tag = null; if (!NO_TEXT) { this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag); }
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
@@ -1896,18 +1896,19 @@ $('b-zom').onclick = () => { A.initAudio(); A.sfx.click(); app.zom = !app.zom; t
 // ---- character cards
 function charCards(container, opts) {
   container.innerHTML = '';
-  CHARACTERS.forEach((c) => {
-    const d = document.createElement('div'); d.className = 'card'; d.dataset.id = c.id;
-    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.id] || ''}"><b style="color:${c.color}">${c.name}</b>`;
-    d.onclick = () => opts.onPick(c.id);
+  SKINS.filter((c) => !opts.jang || c.jang).forEach((c) => {
+    const d = document.createElement('div'); d.className = 'card'; d.dataset.id = c.skin;
+    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.skin] || ''}"><b style="color:${c.color}">${c.name}</b>`;
+    d.onclick = () => opts.onPick(c.skin);
     container.appendChild(d);
   });
+  container.classList.toggle('many', !opts.jang);
 }
 function markChars(container, sel, takenSet) {
   container.querySelectorAll('.card').forEach((d) => {
     const id = +d.dataset.id;
     d.classList.toggle('sel', id === sel);
-    d.classList.toggle('taken', takenSet && takenSet.has(id) && id !== sel);
+    d.classList.toggle('taken', !!(takenSet && takenSet.has(id % 4) && id !== sel));
   });
 }
 function levelCards(container, opts) {
@@ -1925,9 +1926,9 @@ function levelCards(container, opts) {
 }
 
 // ---- thumbnails of the three characters (rendered once with a temporary GL context)
-async function makeThumbs() {
+async function makeThumbs(skins = [0, 1, 2, 3]) {
   // the heroes are GLB models that load in the background: wait until every one is in (or failed), then take the pictures
-  const heroes = []; for (let i = 0; i < CHARACTERS.length; i++) heroes.push(makeHero(i));
+  const heroes = skins.map((i) => makeSkin(i));
   for (let w = 0; w < 100 && heroes.some((c) => c.ready === false && !c.failed); w++) await new Promise((res) => setTimeout(res, 200));
   const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   r.setSize(256, 320, false); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.setClearColor(0x000000, 0);
@@ -1947,17 +1948,20 @@ async function makeThumbs() {
 // ---- profile screen
 function openProfile(mode) {
   app.mode = mode; if (mode !== 'combat') app.combat = false;
+  const jang = mode === 'combat';
+  if (jang && app.skin < 4) { app.skin = 4 + (app.skin % 4); app.char = app.skin % 4; }
   $('inp-name').value = app.name;
-  $('profile-title').textContent = mode === 'single' ? 'Choose your player' : 'Choose your player';
-  charCards($('char-cards'), { onPick: (id) => { app.char = id; markChars($('char-cards'), id); stage.sel = id; A.sfx.select(); stage.burst(id); } });
-  markChars($('char-cards'), app.char);
+  $('profile-title').textContent = 'Choose your player';
+  $('s-profile').classList.toggle('mode-jang', jang);
+  charCards($('char-cards'), { jang, onPick: (skin) => { app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.sel = app.char; A.sfx.select(); } });
+  markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.mode = 'profile'; stage.sel = app.char; setZomBtn();
   show('profile');
 }
 function readName() {
   let n = $('inp-name').value.trim().replace(/[<>&"']/g, '').slice(0, 14);
   if (!n) n = ['Haris', 'Speedy', 'Bouncy', 'Zippy'][Math.floor(Math.random() * 4)] + Math.floor(Math.random() * 90 + 10);
-  app.name = n; localStorage.setItem('ph_name', n); localStorage.setItem('ph_char', String(app.char));
+  app.name = n; localStorage.setItem('ph_name', n); localStorage.setItem('ph_char', String(app.char)); localStorage.setItem('ph_skin', String(app.skin));
   return n;
 }
 
@@ -1970,7 +1974,7 @@ function startSingle(levelIdx, jang) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
@@ -2078,8 +2082,8 @@ async function mpAction(kind) {
   const st = $('mp-status'); st.textContent = 'Connecting...';
   try {
     const net = await ensureNet();
-    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, zom: app.zom, room: roomName(), combat: !!app.combat });
-    else net.send({ t: 'join', name: app.name, char: app.char, zom: app.zom, room: roomName(), combat: !!app.combat });   // same room NAME -> same room
+    if (kind === 'create') net.send({ t: 'create', name: app.name, char: app.char, skin: app.skin, zom: app.zom, room: roomName(), combat: !!app.combat });
+    else net.send({ t: 'join', name: app.name, char: app.char, skin: app.skin, zom: app.zom, room: roomName(), combat: !!app.combat });   // same room NAME -> same room
     st.textContent = kind === 'create' ? '' : 'Looking for a room...';
   } catch (e) { st.textContent = 'Could not connect to the game server. Is it running?'; gtoast('Could not connect to the game server'); }
 }
@@ -2100,7 +2104,7 @@ function onLobby(m) {
 function renderLobby() {
   const m = app.room; if (!m) return;
   const meP = m.players.find((p) => p.id === app.myId);
-  if (meP) app.char = meP.char;
+  if (meP) { app.char = meP.char; app.skin = meP.skin | 0; }
   $('lobby-code').textContent = m.code;
   $('lobby-count').textContent = `${m.players.length}/${MAX_PLAYERS}`;
   const slots = $('lobby-players'); slots.innerHTML = '';
@@ -2110,8 +2114,8 @@ function renderLobby() {
     slots.appendChild(d);
   }
   const taken = new Set(m.players.filter((p) => p.id !== app.myId).map((p) => p.char));
-  charCards($('lobby-chars'), { small: true, onPick: (id) => { if (taken.has(id)) return; A.sfx.select(); app.net.send({ t: 'char', char: id }); } });
-  markChars($('lobby-chars'), app.char, taken);
+  charCards($('lobby-chars'), { small: true, jang: !!m.combat, onPick: (skin) => { if (taken.has(skin % 4)) return; A.sfx.select(); app.net.send({ t: 'char', char: skin % 4, skin }); } });
+  markChars($('lobby-chars'), app.skin, taken);
   const host = m.hostId === app.myId;
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
@@ -2273,8 +2277,8 @@ $('p-quit').onclick = () => { A.sfx.back(); $('pause').classList.add('hidden'); 
 async function boot() {
   await ensureFont();
   stage = new Stage();
-  thumbs = ['', '', '', ''];
-  makeThumbs().then((t) => { thumbs = t; document.querySelectorAll('.card[data-id] img').forEach((im) => { const u = t[+im.parentNode.dataset.id]; if (u) im.src = u; }); }).catch((e) => console.error(e));
+  thumbs = ['', '', '', '', 'img/sk4.png', 'img/sk5.png', 'img/sk6.png', 'img/sk7.png'];
+  makeThumbs().then((t) => { thumbs = t.concat(thumbs.slice(4)); document.querySelectorAll('.card[data-id] img').forEach((im) => { const u = t[+im.parentNode.dataset.id]; if (u) im.src = u; }); }).catch((e) => console.error(e));
   resize();
   stage.setTitle();
   show('title');
@@ -2349,13 +2353,13 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
     if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); race.render(); }
-    else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
+    else if (app.screen !== 'title' && app.screen !== 'profile') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

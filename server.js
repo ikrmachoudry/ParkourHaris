@@ -66,7 +66,7 @@ function genCode() {
 function lobbyMsg(room) {
   return {
     t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat,
-    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, zom: !!p.zom })),
+    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, skin: p.skin, zom: !!p.zom })),
   };
 }
 
@@ -155,7 +155,7 @@ function removePlayer(p) {
 
 function joinRoom(p, room) {
   p.room = room;
-  p.char = freeChar(room, p.char, p.id);
+  p.char = freeChar(room, p.char, p.id); if (!(p.skin >= 0 && p.skin < 8) || p.skin % 4 !== p.char) p.skin = p.char;   // the look must belong to the slot
   room.players.set(p.id, p);
   p.finished = false; p.finTime = 0; p.x = 0; p.y = 0; p.z = 0;
   send(p.ws, { t: 'joined', id: p.id, code: room.code }); sendBusy(room, p);
@@ -200,7 +200,7 @@ wss.on('connection', (ws, req) => {
         const want = roomKey(m.room);
         if (want && rooms.has(want) && !(room && room.code === want)) return send(ws, { t: 'err', msg: `A room named ${want} already exists. Tap JOIN ROOM to enter it, or choose another name.` });
         if (room) removePlayer(p);
-        p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
+        p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom;
         const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0, combat: !!m.combat };   // combat: a TEAM UP room for the COMBAT MISSION (the match starts by itself when the host presses START)
         rooms.set(r.code, r);
         joinRoom(p, r);
@@ -224,7 +224,7 @@ wss.on('connection', (ws, req) => {
         }
         if (r.players.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: `Room is full (${MAX_PLAYERS} players max).` });
         if (room) removePlayer(p);
-        p.name = cleanName(m.name); p.char = m.char | 0; p.zom = !!m.zom;
+        p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom;
         joinRoom(p, r);
         break;
       }
@@ -238,7 +238,7 @@ wss.on('connection', (ws, req) => {
         const c = m.char | 0;
         const taken = [...room.players.values()].some((q) => q.id !== p.id && q.char === c);
         if (taken || c < 0 || c >= CHARACTERS.length) return;
-        p.char = c;
+        p.char = c; const sk = m.skin | 0; p.skin = sk >= 0 && sk < 8 && sk % 4 === c ? sk : c;
         bcast(room, lobbyMsg(room));
         break;
       }
