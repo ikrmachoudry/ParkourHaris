@@ -1041,3 +1041,25 @@ input[type=range] { accent-color: var(--crim); padding: 0; border: 0; background
 #s-title.mode-home #home-pick .btn { padding-top: clamp(20px, 4.6vh, 30px); height: clamp(66px, 16vh, 104px); }
 @media (orientation: portrait) { #s-title.mode-home #home-pick .btn { height: 86px; } }
 #s-profile.mode-jang #b-zom { display: none !important; }
+
+/* v198: PUBG-style stance buttons (jump / crouch / prone): bold white silhouettes with a small arrow, in a see-through round button */
+body.touch #act-pad button { background: rgba(28,30,34,.42) !important; border: 2px solid rgba(255,255,255,.8) !important; backdrop-filter: none; }
+body.touch #act-pad button svg.pubg { width: 68%; height: 68%; stroke: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+body.touch #act-pad button:active, body.touch #act-pad button.on { background: rgba(245,179,1,.55) !important; border-color: #f5b301 !important; }
+/* v198: pause menu - lighter, see-through, yellow accent */
+#pause, #pset { background: rgba(10,14,20,.28); backdrop-filter: blur(3px); }
+#pause .panel, #pset .panel { background: rgba(22,26,32,.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.28); border-top: 3px solid #f5b301; }
+#pause h2::after, #pset h2::after, #pause .panel h2::after { background: #f5b301; }
+#pause .btn, #pset .btn { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35); border-left: 4px solid #f5b301; color: #fff; }
+#pause .btn:hover, #pset .btn:hover { background: #f5b301; color: #111; }
+#pause .btn.big.green, #pause #p-resume { background: #f5b301; border-color: #f5b301; border-left-color: #fff; color: #111; text-align: center; }
+#pause #p-resume:hover { background: #fff; color: #111; }
+#pause :is(#quick,#quick2,#quick3) { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.3); min-height: max-content; flex: none; }
+#pause :is(#quick,#quick2,#quick3) .qrow.on .sw { background: #f5b301; border-color: #f5b301; }
+#pause :is(#quick,#quick2,#quick3) .qrow.on .sw::after { background: #111; }
+#pause input[type=range], #pset input[type=range], .vols input[type=range] { accent-color: #f5b301; }
+#pause #hud-progress .track .fill, #pause #hud-progress .fill { background: #f5b301; }
+#pause .panel, #pset .panel { display: flex; flex-direction: column; max-height: 92vh; overflow-y: auto; }
+#pause .panel > *, #pset .panel > * { flex: none; }
+#pause .panel > .pgrid { display: grid; }
+body.touch #act-pad button svg.pubg { width: 84%; height: 84%; }
