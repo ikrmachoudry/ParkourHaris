@@ -23,6 +23,8 @@ const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade)
 const USE = { med: { dur: 4, hp: 50, name: 'FIRST AID' }, pills: { dur: 3, hp: 25, name: 'PAIN PILLS' }, inject: { dur: 1.8, hp: 20, name: 'ADRENALINE', boost: 6 } };
 const MY_DMG = 100;   // hit points of the player
 
+const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), BOT_VIS2 = (IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = 70 ** 2;   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
+const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 120) ** 2;   // loot is drawn only this close (metres, squared)
 export class CombatScene {
   constructor(race) {
     this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
@@ -177,7 +179,7 @@ export class CombatScene {
       const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.46, 0.52, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       /* no light beam: PUBG items just lie there with a ring */
-      g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }
+      g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
   }
   bot(b) {
     let a = this.bots.get(b.id); if (a) return a;
@@ -215,16 +217,22 @@ export class CombatScene {
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
     for (const [id, l] of this.loot) {   // spin and bob the loot; remove what was taken
       if (!l.it.alive) { this.group.remove(l.g); this.loot.delete(id); continue; }
-      
+      { const pb = this.R.me.body, dx = pb.x - CMB.x - l.it.x, dz = pb.z - CMB.z - l.it.z, vis = dx * dx + dz * dz < LOOT_VIS2 * (this.dropping ? 4 : 1);   // v219: items only exist on screen near you (64 guns / items over the whole island were ~45% of all triangles and draw calls)
+        if (l.g.visible !== vis) l.g.visible = vis; }
     }
     const g0 = (x, z) => cmbH(x, z);
-    for (const s of sim.bots) {
-      const a = this.bot(s); a.g.visible = true;
-      if (s.alive) {
+    { const pb = this.R.me.body, fr = (this._fr = (this._fr || 0) + 1);   // v219: bot level of detail - far bots are not drawn or animated, middle ones animate every 3rd frame (every bot was a 9000-triangle skinned model animated 60 times a second wherever it stood)
+      let bi = 0;
+      for (const s of sim.bots) {
+        const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1); bi++;   // (scoped with a sniper: twice as far)
+        if (!s.alive && s.dieT >= 6) { if (a.g.visible) a.g.visible = false; continue; }
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z);
-        a.m.update(dt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 });
-      } else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z); a.m.update(dt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < 6; }   // a real death animation (front / back / left / right) that ends on the ground
-    }
+        if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
+        a.acc = (a.acc || 0) + dt; const skip = d2 > BOT_MID2 && (fr + bi) % 3 !== 0; if (skip && a.g.visible) continue;   // (a bot that was hidden is always updated once when it comes back)
+        const adt = a.acc; a.acc = 0;
+        if (s.alive) { a.g.visible = true; a.m.update(adt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 }); }
+        else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.m.update(adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < 6; }
+      } }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
     if (this.vig && this.vig.style.opacity > 0) this.vig.style.opacity = Math.max(0, this.vig.style.opacity - dt * 1.6);
     this.hudT = (this.hudT || 0) - dt; if (this.hudT <= 0) { this.hudT = 0.2; this.updateHud(); }
