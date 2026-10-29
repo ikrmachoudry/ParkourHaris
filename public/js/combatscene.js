@@ -27,6 +27,11 @@ const MY_DMG = 100;   // hit points of the player
 
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), BOT_VIS2 = (IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = 70 ** 2;   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
 const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 120) ** 2;   // loot is drawn only this close (metres, squared)
+// Shared loot parts (v221, P4): every crate / pill / ring of the same kind uses ONE material and ONE geometry, so the phone keeps a few dozen GPU objects instead of hundreds.
+const _SH = new Map(), _TINT = new Map();   // _TINT: the red enemy tint is made once per soldier material, not once per bot
+const GEO = (k, ...a) => { const id = k + a.join(','); let g = _SH.get(id); if (!g) { g = new THREE[k + 'Geometry'](...a); _SH.set(id, g); } return g; };
+const SM = (c, r) => { const id = 'S' + c + (r || ''); let m = _SH.get(id); if (!m) { m = new THREE.MeshStandardMaterial(r ? { color: c, roughness: r } : { color: c }); _SH.set(id, m); } return m; };
+const RM = (c, o) => { const id = 'R' + c + o; let m = _SH.get(id); if (!m) { m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false }); _SH.set(id, m); } return m; };
 export class CombatScene {
   constructor(race) {
     this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
@@ -185,22 +190,22 @@ export class CombatScene {
   syncLoot() {
     const sim = this.sim; if (!sim) return;
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = LOOT_COL[it.k];
-      let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.34), new THREE.MeshStandardMaterial({ color: '#3d5a2a', roughness: 0.7 }))); const s = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.36), new THREE.MeshStandardMaterial({ color: '#ffd23f' })); s.position.y = 0.04; mdl.add(s); }
-      else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.38), new THREE.MeshStandardMaterial({ color: '#f4f4f4' }))); const rm = new THREE.MeshStandardMaterial({ color: '#e0242b' }); const a = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.06), rm), c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
-      else if (ITEM_K.includes(it.k)) { mdl = new THREE.Group(); const M = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
-        if (it.k === 'inject') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
-        else if (it.k === 'pills') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
-        else if (it.k === 'smoke') { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
-        else { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
+      let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.5, 0.3, 0.34), SM('#3d5a2a', 0.7))); const s = new THREE.Mesh(GEO('Box',0.52, 0.08, 0.36), SM('#ffd23f')); s.position.y = 0.04; mdl.add(s); }
+      else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.55, 0.38, 0.38), SM('#f4f4f4'))); const rm = SM('#e0242b'); const a = new THREE.Mesh(GEO('Box',0.26, 0.4, 0.06), rm), c = new THREE.Mesh(GEO('Box',0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
+      else if (ITEM_K.includes(it.k)) { mdl = new THREE.Group(); const M = (c) => SM(c, 0.6);
+        if (it.k === 'inject') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(GEO('Cylinder',0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(GEO('Cylinder',0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
+        else if (it.k === 'pills') { const b = new THREE.Mesh(GEO('Cylinder',0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(GEO('Cylinder',0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
+        else if (it.k === 'smoke') { const b = new THREE.Mesh(GEO('Cylinder',0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(GEO('Cylinder',0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
+        else { const b = new THREE.Mesh(GEO('Cylinder',0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(GEO('Cylinder',0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
       else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
       const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.46, 0.52, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(new THREE.CircleGeometry(0.46, 32), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
+      const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
   }
   bot(b) {
     let a = this.bots.get(b.id); if (a) return a;
-    const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); o.material.color.multiply(new THREE.Color('#e08a7a')); } });   // a reddish tint: the enemy
+    const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
     this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
   tracer(x0, y0, z0, x1, y1, z1) {
