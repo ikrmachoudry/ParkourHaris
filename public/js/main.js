@@ -32,6 +32,7 @@ import { bodyHalf } from './hitbox.js';
 import { hitCode, addHit } from './cardamage.js';
 import { Net } from './net.js';
 import { Voice } from './voice.js';
+import { preloadAssets } from './preload.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 
@@ -2057,7 +2058,7 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang() { startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+function startJang() { preloadAssets('jang'); startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
@@ -2067,7 +2068,7 @@ function startSingle(levelIdx, jang) {
   show('none');
   $('s-results').classList.add('hidden');
   tryLock();
-  if (!jang) loadScreen.finish();
+  if (!jang) { const r = race; preloadAssets('gta').then(() => { if (race === r && r.multi === false) { try { r.warmUp(); } catch (e) { /* ignore */ } } }).then(() => loadScreen.finish()); }   // v220: all files first, one off-screen draw of everything, then the game starts
 }
 
 // ---- results

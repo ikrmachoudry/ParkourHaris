@@ -13,15 +13,17 @@ import { HeroActor } from './actor.js';
 // each of the four players is a little different in height (no facial hair: it looked wrong on these heads)
 const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 1.79 }];
 
+import { av } from './assetver.js';
 const cache = new Map();
 export function loadGlb(url) {
-  if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(url, res, undefined, rej)), 'CHARACTERS'));
+  if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
   return cache.get(url);
 }
 
 // ---- baked Mixamo clips (tools/mixamo_bake.mjs): optional, any pose without a clip keeps the procedural / mocap driver ----
+export const preloadActors = (urls) => Promise.all([...urls.map((u) => loadGlb(u)), loadClips()]);   // v220
 let CLIPS = null, clipsP = null;
-const loadClips = () => clipsP || (clipsP = fetch('anim/clips.json').then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
+const loadClips = () => clipsP || (clipsP = fetch(av('anim/clips.json')).then((r) => (r.ok ? r.json() : null)).then((j) => { CLIPS = j; return j; }, () => null));
 // which clip plays which pose; v0 = the speed (m/s) the clip was authored at (so feet do not slide); loop = cyclic
 const CLIP_FOR = { walkL: { c: 'walkL', v0: 1.4 }, walkR: { c: 'walkR', v0: 1.4 }, walkBack: { c: 'walkBack', v0: 1.3 }, crawl: { c: 'crawl', v0: 0.8 }, proneIdle: { c: 'proneIdle' }, reloadR: { c: 'reload', rel: 1 }, rifleBack: { c: 'runBack', v0: 2.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeL: { c: 'strafeL', v0: 1.6, up: 'rifleAim', lower: 0.2 }, rifleStrafeR: { c: 'strafeR', v0: 1.6, up: 'rifleAim', lower: 0.2 }, pistolBack: { c: 'pistolBack', v0: 1.4, lower: 0.55 }, pistolStrafeL: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, pistolStrafeR: { c: 'pistolStrafe', v0: 1.6, lower: 0.55 }, runBack: { c: 'runBack', v0: 4.0, up: 'run', live: 1, uv: 4.4 }, runL: { c: 'runL', v0: 4.2, up: 'run', live: 1, uv: 4.4 }, runR: { c: 'runR', v0: 4.2, up: 'run', live: 1, uv: 4.4 }, dieF: { c: 'deathFront', zp: true }, dieB: { c: 'deathBack', zp: true }, dieR: { c: 'deathRight', zp: true }, dieL: { c: 'deathLeft', zp: true }, skydive: { c: 'fallIdle' }, chute: { c: 'fallIdle' }, rifleCrouchIdle: { c: 'crouchAimIdle' }, rifleCrouchAim: { c: 'crouchAimIdle' }, rifleCrouchWalk: { c: 'crouchFwd', v0: 1.3 }, zWalk: { c: 'zWalk', v0: 0.9 }, zCrawl: { c: 'zCrawl', v0: 0.5 }, zDeath: { c: 'zDeath', zp: 1 }, dReact: { c: 'dReact', zp: 1 }, dFly: { c: 'dFly', zp: 1 }, swim: { c: 'swim', v0: 1.4 }, walk: { c: 'walk', v0: 1.45 }, run: { c: 'run', v0: 4.4 }, punch: { c: 'punch', prog: [9, 47] }, jump: { c: 'jump', air: 1, legBack: 0.5 },
   pistolIdle: { c: 'pistolIdle', lower: 0.55 }, pistolAim: { c: 'pistolIdle', yaw: 0.045 }, pistolWalk: { c: 'pistolWalk', v0: 1.3, lower: 0.55 }, rifleIdle: { c: 'rifleAim', lower: 0.2 }, rifleWalk: { c: 'walk', v0: 1.45, up: 'rifleAim', lower: 0.2 }, rifleAim: { c: 'rifleAim' }, batswing: { c: 'melee', prog: [6, 40] }, nadeThrow: { c: 'nadeThrow', nade: 1 }, nadeToss: { c: 'nadeToss', nade: 1 }, nadeStand: { c: 'nadeStand', nade: 1 } };   // batswing: the first swing of Mixamo's melee combo (wind-up 6-18, strike 19-35); the game hits at progress 0.65 = frame 29   // lower: arms pitched down (Mixamo's pistol clips hold the gun at eye level)   // prog: one-shot clip driven by the game's own 0..0.95 attack progress (frames a..b)

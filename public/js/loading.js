@@ -40,7 +40,7 @@ function frame() {
   L.raf = 0; if (!L.shown) return;
   const now = performance.now(), t = (now - L.t0) / 1000, real = L.total ? L.done / L.total : 0;
   let target = Math.max(90 * (1 - Math.exp(-t / 5)), real * 92);
-  if (t > 45) { L.wantHide = true; L.done = L.total; }   // never stuck
+  if (t > 150) { L.wantHide = true; L.done = L.total; }   // never stuck
   const ready = L.wantHide && L.done >= L.total && now - L.t0 > 900;
   if (ready) target = 100;
   L.pct += (target - L.pct) * 0.12 + (ready ? 0.8 : 0.02); if (L.pct > target) L.pct = target;

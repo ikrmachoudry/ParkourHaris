@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { makeHero } from './glbactor.js';
 import { buildCabin } from './planecabin.js';
+import { av } from './assetver.js';
+import { preloadAssets } from './preload.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { track } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
@@ -88,7 +90,7 @@ export class CombatScene {
   // ---------------------------------------------------------------- the drop: a transport plane flies over the island, you jump, free-fall and open the parachute
   loadPlane() {
     if (this.planeP) return this.planeP;
-    return this.planeP = track(new Promise((res) => new GLTFLoader().load('models/c130.glb', (g) => {
+    return this.planeP = track(new Promise((res) => new GLTFLoader().load(av('models/c130.glb'), (g) => {
       const inner = g.scene; inner.position.set(3.83, 0, -4.73); const w = new THREE.Group(); w.add(inner); w.rotation.y = 0.9235; this.planeProps = [];   // the scan faces the wrong way: turn the nose to +Z, centre it
       const COL = (n) => /FUZEL/.test(n) ? '#e4e9f2' : /KRIL|OPER|Object05|NGon|Box09/.test(n) ? '#27478a' : /KIL/.test(n) ? '#27478a' : /Cylinder0[12]/.test(n) ? '#aab3c4' : '#c9d0dd';
       inner.updateMatrixWorld(true);
@@ -100,6 +102,21 @@ export class CombatScene {
       buildCabin(w, inner);
       w.scale.setScalar(1.25); res(w);
     }, undefined, () => res(null))), 'PLANE');
+  }
+  // v220: called behind the loading screen: waits for every file, builds the bots, then draws EVERYTHING once off-screen (shaders compiled, textures + models uploaded to the graphics card),
+  // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
+  prepare() {
+    const R = this.R;
+    return Promise.all([preloadAssets('jang'), this.loadPlane()]).catch(() => {}).then(() => { try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+      try {
+        if (!this.sim || !this.on) return;
+        const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
+        for (const [, l] of this.loot) show(l.g); for (const [, a] of this.bots) show(a.g); show(this.plane);
+        if (this.plane && !this.plane.children.length) this.loadPlane().then((w) => { if (w && this.plane && !this.plane.children.length) this.plane.add(w); });
+        R.warmUp();
+        for (const [o, v] of vis) o.visible = v;
+      } catch (e) { console.warn('warm-up skipped', e); }
+    });
   }
   startDrop() {
     const R = this.R, b = R.me.body, a = Math.random() * Math.PI * 2, hd = [Math.sin(a), Math.cos(a)], off = (Math.random() - 0.5) * 240, L = 760;

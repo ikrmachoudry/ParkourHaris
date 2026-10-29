@@ -33,10 +33,19 @@ app.get('/ice', async (_q, r) => {
 });
 // the page itself is never cached, and its script / style links carry the build time: a phone (or a home-screen shortcut) can never keep running an old copy
 const pubDir = path.join(__dirname, 'public');
+// v220: version of the big asset files (models / audio / anim): changes only when one of them changes. Versioned requests are cached by the phone for a year.
+let avCache = '0', avAt = 0;
+const assetVersion = () => {
+  if (Date.now() - avAt < 30e3) return avCache; avAt = Date.now();
+  let mx = 0; const walk = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const q = path.join(d, f.name); if (f.isDirectory()) walk(q); else mx = Math.max(mx, fs.statSync(q).mtimeMs); } };
+  try { for (const d of ['models', 'audio', 'anim']) walk(path.join(pubDir, d)); avCache = String(mx | 0); } catch { /* keep the old one */ }
+  return avCache;
+};
+app.use(['/models', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;
-    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"');
+    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"').replace('__AV__', assetVersion());
     r.set('Cache-Control', 'no-store').type('html').send(html);
   } catch (e) { r.set('Cache-Control', 'no-store').sendFile(path.join(pubDir, 'index.html')); }
 });

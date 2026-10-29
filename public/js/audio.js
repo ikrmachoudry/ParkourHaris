@@ -54,6 +54,7 @@ function noise(dur, vol, ftype, f0, f1, delay = 0, q = 1) {
   s.connect(f); f.connect(g); g.connect(sfxG); s.start(t); s.stop(t + dur + 0.05);
 }
 
+import { av } from './assetver.js';
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ recorded samples (CC0, small mp3 in /audio). The synth versions below are the fallback until they have loaded.
@@ -64,16 +65,18 @@ const SAMPLES = ['w_fist', 'w_punch1', 'w_punch2', 'w_punch3', 'w_bat', 'w_pisto
   'spl_big0', 'spl_big1', 'spl_med0', 'spl_med1', 'spl_sm0', 'spl_sm1', 'spl_sm2', 'spl_sm3', 'water_in', 'water_out', 'sea_loop', 'lap_loop', 'rain_loop', 'city_loop',
   'ui_click', 'ui_select', 'ui_back', 'ui_tick', 'ui_ok', 'ui_ok2', 'ui_open', 'ui_warn', 'ui_bong', 'pickup', 'cash', 'respawn', 'bouncepad', 'noammo', 'boom0', 'boom1', 'boom2', 'win', 'fin', 'door_o', 'door_c', 'latch'];
 const bank = {};
-let bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
-function decode(url, cb) {
+let bankLeft = 1e9, bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
+function decode(url, cb, fin) {
   try {
-    fetch(url).then((r) => r.arrayBuffer()).then((ab) => new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); })).then(cb).catch(() => { /* keep the synth fallback */ });
+    fetch(av(url)).then((r) => r.arrayBuffer()).then((ab) => new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); })).then(cb).catch(() => { /* keep the synth fallback */ }).then(() => { if (fin) fin(); });
   } catch (e) { /* noop */ }
 }
 function loadBank() {
   if (bankStarted || !ctx) return; bankStarted = true;
-  for (const n of SAMPLES) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; });
+  bankLeft = SAMPLES.length; for (const n of SAMPLES) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, () => { bankLeft--; });
 }
+// v220: resolves when every recorded sample is decoded (or after maxMs): the loading screen waits for it, so no sound is missing during the match
+export function bankReady(maxMs = 20000) { return new Promise((res) => { if (!bankStarted) return res(); const t0 = performance.now(), iv = setInterval(() => { if (bankLeft <= 0 || performance.now() - t0 > maxMs) { clearInterval(iv); res(); } }, 120); }); }
 // play a recorded sample. pan -1..1 (a far-away sound is quieter and duller)
 export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 0) {
   const b = bank[name]; if (!ctx || !b) return false;
