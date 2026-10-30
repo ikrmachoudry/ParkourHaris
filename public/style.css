@@ -1204,3 +1204,8 @@ body.in-race #s-help { background: rgba(6, 9, 30, .97); }
 
 /* v224: phone - the whole right-hand button cluster (fire, aim, jump, crouch, prone, fire mode) sits a little further right, more of the screen is free */
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim, body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone, body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode { margin-left: min(2.6vw, 26px); }
+
+.lobby-title { position: static; transform: none; margin: 0 14px 0 0; font-size: clamp(14px, 3.6vh, 22px); letter-spacing: .16em; color: #fff; text-shadow: 0 2px 6px #000; pointer-events: none; white-space: nowrap; flex: none; }
+#s-lobby .lobby-top { gap: 14px !important; justify-content: flex-start; } #s-lobby .lobby-top > #b-leave { margin-left: auto; }
+/* v227: time of day / weather / haze belong to GTA only */
+body.jang-mode #pset .sethead, body.jang-mode #pset #tsel, body.jang-mode #pset .wsel, body.jang-mode #pset #hsel, body.jang-mode #pause .sethead, body.jang-mode #pause #tsel, body.jang-mode #pause .wsel, body.jang-mode #pause #hsel { display: none !important; }

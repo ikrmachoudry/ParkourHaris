@@ -229,7 +229,7 @@ export class GlbActor extends HeroActor {
       _q.setFromAxisAngle(_v.set(0, 1, 0), sd === 'L' ? yaw : -yaw);
       G['forearm.' + sd].premultiply(_q); G['hand.' + sd].premultiply(_q);
     }
-    { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk' || p === 'batswing' || /^(pistol|rifle|nade)/.test(p)) ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : 0.3;
+    { const p = this.pose, tgt = (p === 'run' || p === 'punch' || p === 'kick' || p === 'crouchwalk' || p === 'batswing' || /^(pistol|rifle|nade)/.test(p)) ? 1 : p === 'walk' ? 0.85 : p === 'aim' || p === 'aimLow' ? 0.5 : p === 'flex' || p === 'thumbs' ? 1 : p === 'cheer' ? 0.6 : p === 'wave' || p === 'hi' ? 0.45 : p === 'salute' ? 0.2 : 0.3;   // v227: gestures: relaxed curled fingers (flat stiff paddles looked wrong), fists for flex
       this.fist = (this.fist == null ? tgt : this.fist) + (tgt - (this.fist == null ? tgt : this.fist)) * Math.min(1, dt * 12); }
     // ---- choose the motion source: a baked Mixamo clip when there is one for this pose, otherwise the procedural / mocap driver ----
     const Wout = rt.Wout || (rt.Wout = {}); const Wd = rt.Wd || (rt.Wd = {}); const hk = rt.hipsWorldY / this.ch.rest.hips.y;

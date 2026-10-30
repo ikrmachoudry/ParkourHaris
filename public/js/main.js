@@ -232,7 +232,7 @@ class Stage {
       o.hop = 0;
       o.c.group.position.set(p[0], p[1] + o.hop, p[2]);
       o.c.group.rotation.y = lerpAngle(o.c.group.rotation.y, this.mode === 'lobby' ? Math.sin(this.t * 0.7 + i) * 0.3 : Math.sin(this.t * 0.6 + i * 2) * 0.35, Math.min(1, dt * 4));
-      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: (this.emote && this.emote.slot === i && this.t < this.emote.until) ? this.emote.g : selected ? 'thumbs' : GESTURES[i] });
+      o.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: (this.emotes && this.emotes[i] && this.t < this.emotes[i].until) ? this.emotes[i].g : selected ? 'thumbs' : GESTURES[i] });
       if (o.tag) { o.tag.scale.set(2.4, 0.6, 1); }
     });
     this.ambient.update(this.t, cam.position);
@@ -2155,6 +2155,7 @@ async function ensureNet() {
   if (app.net && app.net.connected) return app.net;
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
+  net.on('emote', (m) => { stage.emotes = stage.emotes || {}; stage.emotes[m.char | 0] = { g: m.g, until: stage.t + 4 }; });
   net.on('lobby', onLobby);
   net.on('vc', (m) => { if (voice) voice.onSignal(m); });
   net.on('err', (m) => {
@@ -2477,7 +2478,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };
-  { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER'], ['flex', 'FLEX']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emote = { slot: app.char, g, until: stage.t + 4 }; }; box.appendChild(b); }); } }
+  { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER'], ['flex', 'FLEX']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emotes = stage.emotes || {}; stage.emotes[app.char] = { g, until: stage.t + 4 }; if (app.net && app.net.connected) app.net.send({ t: 'emote', g }); }; box.appendChild(b); }); } }
   $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { A.sfx.click(); app.net.send({ t: 'start' }); } };
   $('b-copy').onclick = async () => {
     const link = `${location.origin}${location.pathname}?room=${app.room ? app.room.code : ''}`;
