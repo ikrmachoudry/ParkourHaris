@@ -122,6 +122,14 @@ const PAXSEAT = 27;   // net flag bits 27-28: which passenger seat (0..2) I sit 
 const carFlagIdx = (f) => ((f >> 9) & 15) | (((f >> 24) & 1) << 4) | (((f >> 29) & 1) << 5);
 
 const PV_BG = new THREE.Color('#0b0d10');
+// v228: the lobby backdrop (instead of the beach): a dusk sky in the colours of the game - warm Punjabi sunset for GTA, cold olive battlefield dusk for Jang - over a dark floor with a glowing ring
+const lobbyBgTex = (jang) => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+  const st = jang ? [[0, '#0d1418'], [0.45, '#27363a'], [0.72, '#6b6a4a'], [0.86, '#c98a3c'], [1, '#2a2418']] : [[0, '#1a1034'], [0.4, '#6a2a5a'], [0.7, '#e2603a'], [0.86, '#ffb347'], [1, '#3a2018']];
+  st.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+};
+
 // v204: the animations the player can try on the profile page. To add a new fun animation later: add ONE line here ( run(t) returns the actor state + an optional height y ).
 const jumpArc = (t) => { const k = (t % 1.5) / 1.5; if (k > 0.9) return { st: { grounded: true } }; const u = k / 0.9, y = Math.sin(u * Math.PI) * 1.05; return { y, st: { grounded: false, vy: Math.cos(u * Math.PI) * 6.5 } }; };
 const ANIMS = [
@@ -175,6 +183,12 @@ class Stage {
     this.pdisc = new THREE.Group();
     { const d = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.2, 0.08, 40), new THREE.MeshStandardMaterial({ color: '#1b1f24', roughness: 0.6, metalness: 0.2 })), r = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.12, 48), new THREE.MeshBasicMaterial({ color: '#d93a3a', side: THREE.DoubleSide }));
       d.position.y = -0.04; r.rotation.x = -Math.PI / 2; r.position.y = 0.006; this.pdisc.add(d, r); this.pdisc.visible = false; this.scene.add(this.pdisc); }
+    this.lbg = new THREE.Group();   // lobby floor
+    { const d = new THREE.Mesh(new THREE.CylinderGeometry(9, 9.3, 0.3, 56), new THREE.MeshStandardMaterial({ color: '#15191c', roughness: 0.75, metalness: 0.15 })); d.position.y = -0.16; d.receiveShadow = true;
+      const r = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.32, 64), new THREE.MeshBasicMaterial({ color: '#f5b301' })); r.rotation.x = -Math.PI / 2; r.position.y = 0.006;
+      const r2 = new THREE.Mesh(new THREE.RingGeometry(6.4, 6.46, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.35 })); r2.rotation.x = -Math.PI / 2; r2.position.y = 0.006;
+      this.lbg.add(d, r, r2); this.lbg.visible = false; this.scene.add(this.lbg); }
+    this.lobbyBg = { gta: lobbyBgTex(false), jang: lobbyBgTex(true) };
     this.mode = 'title'; this.sel = 0; this.t = 0; this.lobby = []; this.pv = { slot: 0, anim: 'idle', t: 0 };
     this.bgNormal = this.scene.background;
   }
@@ -215,7 +229,7 @@ class Stage {
     this.camX = lerp(this.camX === undefined ? 0 : this.camX, this.mode === 'title' && cam.aspect > 1.2 ? 2.3 : 0, Math.min(1, dt * 3));   // on the title page the menu buttons sit on the right: slide the whole podium to the left so nobody hides behind them
     const pvOn = this.mode === 'preview';
     if (this.pods) for (const pd of this.pods) pd.visible = this.mode !== 'lobby' && !pvOn;
-    if (this.floorM) { this.floorM.visible = this.ringM.visible = this.decalM.visible = !pvOn; this.sky.visible = this.water.visible = !pvOn; this.pdisc.visible = pvOn; this.ambient.points.visible = !pvOn; this.scene.background = pvOn ? PV_BG : this.bgNormal; }
+    if (this.floorM) { const lob = this.mode === 'lobby'; this.floorM.visible = this.ringM.visible = this.decalM.visible = !pvOn && !lob; this.sky.visible = this.water.visible = !pvOn && !lob; this.lbg.visible = lob; this.pdisc.visible = pvOn; this.ambient.points.visible = !pvOn; this.scene.background = pvOn ? PV_BG : lob ? (app.combat ? this.lobbyBg.jang : this.lobbyBg.gta) : this.bgNormal; }
     if (pvOn) { this.updatePreview(dt, cam); return; }
     if (this.mode === 'lobby') { cam.position.set(Math.sin(this.t * 0.3) * 0.5, 1.4, 5.3); cam.lookAt(0, 0.8, 0); }   // v200: the lobby: everybody stands close and BIG, no podium
     else {    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);}
@@ -1849,7 +1863,9 @@ class Race {
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
     this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
-    const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
+    { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // v228 peek: the lean is part of the pivot (before smoothing and wall checks), it used to be added to the camera AFTER them every frame = shaking
+      const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12); if (Math.abs(this.leanV) < 0.002 && !tg) this.leanV = 0; }
+    const lo = (this.leanV || 0) * 0.75, tx = b.x + Math.cos(this.camYaw) * (this.shoulder + lo), ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * (this.shoulder + lo);
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const inPlane = (() => { const cs0 = this.mission && this.mission.cs; return !!(cs0 && cs0.dropping && cs0.drop && cs0.drop.ph === 'plane'); })();   // v222: inside the plane (34 m/s) the camera pivot is welded to the player: a smoothed pivot lagged by a metre or so and the lag changed with every frame time = the shaking
     const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
@@ -1864,13 +1880,17 @@ class Race {
       const dx = cam.x - ox, dy = cam.y - oy, dz = cam.z - oz; let tmax = 1;
       for (const q of this.info.track.boxes || []) {
         if (oy > q.h + 1 && cam.y > q.h + 1) continue;
-        let t0 = 0, t1 = tmax, hit = true;
-        for (const [o, d, lo, hi] of [[ox, dx, q.x0 - 0.45, q.x1 + 0.45], [oz, dz, q.z0 - 0.45, q.z1 + 0.45], [oy, dy, -5, q.h + 0.45]]) {
-          if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
-          let a = (lo - o) / d, b = (hi - o) / d; if (a > b) { const t = a; a = b; b = t; }
-          t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { hit = false; break; }
+        for (const MM of [0.45, 0.06]) {   // v228: a player standing in a doorway starts INSIDE the fat box (the wall + 0.45 m margin): the camera was then never pulled in and ended up behind the wall. Use a thin box in that case; inside even that = first-person
+          let t0 = 0, t1 = tmax, hit = true;
+          for (const [o, d, lo, hi] of [[ox, dx, q.x0 - MM, q.x1 + MM], [oz, dz, q.z0 - MM, q.z1 + MM], [oy, dy, -5, q.h + MM]]) {
+            if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
+            let a = (lo - o) / d, b = (hi - o) / d; if (a > b) { const t = a; a = b; b = t; }
+            t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { hit = false; break; }
+          }
+          if (!hit) break;
+          if (t0 > 0) { if (t0 < tmax) tmax = t0; break; }
+          if (MM < 0.1) tmax = Math.min(tmax, 0.08);
         }
-        if (hit && t0 < tmax && t0 > 0) tmax = t0;
       }
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // the match: the camera never goes through a wall, floor or roof (it swings in behind the player instead)
         const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.42;
@@ -1887,6 +1907,7 @@ class Race {
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
       this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out
       if (this.camK < 1) { cam.set(ox + dx * this.camK, oy + dy * this.camK, oz + dz * this.camK); }
+      if (!inHome && !this.drive) for (const q of this.info.track.boxes || []) { if (cam.y > q.h + 0.1) continue; if (cam.x > q.x0 - 0.1 && cam.x < q.x1 + 0.1 && cam.z > q.z0 - 0.1 && cam.z < q.z1 + 0.1) { this.camK = 0.08; cam.set(ox + dx * 0.08, oy + dy * 0.08, oz + dz * 0.08); break; } }   // v228 last safety net (GTA): a camera still inside a wall box goes back on the player
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // last safety net: a camera that still ended up inside a wall / floor / roof slab is put back on the player
         const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
         if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { this.camK = 0.06; cam.set(ox + dx * 0.06, oy + dy * 0.06, oz + dz * 0.06); break; } } } }
@@ -1896,9 +1917,7 @@ class Race {
         else if (g && this._bodyHid) { g.visible = true; this._bodyHid = false; } }
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
-    { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // peek: hold a lean button, the body tilts and the camera slides sideways (PUBG Q/E)
-      const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12);
-      if (Math.abs(this.leanV) > 0.01) { const o = this.leanV * 0.75, cx = Math.cos(this.camYaw) * o, cz = -Math.sin(this.camYaw) * o; this.camera.position.x += cx; this.camera.position.z += cz; this.camTarget.x += cx; this.camTarget.z += cz; }
+    {
       if (this.me && this.me.model) this.me.model.group.rotation.z = this.leanV * 0.06; }
     this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
@@ -2045,7 +2064,7 @@ function openProfile(mode) {
   charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();
-  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'aim', 'rifle'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
+  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'crouch', 'cwalk', 'aim', 'rifle'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }

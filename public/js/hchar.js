@@ -505,7 +505,7 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['lowerleg.L'], 1.95 - 0.2 * s + 0.35 * Math.max(0, -c), 0, 0); R(b['lowerleg.R'], 1.95 + 0.2 * s + 0.35 * Math.max(0, c), 0, 0);
     R(b['foot.L'], 0.15 * s, 0, 0); R(b['foot.R'], -0.15 * s, 0, 0);
     R(b.spine, 0.3, -0.08 * s, 0); R(b.chest, 0.1, 0.08 * s, 0); R(b.head, -0.3, 0, 0);
-    R(b['upperarm.L'], -0.5 + 0.3 * s, 0, -0.1); R(b['upperarm.R'], -0.5 - 0.3 * s, 0, 0.1); R(b['forearm.L'], -0.7, 0, 0); R(b['forearm.R'], -0.7, 0, 0);
+    R(b['upperarm.L'], -0.25 + 0.3 * s, 0, -0.22); R(b['upperarm.R'], -0.25 - 0.3 * s, 0, 0.22); R(b['forearm.L'], -0.4, 0, 0); R(b['forearm.R'], -0.4, 0, 0);   // v228: arms hang a little out with a soft elbow (they were pulled in and bent hard = awkward)
   }
   void k;
 }
