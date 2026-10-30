@@ -857,6 +857,7 @@ class Race {
     }
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
     let ev = ''; const inp = { gas: clamp(gas, -1, 1), steer: clamp(steer, -1, 1) }; if (touch.hb || (canMove && keys.has('Space'))) inp.hb = true; if (this.mission && (this.mission.hold || this.mission.spectating)) { inp.gas = 0; inp.steer = 0; inp.hb = true; }   // mission countdown: held on the start line
+    if (this.jang) this.jangBoxes(st);   // v223: the jeep YOU drive bumps into the island's walls, trees and props (this was only done for a jeep rolling after you got out)
     for (let i = 0; i < 2; i++) ev = stepCar(st, dt / 2, inp, this.info.track, others, Math.max(0, this.levelTime)) || ev;
     if ((st.wet || 0) > 0 && !this.wetFx) { this.wetFx = true; A.sfx.splash && A.sfx.splash(0.9); this.particles.emit(st.x, (this.world.waterY || 0) + 0.3, st.z, 30, { color: '#cfeaff', speed: 5, up: 6, life: 0.8, size: 0.4, gravity: 14, spread: 1 }); this.toast && this.toast('The car is sinking - get out!'); }
     if (!(st.wet > 0)) this.wetFx = false;

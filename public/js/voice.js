@@ -34,10 +34,13 @@ export class Voice {
     pc.onnegotiationneeded = async () => {
       try { o.makingOffer = true; await pc.setLocalDescription(); this.sig(id, 'o', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription); } catch { /* retry on next change */ } finally { o.makingOffer = false; }
     };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
-    if (this.stream) { const t = this.stream.getAudioTracks()[0]; if (t) o.sender.replaceTrack(t).catch(() => {}); }
+    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') this.rebind(o); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
+    if (this.stream) { const t = this.stream.getAudioTracks()[0]; if (t) this.setTrack(o, t); }
     return o;
   }
+  // v223 (iPhone fix): Safari does not always re-use our pre-made audio line when the other side's offer arrives, so the mic could sit on an unused line and nobody heard an iPhone. The mic track is now put on EVERY audio sender of the connection (the unused one is harmless).
+  setTrack(o, t) { try { for (const sn of o.pc.getSenders()) sn.replaceTrack(t).catch(() => {}); } catch { /* ignore */ } }
+  rebind(o) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t && t.readyState === 'live') this.setTrack(o, t); }   // after every negotiation: put the mic on the line again
   connect(id) { if (this.peers.has(id)) return; this.peers.set(id, this.mk(id)); }
   drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; } this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
   sig(to, k, d) { this.net.send({ t: 'vc', to, k, d }); }
@@ -50,8 +53,8 @@ export class Voice {
       if (m.k === 'o') {   // "perfect negotiation": the higher id gives way if both sides offer at once
         const clash = o.makingOffer || pc.signalingState !== 'stable';
         if (clash && !o.polite) return;
-        await pc.setRemoteDescription(m.d); await pc.setLocalDescription(); this.sig(id, 'a', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription);
-      } else if (m.k === 'a') { if (pc.signalingState === 'have-local-offer') await pc.setRemoteDescription(m.d); }
+        await pc.setRemoteDescription(m.d); await pc.setLocalDescription(); this.sig(id, 'a', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription); this.rebind(o);
+      } else if (m.k === 'a') { if (pc.signalingState === 'have-local-offer') { await pc.setRemoteDescription(m.d); this.rebind(o); } }
       else if (m.k === 'i') { try { await pc.addIceCandidate(m.d); } catch { /* candidate for an old negotiation */ } }
     } catch { /* ignore a bad message */ }
   }
@@ -80,14 +83,14 @@ export class Voice {
     this.stream = st; this.mic = true;
     const t = st.getAudioTracks()[0]; t.enabled = !document.hidden;
     t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) this.reopenSoon(); this.changed(); };
-    for (const o of this.peers.values()) o.sender.replaceTrack(t).catch(() => {});
-    try { const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
+    for (const o of this.peers.values()) this.setTrack(o, t);
+    try { if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) throw 0; const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
     this.changed(); return true;
   }
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
   // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it
   visibility(hidden) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t) t.enabled = !hidden; if (!hidden && this.want) this.reopenSoon(); }
-  releaseMic() { for (const o of this.peers.values()) o.sender.replaceTrack(null).catch(() => {}); if (this.stream) { for (const t of this.stream.getTracks()) t.stop(); this.stream = null; } this.selfAn = null; this.speaking.delete(this.me); }
+  releaseMic() { for (const o of this.peers.values()) this.setTrack(o, null); if (this.stream) { for (const t of this.stream.getTracks()) t.stop(); this.stream = null; } this.selfAn = null; this.speaking.delete(this.me); }
   setSpk(on) { this.spk = on; for (const [id, o] of this.peers) if (o.audio) o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; this.changed(); }
   setVol(v) { this.vol = Math.max(0, Math.min(1, v)); this.setSpk(this.spk); }
   toggleMute(id) { if (this.muted.has(id)) this.muted.delete(id); else this.muted.add(id); const o = this.peers.get(id); if (o && o.audio) o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; this.changed(); }
