@@ -253,18 +253,29 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   for (const p of L.props) { if (mp[p.k]) mp[p.k](p); else if (p.k === 'round') round(p); else if (p.k === 'tower') {
     const t = L.towers.find((q) => Math.abs(q.x - p.x) < 0.1 && Math.abs(q.z - p.z) < 0.1), py = t.py, gy = p.y, X = p.x, Z = p.z, wc = '#a5a59f';
     const O = TW.O, S2 = TW.S2, K = TW.K;
-    B.box('wall', X - O, gy - 1, Z - O, X + O, py + 0.8, Z - S2, wc, 0.04); B.box('wall', X - O, gy - 1, Z - S2, X - S2, py + 1.2, Z + S2, wc, 0.04); B.box('wall', X + S2, gy - 1, Z - S2, X + O, py + 1.2, Z + S2, wc, 0.04);
-    B.box('wall', X - O, gy - 1, Z + S2, X - 1.4, py + 1.2, Z + O, wc, 0.04); B.box('wall', X + 1.4, gy - 1, Z + S2, X + O, py + 1.2, Z + O, wc, 0.04); B.box('wall', X - 1.4, gy + 2.9, Z + S2, X + 1.4, py + 1.2, Z + O, wc, 0.04);
-    for (let y = gy + 3.4; y < py; y += 3.4) B.box('trim', X - O - 0.06, y, Z - O - 0.06, X + O + 0.06, y + 0.22, Z + O + 0.06, '#8d8d87', 0);   // bands round the shaft
-    B.box('trim', X - O - 0.08, py + 0.8, Z - O - 0.08, X + O + 0.08, py + 0.95, Z + O + 0.08, '#8d8d87', 0); B.box('trim', X - 1.5, gy + 2.9, Z + O - 0.05, X + 1.5, gy + 3.05, Z + O + 0.05, '#6a6a66', 0);
-    B.box('wall', X - K, gy - 1, Z - K, X + K, py - 0.3, Z + K, wc, 0.04);   // the solid core the stairs wind round
-    for (const [x0, z0, x1, z1] of [[-S2, -S2, S2, -0.8], [-K, -0.8, S2, K], [-0.2, K, S2, S2], [-K, -K, K, K]]) B.box('wall', X + x0, py - 0.3, Z + z0, X + x1, py, Z + z1, '#94948e', 0.03);
-    for (const s of L.solids) if (s.k === 'step' && s.x0 > X - O && s.x1 < X + O && s.z0 > Z - O && s.z1 < Z + O) B.box('wall', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8a8a84', 0.05);
+    // v222: a ROUND tower - a real cylinder wall with a door, a round core, and a true spiral stair (wedge-shaped steps, no corners, no landings)
+    const NS = TW.n, DPH = 2 * Math.PI / TW.per, ST = TW.ST, DOOR = TW.door;
+    const sector = (r0, r1, ph0, ph1, y0, h, seg = 6) => {   // a ring slice (r0..r1, angle ph0..ph1 measured from the door side), as a solid
+      const sh = new THREE.Shape(), a0 = ph0 - Math.PI / 2, a1 = ph1 - Math.PI / 2, full = ph1 - ph0 >= Math.PI * 2 - 1e-6;
+      if (r0 <= 0.001) { sh.absarc(0, 0, r1, 0, Math.PI * 2, false); } else if (full) { sh.absarc(0, 0, r1, 0, Math.PI * 2, false); const hole = new THREE.Path(); hole.absarc(0, 0, r0, 0, Math.PI * 2, true); sh.holes.push(hole); }
+      else { sh.moveTo(r1 * Math.cos(a0), r1 * Math.sin(a0)); sh.absarc(0, 0, r1, a0, a1, false); sh.lineTo(r0 * Math.cos(a1), r0 * Math.sin(a1)); sh.absarc(0, 0, r0, a1, a0, true); sh.closePath(); }
+      const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false, curveSegments: seg }); g.rotateX(-Math.PI / 2); g.translate(X, y0, Z); return g; };
+    B.add('wall', sector(S2, O, DOOR, Math.PI * 2 - DOOR, gy - 1, 3.9, 56), wc, 0.04);   // the wall below the door lintel: open at the door
+    B.add('wall', sector(S2, O, 0, Math.PI * 2, gy + 2.9, py + 1.2 - (gy + 2.9), 56), wc, 0.04);   // the lintel and the wall above, all the way round
+    B.add('wall', sector(0, K, 0, Math.PI * 2, gy - 1, py - 0.3 - (gy - 1), 28), wc, 0.04);   // the round core
+    for (let y = gy + 3.4; y < py; y += 3.4) { const bg = new THREE.CylinderGeometry(O + 0.06, O + 0.06, 0.22, 56, 1, true); bg.translate(X, y + 0.11, Z); B.add('trim', bg, '#8d8d87', 0); }   // bands round the shaft
+    { const bg = new THREE.CylinderGeometry(O + 0.08, O + 0.08, 0.15, 56, 1, true); bg.translate(X, py + 0.875, Z); B.add('trim', bg, '#8d8d87', 0); } B.box('trim', X - 1.5, gy + 2.9, Z + O - 0.05, X + 1.5, gy + 3.05, Z + O + 0.05, '#6a6a66', 0);
+    B.add('wall', sector(0, K + 0.01, 0, Math.PI * 2, py - 0.3, 0.3, 28), '#94948e', 0.03); B.add('wall', sector(K, S2 + 0.02, 0, TW.open, py - 0.3, 0.3, 28), '#94948e', 0.03);   // the roof (open over the last steps)
+    for (let i = 0; i < NS; i++) { const top = gy + (i + 1) * ST, g = sector(K - 0.02, S2 + 0.02, i * DPH, (i + 1) * DPH + 0.004, top - 0.5, 0.5, 2); B.add('wall', g, '#8a8a84', 0.05); }   // the steps: one wedge each, 0.3 m higher than the one before
     B.box('metal', X + 2.0, py, Z - 2.2, X + 2.2, py + 7.5, Z - 2.0, '#cfcfcf', 0);   // the flag mast
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex(t.flag), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // the parachute pack on the roof, with a marker you can see from far off
-    B.box('trim', X + 0.1, py, Z - 0.9, X + 0.9, py + 0.9, Z - 0.1, '#3f5d34', 0.08); B.box('trim', X + 0.15, py + 0.55, Z - 0.95, X + 0.85, py + 0.7, Z - 0.05, '#d8d0b0', 0); B.box('trim', X + 0.35, py + 0.9, Z - 0.7, X + 0.65, py + 1.0, Z - 0.3, '#ec5b2b', 0);
-    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X + 0.5, py + 7, Z - 0.5); group.add(bm);
+    { const ic = new THREE.Group(), M = (c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }), mo = M('#ff7a1a'), mw = M('#f4f1e6');   // v222: a spinning PARACHUTE symbol (canopy, lines, pack) instead of a plain box
+      for (let k = 0; k < 8; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.95, 5, 6, k * Math.PI / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? mw : mo); c.scale.y = 0.75; c.position.y = 0.55; ic.add(c); }
+      const lm = M('#e8e4d6'); for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4 + Math.PI / 8, x = Math.cos(an) * 0.93, z = Math.sin(an) * 0.93, d = new THREE.Vector3(-x, -1.03, -z), l = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, d.length(), 3), lm); l.position.set(x + d.x / 2, 0.55 + d.y / 2, z + d.z / 2); l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); ic.add(l); }
+      const pk = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.22), M('#3f5d34')); pk.position.y = -0.7; ic.add(pk); ic.scale.setScalar(1.25); ic.position.set(X, py + 1.9, Z - 0.2); ic.userData.y0 = py + 1.9; group.add(ic); ICONS.push(ic);
+      const pad = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })); pad.rotation.x = -Math.PI / 2; pad.position.set(X, py + 0.04, Z - 0.2); group.add(pad); }
+    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
   } else generic(p); }
   // the base's fence: posts, two rails and a sloping barbed top; farm fences round the fields
   const postFence = (x0, z0, x1, z1, col, h, step) => { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / step)); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n, y = cmbH(x, z); B.box('trim', x - 0.07, y - 0.3, z - 0.07, x + 0.07, y + h, z + 0.07, col, 0.05); if (i < n) { const xn = x0 + (x1 - x0) * (i + 1) / n, zn = z0 + (z1 - z0) * (i + 1) / n, yn = cmbH(xn, zn); for (const k of [0.45, 0.92]) { const g = new THREE.BoxGeometry(Math.hypot(xn - x, zn - z), 0.06, 0.05); g.rotateZ(Math.atan2(yn - y, Math.hypot(xn - x, zn - z))); g.rotateY(-Math.atan2(zn - z, xn - x)); g.translate((x + xn) / 2, (y + yn) / 2 + h * k, (z + zn) / 2); B.add('trim', g, col, 0.04); } } } };
@@ -335,7 +346,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   let tAcc = 0, fAcc = 0, fN = 0, ov = null;
   const stats = (dt) => { fAcc += dt; fN++; if (fAcc < 0.5) return; const r = window.__ph && window.__ph.rend, on = /[?&]stats/.test(location.search) || window.__showStats; if (on) { if (!ov) { ov = document.createElement('div'); ov.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px monospace;color:#0f0;background:#0008;padding:3px 6px;pointer-events:none;white-space:pre'; document.body.appendChild(ov); } ov.textContent = (fN / fAcc).toFixed(0) + ' fps  ' + (fAcc / fN * 1000).toFixed(1) + ' ms' + (r ? '\n' + (r.info.render.triangles / 1000).toFixed(0) + 'k tris  ' + r.info.render.calls + ' calls' : ''); } else if (ov) { ov.remove(); ov = null; } fAcc = 0; fN = 0; };
   const update = (dt, camPos) => {
-    uni.time.value += dt; stats(dt); for (const f of flags) { const p = f.geometry.attributes.position, b0 = f.userData.base, tt = uni.time.value; for (let i = 0; i < p.count; i++) { const bx = b0[i * 3], k2 = (bx + 1.7) / 3.4; p.setZ(i, Math.sin(bx * 2.6 - tt * 4.2) * 0.14 * k2); p.setY(i, b0[i * 3 + 1] - Math.sin(bx * 2.1 - tt * 3.3) * 0.04 * k2); } p.needsUpdate = true; } const cx = camPos.x - CMB.x, cz = camPos.z - CMB.z; tAcc += dt;
+    uni.time.value += dt; stats(dt); for (const ic of ICONS) { ic.rotation.y += dt * 1.3; ic.position.y = ic.userData.y0 + Math.sin(uni.time.value * 2) * 0.12; } for (const f of flags) { const p = f.geometry.attributes.position, b0 = f.userData.base, tt = uni.time.value; for (let i = 0; i < p.count; i++) { const bx = b0[i * 3], k2 = (bx + 1.7) / 3.4; p.setZ(i, Math.sin(bx * 2.6 - tt * 4.2) * 0.14 * k2); p.setY(i, b0[i * 3 + 1] - Math.sin(bx * 2.1 - tt * 3.3) * 0.04 * k2); } p.needsUpdate = true; } const cx = camPos.x - CMB.x, cz = camPos.z - CMB.z; tAcc += dt;
     for (const m of VEG) { const c = m.userData.c, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < m.userData.cull && d >= (m.userData.near || 0); }
     for (const m of meshes) { const c = m.userData.chunk, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < (q === 0 ? 300 : 460) + CH; }
     const ci0 = Math.floor((cx - GR.range + H) / GR.cell), ci1 = Math.floor((cx + GR.range + H) / GR.cell), cj0 = Math.floor((cz - GR.range + H) / GR.cell), cj1 = Math.floor((cz + GR.range + H) / GR.cell);
@@ -352,7 +363,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
 const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95); return c; };
-const flags = [];
+const flags = [], ICONS = [];
 const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
 const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   const tex = () => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };

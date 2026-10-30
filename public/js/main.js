@@ -506,7 +506,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, shooting: this.shootT > 0 && !this.drive, kick: this.shootT > 0.43 ? (this.shootT - 0.43) / 0.12 : 0, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -834,7 +834,7 @@ class Race {
   jangBoxes(st) {
     const L = cmbLayout(), lx = st.x - CMB.x, lz = st.z - CMB.z, Bk = L.B, ci = Math.floor(lx / Bk), cj = Math.floor(lz / Bk), out = [], seen = new Set();
     for (let i = ci - 2; i <= ci + 2; i++) for (let j = cj - 2; j <= cj + 2; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue;
-      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (!(k === 'wall' || k === 'tree' || k === 'rock' || (k === 'prop' && q.y1 - q.y0 > 0.5))) continue;
+      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (k === 'floor' || k === 'roof' || k === 'step' || k === 'win' || k === 'shot' || k === 'lootnew' || k === 'tower' || q.y1 - q.y0 < 0.5) continue;   // v222: EVERY upright solid stops the jeep (sandbags, barriers, rails, crates, benches... were missing, so it drove through them)
         out.push(q._cb || (q._cb = { x0: CMB.x + q.x0, x1: CMB.x + q.x1, z0: CMB.z + q.z0, z1: CMB.z + q.z1, h: q.y1 })); } }
     this.info.track.boxes = out; this.info.track._all = null;
     const lim = CMB.half - 10; st.x = CMB.x + Math.max(-lim, Math.min(lim, st.x - CMB.x)); st.z = CMB.z + Math.max(-lim, Math.min(lim, st.z - CMB.z));
@@ -887,7 +887,7 @@ class Race {
     if (ev === 'crash') { A.sfx.land(34); this.particles.emit(st.x, 0.9, st.z, 26, { color: '#ffb347', speed: 7, up: 5, life: 0.6, size: 0.35 }); this.shake = Math.max(this.shake || 0, Math.min(1, 0.4 + (st.crash || 0) * 0.04)); st.crash = 0; }
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
-    if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load, st.speed); A.skidSet(st.skid > 0.12 ? st.skid : 0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
+    if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load, st.speed); A.skidSet(0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
     this.hornCd -= dt; this.skidT -= dt;
     if (c.mesh.userData.hero) {
       this.smokeT = (this.smokeT || 0) - dt;
@@ -1315,7 +1315,7 @@ class Race {
   // ---- weapons
   updateWeapon(dt, b) {
     this.updateNades(dt, b);
-    if (this.fireCd > 0) this.fireCd -= dt;
+    if (this.fireCd > 0) this.fireCd -= dt; if (this.shootT > 0) this.shootT -= dt;
     if (this.aimT > 0) this.aimT -= dt;
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
@@ -1533,7 +1533,7 @@ class Race {
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
-    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.aimT = 1.8; this.updateAmmoHud();
+    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
     let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + (Math.random() - 0.5) * 2 * W.spread;   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
@@ -1832,8 +1832,8 @@ class Race {
         // v214 corridor assist (like Uncharted / Tomb Raider stair cams): while you climb and are not touching the look control, the camera swings round behind you, along the stairs
         { const yw = this.camYaw, moved = Math.abs(Math.atan2(Math.sin(yw - (this._twYaw === undefined ? yw : this._twYaw)), Math.cos(yw - (this._twYaw === undefined ? yw : this._twYaw)))) > 0.003; this._twIdle = moved ? 0 : (this._twIdle || 0) + dt;
           const mv = Math.hypot(b0.vx, b0.vz) > 0.8 || Math.hypot(touch.x, touch.y) > 0.25 || keys.has('KeyW') || keys.has('ArrowUp');
-          if (tw && twT && this._twIdle > 0.7 && mv && this.twK > 0.8) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ax = Math.abs(rx), az = Math.abs(rz);
-            const dx = az >= ax ? (rz > 0 ? 1 : -1) : 0, dz = az >= ax ? 0 : (rx > 0 ? -1 : 1);   // the leg of the spiral you are on: south leg goes east, east leg north, north leg west, west leg south
+          if (tw && twT && this._twIdle > 0.7 && mv && this.twK > 0.8) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ph = Math.atan2(rx, rz);
+            const dx = Math.cos(ph), dz = -Math.sin(ph);   // v222 round tower: the way the spiral climbs is the tangent of the circle (south side goes east, east side goes north...)
             const want = Math.atan2(-dx, -dz), df = Math.atan2(Math.sin(want - this.camYaw), Math.cos(want - this.camYaw)); this.camYaw += df * (1 - Math.exp(-2.2 * dt)); this.camPitch += (0.22 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
           this._twYaw = this.camYaw; } if (this.twK > 0.01) dist = dist * (1 - this.twK) + Math.min(dist, 1.5) * this.twK; } }   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
@@ -1849,9 +1849,10 @@ class Race {
     this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
     const tx = b.x + Math.cos(this.camYaw) * this.shoulder, ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * this.shoulder;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
-    const f = 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
+    const inPlane = (() => { const cs0 = this.mission && this.mission.cs; return !!(cs0 && cs0.dropping && cs0.drop && cs0.drop.ph === 'plane'); })();   // v222: inside the plane (34 m/s) the camera pivot is welded to the player: a smoothed pivot lagged by a metre or so and the lag changed with every frame time = the shaking
+    const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
-    this.camTarget.y += (ty - this.camTarget.y) * (1 - Math.exp(-(this.twK > 0.3 ? 22 : 7) * dt));   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
+    this.camTarget.y += (ty - this.camTarget.y) * (inPlane ? 1 : 1 - Math.exp(-(this.twK > 0.3 ? 22 : 7) * dt));   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage tube (radius 2, in the cabin's OWN frame - it is turned 53 degrees against the plane group)
       const w = dr && dr.ph === 'plane' && cs.plane && cs.plane.children[0]; if (w && w.userData.cabin) { w.updateMatrixWorld(true); const c = this.camera.position, L = w.worldToLocal(c.clone()), ly = L.y - 0.57, r = Math.hypot(L.x, ly), k = r > 1.6 ? 1.6 / r : 1; L.x = clamp(L.x * k, -1.2, 1.2); L.y = 0.57 + Math.min(1.3, ly * k); L.z = clamp(L.z, -7.3, 6.0); c.copy(w.localToWorld(L)); } }   // keep the camera in the aisle, below the ceiling lights
@@ -2417,9 +2418,18 @@ async function boot() {
 
   $('b-single').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('single'); };
   $('b-multi').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('multi'); };
-  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); };
+  const JHELP = [['joy', 'MOVE', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the left stick', 'Push the stick all the way up to LOCK sprint. Pull it back to stop.', '🕹'], ['look', 'LOOK', 'Mouse, or drag the right side of the screen', '', '👁'], ['fire', 'FIRE', 'Left click, or the big fire button', 'Tap to shoot. Hold for automatic guns.', '🔫'],
+    ['a-aim', 'AIM', 'Right mouse', 'Look through the sights: more accurate, slower. Telescope scopes zoom.'], ['a-jump', 'JUMP', '<kbd>SPACE</kbd>', 'Climb over low walls and boxes.'], ['a-crouch', 'CROUCH', '<kbd>Z</kbd>', 'Smaller and harder to hit.'], ['a-prone', 'PRONE', '<kbd>X</kbd> / <kbd>CTRL</kbd>', 'Lie down: the hardest to hit.'],
+    ['a-reload', 'RELOAD', '<kbd>R</kbd>', 'Reloads by itself when the magazine is empty.'], ['a-fmode', 'FIRE MODE', '<kbd>B</kbd>', 'Single shots / burst / auto, if the gun has them.'], ['a-weapon', 'SWAP WEAPON', '<kbd>V</kbd> or the number slots 1 2 3', 'Tap a slot to take that gun out.', '🔄'], ['a-leanl', 'PEEK LEFT / RIGHT', '<kbd>Q</kbd> <kbd>E</kbd>', 'Look round a corner without stepping out.'],
+    ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>V</kbd> / the mic button', 'In a team room: talk to your team. Tap to switch the mic on, tap again to switch it off.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Parachute: take the pack on a tower roof, jump off, it opens by itself.', '🪂']];
+  const openHelp = (jang) => {
+    document.body.classList.toggle('helpjang', !!jang);
+    if (jang) { const g = $('jang-help'); g.innerHTML = JHELP.map(([id, nm, key, ds, em]) => { const el = document.getElementById(id), sv = el && el.querySelector && el.querySelector('svg'); const ic = em || (sv ? sv.outerHTML : nm[0]); return '<div class="gr"><span class="gi">' + ic + '</span><div><b>' + nm + '</b><small>' + key + (ds ? '<br>' + ds : '') + '</small></div></div>'; }).join(''); }
+    $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); $('s-help').scrollTop = 0; };
+  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); openHelp(false); };
+  $('p-help').onclick = () => { A.sfx.click(); openHelp(!!(race && race.jang)); };
   { const so = () => { A.initAudio(); A.sfx.click(); $('s-about').classList.remove('hidden'); $('s-about').classList.add('active'); }; $('b-dev').onclick = so; $('b-dev').addEventListener('touchend', (e) => { e.preventDefault(); so(); }); $('b-about-close').onclick = () => { A.sfx.back(); $('s-about').classList.remove('active'); $('s-about').classList.add('hidden'); }; }
-  $('b-help-close').onclick = () => { A.sfx.back(); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
+  $('b-help-close').onclick = () => { A.sfx.back(); document.body.classList.remove('helpjang'); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
   $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
   A.setCommentary(OPT.punjabi !== false);
   document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick3 .qrow').forEach((row) => {
@@ -2497,7 +2507,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { get voice() { return voice; }, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { get voice() { return voice; }, towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

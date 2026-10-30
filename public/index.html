@@ -34,7 +34,7 @@
     <div class="dev" id="b-dev" role="button" tabindex="0"><img src="img/haris.jpg" alt="Haris"><b>HARIS</b><small>GAME DEVELOPER</small><u>ABOUT &rsaquo;</u></div>
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v221</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v222</span></div>
     </div>
     <div class="menu">
       <div id="home-pick"><button class="btn big green" id="b-go-gta"><em>OPEN WORLD</em><b>PUNJABI GTA</b><small>City, cars, missions</small></button><button class="btn big orange" id="b-go-jang"><em>BATTLE ROYALE</em><b>JANG</b><small>Drop, loot, shoot, survive</small></button></div>
@@ -47,7 +47,7 @@
         <button class="btn purple" id="b-settings">&#9881; SETTINGS</button>
       </div>
     </div>
-    <div class="verbadge">VERSION v221</div>
+    <div class="verbadge">VERSION v222</div>
     <div class="made">&copy; HARIS &bull; Punjabi GTA</div>
   </section>
 
@@ -108,7 +108,7 @@
     </div>
     <div class="lobby-bottom">
       <div class="lobby-block"><h3>Players <em id="lobby-count">1/3</em></h3><div id="lobby-players" class="slots"></div></div>
-      <div class="lobby-block"><h3>Your character</h3><div id="lobby-chars" class="cards chars small"></div><div id="lobby-emotes"></div></div>
+      <div class="lobby-block"><h3>Gestures</h3><div id="lobby-chars" class="cards chars small" style="display:none"></div><div id="lobby-emotes"></div></div>
       <div class="lobby-block" id="lobby-level-block"><h3>Level <em id="lobby-level-note"></em></h3><div id="lobby-levels" class="cards levels small"></div></div>
       <div class="lobby-block start"><button class="btn big green" id="b-start"><b>START</b></button><div id="lobby-hint" class="note"></div></div>
     </div>
@@ -285,6 +285,7 @@
   <section id="s-help" class="screen panel-screen hidden">
     <div class="panel">
       <h2>How to play</h2>
+      <div class="jangHelp" id="jang-help"></div>
       <div class="helpgrid">
         <div><h3>ON FOOT</h3><ul class="help">
           <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows &ndash; walk (hold <kbd>SHIFT</kbd> to run)</li>
@@ -335,6 +336,7 @@
         <button class="btn blue" id="p-full">FULLSCREEN</button>
         <button class="btn pink" id="p-retry">RESTART</button>
         <button class="btn grey" id="p-gfx">GFX: AUTO</button>
+        <button class="btn green" id="p-help">&#10067; CONTROLS</button>
       </div>
 <div id="quick3" aria-label="Game switches">
         <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>

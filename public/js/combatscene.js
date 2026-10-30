@@ -267,7 +267,7 @@ export class CombatScene {
       if (cd < 120) { const v = Math.max(0.18, 1 - cd / 120); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(v) : A.sfx.shot(0, v); }
       if (e.hit && this.hp > 0 && this.deadT <= 0) this.hurt(e.dmg);
     } else if (e.k === 'kill') {
-      this.kills++; const pay = 100; this.pay += pay; if (R.wallet) R.wallet.add(pay, 'kill'); R.toast && R.toast('ENEMY DOWN  +$' + pay); A.sfx.pickup && A.sfx.pickup();
+      this.kills++; R.toast && R.toast('ENEMY DOWN');   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
     } else if (e.k === 'bothit') R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
   }

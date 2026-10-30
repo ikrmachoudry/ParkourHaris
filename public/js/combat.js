@@ -1,7 +1,7 @@
 // COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
-export const TW = { ST: 0.3, n: 96, a: 2.7, K: 1.4, S2: 4.0, O: 4.4 };   // the three parachute towers: 96 steps x 0.3 m = 29 m
+export const TW = { ST: 0.3, n: 96, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
 export const COMBAT_MS = 900000;                        // a match lasts 15 minutes
 export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
@@ -271,16 +271,17 @@ function build() {
   // three concrete towers: closed shaft, a door at the bottom, a spiral staircase inside, a flat roof with a parachute and a flag
   const tower = (x, z, flag) => {
     const y0 = Math.round(rawH(x, z) * 10) / 10; padRect(x - 7, z - 7, x + 7, z + 7, y0);
-    const gy = y0, ST = TW.ST, n = TW.n, H2 = n * ST, py = gy + H2, a = TW.a, K = TW.K, S2 = TW.S2, O = TW.O;   // v211: 29 m high (was 19) and a WIDE stair corridor (2.6 m, was 1.3) so the camera fits inside; a = the middle of the stair corridor, K = the half width of the solid core, S2 = the inner half width of the shaft, O = the outer half width
+    const gy = y0, ST = TW.ST, n = TW.n, H2 = n * ST, py = gy + H2, a = TW.a, K = TW.K, S2 = TW.S2, O = TW.O, dph = 2 * Math.PI / TW.per;   // phi = the angle round the shaft: 0 = the door side (south), growing to the east, north, west...
     const W = (x0, z0, x1, z1, ya, yb, k = 'prop') => addS({ x0: x + x0, z0: z + z0, x1: x + x1, z1: z + z1, y0: ya, y1: yb, k });
-    W(-O, -O, O, -S2, gy - 1, py + 0.8); W(-O, -S2, -S2, S2, gy - 1, py + 1.2); W(S2, -S2, O, S2, gy - 1, py + 1.2);
-    W(-O, S2, -1.4, O, gy - 1, py + 1.2); W(1.4, S2, O, O, gy - 1, py + 1.2); W(-1.4, S2, 1.4, O, gy + 2.9, py + 1.2);   // the door is on the south side
-    W(-K, -K, K, K, gy - 1, py - 0.3);   // a solid core in the middle: the stairs are a walled corridor round it, nobody can fall into a well
-    for (const [x0, z0, x1, z1] of [[-S2, -S2, S2, -0.8], [-K, -0.8, S2, K], [-0.2, K, S2, S2]]) W(x0, z0, x1, z1, py - 0.3, py, 'floor');   // the roof: open over the last steps (west side + south-west corner)
-    W(-K, -K, K, K, py - 0.3, py, 'floor');
-    const ring = (s) => { const u = ((s % 16) + 16) % 16, q = a / 2, al = u > 2 && u <= 6 ? 0 : u > 6 && u <= 10 ? 1 : u > 10 && u <= 14 ? 0 : 1; if (u < 2) return [u * q, a, al]; if (u < 6) return [a, a - (u - 2) * q, al]; if (u < 10) return [a - (u - 6) * q, -a, al]; if (u < 14) return [-a, -a + (u - 10) * q, al]; return [-a + (u - 14) * q, a, al]; };   // a corner step is turned like the leg it comes from
-    const hw = (S2 - K) / 2, ht = a / 2 * 0.5 * 0.5 + 0.04;   // half the corridor width, half the tread depth
-    for (let i = 0; i < n; i++) { const [px, pz, alongX] = ring(i * 0.5), top = gy + (i + 1) * ST, hx = alongX ? ht : hw, hz = alongX ? hw : ht; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); }
+    // the round wall: a ring of small cells (the collision is boxes, the drawing in battlemap.js is a real cylinder)
+    { const rc = S2 + 0.3, cell = 0.3, nn = 60; for (let q = 0; q < nn; q++) { const f = q * 2 * Math.PI / nn, cx = Math.sin(f) * rc, cz = Math.cos(f) * rc, door = cz > 0 && Math.abs(cx) < 1.45; W(cx - cell, cz - cell, cx + cell, cz + cell, door ? gy + 2.9 : gy - 1, py + 1.2); } }   // the door is on the south side, 2.9 m high
+    W(-0.95, -0.95, 0.95, 0.95, gy - 1, py - 0.3); W(-K, -0.5, K, 0.5, gy - 1, py - 0.3); W(-0.5, -K, 0.5, K, gy - 1, py - 0.3);   // the round core in the middle: the stairs wind round it, nobody can fall into a well
+    // the roof: a disc, open over the last steps (from the opening angle up to the door side)
+    for (let ix = -5; ix < 5; ix++) for (let iz = -5; iz < 5; iz++) { const cx = ix * 0.8 + 0.4, cz = iz * 0.8 + 0.4, r = Math.hypot(cx, cz); if (r > S2 + 0.35) continue; let ph = Math.atan2(cx, cz); if (ph < 0) ph += 2 * Math.PI; if (r > K + 0.5 && ph > TW.open) continue; W(cx - 0.4, cz - 0.4, cx + 0.4, cz + 0.4, py - 0.3, py, 'floor'); }
+    // the spiral: every step is a small ring of box cells (finer where it is wide) so you walk up it smoothly
+    for (let i = 0; i < n; i++) { const top = gy + (i + 1) * ST;
+      for (let rr = 0; rr < 6; rr++) { const r = K + 0.35 + rr * 0.4, arc = r * dph, m = Math.max(1, Math.ceil(arc / 0.45));
+        for (let j = 0; j < m; j++) { const ph = i * dph + (j + 0.5) / m * dph, sn = Math.abs(Math.sin(ph)), cs = Math.abs(Math.cos(ph)), hr = 0.2, ht = arc / m / 2, hx = sn * hr + cs * ht + 0.01, hz = cs * hr + sn * ht + 0.01, px = Math.sin(ph) * r, pz = Math.cos(ph) * r; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); } } }
     props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
     return { x, z, gy, py, n, step: ST, flag, a };
   };
