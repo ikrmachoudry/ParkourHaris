@@ -267,13 +267,14 @@ export class CombatScene {
       if (cd < 120) { const v = Math.max(0.18, 1 - cd / 120); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(v) : A.sfx.shot(0, v); }
       if (e.hit && this.hp > 0 && this.deadT <= 0) this.hurt(e.dmg);
     } else if (e.k === 'kill') {
-      this.kills++; R.toast && R.toast('ENEMY DOWN');   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
+      this.kills++; R.toast && R.toast('ENEMY DOWN'); { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.sfx.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
-    } else if (e.k === 'bothit') R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 });
+    } else if (e.k === 'bothit') { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.sfx.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
   }
   hurt(d) {
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
-    if (this.hp <= 0) { this.hp = 0; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
+    A.sfx.grunt(0.8);
+    if (this.hp <= 0) { A.sfx.death(1); this.hp = 0; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   }
   // ---------------------------------------------------------------- inventory: 1 bat + 2 guns in the hands, everything else in the backpack
   slotsTick() {   // PUBG-style weapon slots: tap a slot to hold it, tap the held one to put it away
@@ -288,7 +289,7 @@ export class CombatScene {
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
   canTake(it) {
     const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
-    if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press E to swap
+    if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press F to swap
     if (k === 'bat') return !cb.owned.bat;
     if (k === 'ammo') return this.guns().length > 0;
     return this.count(k) < (CAP[k] || 4);
@@ -297,7 +298,7 @@ export class CombatScene {
   promptTick(P) {
     const it = this.sim.near(P.x, P.z); this.promptIt = it && isGunK(it.k) && !this.canTake(it) ? it : null;
     if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
-    const on = !!this.promptIt && !this.inv.isOpen(); if (on) { const t = 'E  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k]; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
+    const on = !!this.promptIt && !this.inv.isOpen(); if (on) { const t = 'F  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k]; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
   }
   swapPick() {
     const R = this.R, cb = R.wallet && R.wallet.cb, it = this.promptIt; if (!cb || !it || !it.alive || !this.active) return false;
@@ -349,7 +350,7 @@ export class CombatScene {
     if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round });
   }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
-  shoot(ox, oz, fx, fz, range, dmg, w) { if (!this.active) return -1; const d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg); return d; }
+  shoot(ox, oz, fx, fz, range, dmg, w, y) { if (!this.active) return -1; const d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y); return d; }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
 }

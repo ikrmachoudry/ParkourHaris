@@ -349,8 +349,8 @@ export function supportY(L, x, z, r, yTop) {
   return best;
 }
 // the first distance along a ray (x,z) + t*(dx,dz), t <= len, where it enters a solid at body height (walls, trees...); len when clear
-export function rayWalls(L, x, z, dx, dz, len, hy = 1.3) {
-  let best = len; const y = cmbH(x, z) + hy, B = L.B, steps = Math.ceil(len / (B * 0.7)), seen = new Set();
+export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
+  let best = len; const y = yAbs !== undefined ? yAbs : cmbH(x, z) + hy, B = L.B, steps = Math.ceil(len / (B * 0.7)), seen = new Set();
   for (let k = 0; k <= steps; k++) {
     const px = x + dx * Math.min(len, k * B * 0.7), pz = z + dz * Math.min(len, k * B * 0.7), ci = Math.floor(px / B), cj = Math.floor(pz / B);
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
@@ -426,8 +426,8 @@ export class CombatSim {
   addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
   smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
   // a bullet from (ox,oz) along (fx,fz): the nearest bot it reaches before a wall.  returns the distance or -1
-  shoot(ox, oz, fx, fz, range, dmg) {
-    const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3); let best = null, bd = Math.min(range, wall);
+  shoot(ox, oz, fx, fz, range, dmg, yAbs) {
+    const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yAbs); let best = null, bd = Math.min(range, wall);
     for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > 0.65) continue; best = b; bd = a; }
     if (best) this.hurt(best, dmg * 34, ox, oz); return best ? bd : (wall < range ? wall : -1);
   }

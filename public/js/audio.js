@@ -444,6 +444,8 @@ export function sirenTickAll() { sirenTick(sirenP); sirenTick(sirenF); }
 
 // tyre squeal: the real skid recording looping, louder and higher the harder the tyres slide
 export function skidSet(level) {
+  return;   // v224: no tyre squeal anywhere (GTA and Jang) - engine sounds stay
+
   if (!ctx) return;
   if (!skidV) { if (level < 0.02) return; skidV = loopV('skid', 0.0001, 1, 0); if (!skidV) return; }
   const t = ctx.currentTime; skidV.g.gain.setTargetAtTime(Math.max(0.0001, level * 0.55), t, 0.05); skidV.s.playbackRate.setTargetAtTime(0.9 + level * 0.3, t, 0.1);

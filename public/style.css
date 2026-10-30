@@ -1094,7 +1094,7 @@ body.touch #act-pad button svg.pubg { width: 84%; height: 84%; }
 #s-lobby .lobby-top { padding-left: 112px; }
 #s-lobby .lobby-top > .code-box { margin-left: 0; }
 /* Jang has no police and no cheats from the city: hide the city-only switches */
-body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"] { display: none !important; }
+body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"], body.jang-mode .qrow[data-k="invincible"], body.jang-mode .qrow[data-k="ammo"] { display: none !important; }
 #s-title.mode-gta .menu { margin-top: 34px; }
 #s-help, #s-about, #s-settings, #s-mp, #s-levels, #s-cmb, #s-profile { padding-top: 48px; box-sizing: border-box; }
 #s-help .panel, #s-about .panel.about, #s-settings .panel, #s-mp .panel, #s-profile .panel { max-height: calc(100vh - 58px) !important; }
@@ -1199,3 +1199,8 @@ body.helpjang .helpgrid, body.helpjang #s-help .note { display: none; }
 .jangHelp .gr small { display: block; opacity: .8; font-size: 13px; line-height: 1.35; }
 .jangHelp .gr kbd { margin-right: 4px; }
 body.helpjang #c-slots, body.helpjang #c-pick, body.helpjang #vc { visibility: hidden !important; }
+
+body.in-race #s-help { background: rgba(6, 9, 30, .97); }
+
+/* v224: phone - the whole right-hand button cluster (fire, aim, jump, crouch, prone, fire mode) sits a little further right, more of the screen is free */
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-aim, body.touch.in-race.city-mode:not(.driving) #act-pad #a-jump, body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone, body.touch.in-race.city-mode:not(.driving) #act-pad #a-fmode { margin-left: min(2.6vw, 26px); }
