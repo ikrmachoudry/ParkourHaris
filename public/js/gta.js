@@ -227,10 +227,10 @@ export const CUSTOM_BLOCKS = [[-30, 30], [-90, -90], [90, -30], [30, 90], [30, -
 // Houses face the avenue: yaw = direction of the front door (forward = sin yaw, cos yaw).
 export const REPAIR = { x: -30, z: 13, r: 4.6, shop: { x: -30, z: 45, w: 34, d: 14, h: 7.5 } };
 export const HOMES = [
-  { char: 0, name: 'Haris', x: -100, z: -100, yaw: Math.PI, color: '#ff5f5f' },
-  { char: 1, name: 'Hannan', x: -80, z: -100, yaw: Math.PI, color: '#3ddc84' },
-  { char: 2, name: 'Hanbal', x: -100, z: -80, yaw: 0, color: '#ffc233' },
-  { char: 3, name: 'Dawood', x: -80, z: -80, yaw: 0, color: '#8b6cff' },
+  { char: 0, name: 'Lionel Messi', x: -100, z: -100, yaw: Math.PI, color: '#ff5f5f' },
+  { char: 1, name: 'Lamine Yamal', x: -80, z: -100, yaw: Math.PI, color: '#3ddc84' },
+  { char: 2, name: 'Cristiano Ronaldo', x: -100, z: -80, yaw: 0, color: '#ffc233' },
+  { char: 3, name: 'Kylian Mbappe', x: -80, z: -80, yaw: 0, color: '#8b6cff' },
 ];
 // local house coordinates (+z = towards the front door / avenue, +x = right of someone at the door looking out) -> world
 export const homeW = (h, lx, lz) => ({ x: h.x + lx * Math.cos(h.yaw) + lz * Math.sin(h.yaw), z: h.z - lx * Math.sin(h.yaw) + lz * Math.cos(h.yaw) });
