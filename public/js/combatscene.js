@@ -237,19 +237,22 @@ export class CombatScene {
   sendMate(dt) {
     const T = this.R.jangTeam; if (!T || !T.net) return; this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
-    const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
+    const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; const px = this.R.drive && this.R.paxMode ? this.R.drive : null, pvi = px ? this.R.cars.indexOf(px) : -1;
+    if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
+    else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), tm: T.tm, vi: ph === 5 ? vi : 0 });
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0 });
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.ph = m.ph; g.vi = m.vi | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.id = m.id; g.c = m.c; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
     if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
     const v = Math.max(0.22, 1 - cd / 170), pn = this.panOf(m.x, m.z); m.w === 1 ? A.sfx.akShot && A.sfx.akShot(pn, v) : m.w === 2 && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v);
   }
+  paxSeats(ci) { const o = []; for (const [, g] of this.mates) if (g.ph === 6 && g.vi === ci && performance.now() - g.at < 2500) o.push(g.ps | 0); return o; }   // v242: seats of the jeep taken by other players
   mateSounds(dt) {   // v241: footsteps of players on foot (up to 40 m) and the engine of the nearest jeep another player drives (up to 90 m)
     const c = this.R.camera.position; let best = null, bd = 1e9;
     for (const [, g] of this.mates) {
@@ -271,12 +274,14 @@ export class CombatScene {
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
       if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
-      g.m.update(dt, { speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, seated: g.ph === 1 || g.ph === 5, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      g.m.update(dt, { speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
         const car = this.R.cars[g.vi]; if (car && this.R.drive !== car) {
           const R = this.R; if (!R.mateCars) R.mateCars = new Map(); g.ry = g.ry === undefined ? g.r : g.ry + ((((g.r - g.ry) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * (1 - Math.exp(-14 * dt));
           R.mateCars.set(g.vi, { id: g.id, x: g.x, y: g.y, z: g.z, yaw: g.ry, sp: g.sp }); g.hadCar = g.vi; R.seatModel(g.m.group, { st: { x: g.x, y: g.y, z: g.z, yaw: g.ry, id: car.st.id }, mesh: car.mesh }); }
         else g.m.group.visible = false; }
+      else if (g.ph === 6) {   // v242: he rides along as a passenger: seated in his seat of the jeep
+        const car = this.R.cars[g.vi]; if (car) { g.m.group.visible = true; this.R.seatModel(g.m.group, car, true, g.ps | 0); g.x = car.st.x; g.y = car.st.y; g.z = car.st.z; } else g.m.group.visible = false; }
       else g.ry = undefined;
       g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.r; }
     }

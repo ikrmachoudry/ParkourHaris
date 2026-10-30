@@ -269,7 +269,7 @@ wss.on('connection', (ws, req) => {
         if (!room || !room.combat || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
-        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, tm: m.tm & 1, vi: (m.vi | 0) & 15 }, p.id); break;
+        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, tm: m.tm & 1, vi: (m.vi | 0) & 15, ps: m.ps & 3 }, p.id); break;
       }
       case 'jf': {   // v241: Jang: somebody fired (position + gun type) so everybody nearby hears it from the right side
         if (!room || !room.combat || room.phase !== 'race') return;

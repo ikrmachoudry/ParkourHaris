@@ -603,7 +603,7 @@ class Race {
   nearestFreeCar(b) { // any vehicle that is not taken can be driven
     if (b.stun > 0 || (b.y > 1.5 && !this.world.terrain)) return null;
     const swimming = b.swim > 0.3; let best = null, bd = 4.6;
-    for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi)) continue; if (Math.abs(b.y - c.st.y) > 3.5) continue; const cv = cityVeh(c.st.id), boat = !!(cv && cv.boat); if (swimming && !boat) continue;
+    for (const c of this.cars) { if (c.st.wreck) continue; if (c.st.mcar && this.mission && this.mission.mission === 'snipe' && this.mission.phase !== 'idle' && c !== this.mission.myCar) continue; const taken = c.st.driver !== -1 && c !== this.drive; if (taken && !(NO_TEXT && this.multi) && !(this.mateCars && this.mateCars.has(this.cars.indexOf(c)))) continue; if (Math.abs(b.y - c.st.y) > 3.5) continue; const cv = cityVeh(c.st.id), boat = !!(cv && cv.boat); if (swimming && !boat) continue;
       let d; if (boat) { const L = (STYLE_GEO[cv.style].L / 2) * 0.8, fx = Math.sin(c.st.yaw), fz = Math.cos(c.st.yaw), t = Math.max(-L, Math.min(L, (b.x - c.st.x) * fx + (b.z - c.st.z) * fz)); d = Math.hypot(b.x - (c.st.x + fx * t), b.z - (c.st.z + fz * t)) - STYLE_GEO[cv.style].w * 0.3; } else d = Math.hypot(b.x - c.st.x, b.z - c.st.z); d += taken ? 0.8 : 0; if (d < bd) { bd = d; best = c; } }
     return best;
   }
@@ -673,8 +673,8 @@ class Race {
       const c = this.nearestFreeCar(b);
       if (!c) { const cc = this.wanted && this.wanted.nearestCop(b); if (cc && this.stealCop(cc)) return; const tj = this.nearestJack(b); if (tj) this.startJack(tj); return; }
       { const ci = this.cars.indexOf(c);   // somebody else is driving this vehicle and a seat is free: ride along instead of stealing it
-        const cap = this.seatCap(c), pp = c.st.paxs || [], free = []; for (let k = 0; k < cap - 1; k++) if (pp[k] === undefined || pp[k] === -1) free.push(k);
-        if (this.multi && c.st.driver !== -1 && c.st.driver !== this.localId && (ci < 12 || ci >= 16) && !c.st.wreck && free.length) {
+        const cap = this.seatCap(c), pp = c.st.paxs || [], free = [], mc = this.mateCars && this.mateCars.has(ci), used = mc && this.mission && this.mission.cs ? this.mission.cs.paxSeats(ci) : []; for (let k = 0; k < cap - 1; k++) if ((pp[k] === undefined || pp[k] === -1) && !used.includes(k)) free.push(k);
+        if (((this.multi && c.st.driver !== -1 && c.st.driver !== this.localId) || mc) && (ci < 12 || ci >= 16) && !c.st.wreck && free.length) {
           this.drive = c; this.paxMode = true; this.paxSeat = free[0]; (c.st.paxs = pp.length ? pp : [-1, -1, -1])[this.paxSeat] = this.localId; c.st.pax = this.localId; b.vx = b.vz = b.vy = 0; b.grounded = true;
           document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
           if (c.mesh.userData.hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 700); } else A.sfx.door();
@@ -963,7 +963,7 @@ class Race {
     let driverSeen = false; const dIdx = this.drive ? this.cars.indexOf(this.drive) : -1;
     if (this.drive && this.paxMode) { this.drive.st.paxs[this.paxSeat | 0] = this.localId; this.drive.st.pax = this.localId; }
     for (const c of this.cars) if ((c !== this.drive || this.paxMode) && !this.rolling.includes(c)) { c.st.driver = -1; c.st.speed = 0; c.st.vx = c.st.vz = 0; }
-    if (this.mateCars) for (const [i, m] of this.mateCars) { const c = this.cars[i]; if (!c || c === this.drive) continue; const st = c.st, py = st._py === undefined ? m.yaw : st._py, dy = ((m.yaw - py + Math.PI * 3) % (Math.PI * 2)) - Math.PI; st.driver = m.id; st.parked = false; st.x = m.x; st.y = m.y; st.z = m.z; st.speed = m.sp; st.vx = Math.sin(m.yaw) * m.sp; st.vz = Math.cos(m.yaw) * m.sp; st.steer += (clamp(-dy / Math.max(dt, 0.008) * 0.45, -1, 1) - st.steer) * Math.min(1, dt * 8); st.yaw = st._py = m.yaw; }   // v240: a jeep a teammate / another player drives is moved here (and shown driven)
+    if (this.mateCars) for (const [i, m] of this.mateCars) { const c = this.cars[i]; if (!c || (c === this.drive && !this.paxMode)) continue; const st = c.st, py = st._py === undefined ? m.yaw : st._py, dy = ((m.yaw - py + Math.PI * 3) % (Math.PI * 2)) - Math.PI; st.driver = m.id; st.parked = false; st.x = m.x; st.y = m.y; st.z = m.z; st.speed = m.sp; st.vx = Math.sin(m.yaw) * m.sp; st.vz = Math.cos(m.yaw) * m.sp; st.steer += (clamp(-dy / Math.max(dt, 0.008) * 0.45, -1, 1) - st.steer) * Math.min(1, dt * 8); st.yaw = st._py = m.yaw; }   // v240: a jeep a teammate / another player drives is moved here (and shown driven)
     const ags = [];
     for (const r of this.remotes.values()) {
       const g = r.model.group; g.rotation.order = 'YXZ';
@@ -1002,7 +1002,8 @@ class Race {
     // "get in" prompt
     if (this.drive && this.paxMode) {   // my driver left (or lost the connection): I get out too
       this.drive.st.paxs[this.paxSeat | 0] = this.localId; this.drive.st.pax = this.localId;
-      if (driverSeen || !this.multi || (this.mission && this.mission.phase && this.mission.phase !== 'idle')) this.paxOrphan = 0; else if ((this.paxOrphan = (this.paxOrphan || 0) + dt) > 1.5) { this.paxOrphan = 0; this.toggleCar(true); }
+      if (this.jangTeam && this.mateCars && this.mateCars.has(this.cars.indexOf(this.drive))) driverSeen = true;   // v242: Jang: my driver is a teammate whose jeep I see moving
+      if (driverSeen || (!this.multi && !this.jangTeam) || (!this.jangTeam && this.mission && this.mission.phase && this.mission.phase !== 'idle')) this.paxOrphan = 0; else if ((this.paxOrphan = (this.paxOrphan || 0) + dt) > 1.5) { this.paxOrphan = 0; this.toggleCar(true); }
     }
     const near = !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || this.nearestJack(b) || (this.wanted && this.wanted.nearestCop(b)));
     if (!!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
