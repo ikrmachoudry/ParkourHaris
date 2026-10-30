@@ -80,6 +80,7 @@ export class Minimap {
     g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
     g.translate(S / 2, S / 2); g.scale(k, k); g.rotate(th); g.translate(-view.x, -view.z); g.drawImage(this.map, -O, -O); g.drawImage(this.cmap || (this.cmap = drawCombat()), CMB.x - CMB.half - 10, CMB.z - CMB.half - 10); g.restore();
     const toScr = (x, z) => { const dx = x - view.x, dz = z - view.z; return [S / 2 + (dx * c - dz * s) * k, S / 2 + (dx * s + dz * c) * k]; };
+    if (this.zone) { const Z = this.zone, [zx, zy] = toScr(CMB.x + Z.x, CMB.z + Z.z), [nx, ny] = toScr(CMB.x + Z.nx, CMB.z + Z.nz); g.save(); g.fillStyle = 'rgba(220,40,40,.28)'; g.beginPath(); g.rect(-S, -S, 3 * S, 3 * S); g.arc(zx, zy, Z.r * k, 0, 7, true); g.fill('evenodd'); g.strokeStyle = '#3b82f6'; g.lineWidth = Math.max(2, S / 60); g.beginPath(); g.arc(zx, zy, Z.r * k, 0, 7); g.stroke(); if (!Z.last) { g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(1.5, S / 90); g.beginPath(); g.arc(nx, ny, Z.nr * k, 0, 7); g.stroke(); } g.restore(); }   // v243: blue = the safe zone now, white = the next one, red = danger
     const icon = (x, z, bg, glyph, r) => {   // landmark badge, pinned to the rim when it is far away
       let [px, py] = toScr(x, z); const dx = px - S / 2, dy = py - S / 2, d = Math.hypot(dx, dy), lim = S / 2 - r - 3;
       if (d > lim) { px = S / 2 + dx / d * lim; py = S / 2 + dy / d * lim; }
@@ -134,6 +135,7 @@ export class Minimap {
     const g = cv.getContext('2d'), k = S / W * bz.z, P = (x, z) => [S / 2 + (x - bz.cx) * k, S / 2 + (z - bz.cz) * k];
     g.clearRect(0, 0, S, S); g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
     const cm = this.cmap || (this.cmap = drawCombat()), [x0, y0] = P(CMB.x - CMB.half - 10, CMB.z - CMB.half - 10); g.drawImage(cm, x0, y0, W * k, W * k);
+    if (this.zone) { const Z = this.zone, [zx, zy] = P(CMB.x + Z.x, CMB.z + Z.z), [nx, ny] = P(CMB.x + Z.nx, CMB.z + Z.nz); g.save(); g.fillStyle = 'rgba(220,40,40,.28)'; g.beginPath(); g.rect(0, 0, S, S); g.arc(zx, zy, Z.r * k, 0, 7, true); g.fill('evenodd'); g.strokeStyle = '#3b82f6'; g.lineWidth = 4; g.beginPath(); g.arc(zx, zy, Z.r * k, 0, 7); g.stroke(); if (!Z.last) { g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(nx, ny, Z.nr * k, 0, 7); g.stroke(); } g.restore(); }
     const r = Math.max(8, S / 46);
     for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#4ade80'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r * 0.7, 0, 7); g.fill(); g.stroke(); }
     { const [px, py] = P(me.x, me.z), a = r * 0.9; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }

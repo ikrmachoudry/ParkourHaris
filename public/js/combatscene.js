@@ -12,6 +12,7 @@ import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 import { CombatSim, CMB, COMBAT_MS, layout, cmbH, supportY, hitsSolid } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
+import { makeZone, zoneAt } from './zone.js';
 import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
@@ -61,7 +62,7 @@ export class CombatScene {
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
-    this.hud.querySelector('.ch-t').textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
+    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
     this.hud.querySelector('.ch-s').textContent = 'KILLS ' + this.kills + '   •   DEATHS ' + this.deaths;
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
   }
@@ -84,6 +85,7 @@ export class CombatScene {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
+    if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) this.R.minimap.zone = null;
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
@@ -248,6 +250,22 @@ export class CombatScene {
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
     g.id = m.id; g.c = m.c; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
+  // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
+  stepZone(dt) {
+    const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = makeZone(T ? T.seed : (Math.random() * 1e9) | 0);
+    const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
+    if (!this.zw) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 48, 1, true), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; }
+    this.zw.position.set(CMB.x + z.x, 30, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
+    if (R.minimap) R.minimap.zone = z;
+    const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
+    this.zoneTxt = z.last ? 'ZONE: FINAL' : (z.shrinking ? 'ZONE CLOSING ' : 'ZONE ') + fm(z.left);
+    if (!this.dropping) {
+      if (z.shrinking && (!wasShr || z.i !== wasI)) R.toast && R.toast('THE ZONE IS CLOSING - move into the blue circle', 3.5);
+      else if (!z.shrinking && !z.last && z.left < 20.2 && z.left > 19.6 && !this._zw20) { this._zw20 = true; R.toast && R.toast('The zone starts closing in 20 s', 2.5); } else if (z.left > 21) this._zw20 = false;
+    }
+    const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r; this.outZone = out && !this.dropping;
+    if (this.outZone && this.hp > 0 && this.deadT <= 0) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
+  }
   onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
     if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
     const v = Math.max(0.22, 1 - cd / 170), pn = this.panOf(m.x, m.z); m.w === 1 ? A.sfx.akShot && A.sfx.akShot(pn, v) : m.w === 2 && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v);
@@ -287,7 +305,7 @@ export class CombatScene {
     }
   }
   update(dt) {
-    const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; const sim = this.sim, b = R.me.body, M = R.mission;
+    const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; this.stepZone(dt); const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));
