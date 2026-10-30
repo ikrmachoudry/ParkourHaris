@@ -163,7 +163,7 @@ export class CombatScene {
     }
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
     const gy = cmbH(b.x - CMB.x, b.z - CMB.z), h = b.y - gy;
-    if (d.ph === 'fall' && (inp.jumpPressed && d.t > 1.2 || h < 110)) { d.ph = 'chute'; d.ch = 0; }   // open the parachute (by hand, or automatically at 110 m)
+    if (d.ph === 'fall' && (inp.jumpPressed && d.t > (d.mt || 1.2) || h < (d.oh || 110))) { d.ph = 'chute'; d.ch = 0; }   // open the parachute (by hand, or automatically at 110 m)
     this.diveUI(d.ph === 'fall' || d.ph === 'chute'); const dv = (this.diveHold.dive ? 1 : 0) - (this.diveHold.up ? 1 : 0);   // v234: PUBG-style: DIVE (Shift) = head down, faster; PULL UP (C) = flare, slower and floating
     const free = d.ph === 'fall'; const maxH = (free ? 26 : 12) * (dv > 0 ? (free ? 1.45 : 1.8) : dv < 0 ? 0.55 : 1), ml = Math.hypot(inp.mx, inp.mz);
     const tx = inp.mx * maxH, tz = inp.mz * maxH, k = Math.min(1, dt * (free ? 1.6 : 1.1)); d.vx += (tx - d.vx) * k; d.vz += (tz - d.vz) * k;
@@ -269,8 +269,8 @@ export class CombatScene {
     { const f = !this.dropping && this.hp > 0; if (this._fight !== f) { this._fight = f; document.body.classList.toggle('jang-fight', f); } this.slotsTick(); }
     const run = M && M.phase === 'run' && !this.over;
     if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
-      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast('PARACHUTE PACKED - jump off the tower!', 3.5); A.sfx.pickup && A.sfx.pickup(); }
-      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { this.drop = { ph: 'chute', t: 0, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0 }; this.dropping = true; this.dropPose = 2; R.toast && R.toast('PARACHUTE OPEN', 2); }
+      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast('PARACHUTE PACKED - jump off the edge, press JUMP / SPACE to open it. DIVE = Shift, PULL UP = C', 3.5); A.sfx.pickup && A.sfx.pickup(); }
+      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { this.drop = { ph: 'fall', t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0 }; this.dropping = true; this.dropPose = 1; R.toast && R.toast('FALLING - press JUMP / SPACE to open the parachute (it opens by itself near the ground)', 3.5); }
     }
     if (run) {
       this.time -= dt;

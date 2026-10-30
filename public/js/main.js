@@ -425,7 +425,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk; this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk, -0.8, 1.25); this.lookT = 1.6;
+    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); this.lookT = 1.6;
   }
 
   update(dt) {
@@ -2143,7 +2143,7 @@ $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
 // who is on my voice channel: GTA = everybody in the room; JANG team room = the room IS the team (rooms never see each other). If players ever carry a team number, only the same team is connected.
 const voiceMates = () => { const ps = app.room ? app.room.players : [], me = ps.find((p) => p.id === app.myId); return ps.filter((p) => p.id === app.myId || me == null || me.team == null || p.team == null || p.team === me.team); };
 const voiceOn = () => !!(voice && app.room && voiceMates().length > 1);
-function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); return; } const on = voiceOn(); voice.setRoom(app.myId, voiceMates(), on); }
+function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); voiceUI(); return; } const on = voiceOn(); voice.setRoom(app.myId, voiceMates(), on); voiceUI(); }
 function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
 function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn();
@@ -2326,6 +2326,7 @@ window.addEventListener('wheel', (e) => { if (race && race.scoped && !race.menuO
 for (const [id, d] of [['sz-in', 1], ['sz-out', -1]]) { const el = $(id); if (el) el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.zoomScope(d); }); }
 window.addEventListener('mousemove', (e) => { if (race && !race.over && (document.pointerLockElement === canvas || dragging)) race.look(e.movementX, e.movementY); });
 $('click-hint').addEventListener('click', tryLock);
+for (const ev of ['contextmenu', 'selectstart', 'dragstart']) document.addEventListener(ev, (e) => { if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) e.preventDefault(); });   // v237: no copy / look-up / search popup on long press (iPhone)
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') { if (e.code === 'Enter') { if (app.screen === 'profile') $('b-profile-next').click(); else if (app.screen === 'mp') $('b-join').click(); } return; }
   if (race && !race.over) { if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(e.code)) e.preventDefault(); }
@@ -2502,6 +2503,7 @@ async function boot() {
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits
   { const V = A.getVolumes(), sl = (cls, v) => document.querySelectorAll(cls).forEach((e) => { e.value = Math.round(v * 100); });
     sl('.vol-m', V.music); sl('.vol-s', V.sfx);
+    for (const [c, k] of [['.sens-x', 'sx'], ['.sens-y', 'sy']]) document.querySelectorAll(c).forEach((e) => { e.value = Math.round((OPT[k] || (k === 'sx' ? 1 : 0.6)) * 100); e.oninput = () => { OPT[k] = e.value / 100; saveOpts(); document.querySelectorAll(c).forEach((q) => { q.value = e.value; }); }; });   // v237: camera speed (turn / up-down) for every player, laptop and phone
     document.querySelectorAll('.vol-m').forEach((e) => { e.oninput = () => { A.initAudio(); A.setMusicVolume(e.value / 100); sl('.vol-m', e.value / 100); }; });
     document.querySelectorAll('.vol-s').forEach((e) => { e.oninput = () => { A.initAudio(); A.setSfxVolume(e.value / 100); sl('.vol-s', e.value / 100); }; e.onchange = () => A.sfx.shot(0, 0.5); }); }
   // music on the title page: start loading at once; browsers only let sound play after the first tap / key, so unlock on it
@@ -2559,7 +2561,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { get voice() { return voice; }, towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

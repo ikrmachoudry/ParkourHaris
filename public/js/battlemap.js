@@ -4,7 +4,7 @@
 // quality 0 = phones (fewer / shorter things), 1 = middle, 2 = laptops.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { TW, CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, towerWins, CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -261,7 +261,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       else { sh.moveTo(r1 * Math.cos(a0), r1 * Math.sin(a0)); sh.absarc(0, 0, r1, a0, a1, false); sh.lineTo(r0 * Math.cos(a1), r0 * Math.sin(a1)); sh.absarc(0, 0, r0, a1, a0, true); sh.closePath(); }
       const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false, curveSegments: seg }); g.rotateX(-Math.PI / 2); g.translate(X, y0, Z); return g; };
     B.add('wall', sector(S2, O, DOOR, Math.PI * 2 - DOOR, gy - 1, 3.9, 56), wc, 0.04);   // the wall below the door lintel: open at the door
-    B.add('wall', sector(S2, O, 0, Math.PI * 2, gy + 2.9, py + 1.2 - (gy + 2.9), 56), wc, 0.04);   // the lintel and the wall above, all the way round
+    { let cur = gy + 2.9; for (const w of towerWins(gy)) { B.add('wall', sector(S2, O, 0, Math.PI * 2, cur, w.y0 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, w.ph + w.hw, w.ph - w.hw + Math.PI * 2, w.y0, w.y1 - w.y0, 56), wc, 0.04); cur = w.y1; }   // v237: the wall with the shooting windows cut out
+      B.add('wall', sector(S2, O, 0, Math.PI * 2, cur, py + 1.2 - cur, 56), wc, 0.04); }
     B.add('wall', sector(0, K, 0, Math.PI * 2, gy - 1, py - 0.3 - (gy - 1), 28), wc, 0.04);   // the round core
     for (let y = gy + 3.4; y < py; y += 3.4) { const bg = new THREE.CylinderGeometry(O + 0.06, O + 0.06, 0.22, 56, 1, true); bg.translate(X, y + 0.11, Z); B.add('trim', bg, '#8d8d87', 0); }   // bands round the shaft
     { const bg = new THREE.CylinderGeometry(O + 0.08, O + 0.08, 0.15, 56, 1, true); bg.translate(X, py + 0.875, Z); B.add('trim', bg, '#8d8d87', 0); } B.box('trim', X - 1.5, gy + 2.9, Z + O - 0.05, X + 1.5, gy + 3.05, Z + O + 0.05, '#6a6a66', 0);
