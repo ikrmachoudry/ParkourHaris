@@ -19,6 +19,7 @@ import { CopGhosts, copSnapshot } from './copnet.js';
 import { DayNight } from './daynight.js';
 import { Weather } from './weather.js';
 import { OPT, saveOpts } from './opts.js';
+import { Deer } from './deer.js';
 import { Peds } from './peds.js';
 import { REPAIR, HOMES, homeSpawn, homeZone, ARMS, AUTOS, SUMMIT } from './gta.js';
 import { ShopPreview } from './shopprev.js';
@@ -353,6 +354,7 @@ class Race {
     this.sky = makeSky(v); scene.add(this.sky);
     this.water = makeWater(v, world.waterY); scene.add(this.water);
     this.scenery = o.jang ? { update() {}, dispose() {} } : buildScenery(scene, this.meta.key, info, world);
+    if (this.meta.city && !o.jang) this.deer = new Deer(scene, IS_TOUCH);   // deer: Punjabi GTA only
     if (this.meta.city) { this.isTouch = IS_TOUCH; this.mission = new MissionClient(this, (msg) => app.net.send(msg)); this.mission.relock = () => tryLock(); this.peds = new Peds(scene, o.jang ? 0 : IS_TOUCH ? 16 : 28); this.wanted = new Wanted(this); this.peds.onVoice = (k, p) => { const dd = Math.hypot(p.x - this.camera.position.x, p.z - this.camera.position.z); const nw = performance.now(); if (k === 'hurt') { if (dd > 40) return; A.voice.grunt(0.95 * Math.max(0.3, 1 - dd / 40)); } else if (k === 'death') { if (dd > 45) return; A.voice.death(0.8 * Math.max(0.2, 1 - dd / 45)); } else { if (dd > 30 || nw - (this._scrT || 0) < 1400) return; { const cp = this.camera.position, fw = this._fw || (this._fw = new THREE.Vector3()); this.camera.getWorldDirection(fw); const dx = p.x - cp.x, dz = p.z - cp.z, dl = Math.hypot(dx, dz) || 1; if (!(p.actor && p.actor.group.visible) || (dx * fw.x + dz * fw.z) / dl < 0.3) return; }   /* people you cannot see never scream at you */ this._scrT = nw; A.voice.scream(0.8 * Math.max(0.35, 1 - dd / 30)); } }; /* far-away panic never screams at you out of nowhere */ this.initCityEconomy(info, scene); this.peds.blocked = (x, z) => { const S = this.world.solids; for (let i = 0; i < S.length; i++) { const s = S[i]; if (s.y1 > 0.6 && s.y0 < 1.2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3 && s.name !== 'block') return true; } return false; }; this.peds.ground = (x, z) => (this.info.track && this.info.track.terrain ? this.info.track.terrain(x, z) : 0); const mc = $('minimap'); if (mc && typeof mc.getContext === 'function') { this.minimap = new Minimap(mc); } }
     // swimming pools (realistic water + caustics) and the speedway cars
     this.poolMeshes = [];
@@ -542,6 +544,7 @@ class Race {
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
       if (this.bigMapOpen) this.drawBigMap();
       this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
+    if (this.deer && !this.jang) { const bb = this.me.body, th = [{ x: bb.x, z: bb.z, v: 0 }]; for (const c of this.cars) { const q = c.st; if (q && (q.vx || q.vz)) th.push({ x: q.x, z: q.z, v: Math.hypot(q.vx, q.vz) }); } if (this.drive) { const q = this.drive.st; th.push({ x: q.x, z: q.z, v: Math.hypot(q.vx || 0, q.vz || 0) }); } this.deer.update(dt, this.camera.position, th); }   // Punjabi GTA deer
     if (this.peds && !this.jang) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.sfx.thud(Math.min(1, 0.5 + sp * 0.05)); A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
@@ -1981,6 +1984,7 @@ class Race {
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.copGhosts) { this.copGhosts.dispose(); this.copGhosts = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
+    if (this.deer) { this.deer.dispose(); this.deer = null; }
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race', 'jang-mode'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
