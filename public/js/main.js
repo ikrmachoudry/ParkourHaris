@@ -1601,6 +1601,7 @@ class Race {
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
     this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
     wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
+    if (this.jangTeam && this.jangTeam.net) this.jangTeam.net.send({ t: 'jf', x: +ox.toFixed(1), z: +oz.toFixed(1), w: wcls(w) === 'ak' ? 1 : wcls(w) === 'sniper' ? 2 : 0 });   // v241: the others hear my shot
     if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: wcls(w) === 'ak' || wcls(w) === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
   }
@@ -2179,6 +2180,7 @@ async function ensureNet() {
   if (app.net && app.net.connected) return app.net;
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
+  net.on('jf', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMateShot) cs.onMateShot(m); });
   net.on('jt', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMate) cs.onMate(m); });
   net.on('emote', (m) => { stage.emotes = stage.emotes || {}; stage.emotes[m.char | 0] = { g: m.g, until: stage.t + 4 }; });
   net.on('lobby', onLobby);

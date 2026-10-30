@@ -82,7 +82,7 @@ export class CombatScene {
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
-    for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); if (this.R.mateCars) this.R.mateCars.clear();
+    for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; A.setCommentary(OPT.punjabi !== false);
   }
@@ -246,8 +246,21 @@ export class CombatScene {
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
     g.id = m.id; g.c = m.c; g.ph = m.ph; g.vi = m.vi | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
+  onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
+    if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
+    const v = Math.max(0.22, 1 - cd / 170), pn = this.panOf(m.x, m.z); m.w === 1 ? A.sfx.akShot && A.sfx.akShot(pn, v) : m.w === 2 && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v);
+  }
+  mateSounds(dt) {   // v241: footsteps of players on foot (up to 40 m) and the engine of the nearest jeep another player drives (up to 90 m)
+    const c = this.R.camera.position; let best = null, bd = 1e9;
+    for (const [, g] of this.mates) {
+      if (!g.has || !g.m.group.visible) continue; const d = Math.hypot(g.x - c.x, g.z - c.z);
+      if (g.ph === 4 && g.vv > 0.8 && d < 40) { g.stT = (g.stT === undefined ? 0 : g.stT) - dt * (g.vv > 3.5 ? 3.4 : 2.1); if (g.stT <= 0) { g.stT = 1; A.play && A.play('fsc' + (Math.random() * 4 | 0), Math.max(0.06, 0.5 * (1 - d / 40)), 0.9 + Math.random() * 0.2, 0, this.panOf(g.x, g.z), d > 18 ? 2200 : 0); } }
+      if (g.ph === 5 && d < 90 && d < bd) { bd = d; best = g; }
+    }
+    if (best && A.remoteEngine) A.remoteEngine(0.2 * (1 - bd / 90), Math.min(1, (best.sp || 0) / 22), this.panOf(best.x, best.z)); else if (A.remoteEngineStop) A.remoteEngineStop();
+  }
   stepMates(dt) {
-    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt);
+    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt); this.mateSounds(dt);
     const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
     for (const [, g] of this.mates) {
       const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 4000;

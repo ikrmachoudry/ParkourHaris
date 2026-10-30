@@ -286,6 +286,13 @@ export function engineSet(speed01, gas) {
   if (!ctx || !eng) return; const t = ctx.currentTime, k = Math.max(0, Math.min(1, speed01));
   eng.s.playbackRate.setTargetAtTime(0.8 + k * 1.9 + (gas ? 0.2 : 0), t, 0.1); eng.f.frequency.setTargetAtTime(900 + k * 2800 + (gas ? 1500 : 0), t, 0.1); eng.g.gain.setTargetAtTime(0.16 + k * 0.12 + (gas ? 0.08 : 0), t, 0.1);
 }
+// v241: the jeep ANOTHER player drives: one engine loop (the nearest one), louder when close, higher when fast, from the side it is on
+let reng = null;
+export function remoteEngine(vol, speed01, pan) {
+  if (!ctx) return; if (!reng) { const L = loopV('eng_car', 0.0001, 0.8, 1400); if (!L) return; const p = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (p) { L.g.disconnect(); L.g.connect(p); p.connect(sfxG); } reng = { ...L, p }; }
+  const t = ctx.currentTime, k = Math.max(0, Math.min(1, speed01)); reng.s.playbackRate.setTargetAtTime(0.8 + k * 1.7, t, 0.15); reng.f.frequency.setTargetAtTime(700 + k * 1800, t, 0.15); reng.g.gain.setTargetAtTime(Math.max(0.0001, vol) * (0.5 + k * 0.4), t, 0.15); if (reng.p) reng.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.1);
+}
+export function remoteEngineStop() { if (!reng) return; const e = reng; reng = null; stopLoop(e, 0.4); }
 export function engineStop() { if (!eng) return; const e = eng; eng = null; stopLoop(e, 0.3); }
 
 // Spoken Hindi (browser text-to-speech). Each speaker gets their own pitch/speed so thugs sound different. Silent if the device has no speech engine.

@@ -271,6 +271,12 @@ wss.on('connection', (ws, req) => {
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
         bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, tm: m.tm & 1, vi: (m.vi | 0) & 15 }, p.id); break;
       }
+      case 'jf': {   // v241: Jang: somebody fired (position + gun type) so everybody nearby hears it from the right side
+        if (!room || !room.combat || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastJf || 0) < 70) return; p.lastJf = t;
+        if (!num(m.x, -2000, 2000) || !num(m.z, -2000, 2000)) return;
+        bcast(room, { t: 'jf', id: p.id, x: m.x, z: m.z, w: m.w & 3 }, p.id); break;
+      }
       case 'emote': {   // v227: a lobby gesture (wave, salute...) is shown to everybody in the room
         if (!room || room.phase !== 'lobby' || !['wave', 'hi', 'salute', 'cheer'].includes(m.g)) return;
         bcast(room, { t: 'emote', char: p.char | 0, g: m.g }); break;
