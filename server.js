@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
 import { MissionHub } from './public/js/mission.js';
+import { CombatHost } from './combatserver.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -126,6 +127,7 @@ function sendBusy(room, to) {
 const pids = (room, selfId) => [...room.players.values()].filter((q) => q.id === selfId || (q.ws.readyState === 1 && Date.now() - (q.seen || 0) < 6000)).map((q) => q.id);
 
 function endRound(room, reason) {
+  room.chost = null;
   if (room.phase !== 'race' && room.phase !== 'countdown') return;
   room.phase = 'results';
   clearTimers(room);
@@ -149,6 +151,7 @@ function startRound(room) {
   room.busyIds = [];
   room.seed = 1 + Math.floor(Math.random() * 1e9);
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
+  room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }) : null;   // v245: the shared Jang match: the server runs the bots + loot
   bcast(room, {
     t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed,
     order: [...room.players.values()].map((p) => p.id),
@@ -269,6 +272,7 @@ wss.on('connection', (ws, req) => {
         if (!room || !room.combat || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
+        p.jx = m.x; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 1;   // v245: where I am and whether the bots may shoot me
         bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, tm: m.tm & 1, vi: (m.vi | 0) & 15, ps: m.ps & 3 }, p.id); break;
       }
       case 'jr': {   // v244: a teammate revives me (relay only)
@@ -276,6 +280,12 @@ wss.on('connection', (ws, req) => {
         const q = room.players.get(m.to); if (!q || q === p || !q.ws) return;
         const t = Date.now(); if (t - (p.lastJr || 0) < 500) return; p.lastJr = t;
         send(q.ws, { t: 'jr', from: p.id }); break;
+      }
+      case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
+      case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': {
+        if (!room || !room.chost || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastC || 0) < 25) return; p.lastC = t;
+        const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m) })[m.t](); break;
       }
       case 'jf': {   // v241: Jang: somebody fired (position + gun type) so everybody nearby hears it from the right side
         if (!room || !room.combat || room.phase !== 'race') return;
@@ -467,6 +477,15 @@ setInterval(() => {
     if (msg !== h.lastLobbyMsg) { h.lastLobbyMsg = msg; bcast(room, JSON.parse(msg)); }
   }
 }, 2000);
+
+// v245: the shared Jang match: the server moves the bots 20 times a second
+setInterval(() => {
+  for (const room of rooms.values()) {
+    const h = room.chost; if (!h || room.phase !== 'race') continue;
+    const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, x: q.jx, z: q.jz, al: q.jal });
+    try { h.tick(0.05, pl); } catch (e) { console.error('combat tick', e); }
+  }
+}, 50);
 
 // drop dead connections (proxies sometimes leave half-open sockets)
 setInterval(() => {

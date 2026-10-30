@@ -2181,6 +2181,9 @@ async function ensureNet() {
   if (app.net && app.net.connected) return app.net;
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
+  net.on('cinit', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onInit) cs.sim.onInit(m); });
+  net.on('cb', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.applyBots) cs.sim.applyBots(m.b); });
+  net.on('ce', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onEvents) cs.sim.onEvents(m.e); });
   net.on('jr', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onRevive) cs.onRevive(m); });
   net.on('jf', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMateShot) cs.onMateShot(m); });
   net.on('jt', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMate) cs.onMate(m); });
@@ -2299,7 +2302,7 @@ function onGo(m) {
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
     app.level = 0; loadScreen.show('JANG', 'LOADING...');
     const ord = (m.order && m.order.length ? m.order : room.players.map((p) => p.id)), ix = Math.max(0, ord.indexOf(app.myId)), nn = ord.length, half = Math.ceil(nn / 2);   // v235: up to 4 players = one team, one plane; more = two teams, two planes
-    const tm = nn <= 4 ? 0 : (ix < half ? 0 : 1), tmates = ord.filter((id, i) => (nn <= 4 ? 0 : (i < half ? 0 : 1)) === tm), tm0 = { seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf: Object.fromEntries(ord.map((id, i) => [id, nn <= 4 ? 0 : (i < half ? 0 : 1)])), seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])) };
+    const tm = nn <= 4 ? 0 : (ix < half ? 0 : 1), tmates = ord.filter((id, i) => (nn <= 4 ? 0 : (i < half ? 0 : 1)) === tm), tm0 = { shared: nn >= 2, seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf: Object.fromEntries(ord.map((id, i) => [id, nn <= 4 ? 0 : (i < half ? 0 : 1)])), seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])) };
     requestAnimationFrame(() => setTimeout(() => { startJang(tm0); }, 40));
     return;
   }

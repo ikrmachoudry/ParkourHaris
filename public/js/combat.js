@@ -431,29 +431,30 @@ export class CombatSim {
   addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
   smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
   // a bullet from (ox,oz) along (fx,fz): the nearest bot it reaches before a wall.  returns the distance or -1
-  shoot(ox, oz, fx, fz, range, dmg, yAbs) {
+  shoot(ox, oz, fx, fz, range, dmg, yAbs, by) {
     const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yAbs); let best = null, bd = Math.min(range, wall);
     for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > 0.65) continue; best = b; bd = a; }
-    if (best) this.hurt(best, dmg * 34, ox, oz); return best ? bd : (wall < range ? wall : -1);
+    if (best) this.hurt(best, dmg * 34, ox, oz, by); return best ? bd : (wall < range ? wall : -1);
   }
-  melee(x, z, fx, fz, reach, dmg) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg, x, z); n++; } return n; }
-  blast(x, z, r, dmg) { for (const b of this.bots) { if (!b.alive) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, dmg * Math.max(0.35, 1.1 - 0.65 * d / r) * 28, x, z); } }
-  hurt(b, d, fromX, fromZ) {
-    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon }); }
+  melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg, x, z, by); n++; } return n; }
+  blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, dmg * Math.max(0.35, 1.1 - 0.65 * d / r) * 28, x, z, by); } }
+  hurt(b, d, fromX, fromZ, by) {
+    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by }); }
     else this.events.push({ k: 'bothit', id: b.id, x: b.x, z: b.z });
   }
   // move a circle through the walls (slides along them)
   step(o, dx, dz, r = 0.45) {
     const L = this.L; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r)) o.z = nz;
   }
-  tick(dt, P) {   // P = { x, z, hp, alive } of the player (map-local)
-    this.t += dt; const L = this.L;
+  tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
+    this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
     if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
-    if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
+    if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {
-      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const p = this.spawnPoint(P), w = b.weapon; Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
+      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const p = this.spawnPoint(P0), w = b.weapon; Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
+      let P = P0; if (PL.length > 1) { let bd = 1e18; for (const q of PL) { const dd = (q.x - b.x) ** 2 + (q.z - b.z) ** 2 + (q.alive ? 0 : 1e6); if (dd < bd) { bd = dd; P = q; } } }   // v245: the nearest living player
       const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz) || 1;
       let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && los(L, b.x, b.z, P.x, P.z) && !this.smoked(b.x, b.z, P.x, P.z);
       if (sees && b.alert <= 0) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da > 1.9 && d > 10) sees = false; }
@@ -463,7 +464,7 @@ export class CombatSim {
         const want = Math.atan2(dx, dz); let da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 7);
         b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = 1 + this.R() * 1.6; b.strafe = this.R() < 0.5 ? -1 : 1; }
         const ux = dx / d, uz = dz / d; let f = d > 26 ? 1 : d < 12 ? -0.7 : 0.15; mx = ux * f - uz * b.strafe * 0.8; mz = uz * f + ux * b.strafe * 0.8; sp = 3.3; b.walk = false;
-        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
+        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {
