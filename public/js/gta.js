@@ -264,8 +264,13 @@ export function gtaBuildings() {
     if (b.zone === 0 || b.h < 9 || b.h > 24) continue; const bx = nearB(b.x), sx = Math.sign(b.x - bx) || 1, face = b.x + sx * b.w / 2, slack = 23.5 - sx * (face - bx); if (slack < 4.8) continue;
     if (k++ % 3 !== 0) continue; b.climb = sx; b.col = BRICK[Math.floor(k / 3) % BRICK.length];
   }
-  return res;
+  // BURJ HARIS: a Burj-Khalifa-style supertower on the downtown block (-30,-30), the one nearest to the middle of the map (the exact middle is the avenue crossing).
+  // Stacked glass tiers that step in as they climb (each tier gets its own roof ledge); gtaworld.js adds the spire on the top tier (b.burj).
+  const keep = res.filter((b) => !(Math.abs(b.x + 30) < 24 && Math.abs(b.z + 30) < 24));
+  BURJ.tiers.forEach(([w, h], i) => keep.push({ x: BURJ.x, z: BURJ.z, w, d: w, h, col: i % 2 ? '#8fc0e8' : '#7fb2de', zone: 0, burj: i === BURJ.tiers.length - 1 }));
+  return keep;
 }
+export const BURJ = { x: -30, z: -30, tiers: [[38, 70], [31, 130], [25, 190], [19, 250], [13, 305], [8, 345]], spire: 95 };   // [width = depth, top height] - 345 m of glass + a 95 m spire (the old tallest tower is 118 m)
 // the fire-escape of a climbable building (b.climb = +1 east face / -1 west face): flights run along z (ramps), landings are slabs; a switchback up to the roof (top = b.h + 0.5, the roof slab)
 export function stairPlan(b) {
   if (!b.climb) return null; const sx = b.climb, wall = b.x + sx * b.w / 2, H = b.h + 0.5, n = Math.ceil(H / 3.2), r = H / n, LF = 6, LD = 1.6, zlo = b.z - LF / 2;

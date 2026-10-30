@@ -7,7 +7,7 @@ import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import { buildPort } from './portworld.js';
 import { layout as cmbLayout, CMB, cmbInside, cmbH } from './combat.js';
-import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear, stairPlan } from './gta.js';
+import { GT, gtaH, gtaBase, RAMPS, PARK, gtaRoads, gtaBuildings, BURJ, gtaCars, mtRoad, mtC, PARKS, TRAFFIC, trafficPos, BLK, REPAIR, HOMES, homeW, LOBBY, STUNT, BANK, POLICE, ARMS, AUTOS, SUMMIT, SNIPE, SNIPE_START, SNIPE_ACCESS, snipeClear, stairPlan } from './gta.js';
 
 const col = new THREE.Color();
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -335,6 +335,9 @@ export function buildGta(world, th, info, seed) {
       if (gz0 > b.z - hd) wm.add(Bx(t, 1.25, gz0 - (b.z - hd)), nearX, H + 0.625, (gz0 + b.z - hd) / 2, pc); if (gz1 < b.z + hd) wm.add(Bx(t, 1.25, b.z + hd - gz1), nearX, H + 0.625, (gz1 + b.z + hd) / 2, pc);
       wm.add(Bx(0.08, 0.5, 2.6), P.wall + P.sx * 0.05, 3.2, P.zlo + P.LF / 2 - 2.9, '#e8b020');   // a "FIRE ESCAPE" style yellow sign plate on the wall near the foot
     }
+    if (b.burj) {   // the spire: a thin tapering mast with a gold collar, and a red aviation light on the very top
+      wm.add(new THREE.CylinderGeometry(0.18, 1.3, BURJ.spire, 10), b.x, b.h + BURJ.spire / 2, b.z, '#d9dee5'); wm.add(new THREE.CylinderGeometry(1.45, 1.45, 1.2, 12), b.x, b.h + 1.0, b.z, '#d4af37');
+      world.glow.add(new THREE.SphereGeometry(0.8, 8, 6), b.x, b.h + BURJ.spire + 0.4, b.z, '#ff3b3b'); }
     if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
   }
   // ---- AUTO REPAIR: workshop with roller doors, a canopy over the repair bay, tyres and drums
