@@ -31,7 +31,7 @@ export class NetSim extends CombatSim {
   }
   hurt(b, d) { if (!b.alive) return; b.flash = 0.15; }   // only a hit marker here: hp and kills come from the server
   take(px, pz, can) {
-    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.5 * 1.5) { if (can && !can(it)) continue; it.alive = false; if (it.id > 0) this.net.send({ t: 'ctake', id: it.id }); return it; } }
+    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (can && !can(it)) continue; it.alive = false; if (it.id > 0) this.net.send({ t: 'ctake', id: it.id }); return it; } }
     return null;
   }
   dropLoot(k, x, z) {

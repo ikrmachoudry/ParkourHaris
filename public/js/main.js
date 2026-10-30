@@ -562,7 +562,7 @@ class Race {
     let landed = false;
     for (const e of b.events) {
       if (e === 'jump') { this.particles.emit(b.x, b.y + 0.05, b.z, 5, { color: '#ffffff', speed: 1.5, up: 1, life: 0.35, size: 0.25, gravity: 2 }); }
-      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
+      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; { const cs = this.jang && this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && b.landSpeed > 11 && cs.hp > 0 && cs.deadT <= 0) { cs.hurt(Math.min(60, (b.landSpeed - 10) * 5)); this.toast && this.toast('HARD LANDING', 1.5); } } /* v247: a fall from a roof hurts (PUBG): about 20 from 7 m */ this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
       else if (e === 'bounce') { A.sfx.bounce(); landed = true; this.particles.emit(b.x, b.y + 0.1, b.z, 18, { rainbow: true, speed: 3, up: 2, life: 0.6, size: 0.3 }); }
       else if (e === 'dive') A.sfx.dive();
       else if (e === 'splash') {
@@ -1199,7 +1199,7 @@ class Race {
     this.setupShopUI(); this.moneyPop(0); this.updateAmmoHud();
     for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 1), new THREE.MeshBasicMaterial({ color: '#ffe9a0', transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false })); m.visible = false; scene.add(m); this.tracers.push({ m, t: 0 }); }
   }
-  earn(n, why) { if (this.wallet && n) this.wallet.add(n, why); }
+  earn(n, why) { if (this.jang) return; if (this.wallet && n) this.wallet.add(n, why); }   // v247: no money in Jang
   moneyPop(n) {
     const el = this.moneyEl; if (!el) return; const b = el.querySelector('b'), i = el.querySelector('i');
     b.textContent = fmtMoney(this.wallet.money);
@@ -1868,7 +1868,7 @@ class Race {
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
       const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   // phones: chase camera a bit closer
-      if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
+      if (this.lookT <= 0 || this.paxMode) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); /* v247: a passenger's camera always follows the driver's heading until he gets out */ this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
     this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
@@ -2408,7 +2408,7 @@ let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') 
 const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); } else { el.style.translate = ''; el.style.scale = ''; } } };
 const laySave = () => { try { localStorage.setItem('ph_layout', JSON.stringify(LAY)); } catch (e) { /* ignore */ } };
 window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply);
-{ let sel = null, drag = null; const bar = () => $('lay-bar'), on = () => document.body.classList.contains('btn-edit');
+{ let sel = null, drag = null; const bar = () => $('lay-bar'), on = () => document.body.classList.contains('btn-edit'); document.body.appendChild($('lay-bar'));   // v247: the DONE bar sat under the game canvas (it was inside a lower layer) so it could not be clicked: it now lives directly in the page
   const pick = (t) => { const el = t && t.closest ? t.closest(LAY_IDS.map((i) => '#' + i).join(',')) : null; return el; };
   const mark = (el) => { document.querySelectorAll('.lay-sel').forEach((x) => x.classList.remove('lay-sel')); sel = el; if (el) el.classList.add('lay-sel'); };
   for (const ev of ['touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) window.addEventListener(ev, (e) => { if (on() && pick(e.target)) { e.stopPropagation(); e.stopImmediatePropagation && e.stopImmediatePropagation(); e.preventDefault(); } }, { capture: true, passive: false });
@@ -2416,11 +2416,13 @@ window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply
   window.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id) return; e.preventDefault(); const v = LAY[drag.el.id] = LAY[drag.el.id] || { x: 0, y: 0, s: 1 }; v.x = drag.x0 + (e.clientX - drag.sx) / innerWidth; v.y = drag.y0 + (e.clientY - drag.sy) / innerHeight; layApply(); }, { capture: true, passive: false });
   const end = (e) => { if (drag && e.pointerId === drag.id) { drag = null; laySave(); } }; window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', end, true);
   const size = (d) => { if (!sel) { gtoast('Tap a button first'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.s = Math.max(0.6, Math.min(1.7, (v.s || 1) + d)); layApply(); laySave(); };
-  $('lay-m').onclick = () => size(-0.1); $('lay-p').onclick = () => size(0.1);
-  $('lay-r').onclick = () => { LAY = {}; laySave(); layApply(); mark(null); };
+  const hit = (el, fn) => { let t0 = 0; const run = (e) => { e.preventDefault(); e.stopPropagation(); const n = performance.now(); if (n - t0 < 350) return; t0 = n; fn(); }; el.addEventListener('pointerdown', run); el.addEventListener('click', run); el.addEventListener('touchend', run, { passive: false }); };   // v247: answers on the press itself (the game's look / joystick handlers swallowed the later click)
+  hit($('lay-m'), () => size(-0.1)); hit($('lay-p'), () => size(0.1));
+  hit($('lay-r'), () => { LAY = {}; laySave(); layApply(); mark(null); });
   const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; $('pset').classList.remove('hidden'); };
-  $('lay-d').onclick = stop;
-  $('pset-lay').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); $('pset').classList.add('hidden'); document.body.classList.add('btn-edit'); bar().classList.remove('hidden'); };
+  hit($('lay-d'), stop);
+  $('pset-lay').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('pset').classList.add('hidden'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
+   bar().classList.remove('hidden'); };
 }
 $('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };

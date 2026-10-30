@@ -170,7 +170,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
     else if (b.roof === 'lowgable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.12 + 0.6, along, b.c === '#b5a48c' ? '#7a6a58' : '#6e7a84', 0.3);
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05); }
-    else { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
+    else if (b.kind !== 'clinic') { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;
       const zf = b.z + hz, bx = b.x, capY = fy + tri + 0.85;
@@ -198,9 +198,9 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       B.box('trim', bx - hx - 0.34, capY, b.z - hz - 0.34, bx + hx + 0.34, capY + 0.1, b.z + hz + 0.34, tan, 0);
       { const sp = new THREE.OctahedronGeometry(0.2); sp.scale(0.5, 2.1, 0.5); const geos = []; const posts = [];
         for (const [x0, z0, x1, z1, al] of [[-hx, -hz, hx, -hz, 1], [-hx, hz, hx, hz, 1], [-hx, -hz, -hx, hz, 0], [hx, -hz, hx, hz, 0]]) {
-          const len = al ? x1 - x0 : z1 - z0; for (let u = 0.3; u < len; u += 0.5) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; const g = sp.clone(); g.translate(px, capY + 0.1 + 0.42, pz); geos.push(g); }
-          for (let u = 0; u <= len + 0.01; u += 2.4) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; B.box('trim', px - 0.11, capY + 0.1, pz - 0.11, px + 0.11, capY + 0.86, pz + 0.11, cream, 0); }
-          if (al) B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x1 + 0.1, capY + 0.96, b.z + z0 + 0.1, cream, 0); else B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); }
+          const len = al ? x1 - x0 : z1 - z0, gap = (pz0) => !al && x0 > 0 && Math.abs(pz0 - b.z) < 2.3; for (let u = 0.3; u < len; u += 0.5) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; if (gap(pz)) continue; const g = sp.clone(); g.translate(px, capY + 0.1 + 0.42, pz); geos.push(g); }
+          for (let u = 0; u <= len + 0.01; u += 2.4) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; if (gap(pz) && Math.abs(pz - b.z) < 2.0) continue; B.box('trim', px - 0.11, capY + 0.1, pz - 0.11, px + 0.11, capY + 0.86, pz + 0.11, cream, 0); }
+          if (al) B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x1 + 0.1, capY + 0.96, b.z + z0 + 0.1, cream, 0); else if (x0 > 0) { B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z - 2.2, cream, 0); B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + 2.2, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); } else B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); }
         if (geos.length) B.add('trim', mergeGeometries(geos), cream, 0); }
       // the tall arched tower bay over the door: the white sign board, a ledge, and the niche with two tall blue windows
       { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.6, bzf = zO + 0.2, yb = fy + 3.7;
@@ -222,8 +222,9 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
       const tx = b.x + 10, tz = b.z - 5; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
       B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);
-      for (const [px, pz] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) B.box('metal', tx + px - 0.07, roofY, tz + pz - 0.07, tx + px + 0.07, roofY + 2.6, tz + pz + 0.07, '#8d8d90', 0);
-      roofTri(tx - 1.6, tz - 1.6, tx + 1.6, tz + 1.6, roofY + 2.6, 1.0, true, '#8c5a3a', 0.35);
+      // v247: no second roof over the tank any more; the stair hole gets a bright yellow rim (you can see where the stairs go down) and the jump-down gap in the east railing a yellow edge line
+      if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0); }
+      B.box('trim', b.x + hx - 0.5, roofY + 0.02, b.z - 2.2, b.x + hx - 0.36, roofY + 0.06, b.z + 2.2, '#ffd23f', 0);
     }
     if (b.kind === 'house' || b.kind === 'cabin') B.box('conc', b.x + (along ? hx * 0.4 : 0), fy + tri + 0.3, b.z + (along ? 0 : hz * 0.4) + 0.5, b.x + (along ? hx * 0.4 : 0) + 0.7, fy + tri + 2.3 + Math.min(b.w, b.d) * 0.2, b.z + (along ? 0 : hz * 0.4) + 1.2, '#8a5a48', 0.05);   // a chimney
     if (b.kind === 'church') { const sx = b.x, sz = b.z + (b.front === 'S' ? hz - 2.4 : -hz + 2.4); B.box('wall', sx - 2.4, fy + tri, sz - 2.4, sx + 2.4, fy + tri + 7, sz + 2.4, b.c, 0.02); roofTri(sx - 2.4, sz - 2.4, sx + 2.4, sz + 2.4, fy + tri + 7, 4, true, '#5d5f66', 0.3); B.box('trim', sx - 0.1, fy + tri + 11, sz - 0.1, sx + 0.1, fy + tri + 13, sz + 0.1, '#ddd', 0); B.box('trim', sx - 0.6, fy + tri + 12.2, sz - 0.07, sx + 0.6, fy + tri + 12.4, sz + 0.07, '#ddd', 0); }

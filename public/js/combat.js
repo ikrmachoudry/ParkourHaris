@@ -111,7 +111,8 @@ function buildSolids(o) {
     for (let i = 0; i < n; i++) { const xa = st.x0 + i * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, rise - 0.1, rise + (i + 1) * step, 'step'); }
     const h0 = st.x0, h1 = st.x0 + (n - 1) * tread, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
     wall(X0, Z0, X1, st.z0, top, top + SL, 'roof'); wall(X0, st.z0 + sw, X1, Z1, top, top + SL, 'roof'); wall(X0, st.z0, h0, st.z0 + sw, top, top + SL, 'roof'); wall(h1, st.z0, X1, st.z0 + sw, top, top + SL, 'roof');
-    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');
+    o.roofHole = { x0: h0, x1: h1, z0: st.z0, z1: st.z0 + sw };
+    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');   // v247: a 4.4 m gap in the east parapet = jump down from the roof (PUBG: roofs have edges you can drop over)
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
   } else
     wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
@@ -420,7 +421,7 @@ export class CombatSim {
   }
   // the player walks over loot: returns the item (and removes it; a new one appears somewhere else after LOOT_RESPAWN seconds)
   take(px, pz, can) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
-    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.5 * 1.5) { if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
+    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
     return null;
   }
   // the nearest item within reach that take() refused (for the "E - swap" prompt)

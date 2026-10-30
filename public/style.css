@@ -729,6 +729,7 @@ body.touch #c-jump { display: none !important; }
 #c-inv .iv-hint { margin-top: 8px; font-size: 11px; opacity: .55; text-align: center; }
 @media (max-width: 700px) { #c-inv .iv-cols { flex-direction: column; } #c-inv .iv-hint { display: none; } }
 @media (max-height: 460px) { #c-inv .iv-row { padding: 5px 8px; } #c-inv .iv-row > i { font-size: 20px; } #c-inv .iv-box { padding: 8px 10px; } #c-bag { top: 140px; width: 50px; height: 50px; font-size: 24px; } }
+body.jang-mode #hud-money, body.jang-mode #money { display: none !important; }
 #c-rev { position: fixed; left: 50%; bottom: 30%; transform: translateX(-50%); z-index: 46; display: none; padding: 12px 20px; border-radius: 12px; border: 2px solid #4ade80; background: rgba(10,60,30,.85); color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
 body.helpjang #c-rev { visibility: hidden !important; }
 #c-pick { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); z-index: 46; display: none; padding: 12px 20px; border-radius: 12px; border: 2px solid #fff; background: rgba(24,28,34,.8); color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
@@ -1219,7 +1220,7 @@ body.vc-on.in-lobby #vc::before { content: 'TEAM VOICE - tap the mic, press T'; 
 
 /* v236 button layout editor: drag + size, locked again when you press DONE */
 body:not(.touch) #pset-lay { display: none; }
-#lay-bar { position: fixed; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 400; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 14px; background: rgba(8,12,40,.88); color: #fff; font: 800 11px system-ui, sans-serif; max-width: 96vw; }
+#lay-bar { pointer-events: auto; z-index: 5000 !important; position: fixed; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 400; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 14px; background: rgba(8,12,40,.88); color: #fff; font: 800 11px system-ui, sans-serif; max-width: 96vw; }
 #lay-bar.hidden { display: none; }
 #lay-bar button { border: 0; border-radius: 10px; padding: 9px 12px; font: 800 12px system-ui, sans-serif; background: #3b82f6; color: #fff; margin-left: 4px; }
 #lay-bar #lay-d { background: #16a34a; }

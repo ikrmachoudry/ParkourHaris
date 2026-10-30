@@ -417,6 +417,7 @@ export class CombatScene {
   // E: swap the gun in your hands (or the first one) for the gun on the ground in front of you
   promptTick(P) {
     const it = this.sim.near(P.x, P.z); this.promptIt = it && isGunK(it.k) && !this.canTake(it) ? it : null;
+    if (it && !isGunK(it.k) && !this.canTake(it)) { const nw = performance.now(); if (nw - (this._noT || 0) > 1800) { this._noT = nw; const nm = LOOT_NAME[it.k] || it.k.toUpperCase(); this.R.toast && this.R.toast(it.k === 'ammo' ? 'AMMO BOX - you need a gun first' : it.k === 'bat' ? 'You already have a BASEBALL BAT' : nm + ' - BACKPACK FULL (' + this.count(it.k) + '/' + (CAP[it.k] || 4) + ')', 1.8); } }   // v247: always say WHY an item cannot be taken
     if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
     const on = !!this.promptIt && !this.inv.isOpen(); if (on) { const t = 'F  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k]; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
   }
@@ -440,9 +441,9 @@ export class CombatScene {
     const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = it.am ? it.am.res : S.ammoPack; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
     if (isGunK(k)) gun(k);
     else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
-    else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('GRENADE  x' + cb.nades + '  (BACKPACK)'); }
-    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO FOR ALL YOUR GUNS' : 'AMMO - FIND A GUN FIRST'); }
-    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; A_(LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
+    else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('PICKED UP GRENADE  x' + cb.nades + '  (BACKPACK)'); }
+    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO BOX  -  ammo for ' + Object.keys(cb.owned).filter((w) => WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]).map((w) => LOOT_NAME[w] || w.toUpperCase()).join(', ') : 'AMMO BOX - FIND A GUN FIRST'); }
+    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud(); if (this.inv) this.inv.render();
   }
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
