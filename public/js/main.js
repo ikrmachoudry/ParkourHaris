@@ -2181,6 +2181,10 @@ async function ensureNet() {
   net.on('end', (m) => { if (race && race.multi) race.onEnd(m); });
   for (const t of ['m_lobby', 'm_go', 'm_run', 'm_st', 'm_end', 'm_idle', 'm_th', 'm_sn', 'm_zb', 'm_ev']) net.on(t, (m) => { if (race && race.multi && race.mission) race.mission.onMsg(m); });
   net.on('left', (m) => { if (race && race.multi) race.removeRemote(m.id); });
+  // v224: the phone screen must not switch itself off while playing (a locked iPhone freezes the page and drops the connection): Screen Wake Lock, taken again after every return to the tab
+  { let wake = null; const take = async () => { try { if (navigator.wakeLock && race && !wake && !document.hidden) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch { wake = null; } };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) take(); });
+    setInterval(() => { if (race) take(); else if (wake) { try { wake.release(); } catch { /* noop */ } wake = null; } }, 3000); }
   net.on('close', () => { voiceStop(); gtoast('Disconnected from server'); if (race) { race.destroy(); race = null; } app.room = null; exitLock(); stage.setTitle(); show('title'); });
   await net.connect();
   app.net = net; voice = new Voice(net); voice.onChange = voiceUI;
