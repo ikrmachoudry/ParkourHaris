@@ -265,6 +265,12 @@ wss.on('connection', (ws, req) => {
         p.zom = !!m.zom; bcast(room, lobbyMsg(room));
         break;
       }
+      case 'jt': {   // v235: Jang team: where my teammates are during the plane ride, the jump, the fall and the walk (10 per second, tiny)
+        if (!room || !room.combat || (room.phase !== 'race' && room.phase !== 'countdown')) return;
+        const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
+        if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
+        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, tm: m.tm & 1 }, p.id); break;
+      }
       case 'emote': {   // v227: a lobby gesture (wave, salute...) is shown to everybody in the room
         if (!room || room.phase !== 'lobby' || !['wave', 'hi', 'salute', 'cheer'].includes(m.g)) return;
         bcast(room, { t: 'emote', char: p.char | 0, g: m.g }); break;

@@ -34,7 +34,7 @@ const SM = (c, r) => { const id = 'S' + c + (r || ''); let m = _SH.get(id); if (
 const RM = (c, o) => { const id = 'R' + c + o; let m = _SH.get(id); if (!m) { m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false }); _SH.set(id, m); } return m; };
 export class CombatScene {
   constructor(race) {
-    this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
+    this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.mates = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
     this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
     this.tmpV = new THREE.Vector3(); this.using = null; this.boostT = 0; this.promptIt = null; this.inv = new Inventory(this);
   }
@@ -82,6 +82,7 @@ export class CombatScene {
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
+    for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; A.setCommentary(OPT.punjabi !== false);
   }
@@ -124,7 +125,8 @@ export class CombatScene {
     });
   }
   startDrop() {
-    const R = this.R, b = R.me.body, a = Math.random() * Math.PI * 2, hd = [Math.sin(a), Math.cos(a)], off = (Math.random() - 0.5) * 240, L = 760;
+    const R = this.R, b = R.me.body, T = R.jangTeam, rr = (k) => { const x = Math.sin((T ? T.seed : 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };   // team match: the whole room shares one flight line, the second team gets its own plane flying the other way
+    const a0 = T ? rr(1) * Math.PI * 2 : Math.random() * Math.PI * 2, a = T && T.tm ? a0 + Math.PI : a0, hd = [Math.sin(a), Math.cos(a)], off0 = T ? (rr(2) - 0.5) * 240 : (Math.random() - 0.5) * 240, off = T && T.tm ? -off0 * 0.6 + 40 : off0, L = 760;
     const cx = CMB.x - hd[1] * off, cz = CMB.z + hd[0] * off;   // a straight line across the island, a little off centre
     this.drop = { ph: 'plane', t: 0, hd, a, sx: cx - hd[0] * L / 2, sz: cz - hd[1] * L / 2, L, v: 34, alt: 230, vx: 0, vz: 0, hint: 0, ch: 0 };
     this.dropping = true; this.dropPose = 0;
@@ -148,7 +150,7 @@ export class CombatScene {
         d.lu = Math.max(-6.9, Math.min(5.4, d.lu + du)); d.lv = Math.max(-1.0, Math.min(1.0, d.lv + dv));
         this.plane.updateMatrixWorld(true); const v = w.localToWorld(new THREE.Vector3(d.lv, -0.49, d.lu)); b.x = v.x; b.y = v.y; b.z = v.z; b.grounded = true; this.dropPose = 0;
         b.vx = ml > 0.1 ? inp.mx * spd : 0; b.vz = ml > 0.1 ? inp.mz * spd : 0; if (ml > 0.1) b.yaw = Math.atan2(inp.mx, inp.mz);
-      } else if (sd) { b.grounded = false; this.dropPose = 3; this.plane.updateMatrixWorld(true); const v = sd.getWorldPosition(new THREE.Vector3()); b.x = v.x; b.y = v.y - 0.3; b.z = v.z; b.yaw = d.a + Math.PI / 2; b.vx = b.vz = 0; }   // sitting on the left bench, facing the aisle
+      } else if (sd) { b.grounded = false; this.dropPose = 3; this.plane.updateMatrixWorld(true); const v = sd.getWorldPosition(new THREE.Vector3()), so = ((this.R.jangTeam ? this.R.jangTeam.si : 0) - 1.5) * 0.6; b.x = v.x + d.hd[0] * so; b.y = v.y - 0.3; b.z = v.z + d.hd[1] * so; b.yaw = d.a + Math.PI / 2; b.vx = b.vz = 0; }   // sitting on the left bench, facing the aisle
       const DOOR_T = 6, open = d.t >= DOOR_T; if (w && w.userData.door) w.userData.door.visible = !open;   // v182: the back door opens by itself after 6 s - nobody can dive before that
       { if (!this.doorEl) { const e = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;top:max(44px,7vh);transform:translateX(-50%);z-index:31;pointer-events:none;font:800 14px/1.2 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.45);border-radius:10px;padding:5px 12px;text-shadow:0 1px 2px #000;white-space:nowrap'; document.body.appendChild(e); this.doorEl = e; }
         const t = open ? (d.stand ? 'DOOR OPEN  -  GO TO THE BACK AND DIVE' : 'DOOR OPEN  -  WALK TO THE BACK DOOR, THEN DIVE') : 'DOOR OPENS IN ' + Math.ceil(DOOR_T - d.t); if (this.doorEl.textContent !== t) this.doorEl.textContent = t; this.doorEl.style.display = 'block'; }
@@ -186,8 +188,8 @@ export class CombatScene {
     const sh = on ? 'flex' : 'none'; if (this.diveBtn.style.display !== sh) { this.diveBtn.style.display = this.upBtn.style.display = sh; if (!on) this.diveHold.dive = this.diveHold.up = false; }
     if (on && !this.diveHint) { this.diveHint = true; this.R.toast && this.R.toast('DIVE (Shift) = faster down  -  PULL UP (C) = slow down and glide', 4.5); }
   }
-  chuteVis(on, b, dt) {
-    if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#1c201c', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
+  mkChute() {
+    const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#1c201c', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
       for (let q = 0; q < 4; q++) { const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, q * Math.PI / 2, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#46523a', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st); }   // olive panels on the black canopy
       const lm = new THREE.MeshBasicMaterial({ color: '#e8e4d6' }), hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }), V = THREE.Vector3;
       const seg = (p, q, r, mat) => { const d = q.clone().sub(p), l = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 5), mat); m.position.copy(p).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); return m; };
@@ -195,7 +197,10 @@ export class CombatScene {
       for (const sx of [-1, 1]) { g.add(seg(new V(sx * 0.24, 1.62, 0), new V(sx * 0.2, 1.05, 0.05), 0.035, hm)); const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); sb.rotation.z = sx * 0.06; g.add(sb); const lg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), hm); lg.position.set(sx * 0.16, 0.62, 0.02); g.add(lg); }
       const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.32), hm); belt.position.set(0, 0.98, 0); g.add(belt); const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.31), hm); chest.position.set(0, 1.46, 0); g.add(chest);
       const pack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: '#3f5d34', roughness: 0.9 })); pack.position.set(0, 1.25, -0.28); g.add(pack);   // the empty pack on the back
-      this.chute = g; this.group.add(g); }
+      return g;
+  }
+  chuteVis(on, b, dt) {
+    if (!this.chute) { this.chute = this.mkChute(); this.group.add(this.chute); }
     const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
   endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
@@ -226,8 +231,35 @@ export class CombatScene {
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dx, dy, dz) || 1; q.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); q.scale.set(1, 1, l); q.lookAt(x1, y1, z1); q.visible = true; q.userData.t = 0.07;
   }
   // ---------------------------------------------------------------- per frame
+  // ---------------------------------------------------------------- v235 team: my teammates (ghost soldiers) in the plane, in the air and on the ground
+  sendMate(dt) {
+    const T = this.R.jangTeam; if (!T || !T.net) return; this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
+    const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
+    if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +b.yaw.toFixed(2), sp: +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), tm: T.tm });
+  }
+  onMate(m) {
+    const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
+    if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
+    g.ph = m.ph; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+  }
+  stepMates(dt) {
+    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt);
+    const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
+    for (const [, g] of this.mates) {
+      const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 4000;
+      if (inP) { if (g.tm !== T.tm || !w || !this.drop) show = false; else { this.plane.updateMatrixWorld(true); const sd = w.userData.seat;
+        if (g.ph === 1 && sd) { const v = sd.getWorldPosition(new THREE.Vector3()), si = T.seatOf[g.id] != null ? T.seatOf[g.id] : 0; x = v.x + this.drop.hd[0] * (si - 1.5) * 0.6; y = v.y - 0.3; z = v.z + this.drop.hd[1] * (si - 1.5) * 0.6; }
+        else { const v = w.localToWorld(new THREE.Vector3(g.tx, -0.49, g.tz)); x = v.x; y = v.y; z = v.z; } } }
+      g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
+      if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
+      g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
+      g.m.update(dt, { speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, seated: g.ph === 1, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.r; }
+    }
+  }
   update(dt) {
-    const R = this.R; if (!this.on || !this.sim) return; this.t += dt; const sim = this.sim, b = R.me.body, M = R.mission;
+    const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));

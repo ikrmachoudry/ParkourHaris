@@ -2080,7 +2080,7 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang() { preloadAssets('jang'); startSingle(0, true); if (race && race.mission) { race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+function startJang(team) { preloadAssets('jang'); startSingle(0, true); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
@@ -2174,6 +2174,7 @@ async function ensureNet() {
   if (app.net && app.net.connected) return app.net;
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
+  net.on('jt', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMate) cs.onMate(m); });
   net.on('emote', (m) => { stage.emotes = stage.emotes || {}; stage.emotes[m.char | 0] = { g: m.g, until: stage.t + 4 }; });
   net.on('lobby', onLobby);
   net.on('vc', (m) => { if (voice) voice.onSignal(m); });
@@ -2288,7 +2289,9 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
     app.level = 0; loadScreen.show('JANG', 'LOADING...');
-    requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40));
+    const ord = (m.order && m.order.length ? m.order : room.players.map((p) => p.id)), ix = Math.max(0, ord.indexOf(app.myId)), nn = ord.length, half = Math.ceil(nn / 2);   // v235: up to 4 players = one team, one plane; more = two teams, two planes
+    const tm = nn <= 4 ? 0 : (ix < half ? 0 : 1), tmates = ord.filter((id, i) => (nn <= 4 ? 0 : (i < half ? 0 : 1)) === tm), tm0 = { seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf: Object.fromEntries(ord.map((id, i) => [id, nn <= 4 ? 0 : (i < half ? 0 : 1)])), seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])) };
+    requestAnimationFrame(() => setTimeout(() => { startJang(tm0); }, 40));
     return;
   }
   const players = m.order.map((id) => room.players.find((p) => p.id === id)).filter(Boolean);
