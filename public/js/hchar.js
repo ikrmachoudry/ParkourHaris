@@ -307,6 +307,7 @@ export function buildHeroChar(opts = {}) {
 
 // ---------------------------------------------------------------- procedural animation
 const R = (b, x = 0, y = 0, z = 0) => b.rotation.set(x, y, z);
+const PALM = 1.5708;   // v230: raised hands (wave, hi, salute, cheer) turn 90 degrees so the palm faces the face / head, not the shoulder
 // plays a baked mocap clip: walk/run loop (t = the same gait phase the procedural walk uses), jump (t = vertical speed / 7), punch/kick (t = progress 0..1)
 const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
 function mocapPose(ch, name, t) {
@@ -417,22 +418,22 @@ export function poseChar(ch, name, t = 0, k = 1) {
   } else if (name === 'wave') {   // friendly wave
     const w = Math.sin(t * 6) * 0.35, br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.1, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
-    R(b['upperarm.R'], -0.1, 0, -1.0); R(b['forearm.R'], 0, 0, -1.3 + w * 0.55); R(b['hand.R'], 0, 0, -w * 0.3); curl('R', 0.15);   // a normal wave: elbow out at the SIDE of the body, forearm up, the hand sways beside the head
+    R(b['upperarm.R'], -0.1, 0, -1.0); R(b['forearm.R'], 0, 0, -1.3 + w * 0.55); R(b['hand.R'], 0, PALM, -w * 0.3); curl('R', 0.15);   // a normal wave: elbow out at the SIDE of the body, forearm up, the hand sways beside the head
     R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
   } else if (name === 'hi') {   // SAY HI: one arm high over the head, big wave
     const w = Math.sin(t * 7) * 0.4, br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, br, -0.05, 0); R(b.head, -0.02, 0.15, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.02, 0, -0.05);
-    R(b['upperarm.R'], 0, 0, -2.5); R(b['forearm.R'], 0, 0, -0.3 + w); R(b['hand.R'], 0, 0, -w * 0.4); curl('R', 0.05);
+    R(b['upperarm.R'], 0, 0, -2.5); R(b['forearm.R'], 0, 0, -0.3 + w); R(b['hand.R'], 0, PALM, -w * 0.4); curl('R', 0.05);
     R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
   } else if (name === 'cheer') {   // both arms up, bouncing
     const bo = Math.abs(Math.sin(t * 5));
     b.hips.position.y = rest.hips.y + bo * 0.06; R(b.head, -0.15, 0, 0); R(b.chest, -0.05, 0, 0);
-    R(b['upperarm.R'], 0, 0, -2.6 + Math.sin(t * 10) * 0.12); R(b['upperarm.L'], 0, 0, 2.6 - Math.sin(t * 10) * 0.12); R(b['forearm.R'], 0, 0, -0.2); R(b['forearm.L'], 0, 0, 0.2); curl('R', 1.0); curl('L', 1.0);
+    R(b['upperarm.R'], 0, 0, -2.6 + Math.sin(t * 10) * 0.12); R(b['upperarm.L'], 0, 0, 2.6 - Math.sin(t * 10) * 0.12); R(b['forearm.R'], 0, 0, -0.2); R(b['forearm.L'], 0, 0, 0.2); R(b['hand.R'], 0, PALM, 0); R(b['hand.L'], 0, -PALM, 0); curl('R', 1.0); curl('L', 1.0);
     R(b['upperleg.L'], -0.05 * bo, 0, 0.1); R(b['upperleg.R'], -0.05 * bo, 0, -0.1);
   } else if (name === 'salute') {   // a sharp military salute
     const br = Math.sin(t * 1.4) * 0.008;
     R(b.chest, br, -0.04, 0); R(b.head, -0.04, 0.05, 0); R(b['upperleg.L'], 0, 0, 0.04); R(b['upperleg.R'], 0, 0, -0.04);
-    R(b['upperarm.R'], -0.25, 0, -1.3); R(b['forearm.R'], 0, 0, -2.5); R(b['hand.R'], 0, 0, 0.2); curl('R', 0.05);
+    R(b['upperarm.R'], -0.25, 0, -1.3); R(b['forearm.R'], 0, 0, -2.5); R(b['hand.R'], 0, PALM, 0.2); curl('R', 0.05);
     R(b['upperarm.L'], 0.05, 0, -0.1); R(b['forearm.L'], -0.2, 0, 0); curl('L', 0.5);
   } else if (name === 'flex') {   // show off the muscles
     const br = Math.sin(t * 2) * 0.012;
