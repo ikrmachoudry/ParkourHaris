@@ -266,7 +266,7 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'emote': {   // v227: a lobby gesture (wave, salute...) is shown to everybody in the room
-        if (!room || room.phase !== 'lobby' || !['wave', 'hi', 'salute', 'cheer', 'flex'].includes(m.g)) return;
+        if (!room || room.phase !== 'lobby' || !['wave', 'hi', 'salute', 'cheer'].includes(m.g)) return;
         bcast(room, { t: 'emote', char: p.char | 0, g: m.g }); break;
       }
       case 'char': {

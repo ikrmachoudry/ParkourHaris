@@ -285,7 +285,7 @@ export class GlbActor extends HeroActor {
     const walk = (bone, pw, hd) => {   // hd: how far the hand has turned from its rest pose (the finger curl axis turns with the hand: a fixed world axis curled the fingers the wrong way once the arm was raised = claws)
       let w;
       const k = rt.byBone.get(bone);
-      if (k) { const t = rt.T[k]; w = _q2.copy(rt.Wout[k]); const local = pw.clone().invert().multiply(w); bone.quaternion.copy(local); w = w.clone(); if (/^hand\./.test(k)) { bone.scale.setScalar((this.opts && this.opts.handK) || 1); hd = w.clone().multiply(rt.restW.get(bone).clone().invert()); }
+      if (k) { const t = rt.T[k]; w = _q2.copy(rt.Wout[k]); const local = pw.clone().invert().multiply(w); bone.quaternion.copy(local); w = w.clone(); if (/^hand\./.test(k)) { hd = w.clone().multiply(rt.restW.get(bone).clone().invert()); }
       }
       else if (bone.userData.curl) {   // finger / thumb joints: curl into a fist (axis across the palm, turned with the hand, converted into the parent's frame)
         const cu = bone.userData.curl, ang = cu.a * this.fist;

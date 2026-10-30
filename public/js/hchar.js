@@ -307,7 +307,7 @@ export function buildHeroChar(opts = {}) {
 
 // ---------------------------------------------------------------- procedural animation
 const R = (b, x = 0, y = 0, z = 0) => b.rotation.set(x, y, z);
-const PALM = 1.5708;   // v230: raised hands (wave, hi, salute, cheer) turn 90 degrees so the palm faces the face / head, not the shoulder
+const PALM = -1.5708;   // v230: raised hands (wave, hi, salute, cheer) turn 90 degrees so the open palm faces the camera (checked at -90 / +90 / 180 degrees: -90 shows the whole spread hand)
 // plays a baked mocap clip: walk/run loop (t = the same gait phase the procedural walk uses), jump (t = vertical speed / 7), punch/kick (t = progress 0..1)
 const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
 function mocapPose(ch, name, t) {

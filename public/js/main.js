@@ -149,7 +149,6 @@ const ANIMS = [
   { id: 'hi', label: 'SAY HI', run: () => ({ st: { gesture: 'hi' } }) },
   { id: 'salute', label: 'SALUTE', run: () => ({ st: { gesture: 'salute' } }) },
   { id: 'cheer', label: 'CHEER', run: () => ({ st: { gesture: 'cheer' } }) },
-  { id: 'flex', label: 'FLEX', run: () => ({ st: { gesture: 'flex' } }) },
 ];
 class Stage {
   constructor() {
@@ -2065,7 +2064,7 @@ function openProfile(mode) {
   charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();
-  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'crouch', 'cwalk', 'aim', 'rifle', 'rcw', 'wave', 'hi', 'salute', 'cheer', 'flex'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
+  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'crouch', 'cwalk', 'aim', 'rifle', 'rcw', 'wave', 'hi', 'salute', 'cheer'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
@@ -2498,7 +2497,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };
-  { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER'], ['flex', 'FLEX']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emotes = stage.emotes || {}; stage.emotes[app.char] = { g, until: stage.t + 4 }; if (app.net && app.net.connected) app.net.send({ t: 'emote', g }); }; box.appendChild(b); }); } }
+  { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emotes = stage.emotes || {}; stage.emotes[app.char] = { g, until: stage.t + 4 }; if (app.net && app.net.connected) app.net.send({ t: 'emote', g }); }; box.appendChild(b); }); } }
   $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { A.sfx.click(); app.net.send({ t: 'start' }); } };
   $('b-copy').onclick = async () => {
     const link = `${location.origin}${location.pathname}?room=${app.room ? app.room.code : ''}`;
