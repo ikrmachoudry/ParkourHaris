@@ -729,6 +729,8 @@ body.touch #c-jump { display: none !important; }
 #c-inv .iv-hint { margin-top: 8px; font-size: 11px; opacity: .55; text-align: center; }
 @media (max-width: 700px) { #c-inv .iv-cols { flex-direction: column; } #c-inv .iv-hint { display: none; } }
 @media (max-height: 460px) { #c-inv .iv-row { padding: 5px 8px; } #c-inv .iv-row > i { font-size: 20px; } #c-inv .iv-box { padding: 8px 10px; } #c-bag { top: 140px; width: 50px; height: 50px; font-size: 24px; } }
+#c-rev { position: fixed; left: 50%; bottom: 30%; transform: translateX(-50%); z-index: 46; display: none; padding: 12px 20px; border-radius: 12px; border: 2px solid #4ade80; background: rgba(10,60,30,.85); color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
+body.helpjang #c-rev { visibility: hidden !important; }
 #c-pick { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); z-index: 46; display: none; padding: 12px 20px; border-radius: 12px; border: 2px solid #fff; background: rgba(24,28,34,.8); color: #fff; font: 800 15px system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
 #c-use { position: fixed; left: 50%; bottom: 17%; transform: translateX(-50%); z-index: 46; display: none; width: min(300px, 70vw); text-align: center; color: #fff; font: 800 13px system-ui, sans-serif; pointer-events: none; text-shadow: 0 1px 3px #000; }
 #c-use i { display: block; height: 8px; margin-top: 4px; border-radius: 5px; background: #4ade80; width: 0; box-shadow: 0 0 0 2px rgba(0,0,0,.55); }
