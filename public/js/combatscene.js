@@ -162,9 +162,10 @@ export class CombatScene {
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
     const gy = cmbH(b.x - CMB.x, b.z - CMB.z), h = b.y - gy;
     if (d.ph === 'fall' && (inp.jumpPressed && d.t > 1.2 || h < 110)) { d.ph = 'chute'; d.ch = 0; }   // open the parachute (by hand, or automatically at 110 m)
-    const free = d.ph === 'fall'; const maxH = free ? 26 : 12, ml = Math.hypot(inp.mx, inp.mz);
+    this.diveUI(d.ph === 'fall' || d.ph === 'chute'); const dv = (this.diveHold.dive ? 1 : 0) - (this.diveHold.up ? 1 : 0);   // v234: PUBG-style: DIVE (Shift) = head down, faster; PULL UP (C) = flare, slower and floating
+    const free = d.ph === 'fall'; const maxH = (free ? 26 : 12) * (dv > 0 ? (free ? 1.45 : 1.8) : dv < 0 ? 0.55 : 1), ml = Math.hypot(inp.mx, inp.mz);
     const tx = inp.mx * maxH, tz = inp.mz * maxH, k = Math.min(1, dt * (free ? 1.6 : 1.1)); d.vx += (tx - d.vx) * k; d.vz += (tz - d.vz) * k;
-    const vyT = free ? -52 : -6.5; b.vy += (vyT - b.vy) * Math.min(1, dt * (free ? 1.1 : 1.7)); if (free) b.vy -= 9 * dt * (b.vy > -40 ? 1 : 0);
+    const vyT = free ? (dv > 0 ? -78 : dv < 0 ? -34 : -52) : (dv > 0 ? -15 : dv < 0 ? -3.6 : -6.5); b.vy += (vyT - b.vy) * Math.min(1, dt * (free ? 1.1 : 1.7)); if (free && dv >= 0) b.vy -= 9 * dt * (b.vy > -40 ? 1 : 0);
     const py = b.y, Lm = layout(); let nx = b.x + d.vx * dt, nz = b.z + d.vz * dt;
     { const hs = hitsSolid(Lm, nx - CMB.x, nz - CMB.z, 0.38, py); if (hs && hs.k !== 'tree' && hs.k !== 'roof' && hs.k !== 'floor') { nx = b.x; nz = b.z; d.vx *= 0.2; d.vz *= 0.2; } }   // the chute cannot go through a wall
     b.x = nx; b.z = nz; b.y += b.vy * dt; b.vx = d.vx; b.vz = d.vz; b.grounded = false; if (ml > 0.1 || Math.hypot(d.vx, d.vz) > 3) b.yaw = Math.atan2(d.vx, d.vz);
@@ -172,6 +173,18 @@ export class CombatScene {
     const gy2 = Math.max(gy, supportY(Lm, b.x - CMB.x, b.z - CMB.z, 0.3, py));   // land on a roof or a crate, not through it
     if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
     this.chuteVis(d.ph === 'chute', b, dt);
+  }
+  diveUI(on) {
+    if (!this.diveHold) { this.diveHold = { dive: false, up: false };
+      const mk = (id, txt, svg, bot, key) => { const e = document.createElement('button'); e.id = id; e.innerHTML = svg + '<b>' + txt + '</b>'; e.style.cssText = 'position:fixed;right:max(22px,6vw);bottom:' + bot + ';z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:78px;height:78px;border-radius:50%;border:3px solid #fffd;background:rgba(20,24,20,.62);color:#fff;font:800 11px system-ui,sans-serif;touch-action:none;cursor:pointer';
+        const dn = (ev) => { ev.preventDefault(); ev.stopPropagation(); this.diveHold[key] = true; e.style.background = 'rgba(30,110,200,.8)'; }, up = () => { this.diveHold[key] = false; e.style.background = 'rgba(20,24,20,.62)'; };
+        e.addEventListener('pointerdown', dn); for (const n of ['pointerup', 'pointercancel', 'pointerleave']) e.addEventListener(n, up); e.addEventListener('contextmenu', (ev) => ev.preventDefault()); document.body.appendChild(e); return e; };
+      this.diveBtn = mk('c-dive', 'DIVE', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v20M8 17l8 10 8-10"/></svg>', '34%', 'dive');
+      this.upBtn = mk('c-pullup', 'PULL UP', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 27V7M8 15l8-10 8 10"/></svg>', 'calc(34% - 88px)', 'up');
+      const kk = (v) => (e) => { if (!this.dropping) return; if (e.key === 'Shift') this.diveHold.dive = v; else if (e.code === 'KeyC') this.diveHold.up = v; };
+      addEventListener('keydown', kk(true)); addEventListener('keyup', kk(false)); addEventListener('blur', () => { this.diveHold.dive = this.diveHold.up = false; }); }
+    const sh = on ? 'flex' : 'none'; if (this.diveBtn.style.display !== sh) { this.diveBtn.style.display = this.upBtn.style.display = sh; if (!on) this.diveHold.dive = this.diveHold.up = false; }
+    if (on && !this.diveHint) { this.diveHint = true; this.R.toast && this.R.toast('DIVE (Shift) = faster down  -  PULL UP (C) = slow down and glide', 4.5); }
   }
   chuteVis(on, b, dt) {
     if (!this.chute) { const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#1c201c', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
@@ -185,7 +198,7 @@ export class CombatScene {
       this.chute = g; this.group.add(g); }
     const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;
