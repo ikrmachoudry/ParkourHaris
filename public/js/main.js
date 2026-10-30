@@ -347,7 +347,7 @@ class Race {
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1800);
 
     // v197: JANG has NOTHING to do with the GTA city - it gets an empty stand-in world (flat ground, no city, no scenery, no pedestrians, no police, no day/night), so it loads fast and uses little memory
-    const { world, info } = o.jang ? buildEmptyLevel() : buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
+    const { world, info } = o.jang ? buildEmptyLevel(o.jseed) : buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
     this.world = world; this.info = info; scene.add(world.group);
     world.onEvent = null;
     this.sky = makeSky(v); scene.add(this.sky);
@@ -963,6 +963,7 @@ class Race {
     let driverSeen = false; const dIdx = this.drive ? this.cars.indexOf(this.drive) : -1;
     if (this.drive && this.paxMode) { this.drive.st.paxs[this.paxSeat | 0] = this.localId; this.drive.st.pax = this.localId; }
     for (const c of this.cars) if ((c !== this.drive || this.paxMode) && !this.rolling.includes(c)) { c.st.driver = -1; c.st.speed = 0; c.st.vx = c.st.vz = 0; }
+    if (this.mateCars) for (const [i, m] of this.mateCars) { const c = this.cars[i]; if (!c || c === this.drive) continue; const st = c.st, py = st._py === undefined ? m.yaw : st._py, dy = ((m.yaw - py + Math.PI * 3) % (Math.PI * 2)) - Math.PI; st.driver = m.id; st.parked = false; st.x = m.x; st.y = m.y; st.z = m.z; st.speed = m.sp; st.vx = Math.sin(m.yaw) * m.sp; st.vz = Math.cos(m.yaw) * m.sp; st.steer += (clamp(-dy / Math.max(dt, 0.008) * 0.45, -1, 1) - st.steer) * Math.min(1, dt * 8); st.yaw = st._py = m.yaw; }   // v240: a jeep a teammate / another player drives is moved here (and shown driven)
     const ags = [];
     for (const r of this.remotes.values()) {
       const g = r.model.group; g.rotation.order = 'YXZ';
@@ -2084,12 +2085,12 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang(team) { preloadAssets('jang'); startSingle(0, true); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
-function startSingle(levelIdx, jang) {
+function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+function startSingle(levelIdx, jang, jseed) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9) }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
