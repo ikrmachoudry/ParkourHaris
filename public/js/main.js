@@ -2184,6 +2184,8 @@ async function ensureNet() {
   net.on('cinit', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onInit) cs.sim.onInit(m); });
   net.on('cb', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.applyBots) cs.sim.applyBots(m.b); });
   net.on('ce', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onEvents) cs.sim.onEvents(m.e); });
+  net.on('cpv', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.hurtPv) cs.hurtPv(m); });
+  net.on('cpk', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onKillCredit) cs.onKillCredit(); });
   net.on('jr', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onRevive) cs.onRevive(m); });
   net.on('jf', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMateShot) cs.onMateShot(m); });
   net.on('jt', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMate) cs.onMate(m); });

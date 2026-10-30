@@ -287,6 +287,14 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastC || 0) < 25) return; p.lastC = t;
         const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m) })[m.t](); break;
       }
+      case 'cpv': case 'cpk': {   // v246: PvP (relay only, checked): a shot at a player of the OTHER team / the kill credit for the shooter
+        if (!room || !room.combat || room.phase !== 'race') return;
+        const q = room.players.get(m.to); if (!q || q === p || !q.ws) return;
+        const t = Date.now(); if (t - (p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] || 0) < (m.t === 'cpv' ? 40 : 800)) return; p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] = t;
+        if (m.t === 'cpv') { if (!num(m.d, 0, 60) || p.jtm === q.jtm || !q.jal || !p.jal || !Number.isFinite(p.jx) || !Number.isFinite(q.jx) || Math.hypot(p.jx - q.jx, p.jz - q.jz) > 320) return; send(q.ws, { t: 'cpv', from: p.id, d: m.d }); }
+        else send(q.ws, { t: 'cpk' });
+        break;
+      }
       case 'jf': {   // v241: Jang: somebody fired (position + gun type) so everybody nearby hears it from the right side
         if (!room || !room.combat || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastJf || 0) < 70) return; p.lastJf = t;

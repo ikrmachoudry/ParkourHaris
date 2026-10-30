@@ -376,7 +376,7 @@ export class CombatScene {
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else this.die(); }
   }
-  die() { A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
+  die() { if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
   goDown() {
@@ -472,7 +472,17 @@ export class CombatScene {
     if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round });
   }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
-  shoot(ox, oz, fx, fz, range, dmg, w, y) { if (!this.active) return -1; const d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y); return d; }
+  shoot(ox, oz, fx, fz, range, dmg, w, y) {
+    if (!this.active) return -1; const d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y), T = this.R.jangTeam;
+    if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
+      const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
+      for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; hit = g; hd = a; }
+      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(60, dmg * 22).toFixed(1) }); return hd; }
+    }
+    return d;
+  }
+  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByAt = performance.now(); this.hurt(Math.max(0, Math.min(60, +m.d || 0))); }   // v246: shot by a player of the other team
+  onKillCredit() { this.kills++; this.R.toast && this.R.toast('ENEMY DOWN'); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
 }
