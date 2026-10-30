@@ -2,6 +2,7 @@
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { makePost } from './post.js';
 import { LEVEL_META, CHARACTERS, SKINS, MAX_PLAYERS } from './levelmeta.js';
 const GESTURES = ['relaxed', 'pocket', 'thumbs', 'phone'];
 import { buildLevel, buildEmptyLevel } from './levels.js';
@@ -69,7 +70,8 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const MAXDPR = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2);
-const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.25), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 700 };   // far = draw distance (m) of the city
+let POST = null;   // the cinematic pipeline (bloom + colour grade), PC only; created on first use
+const Q = { post: true, dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.25), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 700 };   // far = draw distance (m) of the city
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
@@ -87,6 +89,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   if (fps < 40) {
     Q.good = 0;
     if (Q.dpr > 0.7) { Q.dpr = Math.max(0.7, Q.dpr - 0.2); resize(); }
+    else if (Q.post && fps < 38) { Q.post = false; }   // the cinematic pass is the first luxury to go on a weak PC
     else if (Q.shadows && fps < 30) { Q.shadows = false; if (race) race.setShadows(false); }
     else if (Q.far > (IS_TOUCH ? 320 : 480)) { Q.far = Math.max(IS_TOUCH ? 320 : 480, Q.far - 60); if (race) race.setFar(); }
   } else if (fps > 58) {
@@ -1972,7 +1975,10 @@ class Race {
     if (this.multi) $('hud-net').textContent = `ping ${Math.round(app.net.rtt)} ms`;
   }
 
-  render() { renderer.render(this.scene, this.camera); }
+  render() {
+    if (this.meta.city && !IS_TOUCH && !Q.low && Q.post && OPT.cinema !== false) { try { if (!POST) POST = makePost(renderer); POST.render(this.scene, this.camera, 0.016); return; } catch (e) { Q.post = false; if (POST) { try { POST.dispose(); } catch { /* ignore */ } POST = null; } } }   // any GPU trouble: fall back to the plain picture for good
+    renderer.render(this.scene, this.camera);
+  }
 
   destroy() {
     setJangSet(false);
