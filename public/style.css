@@ -580,9 +580,9 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 @media (max-height: 480px) { :is(#quick,#quick2,#quick3) .qrow { padding: 4px 12px; } :is(#quick,#quick2,#quick3) .qrow small { display: none; } :is(#quick,#quick2,#quick3) .qi { width: 26px; height: 26px; font-size: 15px; } :is(#quick,#quick2,#quick3) .sw { width: 44px; height: 26px; } :is(#quick,#quick2,#quick3) .sw::after { width: 22px; height: 22px; } :is(#quick,#quick2,#quick3) .qrow.on .sw::after { transform: translateX(18px); } }
 
 /* sniper scope: dark rim, thin crosshair and a centre dot while the sniper rifle is aimed */
-#scope { position: fixed; inset: 0; z-index: 2; pointer-events: none; display: none; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 28vmin, rgba(0,0,0,.92) 41vmin); }
-#scope i { position: absolute; left: 50%; top: 50%; width: 56vmin; height: 1px; margin-left: -28vmin; background: rgba(0,0,0,.75); }
-#scope b { position: absolute; left: 50%; top: 50%; width: 1px; height: 56vmin; margin-top: -28vmin; background: rgba(0,0,0,.75); }
+#scope { position: fixed; inset: 0; z-index: 2; pointer-events: none; display: none; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 31vmin, #0c1018 31.8vmin, #222b3d 33.2vmin, #07090e 35vmin, rgba(0,0,0,.94) 40vmin); }
+#scope i { position: absolute; left: 50%; top: 50%; width: 62vmin; height: 3px; margin: -1px 0 0 -31vmin; background: linear-gradient(#000, #000) left center / 13vmin 3px no-repeat, linear-gradient(#000, #000) right center / 13vmin 3px no-repeat, linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,.85)) center / 100% 1px no-repeat; }
+#scope b { position: absolute; left: 50%; top: 50%; width: 3px; height: 62vmin; margin: -31vmin 0 0 -1px; background: linear-gradient(#000, #000) center top / 3px 13vmin no-repeat, linear-gradient(#000, #000) center bottom / 3px 13vmin no-repeat, linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,.85)) center / 1px 100% no-repeat; }
 body.scoped #scope { display: block; }
 
 /* in-game MENU button (city mode has no top bar): under the fullscreen button, phones and laptops */

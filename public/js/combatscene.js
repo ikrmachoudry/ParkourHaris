@@ -17,10 +17,10 @@ import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff' };
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE' };
-const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0 } });
-const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope'];
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)' };
+const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0 } });
+const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope', 'sscope'];
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
 const USE = { med: { dur: 4, hp: 50, name: 'FIRST AID' }, pills: { dur: 3, hp: 25, name: 'PAIN PILLS' }, inject: { dur: 1.8, hp: 20, name: 'ADRENALINE', boost: 6 } };
 const MY_DMG = 100;   // hit points of the player
@@ -215,6 +215,7 @@ export class CombatScene {
         if (it.k === 'inject') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(GEO('Cylinder',0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(GEO('Cylinder',0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
         else if (it.k === 'pills') { const b = new THREE.Mesh(GEO('Cylinder',0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(GEO('Cylinder',0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
         else if (it.k === 'smoke') { const b = new THREE.Mesh(GEO('Cylinder',0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(GEO('Cylinder',0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
+        else if (it.k === 'sscope') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.46, 10), M('#20242c')), f = new THREE.Mesh(GEO('Cylinder',0.1, 0.085, 0.1, 10), M('#14171d')), e = new THREE.Mesh(GEO('Cylinder',0.085, 0.1, 0.09, 10), M('#14171d')), l = new THREE.Mesh(GEO('Circle',0.075, 10), SM('#7fe0ff', 0.3)); b.rotation.z = f.rotation.z = e.rotation.z = Math.PI / 2; f.position.x = 0.26; e.position.x = -0.26; l.rotation.y = Math.PI / 2; l.position.x = 0.312; mdl.add(b, f, e, l); mdl.scale.setScalar(1.25); }   // v238: a rifle scope lying on the ground
         else { const b = new THREE.Mesh(GEO('Cylinder',0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(GEO('Cylinder',0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
       else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
       const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
@@ -361,7 +362,7 @@ export class CombatScene {
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.syncLoot(); if (this.inv) this.inv.render(); return true;
   }
   pickup(it) {
-    const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
+    const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
     const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = it.am ? it.am.res : S.ammoPack; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
     if (isGunK(k)) gun(k);
     else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
@@ -373,6 +374,7 @@ export class CombatScene {
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
   useItem(k) {
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb || !this.active || this.dropping || R.drive || this.over) return false; const have = this.count(k);
+    if (k === 'sscope') { R.toast && R.toast(have > 0 ? 'The Kar98 uses it by itself: pick the sniper, hold AIM' : 'NO SNIPER SCOPE'); return false; }
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
