@@ -122,10 +122,25 @@ export class Minimap {
   }
   bigOpen() { if (this.bz) this.bz.set = false; }
   // zoom about the screen point (px, py) of the big map canvas by the factor f; pan by a screen-pixel drag
-  bigZoom(f, px, py) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k0 = S / 1020 * bz.z, wx = bz.cx + (px - S / 2) / k0, wz = bz.cz + (py - S / 2) / k0; bz.z = Math.min(9, Math.max(1, bz.z * f)); const k1 = S / 1020 * bz.z; bz.cx = wx - (px - S / 2) / k1; bz.cz = wz - (py - S / 2) / k1; }
-  bigPan(dx, dy) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k = S / 1020 * bz.z; bz.cx -= dx / k; bz.cz -= dy / k; }
+  bigZoom(f, px, py) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k0 = S / this.bW() * bz.z, wx = bz.cx + (px - S / 2) / k0, wz = bz.cz + (py - S / 2) / k0; bz.z = Math.min(9, Math.max(1, bz.z * f)); const k1 = S / this.bW() * bz.z; bz.cx = wx - (px - S / 2) / k1; bz.cz = wz - (py - S / 2) / k1; }
+  bigPan(dx, dy) { const bz = this.bz, S = this.bS; if (!bz || !S) return; const k = S / this.bW() * bz.z; bz.cx -= dx / k; bz.cz -= dy / k; }
   // the whole island, north up: tap/click the small map (or press M / Tab) to open, again (or Esc) to close
+  bW() { return this.jangView ? 2 * CMB.half + 20 : 1020; }
+  // v236: the battle island map (Jang): you, your teammates, whole island or zoomed; no city, shops or routes
+  drawBigJang(cv, me, others) {
+    const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.95); if (cv.width !== S) cv.width = cv.height = S;
+    const W = this.bW(), bz = this.bz || (this.bz = { z: 1, cx: 0, cz: 0, set: false }); if (!bz.set) { bz.set = true; bz.z = 1.6; bz.cx = me.x; bz.cz = me.z; }
+    bz.z = Math.min(6, Math.max(1, bz.z)); const lim = (W / 2) * (1 - 1 / bz.z); bz.cx = Math.max(CMB.x - lim, Math.min(CMB.x + lim, bz.cx)); bz.cz = Math.max(CMB.z - lim, Math.min(CMB.z + lim, bz.cz)); this.bS = S;
+    const g = cv.getContext('2d'), k = S / W * bz.z, P = (x, z) => [S / 2 + (x - bz.cx) * k, S / 2 + (z - bz.cz) * k];
+    g.clearRect(0, 0, S, S); g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
+    const cm = this.cmap || (this.cmap = drawCombat()), [x0, y0] = P(CMB.x - CMB.half - 10, CMB.z - CMB.half - 10); g.drawImage(cm, x0, y0, W * k, W * k);
+    const r = Math.max(8, S / 46);
+    for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#4ade80'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r * 0.7, 0, 7); g.fill(); g.stroke(); }
+    { const [px, py] = P(me.x, me.z), a = r * 0.9; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+    g.fillStyle = '#fff'; g.font = '900 ' + Math.round(S / 28) + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'top'; g.strokeStyle = '#0b1220'; g.lineWidth = 4; g.strokeText('N', S / 2, 6); g.fillText('N', S / 2, 6);
+  }
   drawBig(cv, me, others, marks, route, wi) {
+    if (this.jangView) { this.drawBigJang(cv, me, others); return; }
     if (!this.map) this.map = drawStatic();
     const S = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.95); if (cv.width !== S) cv.width = cv.height = S;
     // zoom + pan (pinch, mouse wheel / trackpad pinch, + - buttons, drag): opens zoomed in on the player, whole island = zoom 1

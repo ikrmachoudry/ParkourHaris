@@ -698,14 +698,15 @@ body.touch #act-pad button svg { width: 58%; height: 58%; stroke: #fff; stroke-w
 body.touch #act-pad button:active, body.touch #act-pad button.on { background: rgba(255,255,255,.5) !important; transform: scale(.94); }
 body.touch #act-pad button::after { content: none !important; }
 body.touch #act-pad i { display: none !important; }
-body.touch #a-punch  { left: auto; top: auto; right: calc(11vw + 4vmin); bottom: 17vh; width: clamp(84px, 24vmin, 124px); height: clamp(84px, 24vmin, 124px); }
-body.touch #a-aim    { left: auto; top: auto; right: calc(11vw + 4vmin + 4vmin); bottom: calc(17vh + clamp(84px, 24vmin, 124px) + 12px); width: clamp(52px, 14vmin, 76px); height: clamp(52px, 14vmin, 76px); }
-body.touch #a-jump   { left: auto; top: auto; right: 3vw; bottom: 36vh; width: clamp(54px, 15vmin, 78px); height: clamp(54px, 15vmin, 78px); }
-body.touch #a-crouch { left: auto; top: auto; right: 3vw; bottom: calc(36vh - clamp(54px, 15vmin, 78px) - 12px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
-body.touch #a-prone  { left: auto; top: auto; right: 3vw; bottom: calc(36vh - clamp(54px, 15vmin, 78px) - clamp(48px, 13vmin, 70px) - 24px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
-body.touch #a-reload { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: 12vh; width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
-body.touch #a-fmode  { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + 12px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
-body.touch #a-weapon { left: auto; top: auto; right: calc(11vw + 4vmin + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + clamp(44px, 12vmin, 62px) + 24px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
+body.touch #act-pad { --fx: 7vmin; }
+body.touch #a-punch  { left: auto; top: auto; right: calc(11vw + 4vmin + var(--fx)); bottom: 17vh; width: clamp(84px, 24vmin, 124px); height: clamp(84px, 24vmin, 124px); }
+body.touch #a-aim    { left: auto; top: auto; right: calc(11vw + 4vmin + 4vmin + var(--fx)); bottom: calc(17vh + clamp(84px, 24vmin, 124px) + 12px); width: clamp(52px, 14vmin, 76px); height: clamp(52px, 14vmin, 76px); }
+body.touch #a-jump   { left: auto; top: auto; right: 3vw; bottom: 40vh; width: clamp(54px, 15vmin, 78px); height: clamp(54px, 15vmin, 78px); }
+body.touch #a-crouch { left: auto; top: auto; right: 3vw; bottom: calc(40vh - clamp(54px, 15vmin, 78px) - 12px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-prone  { left: auto; top: auto; right: 3vw; bottom: calc(40vh - clamp(54px, 15vmin, 78px) - clamp(48px, 13vmin, 70px) - 24px); width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-reload { left: auto; top: auto; right: calc(11vw + 4vmin + var(--fx) + clamp(84px, 24vmin, 124px) + 14px); bottom: 12vh; width: clamp(48px, 13vmin, 70px); height: clamp(48px, 13vmin, 70px); }
+body.touch #a-fmode  { left: auto; top: auto; right: calc(11vw + 4vmin + var(--fx) + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + 12px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
+body.touch #a-weapon { left: auto; top: auto; right: calc(11vw + 4vmin + var(--fx) + clamp(84px, 24vmin, 124px) + 14px); bottom: calc(12vh + clamp(48px, 13vmin, 70px) + clamp(44px, 12vmin, 62px) + 24px); width: clamp(44px, 12vmin, 62px); height: clamp(44px, 12vmin, 62px); }
 body:not(.touch) #a-prone { display: none; }
 body.touch #a-prone.on { background: rgba(255,255,255,.5) !important; }
 body.touch #c-jump { display: none !important; }
@@ -837,9 +838,9 @@ body.touch #act-pad #a-aim svg.pi { width: 78%; height: 78%; }
 #a-fmode.on .b3 { display: none; }
 body.touch #act-pad #a-crouch.on svg.pi, body.touch #act-pad #a-prone.on svg.pi, body.touch #act-pad #a-leanl.on svg.pi, body.touch #act-pad #a-leanr.on svg.pi { fill: #ffd23f; }
 #a-leanl, #a-leanr { display: none; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { display: block; --s: clamp(40px, 10.5vh, 56px); width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); top: 41%; right: auto; bottom: auto; position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.75); background: rgba(255,255,255,.07) !important; padding: 0; touch-action: none; }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.14); }
-body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.22); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { display: block; --s: clamp(40px, 10.5vh, 56px); width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); top: 57%; right: auto; bottom: auto; position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.75); background: rgba(255,255,255,.07) !important; padding: 0; touch-action: none; }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.06); }
+body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr { left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.14); }
 #a-leanl.on .pi, #a-leanr.on .pi { fill: #ffd23f; }
 body.touch.in-race.city-mode:not(.driving) #act-pad button svg.pi { stroke: none; fill: #fff; opacity: .95; }
 body.touch.in-race.city-mode:not(.driving) #act-pad #a-crouch.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-prone.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanl.on svg.pi, body.touch.in-race.city-mode:not(.driving) #act-pad #a-leanr.on svg.pi { fill: #ffd23f; }
@@ -1209,3 +1210,20 @@ body.touch.in-race.city-mode:not(.driving) #act-pad #a-punch, body.touch.in-race
 #s-lobby .lobby-top { gap: 14px !important; justify-content: flex-start; } #s-lobby .lobby-top > #b-leave { margin-left: auto; }
 /* v227: time of day / weather / haze belong to GTA only */
 body.jang-mode #pset .sethead, body.jang-mode #pset #tsel, body.jang-mode #pset .wsel, body.jang-mode #pset #hsel, body.jang-mode #pause .sethead, body.jang-mode #pause #tsel, body.jang-mode #pause .wsel, body.jang-mode #pause #hsel { display: none !important; }
+
+/* v236 team voice already in the team lobby (talk to your squad before the plane) */
+body.vc-on.in-lobby #vc { display: block; left: auto; right: max(12px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); z-index: 60; background: rgba(8,12,40,.72); padding: 6px 8px; border-radius: 14px; }
+body.vc-on.in-lobby #vc::before { content: 'TEAM VOICE - tap the mic, press T'; display: block; font: 800 10px system-ui, sans-serif; color: #fff; margin: 0 0 4px 2px; letter-spacing: .04em; }
+
+/* v236 button layout editor: drag + size, locked again when you press DONE */
+body:not(.touch) #pset-lay { display: none; }
+#lay-bar { position: fixed; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 400; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 14px; background: rgba(8,12,40,.88); color: #fff; font: 800 11px system-ui, sans-serif; max-width: 96vw; }
+#lay-bar.hidden { display: none; }
+#lay-bar button { border: 0; border-radius: 10px; padding: 9px 12px; font: 800 12px system-ui, sans-serif; background: #3b82f6; color: #fff; margin-left: 4px; }
+#lay-bar #lay-d { background: #16a34a; }
+body.btn-edit #act-pad { display: block !important; pointer-events: none; }
+body.btn-edit #act-pad button, body.btn-edit #c-bag, body.btn-edit #vc, body.btn-edit #c-dive, body.btn-edit #c-pullup { display: grid !important; pointer-events: auto !important; touch-action: none !important; outline: 2px dashed #ffd23f; outline-offset: 2px; z-index: 300 !important; }
+body.btn-edit #vc { display: block !important; }
+body.btn-edit #c-dive, body.btn-edit #c-pullup { display: flex !important; }
+body.btn-edit #a-leanl, body.btn-edit #a-leanr { position: absolute !important; }
+body.btn-edit .lay-sel { outline: 3px solid #4ade80 !important; }

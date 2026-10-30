@@ -448,7 +448,7 @@ class Race {
     }
 
     // ---- input -> physics
-    const canMove = lt >= 0 && !this.over && !this.jack && !(this.mission && this.mission.freeze) && !this.bigMapOpen;
+    const canMove = lt >= 0 && !this.over && !this.jack && !(this.mission && this.mission.freeze) && !(this.bigMapOpen && !this.jang);   // v236: in Jang the map does NOT stop you (PUBG)
     let fw = 0, rt = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp')) fw++; if (keys.has('KeyS') || keys.has('ArrowDown')) fw--;
     if (keys.has('KeyD') || keys.has('ArrowRight')) rt++; if (keys.has('KeyA') || keys.has('ArrowLeft')) rt--;
@@ -541,7 +541,7 @@ class Race {
 
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
       if (this.bigMapOpen) this.drawBigMap();
-      this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
+      this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
     if (this.peds && !this.jang) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.sfx.thud(Math.min(1, 0.5 + sp * 0.05)); A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
@@ -1116,12 +1116,13 @@ class Race {
     }
   }
   restoreMission(mesh) { restoreCar(mesh); }
-  drawBigMap() { if (!this.minimap) return; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
-    this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
+  mapDots() { const o = [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })); const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.mates) for (const [, g] of cs.mates) if (g.has && g.m.group.visible !== false) o.push({ x: g.x, z: g.z, color: CHARACTERS[(g.c | 0) % CHARACTERS.length].color }); return o; }   // v236: teammates on the map (Jang team)
+  drawBigMap() { if (!this.minimap) return; this.minimap.jangView = !!this.jang; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
+    this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
   /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
-  toggleMap(on) { if (!this.meta.city || (this.mission && this.mission.cs && this.mission.cs.on)) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
+  toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
     if (this.bigMapOpen && !was) { this.mapLocked = document.pointerLockElement === canvas; try { document.exitPointerLock(); } catch {}   // laptop: give the mouse back (visible cursor, trackpad pinch works)
- if (!this.multi && !this.paused) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
+ if (!this.multi && !this.paused && !this.jang) { this.paused = true; this.pauseAt = performance.now(); this.mapPause = true; } this.drawBigMap(); }
     if (!this.bigMapOpen && was && this.mapLocked && !IS_TOUCH && !this.menuOpen) { this.mapLocked = false; setTimeout(() => tryLock(), 60); }
     if (!this.bigMapOpen && was && this.mapPause) { this.mapPause = false; if (this.paused && !this.menuOpen) { this.t0 += performance.now() - this.pauseAt; this.paused = false; } } }
   /* tap a spot on the map: a blue line along the real roads from here to there (shown on the road, the small map and the big map); tap the pin again to remove it */
@@ -1905,15 +1906,16 @@ class Race {
                 if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } } } } } } }
       for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
-      this.camK = want < this.camK ? want : this.camK + (want - this.camK) * Math.min(1, dt * 3);   // snap in, ease out
+      const tws = this.twK > 0.3, wantC = tws ? Math.max(want, 0.38) : want;   // v236 tower shaft: the camera never snaps all the way into the head (it flickered in and out of first person on every step slab above) and moves in smoothly
+      this.camK = wantC < this.camK ? (tws ? this.camK + (wantC - this.camK) * Math.min(1, dt * 14) : wantC) : this.camK + (wantC - this.camK) * Math.min(1, dt * (tws ? 5 : 3));   // snap in, ease out
       if (this.camK < 1) { cam.set(ox + dx * this.camK, oy + dy * this.camK, oz + dz * this.camK); }
       if (!inHome && !this.drive) for (const q of this.info.track.boxes || []) { if (cam.y > q.h + 0.1) continue; if (cam.x > q.x0 - 0.1 && cam.x < q.x1 + 0.1 && cam.z > q.z0 - 0.1 && cam.z < q.z1 + 0.1) { this.camK = 0.08; cam.set(ox + dx * 0.08, oy + dy * 0.08, oz + dz * 0.08); break; } }   // v228 last safety net (GTA): a camera still inside a wall box goes back on the player
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // last safety net: a camera that still ended up inside a wall / floor / roof slab is put back on the player
         const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
-        if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { this.camK = 0.06; cam.set(ox + dx * 0.06, oy + dy * 0.06, oz + dz * 0.06); break; } } } }
+        if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { const kf = this.twK > 0.3 ? 0.38 : 0.06; this.camK = kf; cam.set(ox + dx * kf, oy + dy * kf, oz + dz * kf); break; } } } }
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
       { const cs = this.mission && this.mission.cs, g = this.me && this.me.model && this.me.model.group;   // v214 (PUBG): squeezed against a wall / in a stair shaft the camera ends up almost inside the head: hide the body then (first-person view) instead of staring into it
-        if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); if (g.visible && dd < 0.7) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > 0.95) { g.visible = true; this._bodyHid = false; } }
+        if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); const hT = this.twK > 0.3 ? 0.5 : 0.7, sT = this.twK > 0.3 ? 1.0 : 0.95; if (g.visible && dd < hT) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > sT) { g.visible = true; this._bodyHid = false; } }
         else if (g && this._bodyHid) { g.visible = true; this._bodyHid = false; } }
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
@@ -1991,7 +1993,7 @@ function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
-  app.screen = name;
+  app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby');
 }
 let toastTimer = 0;
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -2331,7 +2333,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
-  if (e.code === 'KeyV' && voiceOn() && !e.repeat) { $('vc-mic').click(); return; }
+  if (voiceOn() && !e.repeat && (e.code === 'KeyT' || e.code === 'KeyL')) { $(e.code === 'KeyT' ? 'vc-mic' : 'vc-spk').click(); keys.delete(e.code); return; }   // v236: T = talk (mic on/off), L = loud speaker (hear teammates on/off); V is the weapon swap again
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape') { const open = ['s-help', 's-about', 's-settings'].map($).find((x) => x && x.classList.contains('active')); if (open) { $({ 's-help': 'b-help-close', 's-about': 'b-about-close', 's-settings': 'b-settings-close' }[open.id]).click(); return; } }   // v224: Esc closes any page that sits on top
@@ -2383,6 +2385,26 @@ $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause(
 $('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
+// ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
+const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup'];
+let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') || {}; } catch (e) { LAY = {}; }
+const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); } else { el.style.translate = ''; el.style.scale = ''; } } };
+const laySave = () => { try { localStorage.setItem('ph_layout', JSON.stringify(LAY)); } catch (e) { /* ignore */ } };
+window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply);
+{ let sel = null, drag = null; const bar = () => $('lay-bar'), on = () => document.body.classList.contains('btn-edit');
+  const pick = (t) => { const el = t && t.closest ? t.closest(LAY_IDS.map((i) => '#' + i).join(',')) : null; return el; };
+  const mark = (el) => { document.querySelectorAll('.lay-sel').forEach((x) => x.classList.remove('lay-sel')); sel = el; if (el) el.classList.add('lay-sel'); };
+  for (const ev of ['touchstart', 'touchend', 'mousedown', 'mouseup', 'click']) window.addEventListener(ev, (e) => { if (on() && pick(e.target)) { e.stopPropagation(); e.stopImmediatePropagation && e.stopImmediatePropagation(); e.preventDefault(); } }, { capture: true, passive: false });
+  window.addEventListener('pointerdown', (e) => { if (!on()) return; const el = pick(e.target); if (!el) return; e.preventDefault(); e.stopPropagation(); mark(el); const v = LAY[el.id] || { x: 0, y: 0, s: 1 }; drag = { el, id: e.pointerId, sx: e.clientX, sy: e.clientY, x0: v.x, y0: v.y }; try { el.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ } }, { capture: true, passive: false });
+  window.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id) return; e.preventDefault(); const v = LAY[drag.el.id] = LAY[drag.el.id] || { x: 0, y: 0, s: 1 }; v.x = drag.x0 + (e.clientX - drag.sx) / innerWidth; v.y = drag.y0 + (e.clientY - drag.sy) / innerHeight; layApply(); }, { capture: true, passive: false });
+  const end = (e) => { if (drag && e.pointerId === drag.id) { drag = null; laySave(); } }; window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', end, true);
+  const size = (d) => { if (!sel) { gtoast('Tap a button first'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.s = Math.max(0.6, Math.min(1.7, (v.s || 1) + d)); layApply(); laySave(); };
+  $('lay-m').onclick = () => size(-0.1); $('lay-p').onclick = () => size(0.1);
+  $('lay-r').onclick = () => { LAY = {}; laySave(); layApply(); mark(null); };
+  const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; $('pset').classList.remove('hidden'); };
+  $('lay-d').onclick = stop;
+  $('pset-lay').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); $('pset').classList.add('hidden'); document.body.classList.add('btn-edit'); bar().classList.remove('hidden'); };
+}
 $('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 // touch: act on touchend itself (preventDefault also stops the synthesized click, so it cannot fire twice), so RESUME and the gear always answer a finger
@@ -2426,7 +2448,7 @@ $('p-full').onclick = () => {
       const before = two(), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
       if (ptrs.size === 1) mmap.bigPan(dx, dy);
       else if (before) { const t = two(), r = cv.getBoundingClientRect(); const want = z0 * t[0] / Math.max(10, d0), cur = mmap.bz.z; mmap.bigZoom(want / cur, t[1] - r.left, t[2] - r.top); mmap.bigPan(dx / 2, dy / 2); } });
-    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250 && race && race.bigMapOpen) { const mp = race.minimap, bz = mp.bz, [lx, ly] = local(e); if (bz && mp.bS) { const k = mp.bS / 1020 * bz.z; race.setWaypoint(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } } };
+    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250 && race && race.bigMapOpen) { const mp = race.minimap, bz = mp.bz, [lx, ly] = local(e); if (bz && mp.bS && !race.jang) { const k = mp.bS / 1020 * bz.z; race.setWaypoint(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } } };
     bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); });
     bw.addEventListener('wheel', (e) => { if (!race || !race.bigMapOpen) return; e.preventDefault(); const [x, y] = local(e); race.minimap.bigZoom(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0018)), x, y); }, { passive: false });
     for (const ev of ['gesturestart', 'gesturechange']) bw.addEventListener(ev, (e) => e.preventDefault(), { passive: false });   // iOS Safari: no page zoom while pinching the map
@@ -2451,7 +2473,7 @@ async function boot() {
   const JHELP = [['joy', 'MOVE', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the left stick', 'Push the stick all the way up to LOCK sprint. Pull it back to stop.', '🕹'], ['look', 'LOOK', 'Mouse, or drag the right side of the screen', '', '👁'], ['fire', 'FIRE', 'Left click, or the big fire button', 'Tap to shoot. Hold for automatic guns.', '🔫'],
     ['a-aim', 'AIM', 'Right mouse', 'Look through the sights: more accurate, slower. Telescope scopes zoom.'], ['a-jump', 'JUMP', '<kbd>SPACE</kbd>', 'Climb over low walls and boxes.'], ['a-crouch', 'CROUCH', '<kbd>Z</kbd>', 'Smaller and harder to hit.'], ['a-prone', 'PRONE', '<kbd>X</kbd> / <kbd>CTRL</kbd>', 'Lie down: the hardest to hit.'],
     ['a-reload', 'RELOAD', '<kbd>R</kbd>', 'Reloads by itself when the magazine is empty.'], ['a-fmode', 'FIRE MODE', '<kbd>B</kbd>', 'Single shots / burst / auto, if the gun has them.'], ['a-weapon', 'SWAP WEAPON', '<kbd>V</kbd> or the number slots 1 2 3', 'Tap a slot to take that gun out.', '🔄'], ['a-leanl', 'PEEK LEFT / RIGHT', '<kbd>Q</kbd> <kbd>E</kbd>', 'Look round a corner without stepping out (Q = left, E = right on a keyboard).'],
-    ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>V</kbd> / the mic button', 'In a team room: talk to your team. Tap to switch the mic on, tap again to switch it off.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Parachute: take the pack on a tower roof, jump off, it opens by itself.', '🪂']];
+    ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>T</kbd> talk · <kbd>L</kbd> speaker', 'In a team room: T switches your mic on / off, L mutes / unmutes the speaker. Works in the team lobby too. On a phone use the mic and speaker buttons.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Parachute: take the pack on a tower roof, jump off, it opens by itself.', '🪂']];
   const openHelp = (jang) => {
     document.body.classList.toggle('helpjang', !!jang);
     if (jang) { const g = $('jang-help'); g.innerHTML = JHELP.map(([id, nm, key, ds, em]) => { const el = document.getElementById(id), sv = el && el.querySelector && el.querySelector('svg'); const ic = em || (sv ? sv.outerHTML : nm[0]); return '<div class="gr"><span class="gi">' + ic + '</span><div><b>' + nm + '</b><small>' + key + (ds ? '<br>' + ds : '') + '</small></div></div>'; }).join(''); }

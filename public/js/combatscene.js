@@ -178,11 +178,12 @@ export class CombatScene {
   }
   diveUI(on) {
     if (!this.diveHold) { this.diveHold = { dive: false, up: false };
-      const mk = (id, txt, svg, bot, key) => { const e = document.createElement('button'); e.id = id; e.innerHTML = svg + '<b>' + txt + '</b>'; e.style.cssText = 'position:fixed;right:max(22px,6vw);bottom:' + bot + ';z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:78px;height:78px;border-radius:50%;border:3px solid #fffd;background:rgba(20,24,20,.62);color:#fff;font:800 11px system-ui,sans-serif;touch-action:none;cursor:pointer';
+      const mk = (id, txt, svg, bot, key) => { const e = document.createElement('button'); e.id = id; e.innerHTML = svg + '<b>' + txt + '</b>'; e.style.cssText = 'position:fixed;right:27vw;bottom:' + bot + ';z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:78px;height:78px;border-radius:50%;border:3px solid #fffd;background:rgba(20,24,20,.62);color:#fff;font:800 11px system-ui,sans-serif;touch-action:none;cursor:pointer';
         const dn = (ev) => { ev.preventDefault(); ev.stopPropagation(); this.diveHold[key] = true; e.style.background = 'rgba(30,110,200,.8)'; }, up = () => { this.diveHold[key] = false; e.style.background = 'rgba(20,24,20,.62)'; };
-        e.addEventListener('pointerdown', dn); for (const n of ['pointerup', 'pointercancel', 'pointerleave']) e.addEventListener(n, up); e.addEventListener('contextmenu', (ev) => ev.preventDefault()); document.body.appendChild(e); return e; };
-      this.diveBtn = mk('c-dive', 'DIVE', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v20M8 17l8 10 8-10"/></svg>', '34%', 'dive');
-      this.upBtn = mk('c-pullup', 'PULL UP', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 27V7M8 15l8-10 8 10"/></svg>', 'calc(34% - 88px)', 'up');
+        e.addEventListener('pointerdown', dn); for (const n of ['pointerup', 'pointercancel', 'pointerleave']) e.addEventListener(n, up); e.addEventListener('contextmenu', (ev) => ev.preventDefault()); document.body.appendChild(e); return e; };   // (v236: the player's own button layout applies to these too)
+      this.diveBtn = mk('c-dive', 'DIVE', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v20M8 17l8 10 8-10"/></svg>', 'calc(16vh + 88px)', 'dive');
+      this.upBtn = mk('c-pullup', 'PULL UP', '<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 27V7M8 15l8-10 8 10"/></svg>', '16vh', 'up');
+      if (window.phApplyLayout) setTimeout(window.phApplyLayout, 0);
       const kk = (v) => (e) => { if (!this.dropping) return; if (e.key === 'Shift') this.diveHold.dive = v; else if (e.code === 'KeyC') this.diveHold.up = v; };
       addEventListener('keydown', kk(true)); addEventListener('keyup', kk(false)); addEventListener('blur', () => { this.diveHold.dive = this.diveHold.up = false; }); }
     const sh = on ? 'flex' : 'none'; if (this.diveBtn.style.display !== sh) { this.diveBtn.style.display = this.upBtn.style.display = sh; if (!on) this.diveHold.dive = this.diveHold.up = false; }
@@ -241,7 +242,7 @@ export class CombatScene {
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
-    g.ph = m.ph; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.c = m.c; g.ph = m.ph; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   stepMates(dt) {
     const T = this.R.jangTeam; if (!T) return; this.sendMate(dt);
