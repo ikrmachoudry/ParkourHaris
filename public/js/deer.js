@@ -32,6 +32,13 @@ function geos() {   // built once, shared by every deer (forward = +z, feet on y
   return GEO;
 }
 
+
+export function buildDeerRig(stag, scale = 1) {   // one deer: a group with a body, a head (pivots at the neck) and two leg pairs (pivot at the hips); forward = +z
+  const G = geos(), g = new THREE.Group(), body = new THREE.Mesh(G.body, G.mat), head = new THREE.Mesh(stag ? G.stag : G.doe, G.mat), la = new THREE.Mesh(G.legsA, G.mat), lb = new THREE.Mesh(G.legsB, G.mat);
+  head.position.set(0, 1.25, 0.62); la.position.y = lb.position.y = 0.86; for (const m of [body, head, la, lb]) { m.castShadow = false; g.add(m); }
+  g.scale.setScalar(scale); return { g, head, la, lb };
+}
+
 export class Deer {
   constructor(scene, lite) {
     this.scene = scene; this.list = []; const R = rng(2024), G = geos(), spots = [];
@@ -39,9 +46,7 @@ export class Deer {
     const MT = GT.MT; for (let h = 0; h < 3; h++) { const a = h * 2.1 + 0.6, cx = MT.cx + Math.cos(a) * 62, cz = MT.cz + Math.sin(a) * 62; for (let i = 0; i < 3; i++) spots.push({ cx, cz, r: 22, keep: 0, stag: i === 0 }); }   // 3 herds on the mountain slopes
     spots.forEach((s, i) => {
       if (lite && i % 2) return;   // phones: half of them
-      const a = R() * 6.28, d = Math.max(s.keep + 1, Math.sqrt(R()) * s.r * 0.8), g = new THREE.Group(), body = new THREE.Mesh(G.body, G.mat), head = new THREE.Mesh(s.stag ? G.stag : G.doe, G.mat), la = new THREE.Mesh(G.legsA, G.mat), lb = new THREE.Mesh(G.legsB, G.mat);
-      head.position.set(0, 1.25, 0.62); la.position.y = lb.position.y = 0.86; la.position.z = lb.position.z = 0; body.position.y = 0; for (const m of [body, head, la, lb]) { m.castShadow = false; g.add(m); }
-      const sc = s.stag ? 1.08 : 0.95 + R() * 0.1; g.scale.setScalar(sc); g.visible = false; scene.add(g);
+      const a = R() * 6.28, d = Math.max(s.keep + 1, Math.sqrt(R()) * s.r * 0.8), sc = s.stag ? 1.08 : 0.95 + R() * 0.1, { g, head, la, lb } = buildDeerRig(s.stag, sc); g.visible = false; scene.add(g);
       const d0 = { g, head, la, lb, s, x: s.cx + Math.cos(a) * d, z: s.cz + Math.sin(a) * d, yaw: R() * 6.28, st: 'graze', t: 2 + R() * 6, tx: 0, tz: 0, ph: R() * 6, hd: 0.9, y: 0 };
       d0.y = gtaH(d0.x, d0.z); this.list.push(d0);
     });

@@ -17,6 +17,7 @@ import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
+import { JangDeer } from './jangdeer.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff' };
@@ -72,7 +73,7 @@ export class CombatScene {
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim((m.round * 7919 + 13) | 0, 8); }   // v245: 2+ players = the SERVER runs the bots and the loot
-    this.group.visible = true; this.pay = 0;
+    this.group.visible = true; this.pay = 0; this.deer = new JangDeer(this.group);   // the wild stag (Jang only)
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
@@ -84,6 +85,7 @@ export class CombatScene {
     b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = cmbH(p.x, p.z) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
   }
   clear() {
+    if (this.deer) { this.deer.dispose(); this.deer = null; }
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
@@ -326,7 +328,7 @@ export class CombatScene {
       // the ammo / health / weapons on the ground
       if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q)); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
-      sim.tick(dt, P);
+      sim.tick(dt, P); if (this.deer) { this.deer.cam = R.camera.position; this.deer.update(dt, P, this); }
       for (const e of sim.drain()) this.event(e, b);
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
@@ -474,7 +476,8 @@ export class CombatScene {
   }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y) {
-    if (!this.active) return -1; const d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y), T = this.R.jangTeam;
+    if (!this.active) return -1; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y); const T = this.R.jangTeam;
+    if (this.deer) { const a = this.deer.ray(ox - CMB.x, oz - CMB.z, fx, fz, d > 0 ? d : range); if (a > 0) { this.deer.hit(dmg * 34, this); d = a; } }   // the stag is in the line of fire (before any wall / bot)
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; hit = g; hd = a; }
@@ -484,6 +487,6 @@ export class CombatScene {
   }
   hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByAt = performance.now(); this.hurt(Math.max(0, Math.min(60, +m.d || 0))); }   // v246: shot by a player of the other team
   onKillCredit() { this.kills++; this.R.toast && this.R.toast('ENEMY DOWN'); }
-  melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22); }
-  blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
+  melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm) + (this.deer ? this.deer.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm, this) : 0); }
+  blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); if (this.deer) this.deer.blast(x - CMB.x, z - CMB.z, r, this); }
 }
