@@ -299,6 +299,7 @@ export class CombatScene {
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         a.acc = (a.acc || 0) + dt; const skip = d2 > BOT_MID2 && (fr + bi) % 3 !== 0; if (skip && a.g.visible) continue;   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;
+        if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
         if (s.alive) { a.g.visible = true; a.m.update(adt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 }); }
         else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.m.update(adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < 6; }
       } }
@@ -306,12 +307,15 @@ export class CombatScene {
     if (this.vig && this.vig.style.opacity > 0) this.vig.style.opacity = Math.max(0, this.vig.style.opacity - dt * 1.6);
     this.hudT = (this.hudT || 0) - dt; if (this.hudT <= 0) { this.hudT = 0.2; this.updateHud(); }
   }
+  // v239 PUBG-style 3D sound: how far left / right of the camera a world point is (-1..1)
+  panOf(wx, wz) { const c = this.R.camera, m = c.matrixWorld.elements, dx = wx - c.position.x, dz = wz - c.position.z, l = Math.hypot(dx, dz) || 1; return Math.max(-1, Math.min(1, (dx * m[0] + dz * m[2]) / l * 1.1)); }
   event(e, b) {
     const R = this.R;
     if (e.k === 'shot') {
       const wx = CMB.x + e.x, wz = CMB.z + e.z, tx = e.hit ? b.x : b.x + (Math.random() - 0.5) * 3, tz = e.hit ? b.z : b.z + (Math.random() - 0.5) * 3, cd = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
       const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, tx, b.y + 1.3, tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
-      if (cd < 120) { const v = Math.max(0.18, 1 - cd / 120); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(v) : A.sfx.shot(0, v); }
+      if (cd < 160) { const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
+      if (!e.hit && cd < 90 && A.sfx.whiz) { const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
       if (e.hit && this.hp > 0 && this.deadT <= 0) this.hurt(e.dmg);
     } else if (e.k === 'kill') {
       this.kills++; R.toast && R.toast('ENEMY DOWN'); { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();

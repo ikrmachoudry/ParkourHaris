@@ -132,6 +132,8 @@ export const sfx = {
     else if (s > 14) { play('mm' + (Math.random() * 3 | 0), v * 0.8, rnd(0.9, 1.1)); }
     else play('th' + (Math.random() * 3 | 0), Math.min(0.7, v), rnd(0.8, 1.0), 0, 0, 1400);
   },
+  // v239: a bullet that flies close past your head (a crack + short rising-falling hiss, panned to the side it passes)
+  whiz(pan = 0, vol = 1) { if (!ctx || !noiseBuf) return; const t = ctx.currentTime, src = ctx.createBufferSource(); src.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(3600, t); f.frequency.exponentialRampToValueAtTime(1300, t + 0.22); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * vol, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24); src.connect(f); f.connect(g); let n = g; if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); n = p; } n.connect(bus || sfxG); src.start(t); src.stop(t + 0.3); },
   step(kind = 'c') { const k = kind === 'g' ? 'fsg' : kind === 'w' ? 'fsw' : 'fsc'; play(k + (Math.random() * 4 | 0), rnd(0.35, 0.5), rnd(0.9, 1.1)); },
   dive() { play('swish', 0.7, rnd(0.8, 0.95)); },
   bounce() { play('bouncepad', 0.7, rnd(0.97, 1.03)); },
