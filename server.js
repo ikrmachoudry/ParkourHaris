@@ -54,7 +54,8 @@ app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: true, setHeaders: (res, f) => { if (/\.(js|css|html)$/.test(f)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); } })); // always re-check with ETag: players get new versions right after a deploy, 304 keeps it cheap
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192, perMessageDeflate: false });
+process.on('uncaughtException', (e) => console.error('uncaughtException (kept running)', e)); process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 65536, perMessageDeflate: false });
 
 // ---------------------------------------------------------------- rooms
 const rooms = new Map();
@@ -240,7 +241,7 @@ wss.on('connection', (ws, req) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
-  ws.on('message', (raw) => {
+  const onMsg = (raw) => {
     const nowT = Date.now(); bucket = Math.min(120, bucket + (nowT - lastMsg) / 1000 * 80); lastMsg = nowT; p.seen = nowT; if (--bucket < 0) return; // flood protection
     let m;
     try { m = JSON.parse(raw); } catch { return; }
@@ -508,9 +509,10 @@ wss.on('connection', (ws, req) => {
         break;
       }
     }
-  });
+  };
+  ws.on('message', (raw) => { try { onMsg(raw); } catch (e) { console.error('message handler error (connection kept)', e); } });   // v281: one bad message used to throw out of the handler and CRASH the whole server = everybody disconnected
 
-  ws.on('close', () => removePlayer(p));
+  ws.on('close', () => { try { removePlayer(p); } catch (e) { console.error('removePlayer', e); } });
   ws.on('error', () => {});
 });
 

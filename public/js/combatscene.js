@@ -583,6 +583,14 @@ export class CombatScene {
     if (!silent) { R.toast && R.toast('DROPPED ' + LOOT_NAME[w]); A.sfx.click && A.sfx.click(); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.syncLoot(); if (this.inv) this.inv.render(); return true;
   }
+  dropItem(k) {   // v281: drop ONE of anything from the backpack (heals, smoke, grenade, scopes, armour) on the ground in front of you: a teammate (or you) can pick it up again
+    const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !this.sim || this.dropping || this.down) return false;
+    const n = k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; if (n <= 0) return false;
+    if (k === 'grenade') { cb.nades = n - 1; if (R.weapon === 'grenade' && cb.nades <= 0) R.equip(this.guns()[0] || 'fist'); } else { cb.inv[k] = n - 1; if (k === 'vest' && cb.inv.vest <= 0) cb.vestHp = 0; if (k === 'helmet' && cb.inv.helmet <= 0) cb.helmHp = 0; if (k === 'scope' && cb.inv.scope <= 0 && R.telescope) { try { R.telescope = false; } catch (e) { /* noop */ } } }
+    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), it = this.sim.dropLoot(k, b.x - CMB.x + fx * 1.2, b.z - CMB.z + fz * 1.2);
+    R.toast && R.toast('DROPPED ' + (LOOT_NAME[k] || String(k).toUpperCase())); A.sfx.click && A.sfx.click(); void it;
+    R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this._sk = ''; this.syncLoot(); this.updateHud && this.updateHud(); if (this.inv) this.inv.render(); return true;
+  }
   // v271: a small PUBG-style pick-up feed (bottom left, above the hotbar): every pick-up shows what you got for ~2.6 s
   feed(txt, col) {
     let f = this.pkFeed; if (!f) { f = this.pkFeed = document.createElement('div'); f.style.cssText = 'position:fixed;left:14px;bottom:140px;z-index:6;display:flex;flex-direction:column-reverse;gap:3px;pointer-events:none;font:700 13px system-ui,sans-serif;letter-spacing:.5px'; document.body.appendChild(f); }

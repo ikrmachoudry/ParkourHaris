@@ -51,8 +51,8 @@ export class Inventory {
     let used = 0;
     for (const it of ITEMS) {
       const n = cs.count(it.k); used += n; const row = document.createElement('div'); row.className = 'iv-row item' + (n > 0 ? '' : ' empty') + (it.k === 'scope' && R.telescope ? ' sel' : '');
-      row.style.setProperty('--c', it.col); row.innerHTML = '<i>' + pic(cs, it.k, it.icon) + '</i><div><b>' + it.name + '</b><small>' + it.info + '</small></div><em>x' + n + (it.key ? '<u>' + it.key + '</u>' : '') + '</em>';
-      row.addEventListener('pointerdown', (e) => { e.preventDefault(); cs.useItem(it.k); this.render(); }); items.appendChild(row);
+      row.style.setProperty('--c', it.col); row.innerHTML = '<i>' + pic(cs, it.k, it.icon) + '</i><div><b>' + it.name + '</b><small>' + it.info + '</small></div><em>x' + n + (it.key ? '<u>' + it.key + '</u>' : '') + '</em>' + (n > 0 ? '<button type="button" class="iv-drop">DROP</button>' : '');   /* v281: EVERY item can be dropped (one at a time) so a teammate can pick it up */
+      row.addEventListener('pointerdown', (e) => { e.preventDefault(); if (e.target.classList && e.target.classList.contains('iv-drop')) { e.stopPropagation(); cs.dropItem(it.k); return; } cs.useItem(it.k); this.render(); }); items.appendChild(row);
     }
     this.el.querySelector('.iv-cap').textContent = used + ' items';
   }

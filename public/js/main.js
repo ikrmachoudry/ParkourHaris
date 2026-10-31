@@ -423,7 +423,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
+    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -676,7 +676,7 @@ class Race {
       else if (bail) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }          // jumped out of a moving car: it keeps rolling
       else if (boatV && !force && Math.abs(st.speed) > 2) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }
       else if (!force) { st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; }
-      this.drive = null; this.paxMode = false; this.paxSeat = 0;
+      this.drive = null; this.paxMode = false; this.paxSeat = 0; if (this.paxLbl) this.paxLbl.style.display = 'none';
       if (bail) try {   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
         const l = Math.hypot(vx0, vz0) || 1; b.hitCd = 0; b.immune = 0;
         if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(12, 3 + sp0 * 0.32))) { b.vy = 2.6 + Math.min(2.4, sp0 * 0.07); b.stun = Math.min(2.8, 1.5 + sp0 * 0.045); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
@@ -1891,6 +1891,7 @@ class Race {
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
       const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   // phones: chase camera a bit closer
+      if (this.paxMode) { let pl = this.paxLbl; if (!pl) { pl = this.paxLbl = document.createElement('div'); pl.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:7;padding:4px 12px;border-radius:14px;background:rgba(0,0,0,.55);color:#fff;font:800 12px system-ui,sans-serif;letter-spacing:.8px;pointer-events:none'; document.body.appendChild(pl); } const tx = this.lookT > 0 ? 'LOOKING AROUND  -  release to return to DRIVER VIEW' : 'DRIVER VIEW  -  drag to look around'; if (pl.textContent !== tx) pl.textContent = tx; pl.style.display = 'block'; }   // v281: the passenger always sees which camera he is on
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); /* v247: a passenger's camera always follows the driver's heading until he gets out */ this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
