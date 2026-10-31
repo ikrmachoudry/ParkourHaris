@@ -1570,6 +1570,9 @@ class Race {
   }
   toggleFireMode() { const w = this.weapon, W = w && WEAPONS[w]; if (!W || !W.auto) { this.toast('Single shot only on this weapon'); return; } this.single = !this.single; this.toast(this.single ? 'FIRE MODE: SINGLE' : 'FIRE MODE: AUTO'); const b = $('a-fmode'); if (b) b.classList.toggle('on', !!this.single); }
   // the point the crosshair (screen centre) looks at: along the camera ray, down to the ground when it points down, 40+ m ahead otherwise
+  spreadK() {   // v289 PUBG: bullets go where the crosshair is when you aim down the sights; hip fire is a wide cone, moving opens it, crouching / lying closes it
+    const b = this.me.body, mv = Math.hypot(b.vx || 0, b.vz || 0); let k = this.aiming ? 0.18 : 0.5; if (mv > 1.2) k *= 1.35; if (this.prone) k *= 0.55; else if (this.crouch) k *= 0.75; return k;
+  }
   crosshairPoint(range) {
     const cam = this.camera; if (!cam) return null; const d = new THREE.Vector3(); cam.getWorldDirection(d); const cp = cam.position, gy = this.world && this.world.terrain ? this.world.terrain(cp.x + d.x * 20, cp.z + d.z * 20) : 0;
     let t = d.y < -0.02 ? Math.min((cp.y - gy) / -d.y, range + 20) : Math.min(60, range + 20); t = Math.max(6, t);
@@ -1590,7 +1593,9 @@ class Race {
     this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
-    let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + (Math.random() - 0.5) * 2 * W.spread;   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
+    let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + (Math.random() - 0.5) * 2 * W.spread * this.spreadK();   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
+    /* v289 PUBG style on the COMBAT island: with AUTO AIM on, a bot (a pixel or two from the crosshair, within about 5 degrees) is locked on: the bullet goes to his chest, only a tiny wobble is left */
+    if (OPT.autoAim && this.mission && this.mission.cs && this.mission.cs.active && this.mission.cs.sim) { let bd4 = 0.09; for (const bt of this.mission.cs.sim.bots) { if (!bt.alive) continue; const dx = CMB.x + bt.x - b.x, dz = CMB.z + bt.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - ang; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd4) { bd4 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * 2 * W.spread * 0.12; } } }
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
     if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
     if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
