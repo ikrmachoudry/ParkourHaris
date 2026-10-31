@@ -187,7 +187,7 @@ export class GlbActor extends HeroActor {
     if (gun.parent) gun.parent.remove(gun);
     hr.bone.add(gun); gun.quaternion.copy(rel); gun.position.copy(gp); gun.scale.setScalar(1 / S);
     model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-    for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.12, 1, 1.12); if (hd && hd.bone) hd.bone.scale.set(0.74, 0.74, 0.74); } gun.scale.multiplyScalar(1 / (0.74 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
+    for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.12, 1, 1.12); if (hd && hd.bone) hd.bone.scale.set(0.9, 0.9, 0.9); } gun.scale.multiplyScalar(1 / (0.9 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
     this.shell = shell; this.ch.mesh.visible = false; this.ready = true;
     if (!this.opts.zombie && this.opts.pack !== false) { try { this.addPack(T.chest.bone, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('backpack', e); } }   // every survivor carries a backpack
     this.height = this.opts.height || 1.78;
