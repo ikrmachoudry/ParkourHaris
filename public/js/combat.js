@@ -249,8 +249,9 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
       { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-2, 2.4], [6.6, 3.0]] }, { f: 1, ax: 'x', pos: 3.4, a: -6, b: 13.8, gaps: [[0, 2.4], [9, 2.4]] },
       { f: 1, ax: 'z', pos: 6.8, a: -9.8, b: 3.4, gaps: [[-6.4, 1.8]] }, { f: 1, ax: 'x', pos: -3.2, a: 6.8, b: 13.8 }] });
   /* v268: Haris's brother's home built on to the east side of the villa: an open GARAGE below (empty, the Mehran comes later), rooms above; and the CIVIC DA GARAGE moves on to the right of it */
-  { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10, hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 0, w: 5.6, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true;
-    mk('shop', pick[0] + 14 + 9 + 3.2, pick[1] + 5, 6, 10, 'S', { fy: fy0, fh: 3.4, c: '#d9c9a3', doors: [{ s: 'N', o: 0, w: 2.0, h: 2.5 }] }); BUILDINGS[BUILDINGS.length - 1].civic = true; }
+  { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10; padRect(pick[0] - 17, pick[1] + 10, pick[0] + 36, pick[1] + 27, fy0); /* v270: a flat, plain yard in front of the villa and the two new houses (no ditches, no bumps) */ const hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 1.4, w: 4.0, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true; bb.fur = null;
+    mk('shop', pick[0] + 14 + 9 + 3.2, pick[1] + 5, 6, 10, 'S', { fy: fy0, fh: 3.4, c: '#d9c9a3', doors: [{ s: 'S', o: 0, w: 3.3, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }] }); const cb = BUILDINGS[BUILDINGS.length - 1]; cb.civic = true; cb.noLoot = true; cb.fur = null;
+    cb.shutter = { x0: cb.x - 1.65, x1: cb.x + 1.65, z0: cb.z + cb.d / 2 - TH, z1: cb.z + cb.d / 2, y0: cb.fy, y1: cb.fy + 2.8, k: 'shutter', open: false }; cb.solids.push(cb.shutter); }
 }
 // ---- more town: houses, shops, flats and sheds scattered over the open ground, mostly beside the roads (concrete country, not meadows)
 { const RX = seeded(777), kinds = [['house', 10, 9], ['house', 11, 9], ['shop', 12, 9], ['apart', 16, 12], ['warehouse', 22, 18], ['cabin', 8, 7], ['shack', 6, 5], ['house', 10, 9], ['shop', 14, 10]], fr = ['N', 'S', 'E', 'W'];
@@ -385,6 +386,7 @@ function build() {
   // loot spots: inside every room, round the buildings, along the roads, in the forests (checked against everything solid: nothing is ever half inside a wall)
   const spots = [], add = (x, z, w) => { if (Math.abs(x) < H - 20 && Math.abs(z) < H - 20 && cmbH(x, z) > -0.4 && open(x, z, 1.0) && !spots.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 6)) spots.push(w ? { x, z, w: 1 } : { x, z }); };
   for (const b of BUILDINGS) {
+    if (b.noLoot) continue;
     const ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (let f = 0; f < b.fl; f++) { /* ground floor spots only: the sim has no floors */ if (f) break; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5]]) add(b.x + sx * ix, b.z + sz * iz, b.kind !== 'shack' && b.kind !== 'cabin' && (Math.floor(Math.abs(b.x * 3 + b.z * 7 + sx * 5 + sz * 11)) % 2) === 0); }   /* v264: every other room corner is a WEAPON spot: guns turn up in rooms all over the map (and because each match has its own seed, in different rooms each time) */
     for (const [sx, sz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) add(b.x + sx * (b.w / 2 + 2.2), b.z + sz * (b.d / 2 + 2.2));
   }
@@ -394,6 +396,7 @@ function build() {
   const hasFloor = (x, z, y) => { const a = bucket.get(Math.floor(x / B) * 4099 + Math.floor(z / B)); if (!a) return false; for (const q of a) if ((q.k === 'floor' || q.k === 'roof') && Math.abs(q.y1 - y) < 0.12 && x > q.x0 + 0.2 && x < q.x1 - 0.2 && z > q.z0 + 0.2 && z < q.z1 - 0.2) return true; return false; };
   const addY = (x, z, y, o = {}) => { if (!hasFloor(x, z, y) || !openY(x, z, 0.9, y) || spots.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < 4 && Math.abs((q.y === undefined ? 0 : q.y) - y) < 1.5)) return false; spots.push({ x, z, y, w: 1, ...o }); return true; };
   for (const b of BUILDINGS) {
+    if (b.noLoot) continue;
     if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const st = b.stairs; if (st) { const hx0 = st.dir > 0 ? st.x0 : st.x0 - (st.n - 1) * st.tread; if (x > b.x + hx0 - 2 && x < b.x + hx0 + (st.n - 1) * st.tread + 2 && z > b.z + st.z0 - 2 && z < b.z + st.z0 + st.sw + 2) continue; } addY(x, z, y2); } }
     if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
   }
@@ -597,3 +600,5 @@ export class CombatSim {
   }
   drain() { const e = this.events; this.events = []; return e; }
 }
+// v269: the CIVIC DA GARAGE shutter: open = the solid is pushed far below the ground (nothing hits it, cars drive through); closed = it fills the doorway again
+export function setShutter(b, open) { const s = b && b.shutter; if (!s) return; if (s.oy1 === undefined) { s.oy0 = s.y0; s.oy1 = s.y1; } s.open = !!open; s.y0 = open ? -9999 : s.oy0; s.y1 = open ? -9998 : s.oy1; s._cb = null; if (s._ws) s._ws.active = !open; }

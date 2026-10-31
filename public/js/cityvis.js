@@ -9,6 +9,7 @@ import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
 import { buildTruck, TRUCK } from './htruck.js';
 import { buildJeep, JEEP } from './hjeep.js';
+import { buildCivic, CIVIC } from './hcivic.js';
 import { buildBus, BUS } from './hbus.js';
 import { buildBoat, BOATS } from './hboat.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -70,18 +71,19 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
-const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR], jeep: [buildJeep, JEEP, 0.78, 1, JEEP.seatR],
+const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR], jeep: [buildJeep, JEEP, 0.78, 1, JEEP.seatR], civic: [buildCivic, CIVIC, 0.62, 0.86, CIVIC.seatR],
   speedboat: [(o) => buildBoat({ ...o, hull: 'speedboat' }), BOATS.speedboat, BOATS.speedboat.seatTop - 0.15, 1, BOATS.speedboat.seatR], fishboat: [(o) => buildBoat({ ...o, hull: 'fishboat' }), BOATS.fishboat, BOATS.fishboat.seatTop - 0.15, 1, BOATS.fishboat.seatR], yacht: [(o) => buildBoat({ ...o, hull: 'yacht' }), BOATS.yacht, BOATS.yacht.seatTop - 0.15, 1, BOATS.yacht.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
   const [build, RICK, seatY, seatS, seatR] = MODELS[spec.model];
-  const full = bakedOnly ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
-  const bk = build({ paint: spec.paint, detail: 'lo' }), baked = bakeCar(bk.group, [(bk.mats || {}).paint]);
+  const isC = spec.model === 'civic';   // v269: the GLB Civic has no merged distance copy: the full model is always shown
+  const full = bakedOnly && !isC ? null : build({ paint: spec.paint, detail: lo ? 'lo' : 'hi' });
+  const bk = isC ? full : build({ paint: spec.paint, detail: 'lo' }), baked = isC ? new THREE.Group() : bakeCar(bk.group, [(bk.mats || {}).paint]);
   const g = new THREE.Group(), rot = new THREE.Group();
-  rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly;
+  rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly && !isC;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(RICK.L * 1.25, RICK.w * 2.6), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; sh.visible = !spec.boat; g.add(sh);
   g.userData = {
-    hero: full || bk, spec, baked, bakedOnly, full: full ? full.group : baked, wheels: [], pivots: [], seat: { z: RICK.seatX, y: 0.8 },
+    hero: full || bk, spec, baked, bakedOnly: bakedOnly && !isC, keepFull: isC, full: full ? full.group : baked, wheels: [], pivots: [], seat: { z: RICK.seatX, y: 0.8 },
     seatF: RICK.seatX, seatR, seatY, seatS, lamp: null,
     ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
   };
@@ -117,7 +119,7 @@ export function animateCityMesh(mesh, st, dt) {
   if (st.driver === -1 && farCar(mesh.position.x, mesh.position.z)) { if (mesh.visible) { mesh.visible = false; u.farHid = true; } return; } if (u.farHid) { mesh.visible = true; u.farHid = false; }
   { // level of detail: the full animated car near the camera or when somebody is inside, the merged baked copy far away
     const dx = mesh.position.x - camPos.x, dz = mesh.position.z - camPos.z, d2 = dx * dx + dz * dz;
-    const near = !u.bakedOnly && (st.driver !== -1 || d2 < (u.near ? 26 * 26 : 19 * 19));
+    const near = u.keepFull || !u.bakedOnly && (st.driver !== -1 || d2 < (u.near ? 26 * 26 : 19 * 19));
     if (near !== !!u.near || u.near === undefined) { u.near = near; u.full.visible = near; u.baked.visible = !near; }
     if (!near) { mesh.rotation.z = 0; mesh.rotation.x = -(st.pitch || 0); applySag(mesh, sag); return; }
   }

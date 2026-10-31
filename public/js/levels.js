@@ -2,7 +2,7 @@
 import { World } from './world.js';
 import { buildGta } from './gtaworld.js';
 import { layout as cmbLayout, CMB, cmbInside, cmbH, ROADS } from './combat.js';
-import { jangJeeps } from './jangcars.js';
+import { jangJeeps, garageCars } from './jangcars.js';
 
 export const THEMES = {
   gta: {
@@ -32,7 +32,7 @@ export function buildEmptyLevel(seed = 0) {
   world.key = 'gta'; world.waterY = -40; world.killY = -60;
   // the battle island's ground and every wall / roof / tree is what the player walks on (physics) - without it the player walks on a flat y=0 plane UNDER the hills and sinks through the map
   const T = (x, z) => (cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : 0); world.terrain = T;
-  { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building' }); }
+  { const L = cmbLayout(); for (const q of L.solids) { const ws = world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building' }); if (q.k === 'shutter') q._ws = ws; } }
   world.finalize();
-  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: jangJeeps(3, seed), track: { terrain: T, boxes: [], edge: 1900, waterY: -40, plazas: [], segs: ROADS.flatMap((r) => r.pts.slice(0, -1).map((p, i) => ({ ax: CMB.x + p[0], az: CMB.z + p[1], bx: CMB.x + r.pts[i + 1][0], bz: CMB.z + r.pts[i + 1][1], hw: r.w / 2 + 1 }))) }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
+  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: [...jangJeeps(3, seed), ...garageCars()], track: { terrain: T, boxes: [], edge: 1900, waterY: -40, plazas: [], segs: ROADS.flatMap((r) => r.pts.slice(0, -1).map((p, i) => ({ ax: CMB.x + p[0], az: CMB.z + p[1], bx: CMB.x + r.pts[i + 1][0], bz: CMB.z + r.pts[i + 1][1], hw: r.w / 2 + 1 }))) }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
 }

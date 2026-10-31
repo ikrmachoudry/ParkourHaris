@@ -424,6 +424,23 @@ export class CombatScene {
       g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.r; }
     }
   }
+  // v269: VEHICLE HITS: any car / jeep / Civic that moves faster than ~14 km/h hurts whoever it runs into: bots, enemy players (PvP), and ME when somebody else's car hits me. Damage grows with the speed (about 22 m/s kills).
+  vehHits(dt, P) {
+    const R = this.R, sim = this.sim, b = R.me.body, T = R.jangTeam, now = performance.now(); if (!this.vp) this.vp = new Map();
+    for (const c of R.cars) {
+      const st = c.st, pv = this.vp.get(c); this.vp.set(c, { x: st.x, z: st.z, t: now }); if (!pv || dt <= 0) continue;
+      const vx = (st.x - pv.x) / dt, vz = (st.z - pv.z) / dt, sp = Math.hypot(vx, vz); if (sp < 4 || sp > 90) continue;
+      if (c._vhCd > 0) { c._vhCd -= dt; continue; }
+      const fx = vx / sp, fz = vz / sp, hl = (st.hl || 2.2) + 0.45, hw = (st.hw || 0.95) + 0.45, dmg = Math.min(110, (sp - 3.5) * 5.2), mine = c === R.drive && !R.paxMode;
+      const inBox = (x, z, y) => { if (Math.abs((y === undefined ? st.y : y) - st.y) > 2.4) return false; const dx = x - st.x, dz = z - st.z, lz = dx * fx + dz * fz, lx = -dx * fz + dz * fx; return lz > -0.3 && lz < hl + 0.2 && Math.abs(lx) < hw; };
+      let hit = false;
+      for (const bt of sim.bots) { if (!bt.alive || !inBox(CMB.x + bt.x, CMB.z + bt.z)) continue; if (this.shared && !mine) continue; hit = true; sim.hurt(bt, dmg, st.x - CMB.x, st.z - CMB.z, mine ? undefined : -3); }
+      if (hit && mine && this.shared) sim.net.send({ t: 'cmelee', x: +(st.x - CMB.x + fx * 1.2).toFixed(2), z: +(st.z - CMB.z + fz * 1.2).toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), reach: +Math.min(4.4, hl + 0.3).toFixed(2), dmg: +Math.min(60, dmg).toFixed(1) });
+      if (!mine && !R.drive && P.alive && !this.dropping && this.hp > 0 && this.deadT <= 0 && b.hitCd <= 0 && inBox(b.x, b.z, b.y)) { this.hurt(Math.round(dmg)); hit = true; }
+      if (mine && this.shared && T) for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500) continue; if (inBox(g.x, g.z)) { T.net.send({ t: 'cpv', to: g.id, d: +Math.min(60, dmg).toFixed(1) }); hit = true; } }
+      if (hit) c._vhCd = 0.7;
+    }
+  }
   update(dt) {
     const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
@@ -445,7 +462,7 @@ export class CombatScene {
       // the ammo / health / weapons on the ground
       if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
-      sim.tick(dt, P);
+      sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();

@@ -9,7 +9,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { layout as cmbLayout, CMB, TW, vaultSpot, cmbH as cmbHt } from './combat.js';
+import { layout as cmbLayout, CMB, TW, vaultSpot, cmbH as cmbHt, setShutter } from './combat.js';
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
@@ -647,6 +647,12 @@ class Race {
     else { const c = w.cars.find((q) => q.nid === m.n); const cs = c && c.st; if (cs && !cs.wreck) cs.hp = Math.max(0, (cs.hp === undefined ? 100 : cs.hp) - Math.max(6, d * 9)); }
   }
   onJack(m) { const c = this.cars[m.c | 0]; if (c && c === this.drive) this.toggleCar(true); } // somebody stole my car: I am thrown out
+  // v269: the CIVIC DA GARAGE shutter (Jang): a button / C opens and closes it when you stand in front of it
+  civicB() { if (!this.jang) return null; return this._cvB !== undefined ? this._cvB : (this._cvB = cmbLayout().buildings.find((q) => q.civic) || null); }
+  nearShutter(b) { const cb = this.civicB(); if (!cb || this.drive) return null; return Math.hypot(b.x - (CMB.x + cb.x), b.z - (CMB.z + cb.z + cb.d / 2 + 1.5)) < 4.2 && Math.abs(b.y - cb.fy) < 2.5 ? cb : null; }
+  shutterToggle(b) { const cb = this.nearShutter(b); if (!cb) return false; setShutter(cb, !cb.shutter.open); A.sfx.door && A.sfx.door(); this.toast && this.toast(cb.shutter.open ? 'GARAGE OPEN' : 'GARAGE CLOSED', 1.5); return true; }
+  shutterAnim(dt) { const cb = this.civicB(); if (!cb || !cb.shM) return; const tg = cb.shutter.open ? 1 : 0; cb.shT = cb.shT === undefined ? tg : cb.shT + Math.sign(tg - cb.shT) * Math.min(Math.abs(tg - cb.shT), dt * 0.9);
+    const [m1, m2] = cb.shM, H0 = cb.shH || 2.8, h = H0 * Math.max(0.001, 1 - cb.shT); m1.scale.y = Math.max(0.001, 1 - cb.shT); m1.position.y = cb.shFy + H0 - h / 2; m1.visible = cb.shT < 0.995; m2.visible = cb.shT < 0.05; }
   toggleCar(force) {
     if (!force && (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length)) return;
     if (force && !this.drive) return;
@@ -684,7 +690,7 @@ class Race {
       this.camYaw = st.yaw + Math.PI; this.camInit = false; if (NO_TEXT) this.camPitch = 0.17;
     } else {
       const c = this.nearestFreeCar(b);
-      if (!c) { const cc = this.wanted && this.wanted.nearestCop(b); if (cc && this.stealCop(cc)) return; const tj = this.nearestJack(b); if (tj) this.startJack(tj); return; }
+      if (!c) { if (this.shutterToggle(b)) return; const cc = this.wanted && this.wanted.nearestCop(b); if (cc && this.stealCop(cc)) return; const tj = this.nearestJack(b); if (tj) this.startJack(tj); return; }
       { const ci = this.cars.indexOf(c);   // somebody else is driving this vehicle and a seat is free: ride along instead of stealing it
         const cap = this.seatCap(c), pp = c.st.paxs || [], free = [], mc = this.mateCars && this.mateCars.has(ci), used = mc && this.mission && this.mission.cs ? this.mission.cs.paxSeats(ci) : []; for (let k = 0; k < cap - 1; k++) if ((pp[k] === undefined || pp[k] === -1) && !used.includes(k)) free.push(k);
         if (((this.multi && c.st.driver !== -1 && c.st.driver !== this.localId) || mc) && (ci < 12 || ci >= 16) && !c.st.wreck && free.length) {
@@ -1018,7 +1024,10 @@ class Race {
       if (this.jangTeam && this.mateCars && this.mateCars.has(this.cars.indexOf(this.drive))) driverSeen = true;   // v242: Jang: my driver is a teammate whose jeep I see moving
       if (driverSeen || (!this.multi && !this.jangTeam) || (!this.jangTeam && this.mission && this.mission.phase && this.mission.phase !== 'idle')) this.paxOrphan = 0; else if ((this.paxOrphan = (this.paxOrphan || 0) + dt) > 1.5) { this.paxOrphan = 0; this.toggleCar(true); }
     }
-    const near = !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || this.nearestJack(b) || (this.wanted && this.wanted.nearestCop(b)));
+    this.shutterAnim(dt);
+    const nsh = !this.drive && canMove && !this.menuOpen && !this.nearestFreeCar(b) && this.nearShutter(b);
+    const near = !this.drive && canMove && !this.menuOpen && (this.nearestFreeCar(b) || nsh || this.nearestJack(b) || (this.wanted && this.wanted.nearestCop(b)));
+    { const em = document.querySelector('#b-car em'); if (em) { const t = nsh ? (nsh.shutter.open ? 'CLOSE GARAGE' : 'OPEN GARAGE') : 'GET IN'; if (em.textContent !== t) em.textContent = t; } }
     if (!!near !== document.body.classList.contains('near-car')) document.body.classList.toggle('near-car', !!near);
     if (this.drive) { const sp = $('car-speed'); if (sp) { const n = Math.round(Math.abs(this.drive.st.speed) * 3.6); if (sp.firstElementChild.textContent !== String(n)) sp.firstElementChild.textContent = n; } }
   }
@@ -1582,7 +1591,11 @@ class Race {
     let len = W.range, hc = -1;
     let shotAt = -1;
     if (this.peds) { const h = this.peds.shoot(ox, oz, fx, fz, W.range, W.dmg, (p, dead, d) => { this.earn(dead ? PAY.kill : PAY.hit); this.crime(dead ? 'kill' : 'hit', p.x, p.z); this.particles.emit(p.x, 1.2, p.z, 8, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }); if (h) { len = h.d; shotAt = h.p.i; } }
-    if (this.mission && this.mission.cs && this.mission.cs.active) { const cd0 = this.mission.cs.shoot(b.x + lnx, b.z + lnz, fx, fz, len + 0.7, W.dmg, w, oy - 0.15), cd = cd0 >= 0 ? Math.max(0.05, cd0 - 0.7) : -1; if (cd >= 0 && cd < len) len = cd; }   // v224: the ray starts at the BODY (the muzzle can already be past a wall you stand against) and at the real eye height (upstairs too)   // COMBAT MISSION bots (and its walls stop the bullet)
+    if (this.mission && this.mission.cs && this.mission.cs.active) {
+      if (Math.abs(this.leanV || 0) > 0.12 && this.camera && aimP) {   /* v270: PEEKING: the bullet is traced from the CAMERA (which is already out round the corner) to the crosshair: if you can see the target past the corner you can hit it (the old trace started at the leaned body, still inside the wall) */
+        const cp = this.camera.position, ddx = aimP.x - cp.x, ddz = aimP.z - cp.z, dl = Math.hypot(ddx, ddz) || 1, cx = ddx / dl, cz = ddz / dl, dd0 = this.mission.cs.shoot(cp.x, cp.z, cx, cz, W.range + dl, W.dmg, w, cp.y - 0.1);
+        if (dd0 >= 0) { const hx = cp.x + cx * dd0, hz = cp.z + cz * dd0, cd = Math.max(0.05, (hx - ox) * fx + (hz - oz) * fz); if (cd < len) len = cd; } }
+      else { const cd0 = this.mission.cs.shoot(b.x + lnx, b.z + lnz, fx, fz, len + 0.7, W.dmg, w, oy - 0.15), cd = cd0 >= 0 ? Math.max(0.05, cd0 - 0.7) : -1; if (cd >= 0 && cd < len) len = cd; } }
     if (zomOn) { const zd = this.mission.zs.shoot(ox, oz, fx, fz, len, w); if (zd >= 0 && zd < len) { len = zd; shotAt = shotAt; } }
     if (this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.snap && this.mission.ts.snap.st === 'ambush') {   // the summit: trees and boulders stop bullets; the gunman is hit only while he is out in the open
       const ts = this.mission.ts; let stop = len;

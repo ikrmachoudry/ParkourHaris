@@ -32,6 +32,8 @@ export const CITY_VEH = [
   { id: 31, name: 'Fishing Boat', style: 'fishboat', hull: 'fishboat', model: 'fishboat', boat: true, paint: '#2457a6', mass: 9000, kW: 160, top: 52 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 6, pitch: 0.55, hornHz: 260, acc: 2.8, dec: 5, turn: 0.52, agil: 1.7, keel: 3.0, draft: 0.9, rideH: 0.2, lift: 0, trim: 0.025 },
   { id: 32, name: 'Yacht', style: 'yacht', hull: 'yacht', model: 'yacht', boat: true, paint: '#ffffff', mass: 38000, kW: 900, top: 70 / 3.6, mu: 1, drive: 'rwd', cda: 1, cyl: 12, pitch: 0.4, hornHz: 180, acc: 3.4, dec: 6, turn: 0.4, agil: 1.3, keel: 3.6, draft: 1.2, rideH: 0.25, lift: 0.05, trim: 0.035 },   //// street racer with a big spoiler: reads 190 km/h flat out
   { id: 33, name: 'Jeep', style: 'jeep', model: 'jeep', paint: '#4f6b3a', mass: 1900, kW: 135, top: 120 / 3.6, mu: 1.0, drive: 'rwd', cda: 0.9, cyl: 6, pitch: 0.75, hornHz: 360 },   // 4-seat off-road jeep
+  { id: 34, name: 'Civic Si', style: 'coupe', model: 'civic', paint: '#0c0c0f', mass: 1290, kW: 145, top: 50, mu: 1.1, drive: 'fwd', cda: 0.6, cyl: 4, pitch: 1.05, hornHz: 460 },   // v269: the black Honda Civic Si coupe of CIVIC DA GARAGE (GLB model)
+  { id: 35, name: 'Mehran', style: 'hatch', paint: '#f4f4f1', mass: 800, kW: 31, top: 125 / 3.6, mu: 0.95, drive: 'rwd', cda: 0.68, cyl: 3, pitch: 1.35, hornHz: 520 },   // v269: the little white Suzuki Mehran in the brother's garage
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 

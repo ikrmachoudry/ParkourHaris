@@ -183,6 +183,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05); }
     else if (b.kind !== 'clinic') { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
+      B.box('conc', b.x - 17, fy - 0.15, b.z + b.d / 2, b.x + 36, fy + 0.012, b.z + b.d / 2 + 16.5, '#c9bfa8', 0);   /* v270: a plain flat concrete yard in front of the villa and the new houses */
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;
       const zf = b.z + hz, bx = b.x, capY = fy + tri + 0.85;
       // -- a copy of Dr. Ikrma's real house (the Danial Clinic photo): sandstone walls, arched windows with black iron grilles, blind arches at both ends,
@@ -247,21 +248,57 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       B.box('trim', mx - 0.012, my - 0.8, mz + 0.05, mx + 0.012, my - 0.4, mz + 0.08, '#101010', 0);
       B.box('trim', mx + 0.3, my + 1.7, mz + 0.05, mx + 4.5, my + 1.73, mz + 0.08, '#101010', 0); B.box('trim', mx + 0.3, my + 1.62, mz + 0.05, mx + 4.5, my + 1.65, mz + 0.08, '#101010', 0);   // the wires run on to the next house
     }
-    if (b.home) {   /* v268: the brother's home: brown/orange walls, a balcony with an ornamental railing on the upper floor, a balustrade round the roof; open garage below (empty) */
-      const zf2 = b.z + b.d / 2, bx2 = b.x, w2 = b.w / 2, top = fy + b.fh + 0.3, cream2 = '#f1e4c6', br = '#4b2f1f';
-      B.box('trim', bx2 - w2 - 0.12, fy + b.fh - 0.05, zf2 - 0.05, bx2 + w2 + 0.12, fy + b.fh + 0.3, zf2 + 0.2, cream2, 0);
-      const by = fy + b.fh + 0.3; B.box('trim', bx2 - w2 + 0.3, by - 0.2, zf2 - 0.02, bx2 + w2 - 0.3, by, zf2 + 1.3, '#7a5238', 0);   // balcony slab
-      for (let u = -w2 + 0.4; u <= w2 - 0.4; u += 0.28) B.box('trim', bx2 + u - 0.03, by, zf2 + 1.2, bx2 + u + 0.03, by + 0.95, zf2 + 1.26, br, 0);
-      B.box('trim', bx2 - w2 + 0.3, by + 0.92, zf2 + 1.16, bx2 + w2 - 0.3, by + 1.0, zf2 + 1.3, br, 0);
-      for (const sx of [-1, 1]) B.box('trim', bx2 + sx * (w2 - 0.4) - 0.04, by, zf2 + 0.02, bx2 + sx * (w2 - 0.4) + 0.04, by + 0.95, zf2 + 1.3, br, 0);
-      B.box('trim', bx2 - 1.1, by + 0.05, zf2 + 0.0, bx2 + 1.1, by + 2.3, zf2 + 0.05, '#2b3f52', 0);   // balcony door
-      const roofT = fy + b.fh * 2 + 0.2; B.box('trim', bx2 - w2 - 0.1, roofT, b.z - b.d / 2 - 0.1, bx2 + w2 + 0.1, roofT + 0.12, zf2 + 0.1, cream2, 0);
-      for (const [x0, z0, x1, z1] of [[-w2, -b.d / 2, w2, -b.d / 2], [-w2, zf2 - b.z, w2, zf2 - b.z], [w2, -b.d / 2, w2, b.d / 2]]) { const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0)); for (let u = 0; u <= n; u += 0.4) { const px = x1 !== x0 ? bx2 + x0 + u : bx2 + x0, pz = x1 !== x0 ? b.z + z0 : b.z + z0 + u; B.box('trim', px - 0.03, roofT + 0.12, pz - 0.03, px + 0.03, roofT + 0.9, pz + 0.03, br, 0); } }
-      B.box('trim', bx2 - w2 - 0.05, roofT + 0.85, zf2 - 0.05, bx2 + w2 + 0.05, roofT + 0.95, zf2 + 0.05, cream2, 0);
+    if (b.home) {   /* v269: the brother's home = an exact copy of Haris's photo: brown walls, cream pilasters, a decorative arched gate on the left + the open garage, a long balcony with a white lattice railing, a corrugated awning over it, two arched windows, an AC unit, a lattice parapet on the roof with raised brown end blocks, wires */
+      const zf2 = b.z + b.d / 2, bx2 = b.x, w2 = b.w / 2, cream2 = '#e9d9b8', tan2 = '#c9a070', rail = '#f4ecdd', dk = '#161412', top = fy + b.fh * 2 + 0.3;
+      const lat = (() => { if (!b._lat) { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'); g.clearRect(0, 0, 256, 128); g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 7;
+          g.fillRect(0, 0, 256, 10); g.fillRect(0, 118, 256, 10); g.fillRect(0, 54, 256, 6);
+          for (let k = 0; k < 4; k++) { const cx = 32 + k * 64; g.beginPath(); g.moveTo(cx, 16); g.lineTo(cx + 26, 64); g.lineTo(cx, 112); g.lineTo(cx - 26, 64); g.closePath(); g.stroke(); g.beginPath(); g.arc(cx, 64, 7, 0, 7); g.fill(); }
+          for (let k = 0; k <= 4; k++) g.fillRect(k * 64 - 3, 0, 6, 128);
+          const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; b._lat = t; } return b._lat; })();
+      const latPlane = (len, h, x, y, z, ry) => { const t = lat.clone(); t.needsUpdate = true; t.wrapS = THREE.RepeatWrapping; t.repeat.set(Math.max(1, Math.round(len / 1.6)), 1); const m = new THREE.Mesh(new THREE.PlaneGeometry(len, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, color: rail })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
+      // pilasters up both sides + the cream beam under the balcony
+      for (const sx of [-1, 1]) B.box('trim', bx2 + sx * (w2 - 0.3) - 0.3, fy, zf2 - 0.02, bx2 + sx * (w2 - 0.3) + 0.3, fy + b.fh * 2 + 0.3, zf2 + 0.2, tan2, 0);
+      B.box('trim', bx2 - w2, fy + b.fh - 0.12, zf2 - 0.02, bx2 + w2, fy + b.fh + 0.1, zf2 + 0.3, cream2, 0); B.box('trim', bx2 - w2, fy + b.fh - 0.3, zf2 - 0.02, bx2 + w2, fy + b.fh - 0.12, zf2 + 0.18, tan2, 0);
+      // ground floor: the carved arched gate on the left (a tan panel with a dark arch), the open garage (door opening is solid-free) with a dark inside
+      { const gx = bx2 - 2.65, gw = 1.6; B.box('trim', gx - gw - 0.15, fy, zf2 - 0.02, gx + gw + 0.15, fy + 2.7, zf2 + 0.12, tan2, 0);
+        const g = new THREE.CylinderGeometry(gw - 0.2, gw - 0.2, 0.06, 16, 1, false, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.translate(gx, fy + 1.55, zf2 + 0.15); B.add('trim', g, '#8a5a38', 0);
+        B.box('trim', gx - gw + 0.2, fy + 0.15, zf2 + 0.12, gx + gw - 0.2, fy + 1.55, zf2 + 0.15, '#8a5a38', 0); B.box('trim', gx - 0.9, fy + 0.3, zf2 + 0.15, gx + 0.9, fy + 1.5, zf2 + 0.18, '#a9825a', 0); B.box('trim', gx - 0.04, fy + 0.3, zf2 + 0.18, gx + 0.04, fy + 1.5, zf2 + 0.2, dk, 0); }
+      for (const sx of [-1, 1]) B.box('trim', bx2 + 1.4 + sx * 2.15 - 0.1, fy, zf2 - 0.02, bx2 + 1.4 + sx * 2.15 + 0.1, fy + 2.9, zf2 + 0.1, cream2, 0);
+      B.box('trim', bx2 - 0.6, fy + 2.8, zf2 - 0.02, bx2 + 3.4, fy + 3.0, zf2 + 0.14, cream2, 0);   // lintel over the garage opening
+      // the balcony: slab, a long white lattice railing round three sides
+      const by = fy + b.fh + 0.1, bd = 1.3, bwid = w2 - 0.6; B.box('trim', bx2 - bwid, by, zf2, bx2 + bwid, by + 0.12, zf2 + bd, '#b9916a', 0);
+      latPlane(bwid * 2, 1.0, bx2, by + 0.62, zf2 + bd, 0); for (const sx of [-1, 1]) latPlane(bd, 1.0, bx2 + sx * bwid, by + 0.62, zf2 + bd / 2, Math.PI / 2);
+      B.box('trim', bx2 - bwid - 0.05, by + 1.1, zf2 + bd - 0.05, bx2 + bwid + 0.05, by + 1.17, zf2 + bd + 0.05, rail, 0);
+      // the corrugated awning over the middle of the balcony, sloping down and out, held by two brackets
+      { const aw = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.07, 1.9), new THREE.MeshStandardMaterial({ color: '#b98f5e', roughness: 0.85 })); aw.position.set(bx2, by + 2.55, zf2 + 0.85); aw.rotation.x = 0.42; group.add(aw);
+        for (let u = -2.5; u <= 2.5; u += 0.3) B.box('trim', bx2 + u - 0.02, by + 2.4, zf2 + 0.5, bx2 + u + 0.02, by + 2.74, zf2 + 1.6, '#8c6a42', 0);
+        for (const sx of [-1, 1]) B.box('trim', bx2 + sx * 2.5 - 0.04, by + 2.1, zf2 + 0.0, bx2 + sx * 2.5 + 0.04, by + 2.65, zf2 + 0.06, dk, 0); }
+      // arched surrounds over the two upper windows (cream arch + dark fanlight) like the villa's
+      for (const o of b.openings) if (o.k === 'win' && o.s === 'S' && o.y0 > b.fh) { const ex = bx2 + o.c, y1 = fy + o.y1, hw = o.hw;
+        for (const [r, th, col, dz] of [[hw + 0.2, 0.16, tan2, 0.14], [hw + 0.02, 0.2, dk, 0.16]]) { const g = new THREE.CylinderGeometry(r, r, th, 14, 1, false, Math.PI / 2, Math.PI); g.rotateX(Math.PI / 2); g.translate(ex, y1, zf2 + dz); B.add('trim', g, col, 0); }
+        B.box('trim', ex - hw - 0.22, fy + o.y0 - 0.12, zf2, ex + hw + 0.22, fy + o.y0, zf2 + 0.22, cream2, 0); }
+      // an AC unit on the left of the upper wall, wires
+      B.box('metal', bx2 - w2 + 0.45, fy + b.fh + 1.55, zf2, bx2 - w2 + 1.5, fy + b.fh + 2.05, zf2 + 0.45, '#e9ecef', 0); B.box('trim', bx2 - w2 + 0.55, fy + b.fh + 1.65, zf2 + 0.45, bx2 - w2 + 1.4, fy + b.fh + 1.72, zf2 + 0.47, '#9aa0a6', 0);
+      B.box('trim', bx2 - w2 - 4, fy + b.fh + 2.6, zf2 + 0.02, bx2 + w2, fy + b.fh + 2.63, zf2 + 0.05, dk, 0); B.box('trim', bx2 - w2 - 4, fy + b.fh + 2.3, zf2 + 0.02, bx2 + w2, fy + b.fh + 2.33, zf2 + 0.05, dk, 0);
+      // the roof: a cream coping, brown raised end blocks and the white lattice parapet between them, round three sides
+      B.box('trim', bx2 - w2 - 0.12, top - 0.2, b.z - b.d / 2 - 0.12, bx2 + w2 + 0.12, top, zf2 + 0.12, cream2, 0);
+      for (const sx of [-1, 1]) { B.box('wall', bx2 + sx * (w2 - 0.7) - 0.7, top, zf2 - 1.2, bx2 + sx * (w2 - 0.7) + 0.7, top + 1.5, zf2 + 0.1, b.c, 0.02); B.box('trim', bx2 + sx * (w2 - 0.7) - 0.8, top + 1.5, zf2 - 1.3, bx2 + sx * (w2 - 0.7) + 0.8, top + 1.65, zf2 + 0.2, cream2, 0); }
+      latPlane((w2 - 1.4) * 2, 1.0, bx2, top + 0.5, zf2 - 0.05, 0); for (const sx of [-1, 1]) { latPlane(b.d - 2, 1.0, bx2 + sx * w2, top + 0.5, b.z, Math.PI / 2); } latPlane(w2 * 2, 1.0, bx2, top + 0.5, b.z - b.d / 2, 0);
     }
-    if (b.civic) { const zc = b.z + b.d / 2 + 0.05; const m1 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 2.35), new THREE.MeshBasicMaterial({ map: signTex('', '', '', 160, 170, 4) })); m1.position.set(b.x, fy + 1.22, zc + 0.04); group.add(m1);
-      const m2 = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.05), new THREE.MeshBasicMaterial({ map: signTex('سوک دا گیراج', '', '', 320, 116, 3) })); m2.position.set(b.x, fy + 1.3, zc + 0.07); group.add(m2);
-      const m3 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 0.55), new THREE.MeshBasicMaterial({ map: signTex('', '#2d6b57', '#ffffff', 330, 56, 2) })); m3.position.set(b.x, fy + 2.78, zc + 0.04); group.add(m3); }
+    if (b.civic) {   /* v269: CIVIC DA GARAGE: the rolling shutter now runs from the floor to the top of the doorway; above it a cream upper storey with two aluminium-framed glass windows (a room) */
+      const zc = b.z + b.d / 2 + 0.05, hh = 2.8, zf3 = b.z + b.d / 2, w3 = b.w / 2, cream3 = '#e2d3b2';
+      const m1 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, hh), new THREE.MeshBasicMaterial({ map: signTex('', '', '', 160, 170, 4) })); m1.position.set(b.x, fy + hh / 2, zc + 0.04); group.add(m1);
+      const m2 = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.05), new THREE.MeshBasicMaterial({ map: signTex('سوک دا گیراج', '', '', 320, 116, 3) })); m2.position.set(b.x, fy + 1.45, zc + 0.07); group.add(m2);
+      B.box('trim', b.x - 1.8, fy, zf3 - 0.02, b.x - 1.65, fy + 2.85, zf3 + 0.1, '#9a9488', 0); B.box('trim', b.x + 1.65, fy, zf3 - 0.02, b.x + 1.8, fy + 2.85, zf3 + 0.1, '#9a9488', 0); B.box('trim', b.x - 1.8, fy + 2.8, zf3 - 0.02, b.x + 1.8, fy + 2.95, zf3 + 0.12, '#9a9488', 0);   // the frame round the shutter
+      const y0 = fy + b.fh, y1 = y0 + 3.0; B.box('wall', b.x - w3 - 0.05, y0, b.z - b.d / 2 - 0.05, b.x + w3 + 0.05, y1, zf3 + 0.05, '#d8c7a2', 0.02);   // the room above (looks only)
+      B.box('trim', b.x - w3 - 0.15, y0 - 0.05, b.z - b.d / 2 - 0.15, b.x + w3 + 0.15, y0 + 0.12, zf3 + 0.15, cream3, 0); B.box('trim', b.x - w3 - 0.12, y1, b.z - b.d / 2 - 0.12, b.x + w3 + 0.12, y1 + 0.18, zf3 + 0.12, cream3, 0);
+      for (const sx of [-1, 1]) {   // an aluminium window: silver frame, a sill, glass with a sky reflection, a centre mullion and a sliding sash line
+        const wx = b.x + sx * 1.45, ww = 1.9, wy0 = y0 + 0.6, wy1 = y0 + 2.4, fz = zf3 + 0.08, al = '#aeb4ba';
+        B.box('trim', wx - ww / 2 - 0.07, wy0 - 0.07, fz - 0.03, wx + ww / 2 + 0.07, wy1 + 0.07, fz + 0.06, al, 0);
+        const gl = new THREE.Mesh(new THREE.PlaneGeometry(ww, wy1 - wy0), new THREE.MeshStandardMaterial({ color: '#9fc6dc', roughness: 0.08, metalness: 0.7, transparent: true, opacity: 0.72 })); gl.position.set(wx, (wy0 + wy1) / 2, fz + 0.065); group.add(gl);
+        B.box('trim', wx - 0.03, wy0, fz + 0.06, wx + 0.03, wy1, fz + 0.1, al, 0); B.box('trim', wx - ww / 2, (wy0 + wy1) / 2 - 0.03, fz + 0.06, wx + ww / 2, (wy0 + wy1) / 2 + 0.03, fz + 0.1, al, 0);
+        B.box('trim', wx - ww / 2 - 0.15, wy0 - 0.15, fz, wx + ww / 2 + 0.15, wy0 - 0.07, fz + 0.2, cream3, 0); }
+      b.shM = [m1, m2]; b.shFy = fy; b.shH = hh; }
     if (b.kind === 'house' || b.kind === 'cabin') B.box('conc', b.x + (along ? hx * 0.4 : 0), fy + tri + 0.3, b.z + (along ? 0 : hz * 0.4) + 0.5, b.x + (along ? hx * 0.4 : 0) + 0.7, fy + tri + 2.3 + Math.min(b.w, b.d) * 0.2, b.z + (along ? 0 : hz * 0.4) + 1.2, '#8a5a48', 0.05);   // a chimney
     if (b.kind === 'church') { const sx = b.x, sz = b.z + (b.front === 'S' ? hz - 2.4 : -hz + 2.4); B.box('wall', sx - 2.4, fy + tri, sz - 2.4, sx + 2.4, fy + tri + 7, sz + 2.4, b.c, 0.02); roofTri(sx - 2.4, sz - 2.4, sx + 2.4, sz + 2.4, fy + tri + 7, 4, true, '#5d5f66', 0.3); B.box('trim', sx - 0.1, fy + tri + 11, sz - 0.1, sx + 0.1, fy + tri + 13, sz + 0.1, '#ddd', 0); B.box('trim', sx - 0.6, fy + tri + 12.2, sz - 0.07, sx + 0.6, fy + tri + 12.4, sz + 0.07, '#ddd', 0); }
     if (b.kind === 'hangar' || b.kind === 'warehouse') { B.box('trim', b.x - hx, fy + 0.0, b.z + (b.front === 'S' ? hz : -hz) - 0.05, b.x + hx, fy + 0.5, b.z + (b.front === 'S' ? hz : -hz) + 0.05, '#555', 0); }
