@@ -363,7 +363,7 @@ function build() {
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
   for (const [x, z] of [[140, 205], [140, 224], [121, 214]]) round(x, z, 5, 8, '#c9ccd0', 'tank'); round(222, 196, 1.6, 26, '#9a6a5a', 'chimney');
   // ---- forests: jittered grid, density from noise, kept off roads, buildings and the river
-  const CELL = 6;
+  const CELL = 6; let treeN = 0;
   for (let gx = -H + 14; gx < H - 14; gx += CELL) for (let gz = -H + 14; gz < H - 14; gz += CELL) {
     const x = gx + R() * CELL, z = gz + R() * CELL, f = fbm(x * 0.011 + 5, z * 0.011 - 3, 41, 3), dr = Math.abs(x - riverX(z));
     let p = smooth(0.40, 0.60, f) * 0.95 + 0.05 + (dr > 14 && dr < 44 ? 0.2 : 0); p *= 0.14; if (R() > p) continue;
@@ -371,7 +371,8 @@ function build() {
     if (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2) continue;
     const gy = cmbH(x, z); if (gy < -0.2) continue;
     const pine = gy > 11 || f > 0.56 ? R() < 0.82 : R() < 0.3, s = (pine ? 1.5 : 1.3) + R() * 1.0;
-    trees.push({ x, z, s, pine, y: gy, r: R() * 6.28 }); addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
+    const rr = R() * 6.28; if (treeN++ & 1) continue;   // v291: half the trees (every second one is skipped AFTER its random numbers are drawn, so nothing else on the map moves)
+    trees.push({ x, z, s, pine, y: gy, r: rr }); addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)
   { const CC = ['#9d9d98', '#a8a8a2', '#8f8f8b', '#b2b1aa'];

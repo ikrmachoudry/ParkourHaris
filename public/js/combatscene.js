@@ -420,7 +420,8 @@ export class CombatScene {
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
       if (g.fire > 0) g.fire -= dt; g.m.update(dt, { weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, revive: g.ph === 4 && !!g.rvg, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
-        const car = this.R.cars[g.vi]; if (car && this.R.drive !== car) {
+        const car = this.R.cars[g.vi]; if (car && (this.R.drive !== car || this.R.paxMode)) {   // v291: a PASSENGER of this car (drive === car, paxMode) must also get the driver's movement, otherwise the car stands still on his screen
+
           const R = this.R; if (!R.mateCars) R.mateCars = new Map(); g.ry = g.ry === undefined ? g.r : g.ry + ((((g.r - g.ry) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * (1 - Math.exp(-14 * dt));
           R.mateCars.set(g.vi, { id: g.id, x: g.x, y: g.y, z: g.z, yaw: g.ry, sp: g.sp }); g.hadCar = g.vi; R.seatModel(g.m.group, { st: { x: g.x, y: g.y, z: g.z, yaw: g.ry, id: car.st.id }, mesh: car.mesh }); }
         else g.m.group.visible = false; }
