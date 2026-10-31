@@ -458,17 +458,16 @@ export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = M
 
 // v254 VAULT (PUBG): only the low broken walls / sandbag rows can be climbed over. From (x,z) [map-local] heading (dx,dz) look up to 1.3 m ahead for such a piece; it must be crossed
 // across its thin side (not along it), be between 0.35 and 1.4 m above the ground you stand on, and there must be free ground behind it. Returns where you land, or null.
-export function vaultSpot(L, x, z, dx, dz, feetY) {
+export function vaultSpot(L, x, z, dx, dz, feetY) {   // v271: works at EVERY point of a fence / low wall: the side you stand on decides the way over (not the sign of your stick), angled approaches are fine, uphill / downhill ground is allowed, and you land just behind it (not off the edge)
   const l = Math.hypot(dx, dz); if (l < 0.01) return null; dx /= l; dz /= l; const B = L.B;
-  for (let d = 0.3; d <= 1.3; d += 0.1) {
+  for (let d = 0.2; d <= 1.5; d += 0.1) {
     const px = x + dx * d, pz = z + dz * d, a = L.bucket.get(Math.floor(px / B) * 4099 + Math.floor(pz / B)); if (!a) continue;
     for (const s of a) {
-      if (!s.vault || px < s.x0 - 0.15 || px > s.x1 + 0.15 || pz < s.z0 - 0.15 || pz > s.z1 + 0.15) continue;
-      const hgt = s.y1 - feetY; if (hgt < 0.35 || hgt > 1.4) continue;
-      const thinX = s.x1 - s.x0 < s.z1 - s.z0, nx = thinX ? Math.sign(dx) || 1 : 0, nz = thinX ? 0 : Math.sign(dz) || 1, dot = dx * nx + dz * nz; if (dot < 0.55) continue;
-      const far = thinX ? (nx > 0 ? s.x1 : s.x0) : (nz > 0 ? s.z1 : s.z0), tx = thinX ? far + nx * 0.8 : px, tz = thinX ? pz : far + nz * 0.8;
-      if (hitsSolid(L, tx, tz, 0.35, cmbH(tx, tz))) continue;
-      return { tx, tz, top: s.y1, dx: nx, dz: nz };
+      if (!s.vault || px < s.x0 - 0.25 || px > s.x1 + 0.25 || pz < s.z0 - 0.25 || pz > s.z1 + 0.25) continue;
+      const hgt = s.y1 - feetY; if (hgt < 0.2 || hgt > 1.7) continue;
+      const thinX = s.x1 - s.x0 < s.z1 - s.z0, nx = thinX ? (x < (s.x0 + s.x1) / 2 ? 1 : -1) : 0, nz = thinX ? 0 : (z < (s.z0 + s.z1) / 2 ? 1 : -1), dot = dx * nx + dz * nz; if (dot < 0.2) continue;
+      const far = thinX ? (nx > 0 ? s.x1 : s.x0) : (nz > 0 ? s.z1 : s.z0);
+      for (const off of [0.65, 0.95, 1.4]) { const tx = thinX ? far + nx * off : (x + (px - x)), tz = thinX ? pz : far + nz * off; if (hitsSolid(L, tx, tz, 0.35, cmbH(tx, tz))) continue; if (Math.abs(cmbH(tx, tz) - feetY) > 1.8) continue; return { tx, tz, top: s.y1, dx: nx, dz: nz }; }
     }
   }
   return null;

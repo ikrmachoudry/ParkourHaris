@@ -22,6 +22,7 @@ import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
+const fitPx = (c, t, px, maxW) => { c.font = '900 ' + px + 'px Impact, Arial Black, sans-serif'; const w = c.measureText(t).width; return Math.max(18, Math.floor(w > maxW ? px * maxW / w : px)); };   // v271: shrink a name to fit the canopy
 const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
 const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0, vest: 0, helmet: 0 }, vestHp: 0, helmHp: 0 });
 const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope', 'sscope', 'vest', 'helmet'];
@@ -202,12 +203,13 @@ export class CombatScene {
     if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
     this.chuteVis(true, b, dt);
   }
-  mkGlider() {
+  myName() { try { const n = (localStorage.getItem('ph_name') || '').trim().toUpperCase().slice(0, 14); return n || 'HARIS'; } catch { return 'HARIS'; } }   // v271: the player's own name goes on his parachute / paraglider
+  mkGlider(nm = this.myName()) {
     const g = new THREE.Group(), cv = document.createElement('canvas'); cv.width = 512; cv.height = 160; const c = cv.getContext('2d');   /* the wing carries the PAKISTAN FLAG: green, white hoist stripe, crescent and star */
     c.fillStyle = '#01411c'; c.fillRect(0, 0, 512, 160); c.save(); c.scale(1, 0.7); c.fillStyle = '#fff'; c.fillRect(0, 0, 128, 160);
     c.beginPath(); c.arc(318, 80, 56, 0, 7); c.fill(); c.fillStyle = '#01411c'; c.beginPath(); c.arc(340, 70, 49, 0, 7); c.fill();
     c.fillStyle = '#fff'; c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 11 : 27, a = -Math.PI / 2 + i * Math.PI / 5 + 0.5; c.lineTo(386 + Math.cos(a) * r, 52 + Math.sin(a) * r); } c.closePath(); c.fill(); c.restore();
-    c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 7; c.font = '900 62px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText('HARIS', 256, 130); c.fillText('HARIS', 256, 130);   /* v258: the big name on the wing */
+    c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 7; c.font = '900 ' + fitPx(c, nm, 62, 440) + 'px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText(nm, 256, 130); c.fillText(nm, 256, 130);   /* v258: the big name on the wing */
     const tx = new THREE.CanvasTexture(cv); tx.anisotropy = 2;
     const span = 9.4, chord = 2.9, geo = new THREE.PlaneGeometry(span, chord, 28, 6), P = geo.attributes.position;
     for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), u = x / (span / 2); P.setXYZ(i, x, -u * u * 1.9 + 0.3 * (1 - (y / (chord / 2)) ** 2) - (y > 0 ? 0 : 0.18 * (1 + y / (chord / 2)) * 0), y); }   // a curved wing: the tips droop, a little camber
@@ -232,10 +234,10 @@ export class CombatScene {
     const sh = on ? 'flex' : 'none'; if (this.diveBtn.style.display !== sh) { this.diveBtn.style.display = this.upBtn.style.display = sh; if (!on) this.diveHold.dive = this.diveHold.up = false; }
     if (on && !this.diveHint) { this.diveHint = true; this.R.toast && this.R.toast('DIVE (Shift) = faster down  -  PULL UP (C) = slow down and glide', 4.5); }
   }
-  mkChute() {   // v263: the REAL army parachute model (canopy + lines); the harness, risers and pack on the player are still drawn here
+  mkChute(nm = this.myName()) {   // v263: the REAL army parachute model (canopy + lines); the harness, risers and pack on the player are still drawn here
     const g = new THREE.Group(), cm = propModel('chute'); const SC = 1.1;
     if (cm) { cm.scale.setScalar(SC); cm.position.y = 1.62; g.add(cm); }
-    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 8; c.font = '900 72px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText('HARIS', 128, 50); c.fillText('HARIS', 128, 50);   /* the name on the canopy, four times round */
+    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 8; c.font = '900 ' + fitPx(c, nm, 72, 236) + 'px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText(nm, 128, 50); c.fillText(nm, 128, 50);   /* the name on the canopy, four times round */
       const tm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
       for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 + Math.PI / 4, n = new THREE.Vector3(Math.cos(a) * 0.78, 0.62, Math.sin(a) * 0.78).normalize(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.7 * SC, 0.65 * SC), tm); m.position.set(Math.cos(a) * 1.64 * SC, 1.62 + 4.9 * SC, Math.sin(a) * 1.64 * SC).addScaledVector(n, 0.04); m.lookAt(m.position.clone().add(n)); g.add(m); } }
       const lm = new THREE.MeshBasicMaterial({ color: '#e8e4d6' }), hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }), V = THREE.Vector3;
@@ -305,7 +307,7 @@ export class CombatScene {
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
-    if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
+    if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
     g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
@@ -580,7 +582,14 @@ export class CombatScene {
     if (!silent) { R.toast && R.toast('DROPPED ' + LOOT_NAME[w]); A.sfx.click && A.sfx.click(); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.syncLoot(); if (this.inv) this.inv.render(); return true;
   }
+  // v271: a small PUBG-style pick-up feed (bottom left, above the hotbar): every pick-up shows what you got for ~2.6 s
+  feed(txt, col) {
+    let f = this.pkFeed; if (!f) { f = this.pkFeed = document.createElement('div'); f.style.cssText = 'position:fixed;left:14px;bottom:140px;z-index:6;display:flex;flex-direction:column-reverse;gap:3px;pointer-events:none;font:700 13px system-ui,sans-serif;letter-spacing:.5px'; document.body.appendChild(f); }
+    const e = document.createElement('div'); e.textContent = txt; e.style.cssText = 'padding:3px 9px;border-left:3px solid ' + (col || '#ffd23f') + ';background:rgba(0,0,0,.55);color:#fff;border-radius:3px;transition:opacity .5s,transform .5s;opacity:0;transform:translateX(-10px)'; f.appendChild(e);
+    requestAnimationFrame(() => { e.style.opacity = 1; e.style.transform = 'none'; }); setTimeout(() => { e.style.opacity = 0; }, 2400); setTimeout(() => e.remove(), 3000); while (f.children.length > 4) f.firstChild.remove();
+  }
   pickup(it) {
+    this.feed('+ ' + (LOOT_NAME[it.k] || String(it.k).toUpperCase()));
     const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
     const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = (it.am ? it.am.res : S.ammoPack) + (cb.spare | 0) * (S.ammoPack || 0); cb.spare = 0; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
     if (isGunK(k)) gun(k);
