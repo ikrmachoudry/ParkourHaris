@@ -599,7 +599,7 @@ class Race {
         else if (pseat === 0 || cap <= 2) r = -ud.seatR;                                   // front passenger seat
         else { f = ud.seatF - 1.0; r = (pseat === 1 ? 1 : -1) * Math.max(0.4, ud.seatR); } // rear seats
       }
-      g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar(ud.seatS || 1); return;
+      g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar((cityVeh(st.id) || {}).model === 'civic' ? 0.0001 : (ud.seatS || 1)); return;   /* v279: nobody is drawn inside the Civic (the driver used to poke out through the roof / door); walking out sets the scale back to 1 */
     }
     { const sy = Math.sin(st.yaw), cy = Math.cos(st.yaw); let f = seat.z, r = 0; if (pax) { if (pseat === 0 || this.seatCap(car) <= 2) r = -0.4; else { f -= 1.0; r = pseat === 1 ? 0.4 : -0.4; } }
       g.position.set(st.x + sy * f - cy * r, st.y + seat.y, st.z + cy * f + sy * r); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8); }
