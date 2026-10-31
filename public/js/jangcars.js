@@ -22,7 +22,7 @@ export function jangJeeps(n = 3, seed = 0) {
 // v269: the two garage cars (same place in every match): the black Civic (GLB) in the brother garage, the black Civic behind the CIVIC DA GARAGE shutter (nose out, ready to drive out when the shutter is open)
 export function garageCars() {
   const L = layout(), out = [], hm = L.buildings.find((b) => b.home), cv = L.buildings.find((b) => b.civic);
-  if (hm) out.push({ id: 34, x: CMB.x + hm.x + 1.4, z: CMB.z + hm.z + hm.d / 2 - 4.2, yaw: 0, y: hm.fy });
+  void hm;   // v278: the brother's garage is empty again; the Civic lives behind the CIVIC DA GARAGE shutter
   if (cv) out.push({ id: 34, x: CMB.x + cv.x, z: CMB.z + cv.z + 0.4, yaw: 0, y: cv.fy });
   return out;
 }

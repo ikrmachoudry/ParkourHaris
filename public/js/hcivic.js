@@ -29,6 +29,7 @@ export function buildCivic({ detail = 'hi' } = {}) {
     g.updateMatrixWorld(true);
     for (const w of wheels) for (const o of w.list) w.spin.attach(o);
     mats.paint = BODY;
+    m.traverse((o) => { if (!o.isMesh || !o.material) return; const nm = o.material.name; if (nm === 'CIVIC13_luz2' || nm === 'CIVIC13_luz') { o.material = o.material.clone(); const mt = o.material; mt.emissive = new THREE.Color(nm === 'CIVIC13_luz2' ? '#fff1b8' : '#ff2a2a'); mt.emissiveIntensity = nm === 'CIVIC13_luz2' ? 0.15 : 0.1; if (nm === 'CIVIC13_luz2') mats.head = mt; else mats.tail = mt; } });   // v278: headlamps + tail lamps light up with the L / lights button
   };
   if (SRC) fill(); else { waiting.push(fill); preloadCivic(); }
   return {

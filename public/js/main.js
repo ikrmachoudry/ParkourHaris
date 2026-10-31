@@ -866,7 +866,7 @@ class Race {
   jangBoxes(st) {
     const L = cmbLayout(), lx = st.x - CMB.x, lz = st.z - CMB.z, Bk = L.B, ci = Math.floor(lx / Bk), cj = Math.floor(lz / Bk), out = [], seen = new Set();
     for (let i = ci - 2; i <= ci + 2; i++) for (let j = cj - 2; j <= cj + 2; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue;
-      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (k === 'floor' || k === 'roof' || k === 'step' || k === 'win' || k === 'shot' || k === 'lootnew' || k === 'tower' || q.y1 - q.y0 < 0.5) continue;   // v222: EVERY upright solid stops the jeep (sandbags, barriers, rails, crates, benches... were missing, so it drove through them)
+      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (k === 'floor' || k === 'roof' || k === 'step' || k === 'win' || k === 'shot' || k === 'lootnew' || k === 'tower' || q.y1 - q.y0 < 0.5 || q.open) continue; if (q._hi === undefined) q._hi = q.y0 > cmbHt((q.x0 + q.x1) / 2, (q.z0 + q.z1) / 2) + 1.9; if (q._hi) continue;   /* v278: a lintel over a doorway (or an upper floor) is NOT a wall for a car: this is what stopped the Civic in the garage door */   // v222: EVERY upright solid stops the jeep (sandbags, barriers, rails, crates, benches... were missing, so it drove through them)
         out.push(q._cb || (q._cb = { x0: CMB.x + q.x0, x1: CMB.x + q.x1, z0: CMB.z + q.z0, z1: CMB.z + q.z1, h: q.y1 })); } }
     this.info.track.boxes = out; this.info.track._all = null;
     const lim = CMB.half - 10; st.x = CMB.x + Math.max(-lim, Math.min(lim, st.x - CMB.x)); st.z = CMB.z + Math.max(-lim, Math.min(lim, st.z - CMB.z));
