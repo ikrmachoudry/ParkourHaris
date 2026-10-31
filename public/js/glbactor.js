@@ -204,7 +204,7 @@ export class GlbActor extends HeroActor {
     loadGlb('models/bag.glb').then((g) => {   /* v258: the real TACTICAL BAG (2.4k triangles, 512 px texture) replaces the box pack; four colour variants by character id */
       if (this.disposed || !this.pack || this.pack.userData.real) return; const old = this.pack, wrap = new THREE.Group(), inner = g.scene.clone(true), v = BAG_TINT[(this.id | 0) % BAG_TINT.length];
       inner.traverse((o) => { if (o.isMesh) { const k = o.material.uuid + v; let m = BAG_MAT.get(k); if (!m) { m = o.material.clone(); m.color.set(v); BAG_MAT.set(k, m); } o.material = m; o.frustumCulled = false; o.castShadow = false; } });
-      inner.rotation.y = Math.PI; inner.scale.setScalar(1.12); inner.position.set(0, -0.3, BAG_Z); wrap.position.copy(old.position); wrap.quaternion.copy(old.quaternion); wrap.add(inner); wrap.userData.real = 1;
+      inner.rotation.y = Math.PI; inner.scale.setScalar(1.12); inner.position.set(0, -0.3, BAG_Z); wrap.position.copy(old.position); wrap.quaternion.copy(old.quaternion); wrap.scale.copy(old.scale); wrap.add(inner); wrap.userData.real = 1;
       const par = old.parent; par.remove(old); par.add(wrap); wrap.updateMatrixWorld(true); this.pack = wrap;
     }, () => {});
   }
