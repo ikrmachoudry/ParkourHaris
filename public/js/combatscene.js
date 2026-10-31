@@ -21,9 +21,9 @@ import { LOBBY } from './gta.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
 const fitPx = (c, t, px, maxW) => { c.font = '900 ' + px + 'px Impact, Arial Black, sans-serif'; const w = c.measureText(t).width; return Math.max(18, Math.floor(w > maxW ? px * maxW / w : px)); };   // v271: shrink a name to fit the canopy
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
 const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0, vest: 0, helmet: 0 }, vestHp: 0, helmHp: 0 });
 const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope', 'sscope', 'vest', 'helmet'];
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
@@ -257,7 +257,7 @@ export class CombatScene {
   endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
-    if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
+    if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
     return this._icons[k] || '';
   }
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)

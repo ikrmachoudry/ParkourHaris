@@ -296,7 +296,7 @@ export function buildHeroChar(opts = {}) {
   // the real guns (Quaternius pack): the code-built pistol / AK / sniper are replaced, four more guns are added (they use the same hand frame)
   const basis = () => new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)), extra = {};
   for (const [k, grp] of [['pistol', gp], ['ak', ak], ['sniper', sn]]) { const q = gunMesh(k); if (q) { grp.clear(); grp.add(q); } }
-  for (const k of ['revolver', 'smg', 'm4', 'shotgun']) { const q = gunMesh(k); if (!q) continue; const grp = new THREE.Group(); grp.add(q); grp.quaternion.setFromRotationMatrix(basis()); grp.visible = false; extra[k] = grp; gun.add(grp); }
+  for (const k of ['revolver', 'smg', 'm4', 'ak49', 'shotgun']) { const q = gunMesh(k); if (!q) continue; const grp = new THREE.Group(); grp.add(q); grp.quaternion.setFromRotationMatrix(basis()); grp.visible = false; extra[k] = grp; gun.add(grp); }
   gun.add(bat, ak, sn, gr);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;

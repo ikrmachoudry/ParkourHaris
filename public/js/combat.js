@@ -505,8 +505,8 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'smoke', 'scope', 'sscope', 'sscope'];
-export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'smoke', 'scope', 'sscope', 'sscope'];
+export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
 export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
@@ -574,8 +574,8 @@ export class CombatSim {
     if (this.Z && this.airN < this.Z.AD.length) {   // v251: the airdrop: the plane appears, later the crate lands and its loot lies there for everybody
       const n = this.airN, q = this.Z.AD[n];
       if (!this.airSent && this.t >= q.t0) { this.airSent = true; const pt = airPoint(this.Z, n); this.events.push({ k: 'airplane', n, x: pt.x, z: pt.z, hd: pt.hd }); }
-      if (this.airSent && this.t >= airLand(q)) { const pt = airPoint(this.Z, n); this.airSent = false; this.airN++; const gun = ['m4', 'ak', 'sniper'][n % 3], ks = [gun, gun === 'sniper' ? 'sscope' : 'ammo', 'ammo', 'ammo', 'med', 'med', 'inject', 'grenade'];
-        ks.forEach((k, i) => { const a = i * 0.785, ox = Math.cos(a) * 1.5, oz = Math.sin(a) * 1.5, ok = !hitsSolid(this.L, pt.x + ox, pt.z + oz, 0.2); this.addLootAt(k, pt.x + (ok ? ox : 0), pt.z + (ok ? oz : 0), { gold: 2, life: 400, am: k === 'm4' || k === 'ak' ? { mag: 30, res: 90 } : k === 'sniper' ? { mag: 5, res: 20 } : 0 }); });
+      if (this.airSent && this.t >= airLand(q)) { const pt = airPoint(this.Z, n); this.airSent = false; this.airN++; const gun = ['m4', 'ak', 'sniper', 'ak49'][n % 4], ks = [gun, gun === 'sniper' ? 'sscope' : 'ammo', 'ammo', 'ammo', 'med', 'med', 'inject', 'grenade'];
+        ks.forEach((k, i) => { const a = i * 0.785, ox = Math.cos(a) * 1.5, oz = Math.sin(a) * 1.5, ok = !hitsSolid(this.L, pt.x + ox, pt.z + oz, 0.2); this.addLootAt(k, pt.x + (ok ? ox : 0), pt.z + (ok ? oz : 0), { gold: 2, life: 400, am: k === 'm4' || k === 'ak' ? { mag: 30, res: 90 } : k === 'ak49' ? { mag: 40, res: 120 } : k === 'sniper' ? { mag: 5, res: 20 } : 0 }); });
         this.events.push({ k: 'airland', n, x: pt.x, z: pt.z }); }
     }
     if (this.pendF) for (let i = this.pendF.length - 1; i >= 0; i--) if (this.t >= this.pendF[i].t) { const sp = this.L.spots[this.pendF[i].k]; this.pendF.splice(i, 1); const it = { k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: this.L.spots.indexOf(sp), alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); }

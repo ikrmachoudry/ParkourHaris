@@ -333,7 +333,7 @@ const WEAPON_ICON = { grenade: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#ff
   bat: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"><g transform="rotate(42 16 16)"><path d="M14.7 27 L14.7 17.5 C14.7 14.5 12.2 12.5 12.2 9 L12.2 5.5 C12.2 1.8 19.8 1.8 19.8 5.5 L19.8 9 C19.8 12.5 17.3 14.5 17.3 17.5 L17.3 27 Z"/><ellipse cx="16" cy="28.3" rx="2.6" ry="1.5"/></g></svg>',
   pistol: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M4 9h20l3 2v4h-9l-2 3v8h-5v-8l-1-3H6a2 2 0 0 1-2-2z"/></svg>',
   ak: '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"><path d="M1 13h9l2-2h12l2 1h5v3h-5l-1 2h-8l-1 6h-4l1-6H9l-3 3H1z"/></svg>' };
-const ICON_ALT = { revolver: 'pistol', smg: 'ak', m4: 'ak', shotgun: 'ak' };
+const ICON_ALT = { revolver: 'pistol', smg: 'ak', m4: 'ak', ak49: 'ak', shotgun: 'ak' };
 const wIcon = (k) => WEAPON_ICON[k] || WEAPON_ICON[ICON_ALT[k]] || WEAPON_ICON.fist;
 const BULLET_ICON = '<svg viewBox="0 0 32 32" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"><path d="M16 2.5c3.4 3 5 7 5 11.5v9H11v-9c0-4.5 1.6-8.5 5-11.5z"/><path d="M10 25.5h12v3.5H10z"/><path d="M10 22.5h12" stroke="#d6463c" stroke-width="1.6" fill="none"/></svg>';
 let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the world
@@ -1188,8 +1188,8 @@ class Race {
     // the wheel sits right beside the weapon button (2 x 2, tight), so the thumb barely moves
     let cx = window.innerWidth * 0.8, cy = window.innerHeight / 2; { const wb = $('a-weapon'), r = wb && wb.getBoundingClientRect(); if (r && r.width > 4) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     el.style.setProperty('--ws', ws + 'px'); el.innerHTML = ''; el.classList.remove('hidden'); this.wheelOpen = true;
-    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER', grenade: 'x' + this.wallet.nades, revolver: 'REVOLVER', smg: 'SMG', m4: 'M4', shotgun: 'SHOTGUN' };
-    const SLOTS = ['fist', 'bat', 'pistol', 'ak', 'sniper', 'grenade', ...['revolver', 'smg', 'm4', 'shotgun'].filter((x) => this.wallet.owns(x))], ROWS = Math.ceil(SLOTS.length / 2);
+    const NAMES = { fist: 'FISTS', bat: 'BAT', pistol: 'PISTOL', ak: 'AK-47', sniper: 'SNIPER', grenade: 'x' + this.wallet.nades, revolver: 'REVOLVER', smg: 'SMG', m4: 'M4', ak49: 'AK-49', shotgun: 'SHOTGUN' };
+    const SLOTS = ['fist', 'bat', 'pistol', 'ak', 'sniper', 'grenade', ...['revolver', 'smg', 'm4', 'ak49', 'shotgun'].filter((x) => this.wallet.owns(x))], ROWS = Math.ceil(SLOTS.length / 2);
     SLOTS.forEach((k, i) => {
       const owned = k === 'fist' || this.wallet.owns(k), W = WEAPONS[k], s = document.createElement('button'), col = i % 2, row = i >> 1, gap = 6;
       let px = cx - ws * 0.62 - col * (ws + gap), py = cy + (row - (ROWS - 1) / 2) * (ws + gap);

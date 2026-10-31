@@ -14,7 +14,7 @@ const ITEMS = [
   { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: '', col: '#b0b8c0' },
   { k: 'scope', icon: '🔭', name: 'SCOPE', info: 'tap to zoom, again to put away', key: '0', col: '#b48cff' },
 ];
-const GUN_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE' };
+const GUN_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE' };
 
 const pic = (cs, k, fb) => { const u = cs.icon && cs.icon(k); return u ? '<img alt="" src="' + u + '">' : fb; };
 export class Inventory {

@@ -16,6 +16,7 @@ const part = (g, w, h, d, x, y, z, m, rx = 0) => { const q = new THREE.Mesh(new 
 const cyl = (g, r0, r1, len, x, y, z, m, axis = 'z') => { const q = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, 10), m); if (axis === 'z') q.rotation.x = Math.PI / 2; q.position.set(x, y, z); g.add(q); return q; };
 
 export function makeWeaponModel(kind) {
+  if (kind === 'ak49') kind = 'ak';
   { const gm = gunMesh(kind); if (gm) return gm; }
   const g = new THREE.Group();
   if (kind === 'pistol') {
@@ -54,6 +55,7 @@ const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefin
 export const GUN_KINDS = ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper'];
 export const preloadGuns = () => track(Promise.all(GUN_KINDS.map(glbGun)), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
 export function gunMesh(kind) {
+  if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model
   const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();
   if (!GEO[kind]) GEO[kind] = d.g.map(([r, gg, b, s, k]) => { const geo = new THREE.BufferGeometry(); const a = new Float32Array(k * 3); for (let i = 0; i < k * 3; i++) a[i] = d.p[s * 3 + i] / 1000; geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); geo.computeVertexNormals(); return { geo, key: r + ',' + gg + ',' + b, c: [r, gg, b] }; });
   for (const { geo, key, c } of GEO[kind]) { const m = GMAT[key] || (GMAT[key] = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(Math.min(1, c[0] * 1.5 + 0.03), Math.min(1, c[1] * 1.5 + 0.03), Math.min(1, c[2] * 1.5 + 0.03), THREE.LinearSRGBColorSpace), roughness: 0.55, metalness: 0.25, flatShading: true })); const me = new THREE.Mesh(geo, m); me.castShadow = true; g.add(me); }
