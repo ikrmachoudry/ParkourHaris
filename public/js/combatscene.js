@@ -252,12 +252,12 @@ export class CombatScene {
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0 });
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, rv: this.reviving ? 1 : 0 });
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
@@ -359,7 +359,7 @@ export class CombatScene {
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
       if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
-      if (g.fire > 0) g.fire -= dt; g.m.update(dt, { weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      if (g.fire > 0) g.fire -= dt; g.m.update(dt, { weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, revive: g.ph === 4 && !!g.rvg, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
         const car = this.R.cars[g.vi]; if (car && this.R.drive !== car) {
           const R = this.R; if (!R.mateCars) R.mateCars = new Map(); g.ry = g.ry === undefined ? g.r : g.ry + ((((g.r - g.ry) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * (1 - Math.exp(-14 * dt));
@@ -462,6 +462,7 @@ export class CombatScene {
     if (!this.reviveBtn) { const rb = document.createElement('button'); rb.id = 'c-rev'; rb.type = 'button'; rb.textContent = 'F  -  REVIVE TEAMMATE'; rb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.startRevive(); }); document.body.appendChild(rb); this.reviveBtn = rb; }
     const show = !!near && !this.reviving; if ((this.reviveBtn.style.display === 'block') !== show) this.reviveBtn.style.display = show ? 'block' : 'none'; this.nearDown = near;
     if (this.reviving && this.reviving.rv !== undefined && this.ov) { this.ov.style.display = 'none'; }
+    { let rp = this.rvRing; if (!rp) { rp = this.rvRing = document.createElement('div'); rp.id = 'c-rvp'; document.body.appendChild(rp); } const on = !!this.reviving; if (on) { const k = Math.min(1, (this.reviving.rv || 0) / 7); rp.style.background = 'conic-gradient(#ffd23f ' + (k * 360) + 'deg, rgba(0,0,0,0.55) 0)'; rp.dataset.t = (7 - (this.reviving.rv || 0)).toFixed(1); } if ((rp.style.display === 'flex') !== on) rp.style.display = on ? 'flex' : 'none'; }   /* the PUBG revive ring with the seconds left */
   }
   startRevive() { const g = this.nearDown; if (!g || this.reviving || this.down || this.hp <= 0) return false; g.rv = 0; this.reviving = g; this.R.toast && this.R.toast('REVIVING... stay next to him', 4); return true; }
   // ---------------------------------------------------------------- inventory: 1 bat + 2 guns in the hands, everything else in the backpack

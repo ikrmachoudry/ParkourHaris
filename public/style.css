@@ -1240,3 +1240,7 @@ body.jang-mode #wanted { display: none !important; }   /* v251: no police stars 
 #c-tip { display: none; position: fixed; left: 50%; bottom: 17%; transform: translateX(-50%); z-index: 70; width: min(92vw, 460px); padding: 10px 14px; border-radius: 12px; background: rgba(12,14,22,.82); border: 2px solid #ffd60a; color: #fff; font: 600 13px/1.45 system-ui, sans-serif; pointer-events: none; text-align: left; }
 #c-tip b { display: block; color: #ffd60a; font-size: 14px; letter-spacing: .06em; margin-bottom: 4px; }
 #c-tip span { display: block; } #c-tip u { text-decoration: none; color: #7fe0ff; font-weight: 800; }
+
+#c-rvp{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font:700 18px sans-serif;text-shadow:0 1px 3px #000;z-index:60;pointer-events:none;}
+#c-rvp::before{content:'';position:absolute;inset:7px;border-radius:50%;background:rgba(10,10,12,.72)}
+#c-rvp::after{content:attr(data-t);position:absolute}
