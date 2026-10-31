@@ -262,7 +262,7 @@ function build() {
   { const z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, y = BRIDGE.y; box(BRIDGE.xb, z0, BRIDGE.xa, z1, y - 0.5, y, 'deck'); box(BRIDGE.xb, z0, BRIDGE.xa, z0 + 0.25, y, y + 1.1, 'rail'); box(BRIDGE.xb, z1 - 0.25, BRIDGE.xa, z1, y, y + 1.1, 'rail'); }
   // outdoor props: containers, sandbags, barrels, crates, stacks of pipes
   const outside = [];
-  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop' }); outside.push(it); return it; };
+  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: k === 'sandbag' ? 1 : 0 }); outside.push(it); return it; };
   const container = (x, z, along = 'x', c = '#c0482e', stack = 1) => { const w = along === 'x' ? 6.1 : 2.5, d = along === 'x' ? 2.5 : 6.1, gy = cmbH(x, z); for (let s = 0; s < stack; s++) { const it = { x, z, y: gy + s * 2.6, w, d, h: 2.6, c: s ? '#2f5d8a' : c, k: 'container' }; props.push(it); addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy + s * 2.6 - (s ? 0 : 0.4), y1: gy + (s + 1) * 2.6, k: 'prop' }); } };
   // the base: a fence round the compound with a gate on the south side, sandbags, containers
   const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
@@ -375,6 +375,24 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
 }
 export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.01) return true; return rayWalls(L, ax, az, dx / d, dz / d, d, 1.4) >= d - 0.05; }
 
+
+// v254 VAULT (PUBG): only the low broken walls / sandbag rows can be climbed over. From (x,z) [map-local] heading (dx,dz) look up to 1.3 m ahead for such a piece; it must be crossed
+// across its thin side (not along it), be between 0.35 and 1.4 m above the ground you stand on, and there must be free ground behind it. Returns where you land, or null.
+export function vaultSpot(L, x, z, dx, dz, feetY) {
+  const l = Math.hypot(dx, dz); if (l < 0.01) return null; dx /= l; dz /= l; const B = L.B;
+  for (let d = 0.3; d <= 1.3; d += 0.1) {
+    const px = x + dx * d, pz = z + dz * d, a = L.bucket.get(Math.floor(px / B) * 4099 + Math.floor(pz / B)); if (!a) continue;
+    for (const s of a) {
+      if (!s.vault || px < s.x0 - 0.15 || px > s.x1 + 0.15 || pz < s.z0 - 0.15 || pz > s.z1 + 0.15) continue;
+      const hgt = s.y1 - feetY; if (hgt < 0.35 || hgt > 1.4) continue;
+      const thinX = s.x1 - s.x0 < s.z1 - s.z0, nx = thinX ? Math.sign(dx) || 1 : 0, nz = thinX ? 0 : Math.sign(dz) || 1, dot = dx * nx + dz * nz; if (dot < 0.55) continue;
+      const far = thinX ? (nx > 0 ? s.x1 : s.x0) : (nz > 0 ? s.z1 : s.z0), tx = thinX ? far + nx * 0.8 : px, tz = thinX ? pz : far + nz * 0.8;
+      if (hitsSolid(L, tx, tz, 0.35, cmbH(tx, tz))) continue;
+      return { tx, tz, top: s.y1, dx: nx, dz: nz };
+    }
+  }
+  return null;
+}
 // A* over the 2 m grid with a binary heap: returns a list of [x, z] waypoints (map-local) or null
 export function findPath(L, ax, az, bx, bz) {
   const { N, free, cell } = L.nav, idx = (v) => Math.max(0, Math.min(N - 1, Math.floor((v + H) / cell)));
