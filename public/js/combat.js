@@ -155,6 +155,13 @@ function mk(kind, x, z, w, d, front, ov = {}) {
       if (fr1 >= fr0) { q.o = Math.round((fr0 + fr1) / 2 * 2) / 2; return true; } if (fl1 >= fl0) { q.o = Math.round((fl0 + fl1) / 2 * 2) / 2; return true; }
       return q.s === front && o.doors.length < 2; });
   }
+  if (o.part && o.part.ax === 'z') {   /* v258: the inner wall must never end at a door / window / the stairs of the outside wall: slide it to the nearest clean spot (or leave it out) */
+    const bad = (pp) => { for (const q of o.doors) if ((q.s === 'N' || q.s === 'S') && Math.abs(pp - q.o) < (q.w || 3.4) / 2 + 1.0) return true;
+      if (o.win && o.win.ww) for (const sd of ['N', 'S']) { if ((o.noWin || []).includes(sd)) continue; const cs2 = sd === 'S' && o.win.csS, n2 = cs2 ? cs2.length : Math.floor((w - 3.2) / o.win.gap) + 1; for (let i = 0; i < n2; i++) { const c = cs2 ? cs2[i] : -(n2 - 1) * o.win.gap / 2 + i * o.win.gap; if (Math.abs(pp - c) < o.win.ww / 2 + 0.9) return true; } }
+      if (o.stair && Math.abs(pp - (o.stair.x0 + 3.5)) < 5.5) return true; return false; };
+    let best = null; for (let dlt = 0; dlt <= w * 0.4; dlt += 0.5) for (const sg of [1, -1]) { const pp = o.part.pos + sg * dlt; if (best === null && Math.abs(pp) < w / 2 - 2.5 && !bad(pp)) best = pp; }
+    if (best === null) o.part = undefined; else o.part.pos = best;
+  }
   if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank; if (ov.bay) o.bay = ov.bay;
   o.solids = buildSolids(o);
   PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
@@ -279,7 +286,7 @@ function build() {
   { const z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, y = BRIDGE.y; box(BRIDGE.xb, z0, BRIDGE.xa, z1, y - 0.5, y, 'deck'); box(BRIDGE.xb, z0, BRIDGE.xa, z0 + 0.25, y, y + 1.1, 'rail'); box(BRIDGE.xb, z1 - 0.25, BRIDGE.xa, z1, y, y + 1.1, 'rail'); }
   // outdoor props: containers, sandbags, barrels, crates, stacks of pipes
   const outside = [];
-  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: k === 'sandbag' ? 1 : 0 }); outside.push(it); return it; };
+  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: (k === 'sandbag' || (k === 'ruin' && h <= 1.3)) ? 1 : 0 }); outside.push(it); return it; };
   const container = (x, z, along = 'x', c = '#c0482e', stack = 1) => { const w = along === 'x' ? 6.1 : 2.5, d = along === 'x' ? 2.5 : 6.1, gy = cmbH(x, z); for (let s = 0; s < stack; s++) { const it = { x, z, y: gy + s * 2.6, w, d, h: 2.6, c: s ? '#2f5d8a' : c, k: 'container' }; props.push(it); addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy + s * 2.6 - (s ? 0 : 0.4), y1: gy + (s + 1) * 2.6, k: 'prop' }); } };
   // the base: a fence round the compound with a gate on the south side, sandbags, containers
   const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
@@ -333,6 +340,8 @@ function build() {
       const x = (R() * 2 - 1) * (H - 24), z = (R() * 2 - 1) * (H - 24), gy = cmbH(x, z); if (gy < 0.2 || distRoad(x, z) < 3 || onPad(x, z, 5) || inField(x, z, 3) || (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2)) continue;
       const kind = R(), ang = R() < 0.5, c = CC[Math.floor(R() * 4)]; n++;
       if (kind < 0.45) { const m = 2 + Math.floor(R() * 3); for (let i = 0; i < m; i++) { const bx = ang ? x + i * 3.2 : x, bz = ang ? z : z + i * 3.2; if (cmbH(bx, bz) < 0.2) continue; crate(bx, bz, ang ? 3.0 : 0.9, ang ? 0.9 : 3.0, 1.15, c, 'barrier'); } }
+      else if (kind < 0.58) { const m = 6 + Math.floor(R() * 4), HT = [2.7, 2.6, 2.1, 1.2, 1.7, 0.8, 1.1, 2.3, 2.7, 1.5, 0.9, 2.0], o0 = Math.floor(R() * 12);   /* v258: a PUBG ruin wall: concrete with a jagged broken top; the low pieces (under 1.3 m) can be climbed over */
+        for (let i = 0; i < m; i++) { const bx = ang ? x + i * 1.0 : x, bz = ang ? z : z + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; crate(bx, bz, ang ? 1.0 : 0.32, ang ? 0.32 : 1.0, h, '#b4b3ac', 'ruin'); } }
       else if (kind < 0.75) { crate(x, z, 2.2, 2.2, 1.5, c, 'barrier'); if (R() < 0.6) crate(x + 2.3, z + 0.4, 2.0, 2.0, 1.0, c, 'barrier'); if (R() < 0.35) crate(x + 0.2, z + 0.2, 1.6, 1.6, 2.6, c, 'barrier'); }
       else { crate(x, z, ang ? 5.5 : 0.6, ang ? 0.6 : 5.5, 2.4, c, 'barrier'); crate(ang ? x - 2.6 : x + 1.2, ang ? z + 1.2 : z - 2.6, ang ? 0.6 : 2.4, ang ? 2.4 : 0.6, 2.4, c, 'barrier'); }
     } }
@@ -349,6 +358,15 @@ function build() {
     for (const [sx, sz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) add(b.x + sx * (b.w / 2 + 2.2), b.z + sz * (b.d / 2 + 2.2));
   }
   for (let i = 0; i < 1500 && spots.length < 330; i++) { const x = (R() * 2 - 1) * (H - 24), z = (R() * 2 - 1) * (H - 24), dr = distRoad(x, z); if (dr > 40 && R() < 0.6) continue; add(x, z); }
+  // v258: weapons on the SECOND floors and roof terraces too (y = the floor you stand on); the clinic roof (Sada Ghar) always carries a scope, an SMG and an AK
+  const openY = (x, z, m, y) => { const i0 = Math.floor((x - m) / B), i1 = Math.floor((x + m) / B), j0 = Math.floor((z - m) / B), j1 = Math.floor((z + m) / B); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = bucket.get(i * 4099 + j); if (!a) continue; for (const q of a) { if (q.k === 'roof' || q.k === 'floor') continue; if (q.y1 < y + 0.3 || q.y0 > y + 1.6) continue; if (x > q.x0 - m && x < q.x1 + m && z > q.z0 - m && z < q.z1 + m) return false; } } return true; };
+  const hasFloor = (x, z, y) => { const a = bucket.get(Math.floor(x / B) * 4099 + Math.floor(z / B)); if (!a) return false; for (const q of a) if ((q.k === 'floor' || q.k === 'roof') && Math.abs(q.y1 - y) < 0.12 && x > q.x0 + 0.2 && x < q.x1 - 0.2 && z > q.z0 + 0.2 && z < q.z1 - 0.2) return true; return false; };
+  const addY = (x, z, y, o = {}) => { if (!hasFloor(x, z, y) || !openY(x, z, 0.9, y) || spots.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < 4 && Math.abs((q.y === undefined ? 0 : q.y) - y) < 1.5)) return false; spots.push({ x, z, y, w: 1, ...o }); return true; };
+  for (const b of BUILDINGS) {
+    if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const st = b.stairs; if (st) { const hx0 = st.dir > 0 ? st.x0 : st.x0 - (st.n - 1) * st.tread; if (x > b.x + hx0 - 2 && x < b.x + hx0 + (st.n - 1) * st.tread + 2 && z > b.z + st.z0 - 2 && z < b.z + st.z0 + st.sw + 2) continue; } addY(x, z, y2); } }
+    if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
+  }
+  { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4]]) { if (n >= 3) break; const f = ['sscope', 'smg', 'ak'][n]; if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
   const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
   // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
   let nav = null;
@@ -445,7 +463,8 @@ export function findPath(L, ax, az, bx, bz) {
 
 // ---- the loot
 export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'bat', 'bat', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'smoke', 'scope', 'sscope', 'sscope'];
-export const LOOT_COUNT = 64, LOOT_RESPAWN = 22;
+export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
+export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
 const BOT = { pistol: { cd: 0.55, dmg: 9, acc: 0.5 }, ak: { cd: 0.17, dmg: 6, acc: 0.42 } };
@@ -453,7 +472,7 @@ export class CombatSim {
   constructor(seed = 1, nBots = 8) {
     this.L = layout(); this.R = seeded(seed >>> 0 || 1); this.t = 0; this.events = []; this.kills = 0; this.deaths = 0; this.nBots = nBots;
     this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i));
-    this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot();
+    this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot(); this.L.spots.forEach((sp, k) => { if (sp.force) { this.used.add(k); this.loot.push({ k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); } });
     this.Z = makeZone(seed >>> 0 || 1); this.airN = 0; this.airSent = false;   // v251: the bots follow the blue circle, the airdrop plane flies on a schedule
   }
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
@@ -464,7 +483,7 @@ export class CombatSim {
     const L = this.L; for (let tries = 0; tries < 40; tries++) {
       const k = Math.floor(this.R() * L.spots.length); if (this.used.has(k)) continue; const s = L.spots[k];
       if (avoid && Math.hypot(s.x - avoid.x, s.z - avoid.z) < 8) continue;
-      this.used.add(k); const it = { k: this.pick(LOOT_KINDS), x: s.x, z: s.z, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); return it;
+      if (s.force) continue; this.used.add(k); const it = { k: this.pick(s.w ? WEAPON_KINDS : LOOT_KINDS), x: s.x, z: s.z, y: s.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); return it;
     } return null;
   }
   // v251: put an item on the ground anywhere (a dead bot's gold box, an airdrop): it vanishes after `life` seconds (0 = stays)
@@ -472,12 +491,12 @@ export class CombatSim {
   // a spot inside the circle (cx, cz, r) the bots can walk to: any spawn point of the island that lies in it, else the middle
   zoneSpot(cx, cz, r, near) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - cx, s.z - cz) < r * 0.9 && (!near || Math.hypot(s.x - near.x, s.z - near.z) < near.d)); if (c.length) return this.pick(c); const a = this.R() * 6.28, d = Math.sqrt(this.R()) * r * 0.6; return { x: cx + Math.cos(a) * d, z: cz + Math.sin(a) * d }; }
   // the player walks over loot: returns the item (and removes it; a new one appears somewhere else after LOOT_RESPAWN seconds)
-  take(px, pz, can) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
-    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
+  take(px, pz, can, py) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
+    for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (it.y !== undefined && py !== undefined && Math.abs(py - it.y) > 1.7) continue; if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { if (this.L.spots[it.spot] && this.L.spots[it.spot].force) (this.pendF || (this.pendF = [])).push({ t: this.t + LOOT_RESPAWN, k: it.spot }); else { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
     return null;
   }
   // the nearest item within reach that take() refused (for the "E - swap" prompt)
-  near(px, pz) { let best = null, bd = 2.2 * 2.2; for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; const d = (it.x - px) ** 2 + (it.z - pz) ** 2; if (d < bd) { bd = d; best = it; } } return best; }
+  near(px, pz, py) { let best = null, bd = 2.2 * 2.2; for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if (it.y !== undefined && py !== undefined && Math.abs(py - it.y) > 1.7) continue; const d = (it.x - px) ** 2 + (it.z - pz) ** 2; if (d < bd) { bd = d; best = it; } } return best; }
   // the player drops something: it lies on the ground (it cannot be picked up again for 1.5 s) and never respawns
   dropLoot(k, x, z, gold) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1), gold: gold ? 1 : 0 }; if (gold) it.exp = this.t + 150; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
   // smoke clouds block the bots' sight
@@ -513,6 +532,7 @@ export class CombatSim {
         ks.forEach((k, i) => { const a = i * 0.785, ox = Math.cos(a) * 1.5, oz = Math.sin(a) * 1.5, ok = !hitsSolid(this.L, pt.x + ox, pt.z + oz, 0.2); this.addLootAt(k, pt.x + (ok ? ox : 0), pt.z + (ok ? oz : 0), { gold: 2, life: 400, am: k === 'm4' || k === 'ak' ? { mag: 30, res: 90 } : k === 'sniper' ? { mag: 5, res: 20 } : 0 }); });
         this.events.push({ k: 'airland', n, x: pt.x, z: pt.z }); }
     }
+    if (this.pendF) for (let i = this.pendF.length - 1; i >= 0; i--) if (this.t >= this.pendF[i].t) { const sp = this.L.spots[this.pendF[i].k]; this.pendF.splice(i, 1); const it = { k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: this.L.spots.indexOf(sp), alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {

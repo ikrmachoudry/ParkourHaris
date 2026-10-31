@@ -14,6 +14,7 @@ const ITEMS = [
 ];
 const GUN_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE' };
 
+const pic = (cs, k, fb) => { const u = cs.icon && cs.icon(k); return u ? '<img alt="" src="' + u + '">' : fb; };
 export class Inventory {
   constructor(cs) { this.cs = cs; this.el = null; this.btn = null; this.open = false; }
   isOpen() { return this.open; }
@@ -40,16 +41,16 @@ export class Inventory {
     const hands = this.el.querySelector('[data-l="hands"]'), items = this.el.querySelector('[data-l="items"]'); hands.innerHTML = ''; items.innerHTML = '';
     const gs = cs.guns(); for (let i = 0; i < 2; i++) {
       const w = gs[i], row = document.createElement('div'); row.className = 'iv-row' + (w ? '' : ' empty') + (w && R.weapon === w ? ' sel' : '');
-      if (w) { row.innerHTML = '<i>🔫</i><div><b>' + GUN_NAME[w] + '</b><small>' + (cb.mag[w] | 0) + ' / ' + (cb.ammo[w] | 0) + ' ammo</small></div><button type="button" class="iv-drop">DROP</button>'; row.addEventListener('pointerdown', (e) => { e.preventDefault(); if (e.target.classList.contains('iv-drop')) { cs.dropGun(w); return; } R.equip(w); this.render(); }); }
+      if (w) { row.innerHTML = '<i>' + pic(cs, w, '🔫') + '</i><div><b>' + GUN_NAME[w] + '</b><small>' + (cb.mag[w] | 0) + ' / ' + (cb.ammo[w] | 0) + ' ammo</small></div><button type="button" class="iv-drop">DROP</button>'; row.addEventListener('pointerdown', (e) => { e.preventDefault(); if (e.target.classList.contains('iv-drop')) { cs.dropGun(w); return; } R.equip(w); this.render(); }); }
       else row.innerHTML = '<i>🔫</i><div><b>GUN SLOT ' + (i + 1) + '</b><small>empty</small></div>';
       hands.appendChild(row);
     }
-    { const row = document.createElement('div'); row.className = 'iv-row' + (cb.owned.bat ? '' : ' empty') + (R.weapon === 'bat' ? ' sel' : ''); row.innerHTML = '<i>🏏</i><div><b>BASEBALL BAT</b><small>' + (cb.owned.bat ? 'melee' : 'empty') + '</small></div>'; if (cb.owned.bat) row.addEventListener('pointerdown', (e) => { e.preventDefault(); R.equip('bat'); this.render(); }); hands.appendChild(row); }
+    { const row = document.createElement('div'); row.className = 'iv-row' + (cb.owned.bat ? '' : ' empty') + (R.weapon === 'bat' ? ' sel' : ''); row.innerHTML = '<i>' + pic(cs, 'bat', '🏏') + '</i><div><b>BASEBALL BAT</b><small>' + (cb.owned.bat ? 'melee' : 'empty') + '</small></div>'; if (cb.owned.bat) row.addEventListener('pointerdown', (e) => { e.preventDefault(); R.equip('bat'); this.render(); }); hands.appendChild(row); }
     { const row = document.createElement('div'); row.className = 'iv-row' + (!R.weapon ? ' sel' : ''); row.innerHTML = '<i>✊</i><div><b>FISTS</b><small>punch / kick</small></div>'; row.addEventListener('pointerdown', (e) => { e.preventDefault(); R.equip('fist'); this.render(); }); hands.appendChild(row); }
     let used = 0;
     for (const it of ITEMS) {
       const n = cs.count(it.k); used += n; const row = document.createElement('div'); row.className = 'iv-row item' + (n > 0 ? '' : ' empty') + (it.k === 'scope' && R.telescope ? ' sel' : '');
-      row.style.setProperty('--c', it.col); row.innerHTML = '<i>' + it.icon + '</i><div><b>' + it.name + '</b><small>' + it.info + '</small></div><em>x' + n + (it.key ? '<u>' + it.key + '</u>' : '') + '</em>';
+      row.style.setProperty('--c', it.col); row.innerHTML = '<i>' + pic(cs, it.k, it.icon) + '</i><div><b>' + it.name + '</b><small>' + it.info + '</small></div><em>x' + n + (it.key ? '<u>' + it.key + '</u>' : '') + '</em>';
       row.addEventListener('pointerdown', (e) => { e.preventDefault(); cs.useItem(it.k); this.render(); }); items.appendChild(row);
     }
     this.el.querySelector('.iv-cap').textContent = used + ' items';

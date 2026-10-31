@@ -1244,3 +1244,7 @@ body.jang-mode #wanted { display: none !important; }   /* v251: no police stars 
 #c-rvp{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font:700 18px sans-serif;text-shadow:0 1px 3px #000;z-index:60;pointer-events:none;}
 #c-rvp::before{content:'';position:absolute;inset:7px;border-radius:50%;background:rgba(10,10,12,.72)}
 #c-rvp::after{content:attr(data-t);position:absolute}
+/* v258: pictures of the real models in the hotbar and the backpack */
+#c-slots button { height: auto; min-height: 38px; } #c-slots button img { width: 64px; height: 32px; object-fit: contain; pointer-events: none; margin-top: 2px; }
+#c-inv .iv-row > i { width: 64px; } #c-inv .iv-row > i img { width: 64px; height: 36px; object-fit: contain; display: block; pointer-events: none; }
+@media (max-height: 460px) { #c-slots button img { width: 50px; height: 25px; } #c-inv .iv-row > i { width: 52px; } #c-inv .iv-row > i img { width: 52px; height: 28px; } }

@@ -9,7 +9,7 @@ export class NetSim extends CombatSim {
   hello() { this.net.send({ t: 'chello' }); this.helloT = 0; }
   // ---- from the server
   onInit(m) { this.applyBots(m.b, true); this.loot = []; for (const a of m.l || []) this.addLoot(a); this.ready = true; }
-  addLoot(a) { const [id, k, x, z, spot, am, al, gold] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
+  addLoot(a) { const [id, k, x, z, spot, am, al, gold, yy] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, y: yy === null || yy === undefined ? undefined : yy, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
   applyBots(arr, snap) {
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;
       b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i;

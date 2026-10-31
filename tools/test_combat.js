@@ -5,7 +5,7 @@ const L = layout(), BUILDINGS = L.buildings;
 ok(L.solids.length > 1000 && L.trees.length > 150, 'map has walls and forests: ' + L.solids.length + ' solids, ' + L.trees.length + ' trees');
 ok(BUILDINGS.length >= 45, 'buildings: ' + BUILDINGS.length);
 ok(L.spots.length >= 150, 'loot spots: ' + L.spots.length);
-ok(L.spots.every((s) => !hitsSolid(L, s.x, s.z, 0.9)), 'no loot spot is inside or touching a wall / tree / crate');
+ok(L.spots.every((s) => !hitsSolid(L, s.x, s.z, 0.9, s.y)), 'no loot spot is inside or touching a wall / tree / crate');
 ok(L.spots.every((s) => cmbH(s.x, s.z) > -0.4), 'no loot spot is in the river');
 ok(L.spawns.length >= 20 && L.spawns.every((s) => !hitsSolid(L, s.x, s.z, 1.5)), 'spawn points are clear: ' + L.spawns.length);
 // the ground: river deep enough to swim, hills, flat building sites
