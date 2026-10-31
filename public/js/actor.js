@@ -32,7 +32,7 @@ export class HeroActor {
     else if (!st.grounded && (Math.abs(st.vy || 0) > 1.2 || this.inAir)) { name = 'jump'; this.inAir = true; }   // stays in the jump pose over the apex (it used to flip to run for a moment, lifting the leg a second time)
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
     else if (sp > 0.25) { name = 'walk'; this.tWalk += dt * sp / 1.3; t = this.tWalk; }
-    if (st.prone && !st.seated && !st.swim && name !== 'jump') name = sp > 0.15 ? 'crawl' : 'proneIdle';
+    if (st.prone && !st.seated && !st.swim && name !== 'jump') name = sp > 0.15 ? (st.faceCam && st.mvF < -0.3 ? 'crawlBack' : 'crawl') : 'proneIdle';   // v253: Mixamo Crawl Backwards (and the same clip played in reverse for forward)
     else if (st.crouch && name !== 'jump' && !st.seated) { if (sp > 0.25) { name = 'crouchwalk'; t = this.tWalk; } else name = 'crouch'; }
     if (st.grounded || st.swim || st.seated) this.inAir = false;
     if (name === 'jump') t = Math.max(-1, Math.min(1, (st.vy || 0) / 7));
