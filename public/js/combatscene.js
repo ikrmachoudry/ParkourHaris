@@ -12,7 +12,7 @@ import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 import { CombatSim, CMB, COMBAT_MS, layout, cmbH, supportY, hitsSolid } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
-import { makeZone, zoneAt } from './zone.js';
+import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
 import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
@@ -81,7 +81,8 @@ export class CombatScene {
     this.startDrop();
   }
   respawn(seat) {
-    const R = this.R, b = R.me.body, L = layout(), p = L.spawns[((seat === undefined ? Math.floor(Math.random() * L.spawns.length) : seat * 5 + 1) % L.spawns.length + L.spawns.length) % L.spawns.length];
+    const R = this.R, b = R.me.body, L = layout(); let p = L.spawns[((seat === undefined ? Math.floor(Math.random() * L.spawns.length) : seat * 5 + 1) % L.spawns.length + L.spawns.length) % L.spawns.length];
+    if (seat === undefined && this.z && this.sim) { const zz = this.z, ins = L.spawns.filter((q) => Math.hypot(q.x - zz.nx, q.z - zz.nz) < zz.nr * 0.8 && Math.hypot(q.x - zz.x, q.z - zz.z) < zz.r * 0.8); p = ins.length ? ins[Math.floor(Math.random() * ins.length)] : this.sim.zoneSpot(zz.nx, zz.nz, zz.nr); this.safeUntil = this.t + 4; R.toast && R.toast('RESPAWNED INSIDE THE SAFE ZONE (blue circle) - look at the minimap', 4); }   // v251: after you die you come back INSIDE the safe circle, never in the danger zone
     b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = cmbH(p.x, p.z) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
   }
   clear() {
@@ -90,8 +91,9 @@ export class CombatScene {
     for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none';
-    if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) this.R.minimap.zone = null;
-    this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; A.setCommentary(OPT.punjabi !== false);
+    if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
+    if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
+    this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; if (this.tipEl) { this.tipEl.style.display = 'none'; this._tipOn = false; } A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
@@ -215,17 +217,18 @@ export class CombatScene {
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;
-    for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = LOOT_COL[it.k];
+    for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = it.gold ? '#ffd23f' : LOOT_COL[it.k];
       let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.5, 0.3, 0.34), SM('#3d5a2a', 0.7))); const s = new THREE.Mesh(GEO('Box',0.52, 0.08, 0.36), SM('#ffd23f')); s.position.y = 0.04; mdl.add(s); }
       else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.55, 0.38, 0.38), SM('#f4f4f4'))); const rm = SM('#e0242b'); const a = new THREE.Mesh(GEO('Box',0.26, 0.4, 0.06), rm), c = new THREE.Mesh(GEO('Box',0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
       else if (ITEM_K.includes(it.k)) { mdl = new THREE.Group(); const M = (c) => SM(c, 0.6);
         if (it.k === 'inject') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(GEO('Cylinder',0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(GEO('Cylinder',0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
         else if (it.k === 'pills') { const b = new THREE.Mesh(GEO('Cylinder',0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(GEO('Cylinder',0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
         else if (it.k === 'smoke') { const b = new THREE.Mesh(GEO('Cylinder',0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(GEO('Cylinder',0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
-        else if (it.k === 'sscope') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.46, 10), M('#20242c')), f = new THREE.Mesh(GEO('Cylinder',0.1, 0.085, 0.1, 10), M('#14171d')), e = new THREE.Mesh(GEO('Cylinder',0.085, 0.1, 0.09, 10), M('#14171d')), l = new THREE.Mesh(GEO('Circle',0.075, 10), SM('#7fe0ff', 0.3)); b.rotation.z = f.rotation.z = e.rotation.z = Math.PI / 2; f.position.x = 0.26; e.position.x = -0.26; l.rotation.y = Math.PI / 2; l.position.x = 0.312; mdl.add(b, f, e, l); mdl.scale.setScalar(1.25); }   // v238: a rifle scope lying on the ground
+        else if (it.k === 'sscope') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.46, 10), M('#20242c')), f = new THREE.Mesh(GEO('Cylinder',0.1, 0.085, 0.1, 10), M('#14171d')), e = new THREE.Mesh(GEO('Cylinder',0.085, 0.1, 0.09, 10), M('#14171d')), l = new THREE.Mesh(GEO('Circle',0.075, 10), SM('#7fe0ff', 0.3)); b.rotation.z = f.rotation.z = e.rotation.z = Math.PI / 2; f.position.x = 0.26; e.position.x = -0.26; l.rotation.y = Math.PI / 2; l.position.x = 0.312; mdl.add(b, f, e, l); mdl.scale.setScalar(0.55); }   // v238: a rifle scope lying on the ground (v251: 0.55 = a real rifle scope is about 25 cm long; it was a huge tube)
         else { const b = new THREE.Mesh(GEO('Cylinder',0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(GEO('Cylinder',0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
       else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
-      const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;   // lying on the floor like PUBG: guns on their side, boxes flat
+      const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;
+      if (it.gold === 1) { pivot.position.y += 0.34; const bx = new THREE.Mesh(GEO('Box', 0.62, 0.3, 0.62), SM('#e8b412', 0.35)), lid = new THREE.Mesh(GEO('Box', 0.66, 0.06, 0.66), SM('#fff1a8', 0.3)); bx.position.y = 0.17; lid.position.y = 0.34; g.add(bx, lid); }   // v251: a dead enemy's GOLD box: everything he carried lies on it   // lying on the floor like PUBG: guns on their side, boxes flat
       const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
@@ -249,16 +252,16 @@ export class CombatScene {
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0 });
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0 });
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const ch = this.mkChute(); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
-    const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = makeZone(T ? T.seed : (Math.random() * 1e9) | 0);
+    const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = this.shared && T ? makeZone(T.seed) : this.sim.Z;   // v251: the same circles the bots (and the server) use
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
     if (!this.zw) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 48, 1, true), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; }
     this.zw.position.set(CMB.x + z.x, 30, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
@@ -272,8 +275,61 @@ export class CombatScene {
     const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r; this.outZone = out && !this.dropping;
     if (this.outZone && this.hp > 0 && this.deadT <= 0) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
   }
+  // ---------------------------------------------------------------- v251 the red BOMBING circle: twice per match, 115 s each, anywhere on the island (independent of the blue circle); bombs fall from the sky
+  stepBomb(dt) {
+    const R = this.R, Z = this.Z; if (!Z) return; const bz = bombAt(Z, this.t), THR = THREE;
+    if (R.minimap) R.minimap.bomb = bz;
+    if (!bz) { if (this.bw) this.bw.visible = false; this._bk = -1; this._bmsg = 0; return; }
+    if (!this.bw) { const m = new THR.Mesh(new THR.CylinderGeometry(1, 1, 120, 40, 1, true), new THR.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.22, side: THR.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.bw = m; this.bombs = []; for (let i = 0; i < 6; i++) { const q = new THR.Mesh(new THR.SphereGeometry(0.3, 8, 6), new THR.MeshBasicMaterial({ color: 0x23262b })); q.scale.set(0.7, 0.7, 1.7); q.visible = false; q.frustumCulled = false; this.group.add(q); this.bombs.push({ m: q, on: false, x: 0, z: 0, t: 0 }); } }
+    this.bw.visible = true; this.bw.position.set(CMB.x + bz.x, 30, CMB.z + bz.z); this.bw.scale.set(bz.r, 1, bz.r); this.bw.material.opacity = bz.warn ? 0.1 + 0.08 * Math.sin(this.t * 6) : 0.2 + 0.05 * Math.sin(this.t * 3);
+    if (!this.dropping) { const m = Math.max(0, Math.ceil(bz.warn ? bz.tl : 0)); if (bz.warn && !this._bmsg) { this._bmsg = 1; R.toast && R.toast('BOMBING ZONE (RED CIRCLE) in ' + m + ' s - stay out of it!', 4); A.sfx.click && A.sfx.click(); } else if (!bz.warn && this._bmsg !== 2) { this._bmsg = 2; R.toast && R.toast('AIR RAID! bombs are falling in the red circle for ' + Math.round(bz.left) + ' s - GET OUT', 4); } }
+    if (bz.warn) return;
+    const k = Math.floor((this.t - bz.t0) / 0.8);   // one bomb every 0.8 s: the same spot on every phone
+    if (k !== this._bk) { this._bk = k; const sp = bombSpot(Z, bz, k), q = this.bombs.find((o) => !o.on); if (q) { q.on = true; q.x = sp.x; q.z = sp.z; q.t = 1.7; q.m.visible = true; } }
+    const b = R.me.body;
+    for (const q of this.bombs) { if (!q.on) continue; q.t -= dt; const wx = CMB.x + q.x, wz = CMB.z + q.z, gy = cmbH(q.x, q.z), f = Math.max(0, q.t / 1.7); q.m.position.set(wx, gy + 0.3 + f * f * 130, wz); q.m.rotation.x = Math.PI / 2 * 0 + 1.2;
+      if (q.t <= 0) { q.on = false; q.m.visible = false; const d = Math.hypot(b.x - wx, b.z - wz), dc = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
+        R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
+        if (dc < 140) { A.sfx.boom && A.sfx.boom(Math.max(0.12, 1 - dc / 140)); if (R.shake !== undefined && dc < 40) R.shake = Math.max(R.shake, 0.5 * (1 - dc / 40)); }
+        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down) this.hurt(Math.round(48 * (1 - d / 9)) + 6); } }
+  }
+  // ---------------------------------------------------------------- v251 the AIRDROP (PUBG care package): a plane crosses the island, a crate falls on a parachute, red smoke shows where, the loot is gold
+  airKit() {
+    const THR = THREE, g = new THR.Group(), body = SM('#8d9aa6', 0.6), dark = SM('#4a5560', 0.7);
+    const fu = new THR.Mesh(new THR.CylinderGeometry(1.5, 1.2, 20, 10), body); fu.rotation.x = Math.PI / 2; const wing = new THR.Mesh(new THR.BoxGeometry(26, 0.35, 3.6), body), tail = new THR.Mesh(new THR.BoxGeometry(7, 0.3, 2.2), body), fin = new THR.Mesh(new THR.BoxGeometry(0.3, 3.4, 2.4), dark); wing.position.z = 1; tail.position.z = -9.5; fin.position.set(0, 1.8, -9.4); g.add(fu, wing, tail, fin); g.scale.setScalar(1.25); return g;
+  }
+  airCrate() {
+    const THR = THREE, g = new THR.Group(), cr = new THR.Mesh(new THR.BoxGeometry(1.5, 1.1, 1.5), SM('#c7332b', 0.5)), st = new THR.Mesh(new THR.BoxGeometry(1.56, 0.25, 1.56), SM('#f2f2f2', 0.5)); cr.position.y = 0.55; st.position.y = 0.55; g.add(cr, st);
+    const ch = new THR.Group(), cano = new THR.Mesh(new THR.SphereGeometry(3.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THR.MeshBasicMaterial({ color: 0xffffff, side: THR.DoubleSide })), cs2 = new THR.Mesh(new THR.SphereGeometry(3.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.8), new THR.MeshBasicMaterial({ color: 0xe8442a, side: THR.DoubleSide })); cano.position.y = cs2.position.y = 4.6; ch.add(cano, cs2);
+    const lp = []; for (const [x, z] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) lp.push(0.7 * x, 1.1, 0.7 * z, 2.3 * x, 4.7, 2.3 * z); const lg = new THR.BufferGeometry(); lg.setAttribute('position', new THR.Float32BufferAttribute(lp, 3)); ch.add(new THR.LineSegments(lg, new THR.LineBasicMaterial({ color: 0x222222 }))); g.add(ch); g.userData.ch = ch;
+    const sm = new THR.Mesh(new THR.CylinderGeometry(0.9, 2.2, 70, 12, 1, true), new THR.MeshBasicMaterial({ color: 0xff3b2a, transparent: true, opacity: 0.28, side: THR.DoubleSide, depthWrite: false, fog: false })); sm.position.y = 36; g.add(sm); g.userData.smoke = sm; return g;
+  }
+  onAirplane(e) {
+    if (this.airs) for (const a of this.airs) if (a.n === e.n) return; (this.airs || (this.airs = [])).push({ n: e.n, x: e.x, z: e.z, hd: e.hd, t: 0, plane: this.airKit(), crate: this.airCrate(), landed: false, rm: 0 });
+    const a = this.airs[this.airs.length - 1]; a.crate.visible = false; this.group.add(a.plane); this.group.add(a.crate);
+    if (!this.dropping && this.R.toast) this.R.toast('AIRDROP! A plane is dropping a care package - watch the sky, then run to the red smoke (yellow square on the minimap)', 5);
+    if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z };
+  }
+  onAirland(e) { const a = this.airs && this.airs.find((q) => q.n === e.n); if (a) { a.landed = true; a.t = Math.max(a.t, AIR.back / AIR.v + AIR.alt / AIR.fall); } if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z }; if (!this.dropping && this.R.toast) this.R.toast('AIRDROP LANDED - gold loot at the red smoke', 3.5); }
+  stepAir(dt) {
+    if (!this.airs) return; const tp = AIR.back / AIR.v;
+    for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
+      const sx = a.x - a.hd[0] * AIR.back, sz = a.z - a.hd[1] * AIR.back, tt = Math.min(a.t, 2 * tp + 6);
+      a.plane.position.set(CMB.x + sx + a.hd[0] * AIR.v * tt, AIR.alt + 6, CMB.z + sz + a.hd[1] * AIR.v * tt); a.plane.rotation.y = Math.atan2(a.hd[0], a.hd[1]); a.plane.visible = a.t < 2 * tp + 6;
+      if (a.t >= tp) { const gy = cmbH(a.x, a.z), fall = Math.max(0, AIR.alt - (a.t - tp) * AIR.fall), on = fall <= 0.05 || a.landed; a.crate.visible = true; a.crate.position.set(CMB.x + a.x, gy + (on ? 0 : fall), CMB.z + a.z); a.crate.userData.ch.visible = !on; a.crate.userData.ch.rotation.y += dt * 0.3; a.crate.userData.smoke.visible = a.t < tp + AIR.alt / AIR.fall + 90; }
+      if (a.landed || a.t > tp + AIR.alt / AIR.fall) { a.rm += dt; if (a.rm > 420) { this.group.remove(a.plane); this.group.remove(a.crate); this.airs.splice(i, 1); if (this.R.minimap && this.R.minimap.air && !this.airs.length) this.R.minimap.air = null; } }
+    }
+  }
+  // a dead player's things stay on the ground in a GOLD box (shared match): the one who shot him can take everything
+  dropAll() {
+    const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !this.sim || !this.shared) return; const bx = b.x - CMB.x, bz = b.z - CMB.z, list = [];
+    for (const w of Object.keys(cb.owned)) if (cb.owned[w]) list.push([w, isGunK(w) ? { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 } : 0]);
+    for (let i = 0; i < Math.min(3, cb.nades | 0); i++) list.push(['grenade', 0]); for (const k of ITEM_K) for (let i = 0; i < Math.min(2, (cb.inv && cb.inv[k]) | 0); i++) list.push([k, 0]);
+    list.forEach(([k, am], i) => { const a = i * 1.1, it = this.sim.dropLoot(k, bx + Math.cos(a) * 0.8, bz + Math.sin(a) * 0.8, true); if (am) it.am = am; });
+  }
   onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
-    if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
+    if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; { const g = this.mates.get(m.id); if (g && g.has) { g.fire = 0.45; const r = Number.isFinite(m.r) && m.r ? m.r : g.r, fx = Math.sin(r), fz = Math.cos(r), y0 = g.y + 1.35; this.tracer(g.x + fx * 0.8, y0, g.z + fz * 0.8, g.x + fx * 45, y0 - 0.5, g.z + fz * 45); this.R.particles && this.R.particles.emit(g.x + fx * 0.9, y0, g.z + fz * 0.9, 4, { color: '#ffd978', speed: 1.5, up: 0.4, life: 0.1, size: 0.18 }); } }   // v251: you SEE his muzzle flash and tracer
+    const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
     const v = Math.max(0.22, 1 - cd / 170), pn = this.panOf(m.x, m.z); m.w === 1 ? A.sfx.akShot && A.sfx.akShot(pn, v) : m.w === 2 && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v);
   }
   paxSeats(ci) { const o = []; for (const [, g] of this.mates) if (g.ph === 6 && g.vi === ci && performance.now() - g.at < 2500) o.push(g.ps | 0); return o; }   // v242: seats of the jeep taken by other players
@@ -298,7 +354,7 @@ export class CombatScene {
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
       if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
-      g.m.update(dt, { speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      if (g.fire > 0) g.fire -= dt; g.m.update(dt, { weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
         const car = this.R.cars[g.vi]; if (car && this.R.drive !== car) {
           const R = this.R; if (!R.mateCars) R.mateCars = new Map(); g.ry = g.ry === undefined ? g.r : g.ry + ((((g.r - g.ry) % 6.2832) + 9.4248) % 6.2832 - 3.1416) * (1 - Math.exp(-14 * dt));
@@ -311,7 +367,7 @@ export class CombatScene {
     }
   }
   update(dt) {
-    const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; this.stepZone(dt); const sim = this.sim, b = R.me.body, M = R.mission;
+    const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));
@@ -319,8 +375,11 @@ export class CombatScene {
       if (!this.dropping && b.y < cmbH(cx, cz) - 3) { b.y = cmbH(cx, cz) + 1.2; b.vy = 0; b.grounded = false; b.swim = 0; b.inWater = false; } }
     { const f = !this.dropping && this.hp > 0; if (this._fight !== f) { this._fight = f; document.body.classList.toggle('jang-fight', f); } this.slotsTick(); }
     const run = M && M.phase === 'run' && !this.over;
+    { let roof = false; if (OPT.tips !== false && !this.dropping && P.alive && !R.drive) for (const t of layout().towers) if (Math.hypot(P.x - t.x, P.z - t.z) < 4.8 && Math.abs(b.y - t.py) < 2.5) roof = true;
+      if (!this.tipEl) { const e = document.createElement('div'); e.id = 'c-tip'; e.innerHTML = '<b>PARACHUTE TOWER</b><span>1. Pick up the parachute (you get it by standing on the roof).</span><span>2. Walk to the yellow LEDGE (the parachute sign) and step off.</span><span>3. In the air press <u>JUMP / SPACE</u> to open the chute (it also opens by itself near the ground).</span><span>DIVE = Shift &nbsp;·&nbsp; PULL UP = C &nbsp;·&nbsp; hide this text: Settings - Instructions</span>'; document.body.appendChild(e); this.tipEl = e; }
+      if (this._tipOn !== roof) { this._tipOn = roof; this.tipEl.style.display = roof ? 'block' : 'none'; } }   // v251: how to use the tower parachute (can be switched off in Settings)
     if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
-      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast('PARACHUTE PACKED - jump off the edge, press JUMP / SPACE to open it. DIVE = Shift, PULL UP = C', 3.5); A.sfx.pickup && A.sfx.pickup(); }
+      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast(OPT.tips !== false ? 'PARACHUTE PACKED - walk off the yellow ledge, then press JUMP / SPACE to open it. DIVE = Shift, PULL UP = C' : 'PARACHUTE PACKED', 3.5); A.sfx.pickup && A.sfx.pickup(); }
       if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { this.drop = { ph: 'fall', t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0 }; this.dropping = true; this.dropPose = 1; R.toast && R.toast('FALLING - press JUMP / SPACE to open the parachute (it opens by itself near the ground)', 3.5); }
     }
     if (run) {
@@ -370,15 +429,17 @@ export class CombatScene {
     } else if (e.k === 'kill') {
       if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; R.toast && R.toast('ENEMY DOWN'); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
-    } else if (e.k === 'bothit') { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
+    } else if (e.k === 'airplane') this.onAirplane(e); else if (e.k === 'airland') this.onAirland(e);
+    else if (e.k === 'bothit') { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
   }
   hurt(d) {
+    if (this.safeUntil && this.t < this.safeUntil) return;   // v251: 4 s of protection after you respawn
     if (this.down) { this.downT -= d * 0.5; if (this.vig) this.vig.style.opacity = 0.7; if (this.downT <= 0) this.die(); return; }   // v244: already down: more hits make you bleed out faster
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else this.die(); }
   }
-  die() { if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
+  die() { if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
   goDown() {
@@ -390,9 +451,9 @@ export class CombatScene {
   stepDown(dt) {   // bleeding out / reviving
     const R = this.R, T = R.jangTeam, b = R.me.body;
     if (this.down) { this.downT -= dt; b.stun = Math.max(b.stun, 1); if (this.ov) this.ov.textContent = 'YOU ARE DOWN  -  ' + Math.max(0, Math.ceil(this.downT)) + ' s  -  waiting for a teammate'; if (this.downT <= 0) this.die(); }
-    // a teammate of mine lies down close to me: the REVIVE button; hold on for 4 s next to him and he gets up
+    // a teammate of mine lies down close to me: the REVIVE button; hold on for 7 s next to him and he gets up
     let near = null; if (T && !this.down && this.hp > 0 && this.deadT <= 0 && !this.dropping) for (const [, g] of this.mates) if (g.ph === 7 && g.tm === T.tm && g.has && Math.hypot(g.x - b.x, g.z - b.z) < 3.2) { near = g; break; }
-    if (this.reviving) { const g = this.reviving; if (!near || near !== g || this.hp <= 0) { this.reviving = null; R.toast && R.toast('REVIVE CANCELLED', 1.5); } else { g.rv = (g.rv || 0) + dt; if (g.rv >= 4) { g.rv = 0; this.reviving = null; T.net && T.net.send({ t: 'jr', to: g.id }); R.toast && R.toast('TEAMMATE REVIVED', 2.5); } } }
+    if (this.reviving) { const g = this.reviving; if (!near || near !== g || this.hp <= 0) { this.reviving = null; R.toast && R.toast('REVIVE CANCELLED', 1.5); } else { g.rv = (g.rv || 0) + dt; if (g.rv >= 7) { g.rv = 0; this.reviving = null; T.net && T.net.send({ t: 'jr', to: g.id }); R.toast && R.toast('TEAMMATE REVIVED', 2.5); } } }
     if (!this.reviveBtn) { const rb = document.createElement('button'); rb.id = 'c-rev'; rb.type = 'button'; rb.textContent = 'F  -  REVIVE TEAMMATE'; rb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.startRevive(); }); document.body.appendChild(rb); this.reviveBtn = rb; }
     const show = !!near && !this.reviving; if ((this.reviveBtn.style.display === 'block') !== show) this.reviveBtn.style.display = show ? 'block' : 'none'; this.nearDown = near;
     if (this.reviving && this.reviving.rv !== undefined && this.ov) { this.ov.style.display = 'none'; }
@@ -451,7 +512,7 @@ export class CombatScene {
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
   useItem(k) {
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb || !this.active || this.dropping || R.drive || this.over) return false; const have = this.count(k);
-    if (k === 'sscope') { R.toast && R.toast(have > 0 ? 'The Kar98 uses it by itself: pick the sniper, hold AIM' : 'NO SNIPER SCOPE'); return false; }
+    if (k === 'sscope') { if (have <= 0) { R.toast && R.toast('NO SNIPER SCOPE'); return false; } if (!cb.owned.sniper) { R.toast && R.toast('You need the SNIPER RIFLE (Kar98) first - the scope clips onto it', 3); return false; } R.equip('sniper'); R.toast && R.toast('SCOPE FITTED to the Kar98 - hold AIM (right mouse / AIM button) to look through it; + / - or the mouse wheel zoom', 4.5); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }

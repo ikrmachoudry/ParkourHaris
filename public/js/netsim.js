@@ -9,7 +9,7 @@ export class NetSim extends CombatSim {
   hello() { this.net.send({ t: 'chello' }); this.helloT = 0; }
   // ---- from the server
   onInit(m) { this.applyBots(m.b, true); this.loot = []; for (const a of m.l || []) this.addLoot(a); this.ready = true; }
-  addLoot(a) { const [id, k, x, z, spot, am, al] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, spot: -1, am, alive: !!al }); return it; }
+  addLoot(a) { const [id, k, x, z, spot, am, al, gold] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
   applyBots(arr, snap) {
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;
       b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i;
@@ -34,9 +34,9 @@ export class NetSim extends CombatSim {
     for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (can && !can(it)) continue; it.alive = false; if (it.id > 0) this.net.send({ t: 'ctake', id: it.id }); return it; } }
     return null;
   }
-  dropLoot(k, x, z) {
-    const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: -(++this.tmpN) }; this.loot.push(it); const cid = this.tmpN; this.tmpMap.set(cid, it);
-    Promise.resolve().then(() => this.net.send({ t: 'cdrop', k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am | 0, cid }));   // (the caller sets it.am right after this call)
+  dropLoot(k, x, z, gold) {
+    const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: -(++this.tmpN), gold: gold ? 1 : 0 }; this.loot.push(it); const cid = this.tmpN; this.tmpMap.set(cid, it);
+    Promise.resolve().then(() => this.net.send({ t: 'cdrop', k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am && typeof it.am === 'object' ? { mag: it.am.mag | 0, res: it.am.res | 0 } : 0, cid, g: gold ? 1 : 0 }));   // (the caller sets it.am right after this call)
     return it;
   }
   shoot(ox, oz, fx, fz, range, dmg, y) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y); this.net.send({ t: 'cshoot', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range, dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }

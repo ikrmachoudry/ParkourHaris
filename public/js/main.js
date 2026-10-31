@@ -523,7 +523,7 @@ class Race {
     const swimK = b.swim > 0.3 ? clamp((b.swim - 0.3) / 0.4, 0, 1) : 0;
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
-    m.update(dt, { peek: this.leanV || 0, ...(this.mission && this.mission.cs && (this.mission.cs.deadT > 0 || this.mission.cs.down) ? { zpose: ['dieF', 'dieB', 'dieR', 'dieL'][this.mission.cs.deaths & 3], zp: this.mission.cs.down ? 1 : Math.min(1, (4 - this.mission.cs.deadT) / 2.4) } : null), skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, shooting: this.shootT > 0 && !this.drive, kick: this.shootT > 0.43 ? (this.shootT - 0.43) / 0.12 : 0, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { peek: this.leanV || 0, ...(this.mission && this.mission.cs && (this.mission.cs.deadT > 0 || this.mission.cs.down) ? { zpose: ['dieF', 'dieB', 'dieR', 'dieL'][this.mission.cs.deaths & 3], zp: this.mission.cs.down ? 1 : Math.min(1, (4 - this.mission.cs.deadT) / 2.4) } : null), skydive: this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), honk: !!(this.drive && !this.paxMode && this.honkAnim > 0), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) ? null : this.weapon, nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, shooting: this.shootT > 0 && !this.drive, kick: this.shootT > 0.43 ? (this.shootT - 0.43) / 0.12 : 0, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -907,7 +907,7 @@ class Race {
     }
     b.x = st.x; b.y = st.y; b.z = st.z; b.vx = st.vx; b.vz = st.vz; b.vy = 0; b.grounded = true; b.ground = null; b.yaw = st.yaw; b.stun = 0;
     if (c.mesh.userData.hero) { A.carEngineSet(st.rpm, st.load, st.speed); A.skidSet(0); } else A.engineSet(Math.abs(st.speed) / CAR_SPECS[st.id].max, gas > 0);
-    this.hornCd -= dt; this.skidT -= dt;
+    this.hornCd -= dt; this.skidT -= dt; this.honkAnim = Math.max(0, (this.honkAnim || 0) - dt);
     if (c.mesh.userData.hero) {
       this.smokeT = (this.smokeT || 0) - dt;
       if (this.smokeT <= 0) {
@@ -922,11 +922,11 @@ class Race {
     }
     if (st.boost > 0 && Math.random() < 0.8) this.particles.emit(st.x - Math.sin(st.yaw) * 2.2, 0.5, st.z - Math.cos(st.yaw) * 2.2, 1, { color: '#ffb347', speed: 2, up: 1, life: 0.35, size: 0.4 });
   }
-  honkOn() { if (this.paxMode) return;
+  honkOn() { if (this.paxMode) return; this.honkAnim = 0.6;
     if (this.drive && cityVeh(this.drive.st.id).extra === 'police') { const n = performance.now(); if (n - (this._sirT || 0) < 350) return; this._sirT = n; if (A.sirenOn()) A.sirenStop(); else A.sirenStart(); return; }   // police car: the horn button is the siren switch
     if (this.peds && this.drive) { this.peds.startle(this.drive.st.x, this.drive.st.z, 17); this.evt({ k: 'st', x: +this.drive.st.x.toFixed(1), z: +this.drive.st.z.toFixed(1), r: 17 }); } if (this.drive && this.drive.mesh.userData.hero) A.hornStart(cityVeh(this.drive.st.id).hornHz); else this.honk(); }
   honkOff() { A.hornStop(); }
-  honk() { if (this.drive && !this.paxMode && this.hornCd <= 0) { const big = CAR_SPECS[this.drive.st.id].racer; this.hornCd = big ? 0.9 : 0.4; big ? A.sfx.honkBig() : A.sfx.honk(); if (big) this.shake = Math.max(this.shake || 0, 0.12); } }
+  honk() { if (this.drive && !this.paxMode && this.hornCd <= 0) { this.honkAnim = 1.1; const big = CAR_SPECS[this.drive.st.id].racer; this.hornCd = big ? 0.9 : 0.4; big ? A.sfx.honkBig() : A.sfx.honk(); if (big) this.shake = Math.max(this.shake || 0, 0.12); } }
   onCars(cars) { // parked-car positions from the server (for players who join late)
     for (const k of Object.keys(cars || {})) { const c = this.cars[+k], d = cars[k]; if (!c || !d || c === this.drive) continue; c.st.x = +d.x; c.st.z = +d.z; c.st.y = +d.y || 0; c.st.yaw = +d.r; c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; }
   }
@@ -1178,7 +1178,8 @@ class Race {
     if (this.over || this.finished) return; try { A.voice.weapon(k); } catch { /* noop */ }
   }
   cycleWeapon() { if (this.over || this.drive || !this.wallet) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
-  zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, SCOPE_FOV.length - 1); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
+  scopeMax() { if (this.telescope || !this.jang) return SCOPE_FOV.length - 1; const cb = this.wallet && this.wallet.cb; return cb && cb.inv && cb.inv.sscope > 0 ? SCOPE_FOV.length - 1 : 1; }   // v251: in Jang the Kar98 zooms only a little until you carry a SNIPER SCOPE
+  zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, this.scopeMax()); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
   aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
   toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
@@ -1289,7 +1290,7 @@ class Race {
   }
   nearestJack(b) { return this.tai && !this.drive && !this.jack && b.stun <= 0 ? this.tai.nearestJack(b.x, b.z) : null; }
   // GTA-style wanted level: report a crime to the police
-  crime(kind, x, z) { if (this.mission && (this.mission.mission === 'snipe' || this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
+  crime(kind, x, z) { if (this.jang) return; if (this.mission && (this.mission.mission === 'snipe' || this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.phase !== 'idle') return; if (this.wanted && this.meta.city && OPT.wanted) { this.wanted.crime(kind, x, z); } }
   startJack(tj) {
     this.crime('jack', tj.st.x, tj.st.z);
     const b = this.me.body, armed = isGun(this.weapon), empty = tj.mode === 'abandoned';
@@ -1605,7 +1606,7 @@ class Race {
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
     this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
     wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
-    if (this.jangTeam && this.jangTeam.net) this.jangTeam.net.send({ t: 'jf', x: +ox.toFixed(1), z: +oz.toFixed(1), w: wcls(w) === 'ak' ? 1 : wcls(w) === 'sniper' ? 2 : 0 });   // v241: the others hear my shot
+    if (this.jangTeam && this.jangTeam.net) this.jangTeam.net.send({ t: 'jf', x: +ox.toFixed(1), z: +oz.toFixed(1), w: wcls(w) === 'ak' ? 1 : wcls(w) === 'sniper' ? 2 : 0, r: +this.me.body.yaw.toFixed(3) });   // v241: the others hear my shot
     if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: wcls(w) === 'ak' || wcls(w) === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
     return true;
   }
@@ -1847,7 +1848,7 @@ class Race {
       if (noSc && this.weapon === 'sniper' && this.aiming && !(this._nsT > performance.now())) { this._nsT = performance.now() + 4000; this.toast && this.toast('NO SCOPE - find a SNIPER SCOPE (blue item) and the Kar98 uses it by itself'); }
       const want = !!(((this.weapon === 'sniper' && this.aiming && !noSc) || this.telescope) && !this.drive && !this.over && !(this.mission && this.mission.freeze));   // !! matters: classList.toggle(x, undefined) FLIPS the class every frame - that was the flashing if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
       const scoped = this._scW >= 0.6 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
-      this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
+      if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 9 : 4)));
       if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
@@ -2186,7 +2187,7 @@ async function ensureNet() {
   const net = new Net();
   net.on('joined', (m) => { app.myId = m.id; });
   net.on('cinit', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onInit) cs.sim.onInit(m); });
-  net.on('cb', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.applyBots) cs.sim.applyBots(m.b); });
+  net.on('cb', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.applyBots) { cs.sim.applyBots(m.b); if (m.st !== undefined) { cs.sim.srvT = m.st; cs.sim.srvAt = performance.now(); } } });
   net.on('ce', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onEvents) cs.sim.onEvents(m.e); });
   net.on('cpv', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.hurtPv) cs.hurtPv(m); });
   net.on('cpk', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onKillCredit) cs.onKillCredit(); });

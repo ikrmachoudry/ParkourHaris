@@ -1,13 +1,14 @@
 // COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
-export const TW = { ST: 0.3, n: 120, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
+export const TW = { ST: 0.3, n: 120, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.34 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
 // v237: shooting windows in the tower wall: one a turn, alternating east / west, 0.9 m above the step you stand on, 1.3 m high, so you can look out, peek and shoot (and be shot)
 export const towerWins = (gy) => { const o = [], dph = 2 * Math.PI / TW.per; for (let t = 0; t * TW.per + 18 < TW.n; t++) { const ph = t % 2 ? 1.5 * Math.PI : 0.5 * Math.PI, i = t * TW.per + Math.round(ph / dph), fy = gy + (i + 1) * TW.ST; o.push({ ph, hw: 0.12, y0: fy + 0.9, y1: fy + 2.2 }); } return o; };
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
 export const COMBAT_MS = 900000;                        // a match lasts 15 minutes
 export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
 const H = CMB.half;
+import { makeZone, zoneAt, airPoint, airLand } from './zone.js';
 
 const seeded = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -280,7 +281,7 @@ function build() {
     const W = (x0, z0, x1, z1, ya, yb, k = 'prop') => addS({ x0: x + x0, z0: z + z0, x1: x + x1, z1: z + z1, y0: ya, y1: yb, k });
     // the round wall: a ring of small cells (the collision is boxes, the drawing in battlemap.js is a real cylinder)
     { const wins = towerWins(gy), rc = S2 + 0.3, cell = 0.3, nn = 60; for (let q = 0; q < nn; q++) { const f = q * 2 * Math.PI / nn, cx = Math.sin(f) * rc, cz = Math.cos(f) * rc, door = cz > 0 && Math.abs(cx) < 1.45; const yb = door ? gy + 2.9 : gy - 1, fa = Math.atan2(cx, cz), ws = wins.filter((w) => { let d = (fa - w.ph) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) < w.hw + 0.05; });   // cells in front of a window are split: wall below the sill, wall above the lintel
-      let cur = yb; for (const w of ws) { if (w.y0 > cur) W(cx - cell, cz - cell, cx + cell, cz + cell, cur, w.y0); cur = w.y1; } W(cx - cell, cz - cell, cx + cell, cz + cell, cur, py + 1.2); } }   // the door is on the south side, 2.9 m high
+      let cur = yb; for (const w of ws) { if (w.y0 > cur) W(cx - cell, cz - cell, cx + cell, cz + cell, cur, w.y0); cur = w.y1; } { let dl = (fa - TW.ledge) % (2 * Math.PI); if (dl > Math.PI) dl -= 2 * Math.PI; if (dl < -Math.PI) dl += 2 * Math.PI; W(cx - cell, cz - cell, cx + cell, cz + cell, cur, Math.abs(dl) < TW.lhw + 0.04 ? py - 0.3 : py + 1.2); } } }   // the door is on the south side, 2.9 m high; v251: a LEDGE on the east side of the roof: no parapet there, you walk off the edge
     W(-0.95, -0.95, 0.95, 0.95, gy - 1, py - 0.3); W(-K, -0.5, K, 0.5, gy - 1, py - 0.3); W(-0.5, -K, 0.5, K, gy - 1, py - 0.3);   // the round core in the middle: the stairs wind round it, nobody can fall into a well
     // the roof: a disc, open over the last steps (from the opening angle up to the door side)
     for (let ix = -5; ix < 5; ix++) for (let iz = -5; iz < 5; iz++) { const cx = ix * 0.8 + 0.4, cz = iz * 0.8 + 0.4, r = Math.hypot(cx, cz); if (r > S2 + 0.35) continue; let ph = Math.atan2(cx, cz); if (ph < 0) ph += 2 * Math.PI; if (r > K + 0.5 && ph > TW.open) continue; W(cx - 0.4, cz - 0.4, cx + 0.4, cz + 0.4, py - 0.3, py, 'floor'); }
@@ -407,6 +408,7 @@ export class CombatSim {
     this.L = layout(); this.R = seeded(seed >>> 0 || 1); this.t = 0; this.events = []; this.kills = 0; this.deaths = 0; this.nBots = nBots;
     this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i));
     this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot();
+    this.Z = makeZone(seed >>> 0 || 1); this.airN = 0; this.airSent = false;   // v251: the bots follow the blue circle, the airdrop plane flies on a schedule
   }
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
   nearSpawn(b) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - b.x, s.z - b.z) < 170 && Math.hypot(s.x - b.x, s.z - b.z) > 30); return c.length ? this.pick(c) : this.pick(this.L.spawns); }
@@ -419,6 +421,10 @@ export class CombatSim {
       this.used.add(k); const it = { k: this.pick(LOOT_KINDS), x: s.x, z: s.z, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); return it;
     } return null;
   }
+  // v251: put an item on the ground anywhere (a dead bot's gold box, an airdrop): it vanishes after `life` seconds (0 = stays)
+  addLootAt(k, x, z, o = {}) { const it = { k, x, z, spot: -1, alive: true, id: (this._id = (this._id || 0) + 1), nt: this.t + (o.nt || 0), gold: o.gold || 0, am: o.am || 0 }; if (o.life) it.exp = this.t + o.life; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
+  // a spot inside the circle (cx, cz, r) the bots can walk to: any spawn point of the island that lies in it, else the middle
+  zoneSpot(cx, cz, r, near) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - cx, s.z - cz) < r * 0.9 && (!near || Math.hypot(s.x - near.x, s.z - near.z) < near.d)); if (c.length) return this.pick(c); const a = this.R() * 6.28, d = Math.sqrt(this.R()) * r * 0.6; return { x: cx + Math.cos(a) * d, z: cz + Math.sin(a) * d }; }
   // the player walks over loot: returns the item (and removes it; a new one appears somewhere else after LOOT_RESPAWN seconds)
   take(px, pz, can) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
     for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
@@ -427,7 +433,7 @@ export class CombatSim {
   // the nearest item within reach that take() refused (for the "E - swap" prompt)
   near(px, pz) { let best = null, bd = 2.2 * 2.2; for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; const d = (it.x - px) ** 2 + (it.z - pz) ** 2; if (d < bd) { bd = d; best = it; } } return best; }
   // the player drops something: it lies on the ground (it cannot be picked up again for 1.5 s) and never respawns
-  dropLoot(k, x, z) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
+  dropLoot(k, x, z, gold) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1), gold: gold ? 1 : 0 }; if (gold) it.exp = this.t + 150; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
   // smoke clouds block the bots' sight
   addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
   smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
@@ -440,7 +446,9 @@ export class CombatSim {
   melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg, x, z, by); n++; } return n; }
   blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, dmg * Math.max(0.35, 1.1 - 0.65 * d / r) * 28, x, z, by); } }
   hurt(b, d, fromX, fromZ, by) {
-    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by }); }
+    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by });
+      const gk = [b.weapon, 'ammo', this.pick(['ammo', 'med', 'inject', 'pills', 'grenade', 'smoke'])]; gk.forEach((k, i) => { const a = i * 2.1 + 0.5, ox = Math.cos(a) * 0.7, oz = Math.sin(a) * 0.7, ok = !hitsSolid(this.L, b.x + ox, b.z + oz, 0.2); this.addLootAt(k, b.x + (ok ? ox : 0), b.z + (ok ? oz : 0), { gold: 1, life: 150, am: k === 'ak' ? { mag: 30, res: 60 } : k === 'pistol' ? { mag: 12, res: 24 } : 0 }); }); }   // v251: a dead bot leaves a GOLD box with its gun + ammo (+ one more thing) for whoever shot it
+   
     else this.events.push({ k: 'bothit', id: b.id, x: b.x, z: b.z });
   }
   // move a circle through the walls (slides along them)
@@ -450,11 +458,21 @@ export class CombatSim {
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
     if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
+    const zn = this.Z ? zoneAt(this.Z, this.t) : null; this._zn = zn;
+    for (const it of this.loot) if (it.alive && it.exp && this.t > it.exp) { it.alive = false; this.events.push({ k: 'lootgone', id: it.id }); }
+    if (this.Z && this.airN < this.Z.AD.length) {   // v251: the airdrop: the plane appears, later the crate lands and its loot lies there for everybody
+      const n = this.airN, q = this.Z.AD[n];
+      if (!this.airSent && this.t >= q.t0) { this.airSent = true; const pt = airPoint(this.Z, n); this.events.push({ k: 'airplane', n, x: pt.x, z: pt.z, hd: pt.hd }); }
+      if (this.airSent && this.t >= airLand(q)) { const pt = airPoint(this.Z, n); this.airSent = false; this.airN++; const gun = ['m4', 'ak', 'sniper'][n % 3], ks = [gun, gun === 'sniper' ? 'sscope' : 'ammo', 'ammo', 'ammo', 'med', 'med', 'inject', 'grenade'];
+        ks.forEach((k, i) => { const a = i * 0.785, ox = Math.cos(a) * 1.5, oz = Math.sin(a) * 1.5, ok = !hitsSolid(this.L, pt.x + ox, pt.z + oz, 0.2); this.addLootAt(k, pt.x + (ok ? ox : 0), pt.z + (ok ? oz : 0), { gold: 2, life: 400, am: k === 'm4' || k === 'ak' ? { mag: 30, res: 90 } : k === 'sniper' ? { mag: 5, res: 20 } : 0 }); });
+        this.events.push({ k: 'airland', n, x: pt.x, z: pt.z }); }
+    }
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {
-      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const p = this.spawnPoint(P0), w = b.weapon; Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
+      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { let p = this.spawnPoint(P0); const w = b.weapon; if (zn && Math.hypot(p.x - zn.x, p.z - zn.z) > zn.r * 0.95) p = this.zoneSpot(zn.x, zn.z, zn.r); Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
+      if (zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 2) { b.zt = (b.zt || 0) + dt; if (b.zt >= 1) { b.zt -= 1; this.hurt(b, zn.dps * 0.7, 0, 0, -2); if (!b.alive) continue; } } else b.zt = 0;   // v251: bots take the blue-circle damage too
       let P = P0; if (PL.length > 1) { let bd = 1e18; for (const q of PL) { const dd = (q.x - b.x) ** 2 + (q.z - b.z) ** 2 + (q.alive ? 0 : 1e6); if (dd < bd) { bd = dd; P = q; } } }   // v245: the nearest living player
       const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz) || 1;
       let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && los(L, b.x, b.z, P.x, P.z) && !this.smoked(b.x, b.z, P.x, P.z);
@@ -469,10 +487,12 @@ export class CombatSim {
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {
-          b.think = 5 + this.R() * 5; const tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b); b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
+          b.think = 5 + this.R() * 5; let tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b);
+          if (zn) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92, tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
+          b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
         }
         if (b.path && b.pi < b.path.length) {
-          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
+          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }
       const l = Math.hypot(mx, mz); if (l > 0.01 && sp > 0) { this.step(b, mx / l * sp * dt, mz / l * sp * dt); b.speed = sp; } else b.speed = 0;

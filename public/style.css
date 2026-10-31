@@ -1235,3 +1235,8 @@ body.btn-edit .lay-sel { outline: 3px solid #4ade80 !important; }
 html, body, canvas, button, #touch, #act-pad, #act-pad *, #vc, #vc *, #hud, #hud *, .screen:not(input) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 body.in-race * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input[type=text], input:not([type]) { -webkit-user-select: text; user-select: text; }
+
+body.jang-mode #wanted { display: none !important; }   /* v251: no police stars in Jang (they are only for the GTA city) */
+#c-tip { display: none; position: fixed; left: 50%; bottom: 17%; transform: translateX(-50%); z-index: 70; width: min(92vw, 460px); padding: 10px 14px; border-radius: 12px; background: rgba(12,14,22,.82); border: 2px solid #ffd60a; color: #fff; font: 600 13px/1.45 system-ui, sans-serif; pointer-events: none; text-align: left; }
+#c-tip b { display: block; color: #ffd60a; font-size: 14px; letter-spacing: .06em; margin-bottom: 4px; }
+#c-tip span { display: block; } #c-tip u { text-decoration: none; color: #7fe0ff; font-weight: 800; }
