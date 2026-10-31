@@ -56,6 +56,7 @@ const KIND = {
   shack: { fh: 2.6, win: { ww: 1.0, y0: 1.0, y1: 2.0, gap: 4 }, fur: 'shack', roof: 'pent' },
   cabin: { fh: 2.9, win: { ww: 1.1, y0: 1.0, y1: 2.1, gap: 3.8 }, fur: 'shack', roof: 'gable' },
   clinic: { fh: 3.4, fl: 2, win: { ww: 1.8, y0: 0.95, y1: 2.1, gap: 4.4, csS: [-8.5, -4.9, 4.9, 8.5] }, fur: 'clinic', roof: 'flat' },
+  ghar: { fh: 3.4, fl: 2, win: { ww: 1.6, y0: 0.95, y1: 2.1, gap: 4.6 }, fur: 'ghar', roof: 'flat' },
   kiosk: { fh: 3.0, win: { ww: 2.2, y0: 0.9, y1: 2.3, gap: 3 }, fur: 'shop', roof: 'flat' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
@@ -227,12 +228,19 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + 28) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 10, z: -5 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 11.6, z: -8.3 },
     inner: [
       { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-4.8, 2.4], [4.8, 1.8]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
       { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-5, 1.8], [1, 1.8]] }, { f: 1, ax: 'z', pos: 6, a: -9.8, b: 9.8, gaps: [[-5, 1.8], [1, 1.8]] },
       { f: 1, ax: 'x', pos: 0, a: -13.8, b: -6 }, { f: 1, ax: 'x', pos: 0, a: 6, b: 13.8 }, { f: 1, ax: 'x', pos: 2.2, a: -6, b: 6, gaps: [[0, 2.2]] }] });
+  // v260: SADA GHAR grows to the EAST: the family wing from the video. Ground: the garage-side door at the foot of the stairs, a wide hall. Upstairs: the stairs arrive in a long aisle, rooms on one side, a big HALL at the west end and, in the last room, Haris's own game room
+  { const cl = BUILDINGS[BUILDINGS.length - 1], aw = 24, ad = 20;
+    mk('ghar', cl.x + cl.w / 2 + 0.4 + aw / 2, cl.z, aw, ad, 'S', { fy: cl.fy, c: '#ead0aa', doors: [{ s: 'S', o: -10.6, w: 2.0, h: 2.5 }, { s: 'S', o: 4, w: 3.4, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -10.4, z0: 7.0, dir: 1 },
+      inner: [
+        { f: 0, ax: 'z', pos: -3, a: -9.8, b: 9.8, gaps: [[2, 2.4]] },
+        { f: 1, ax: 'x', pos: 6.6, a: -3.4, b: 11.8, gaps: [[-0.5, 1.8], [4.5, 1.8], [9.4, 1.8]] }, { f: 1, ax: 'z', pos: 2, a: -9.8, b: 6.6 }, { f: 1, ax: 'z', pos: 7, a: -9.8, b: 6.6 }, { f: 1, ax: 'z', pos: -3.4, a: -9.8, b: 6.6, gaps: [[-2, 2.4]] }] });
+  }
 }
 // ---- more town: houses, shops, flats and sheds scattered over the open ground, mostly beside the roads (concrete country, not meadows)
 { const RX = seeded(777), kinds = [['house', 10, 9], ['house', 11, 9], ['shop', 12, 9], ['apart', 16, 12], ['warehouse', 22, 18], ['cabin', 8, 7], ['shack', 6, 5], ['house', 10, 9], ['shop', 14, 10]], fr = ['N', 'S', 'E', 'W'];
@@ -278,6 +286,14 @@ function build() {
       P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the big lobby: a sofa each side and a table
       for (const [bx, bz, wx] of [[-10, -6, -12.9], [-10, 6.4, -12.9], [10, -6, 12.9], [10, 6.4, 12.9]]) { P(1, bx, bz, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, wx, bz + (bz < 0 ? 3.4 : -3.4), 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe'); }   // four of the bedrooms
       P(1, 0, 7.2, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, -4.6, 8.8, 1.6, 0.6, 2.0, '#6a4a30', 'wardrobe');   // the fifth, in the south
+    }
+    else if (f === 'ghar') {
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      P(0, 6, -7, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(0, 1.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 9.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 6, 5.5, 1.8, 0.7, 0.75, '#a07848', 'table'); P(0, 11.2, 7.5, 0.6, 3, 1.6, '#6a4a30', 'shelf');   // the ground floor hall
+      P(1, -7.5, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -10.8, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, -7.8, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, 4.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -4.4, -8.4, 0.7, 1.2, 1.9, '#6a4a30', 'wardrobe');   // the big HALL (upstairs, west end)
+      P(1, -0.8, -8, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 1.0, -4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // room 1
+      P(1, 4.6, -8, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 6.4, -4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // room 2
+      P(1, 9.4, -8.6, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 9.4, -8.9, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 8.1, -8.6, 0.8, 0.5, 0.5, '#111418', 'tower'); P(1, 9.4, -7.4, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 11.2, -2.5, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 8.0, 2.0, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // the last room: HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
     else if (f === 'shack') { put(-hx + 0.9, -hz + 0.8, 1.8, 0.9, 0.55, '#8a6a4a', 'bed'); put(hx - 0.8, hz - 0.7, 0.9, 0.9, 0.9, '#a07848', 'table'); }
   };

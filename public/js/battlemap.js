@@ -214,13 +214,13 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         plane(2.5, 1.55, bx, fy + 4.85, bzf + 0.07, signTex('ساڈا گھر', '', '', 400, 248, 3)); }
       // shop shutters + boards on the ground floor, under a brown awning
       B.box('trim', bx - hx - 0.1, fy + 3.12, zO, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#8a6347', 0); B.box('trim', bx - hx - 0.1, fy + 3.02, zO + 0.9, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#6d4c35', 0);
-      for (const sx of [-1, 1]) { plane(3.3, 2.35, bx + sx * 11.95, fy + 1.22, zO + 0.04, signTex('', '', '', 160, 170, 4));
-        plane(3.3, 0.55, bx + sx * 11.95, fy + 2.78, zO + 0.04, signTex('', sx > 0 ? '#2d6b57' : '#f4f0e2', sx > 0 ? '#ffffff' : '#1d2f6e', 330, 56, 2));
+      for (const sx of [-1, 1]) { if (sx > 0) { plane(3.3, 2.35, bx + sx * 11.95, fy + 1.22, zO + 0.04, signTex('', '', '', 160, 170, 4)); plane(2.9, 1.05, bx + sx * 11.95, fy + 1.3, zO + 0.07, signTex('سوک دا گیراج', '', '', 320, 116, 3)); }   /* v260: the left shutter is gone; the right one is the GARAGE */
+        if (sx > 0) plane(3.3, 0.55, bx + sx * 11.95, fy + 2.78, zO + 0.04, signTex('', '#2d6b57', '#ffffff', 330, 56, 2));
         plane(1.7, 0.95, bx + sx * 3.05, fy + 2.0, zO + 0.04, signTex('', sx > 0 ? '#e8c040' : '#f4f0e2', '#1d1d1d', 170, 96, 2));
         B.box('trim', bx + sx * 3.05 - 0.9, fy + 1.48, zO, bx + sx * 3.05 + 0.9, fy + 2.52, zO + 0.03, tan, 0); }
       B.box('trim', bx + 6.4, fy + fh + 2.0, zf, bx + 7.5, fy + fh + 2.55, zf + 0.45, '#ecebe7', 0.01); B.box('trim', bx + 6.5, fy + fh + 2.1, zf + 0.44, bx + 7.4, fy + fh + 2.14, zf + 0.46, '#8a8a8a', 0); B.box('trim', bx + 6.5, fy + fh + 2.3, zf + 0.44, bx + 7.4, fy + fh + 2.34, zf + 0.46, '#8a8a8a', 0);
       for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
-      const tx = b.x + 10, tz = b.z - 5; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
+      const tx = b.x + 11.6, tz = b.z - 8.3; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
       B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);
       // v247: no second roof over the tank any more; the stair hole gets a bright yellow rim (you can see where the stairs go down) and the jump-down gap in the east railing a yellow edge line
       if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0); }

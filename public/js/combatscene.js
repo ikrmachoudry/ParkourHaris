@@ -242,6 +242,9 @@ export class CombatScene {
       for (const sx of [-1, 1]) { g.add(seg(new V(sx * 0.24, 1.62, 0), new V(sx * 0.2, 1.05, 0.05), 0.035, hm)); const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); sb.rotation.z = sx * 0.06; g.add(sb); const lg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), hm); lg.position.set(sx * 0.16, 0.62, 0.02); g.add(lg); }
       const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.32), hm); belt.position.set(0, 0.98, 0); g.add(belt); const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.31), hm); chest.position.set(0, 1.46, 0); g.add(chest);
       const pack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: '#3f5d34', roughness: 0.9 })); pack.position.set(0, 1.25, -0.28); g.add(pack);   // the empty pack on the back
+      { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 8; c.font = '900 72px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText('HARIS', 128, 50); c.fillText('HARIS', 128, 50);   /* v260: the name on the canopy, four times round */
+        const tm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+        for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2, px = Math.cos(a) * 1.9, pz = Math.sin(a) * 1.9, py = 3.4 + 0.7 * Math.sqrt(2.8 * 2.8 - 1.9 * 1.9), n = new THREE.Vector3(px, (py - 3.4) / 0.49, pz).normalize(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.72), tm); m.position.set(px, py, pz).addScaledVector(n, 0.05); m.lookAt(m.position.clone().add(n)); g.add(m); } }
       return g;
   }
   chuteVis(on, b, dt) {
