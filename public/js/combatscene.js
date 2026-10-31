@@ -307,12 +307,12 @@ export class CombatScene {
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, rv: this.reviving ? 1 : 0 });
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, dd: this.deadT > 0 ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, rv: this.reviving ? 1 : 0 });
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
@@ -550,7 +550,7 @@ export class CombatScene {
     const R = this.R, T = R.jangTeam, b = R.me.body;
     if (this.down) { this.downT -= dt; b.stun = Math.max(b.stun, 1); if (this.ov) this.ov.textContent = 'YOU ARE DOWN  -  ' + Math.max(0, Math.ceil(this.downT)) + ' s  -  waiting for a teammate'; if (this.downT <= 0) this.die(); }
     // a teammate of mine lies down close to me: the REVIVE button; hold on for 7 s next to him and he gets up
-    let near = null; if (T && !this.down && this.hp > 0 && this.deadT <= 0 && !this.dropping) for (const [, g] of this.mates) if (g.ph === 7 && g.al !== 0 && g.tm === T.tm && g.has && Math.hypot(g.x - b.x, g.z - b.z) < 3.2) { near = g; break; }
+    let near = null; if (T && !this.down && this.hp > 0 && this.deadT <= 0 && !this.dropping) for (const [, g] of this.mates) if (g.ph === 7 && !g.dd && g.tm === T.tm && g.has && Math.hypot(g.x - b.x, g.z - b.z) < 3.2) { near = g; break; }
     if (this.reviving) { const g = this.reviving; if (!near || near !== g || this.hp <= 0) { this.reviving = null; R.toast && R.toast('REVIVE CANCELLED', 1.5); } else { { const bb = R.me.body; bb.yaw = Math.atan2(g.x - bb.x, g.z - bb.z); bb.vx = bb.vz = 0; if (this.rvAt && Math.hypot(bb.x - this.rvAt.x, bb.z - this.rvAt.z) > 0.15) { bb.x = this.rvAt.x; bb.z = this.rvAt.z; } } g.rv = (g.rv || 0) + dt; if (g.rv >= 7) { g.rv = 0; this.reviving = null; T.net && T.net.send({ t: 'jr', to: g.id }); R.toast && R.toast('TEAMMATE REVIVED', 2.5); } } }
     if (!this.reviveBtn) { const rb = document.createElement('button'); rb.id = 'c-rev'; rb.type = 'button'; rb.textContent = 'F  -  REVIVE TEAMMATE'; rb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.startRevive(); }); document.body.appendChild(rb); this.reviveBtn = rb; }
     const show = !!near && !this.reviving; if ((this.reviveBtn.style.display === 'block') !== show) this.reviveBtn.style.display = show ? 'block' : 'none'; this.nearDown = near;
