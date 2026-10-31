@@ -1,7 +1,7 @@
 // COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
-export const TW = { ST: 0.3, n: 120, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.34 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
+export const TW = { ST: 0.3, n: 144, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.34 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
 // v237: shooting windows in the tower wall: one a turn, alternating east / west, 0.9 m above the step you stand on, 1.3 m high, so you can look out, peek and shoot (and be shot)
 export const towerWins = (gy) => { const o = [], dph = 2 * Math.PI / TW.per; for (let t = 0; t * TW.per + 18 < TW.n; t++) { const ph = t % 2 ? 1.5 * Math.PI : 0.5 * Math.PI, i = t * TW.per + Math.round(ph / dph), fy = gy + (i + 1) * TW.ST; o.push({ ph, hw: 0.12, y0: fy + 0.9, y1: fy + 2.2 }); } return o; };
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
@@ -95,7 +95,7 @@ function buildSolids(o) {
   }
   let hole = null;
   if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
-    const st = o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0;
+    const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
     const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step };
     for (let f = 1; f < nfl; f++) {
@@ -126,7 +126,17 @@ function buildSolids(o) {
 const BUILDINGS = [];
 const BASE_Y = Math.round(rawH(170, -150) * 10) / 10;   // the whole military compound is one level plateau
 const RB = seeded(4242);
+// v255: the push (dx, dz, 1 m) that moves a w x d building away from the nearest road it overlaps, or null when it is clear
+function roadClear(x, z, w, d) {
+  let bd = 1e9, bq = null;
+  for (const [ax, az, bx, bz, rw] of ROADSEGS) {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+    for (let t = 0; t <= 1.0001; t += 0.02) { const px = ax + dx * t, pz = az + dz * t, ex = Math.max(0, Math.abs(px - x) - w / 2), ez = Math.max(0, Math.abs(pz - z) - d / 2), dd = Math.hypot(ex, ez) - rw / 2 - 2.5; if (dd < bd) { bd = dd; bq = [x - px, z - pz]; } }
+  }
+  if (bd >= 0 || !bq) return null; const l = Math.hypot(bq[0], bq[1]) || 1; return [bq[0] / l * 1.5, bq[1] / l * 1.5];
+}
 function mk(kind, x, z, w, d, front, ov = {}) {
+  if (ov.fy === undefined) { for (let k = 0; k < 30; k++) { const q = roadClear(x, z, w, d); if (!q) break; x += q[0]; z += q[1]; x = Math.round(x * 2) / 2; z = Math.round(z * 2) / 2; } }   /* v255: a road never runs through a room: a building that sits on a road is moved sideways until it is clear (rect to road centre line >= half road + 2.5 m) */
   const K = KIND[kind], rr = RB, fy = ov.fy !== undefined ? ov.fy : Math.round(rawH(x, z) * 10) / 10;
   const o = { kind, x, z, w, d, front, fy, fh: ov.fh || K.fh, fl: K.fl || 1, win: ov.win === null ? null : (ov.win || K.win), roof: K.roof, fur: K.fur, c: ov.c || WALLS[Math.floor(rr() * WALLS.length)], rc: ov.rc || ROOFS[Math.floor(rr() * ROOFS.length)], noWin: ov.noWin || [] };
   const alongX = front === 'N' || front === 'S', len = alongX ? w : d, big = kind === 'warehouse' || kind === 'hangar' || kind === 'barn';
@@ -138,6 +148,13 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
   if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
   if (ov.stair) o.stair = ov.stair;
+  if ((K.fl || 1) > 1 && !ov.inner) {   /* v255: no door opens onto the foot of the staircase: a door on the stair wall slides to the free part of that wall (or goes when there is no room) */
+    const S0 = o.stair || { x0: -w / 2 + 1.6, z0: -d / 2 }, sx0 = S0.x0 - 0.8, sx1 = S0.x0 + 7.4 + 0.8, sideS = S0.z0 < 0 ? 'N' : 'S', hx_ = w / 2, hz_ = d / 2;
+    if (sideS === 'N' || sideS === 'S') o.doors = o.doors.filter((q) => { if (q.s !== sideS) return true; const hw = (q.w || 3.4) / 2; if (q.o + hw < sx0 || q.o - hw > sx1) return true;
+      const fr0 = sx1 + hw + 0.2, fr1 = hx_ - 1.6 - hw, fl0 = -hx_ + 1.6 + hw, fl1 = sx0 - hw - 0.2;
+      if (fr1 >= fr0) { q.o = Math.round((fr0 + fr1) / 2 * 2) / 2; return true; } if (fl1 >= fl0) { q.o = Math.round((fl0 + fl1) / 2 * 2) / 2; return true; }
+      return q.s === front && o.doors.length < 2; });
+  }
   if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank; if (ov.bay) o.bay = ov.bay;
   o.solids = buildSolids(o);
   PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
@@ -150,32 +167,11 @@ const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
 padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
 
-// ---- Haris Town (centre east): two streets, houses, shops, apartments, a church and the school
-for (const x of [6, 22]) { mk('house', x, 79, 10 + (x === 22 ? 1 : 0), 9, 'S'); mk('house', x, 111, 10 + (x === 22 ? 1 : 0), 9, 'N'); }
-for (const x of [84, 100, 116]) { mk('house', x, 79, 10, 9, 'S'); if (x > 84) mk('house', x, 111, 10, 9, 'N'); }
-mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } });
-mk('shop', 30, 50, 12, 9, 'S'); mk('church', 12, 40, 10, 18, 'S', { win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 } });
-mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.45, dir: 1 } });
-mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: 4, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
-mk('kiosk', 62, 192, 8, 6, 'W');   // the petrol station on the highway
-// ---- the military base on the hill (north east): barracks, HQ, hangar, sheds
-for (const z of [-176, -158, -140]) mk('barracks', 148, z, 24, 9, 'E', { fy: BASE_Y });
-mk('apart', 198, -150, 14, 12, 'W', { fy: BASE_Y, c: '#9aa38a', stair: { x0: -4, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('hangar', 186, -112, 32, 20, 'S', { fy: BASE_Y, c: '#8f9a8a' });
-mk('shack', 124, -128, 6, 5, 'E', { fy: BASE_Y, c: '#8f9a8a' }); mk('shack', 214, -176, 6, 5, 'W', { fy: BASE_Y, c: '#8f9a8a' });
-// ---- the industrial yard (south east)
-mk('warehouse', 160, 160, 26, 22, 'N', { c: '#a8b0b3' }); mk('warehouse', 196, 160, 26, 22, 'N', { c: '#b5a48c' }); mk('warehouse', 196, 196, 36, 18, 'W', { c: '#9aa6b0' });
-mk('shack', 150, 196, 6, 5, 'E', { c: '#b0a890' });
-// ---- the farm west of the river
-mk('house', -150, 20, 11, 9, 'E'); mk('barn', -178, 58, 22, 14, 'N', { c: '#a14b3a', rc: '#3f3f44' }); mk('shack', -148, 52, 8, 6, 'N');
-// ---- the river village (east bank) and cabins in the forests
-for (let i = 0; i < 6; i++) { const z = -150 + i * 22, x = Math.round(riverX(z) + 40 + ((i % 2) * 8)); mk(i % 3 === 2 ? 'cabin' : 'shack', x, z, i % 3 === 2 ? 8 : 6, i % 3 === 2 ? 7 : 5, 'E'); }
-for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'], [-10, -205, 'S'], [70, -205, 'W'], [235, -40, 'W'], [225, 70, 'W'], [-30, 225, 'N'], [-140, 120, 'E'], [-120, 150, 'E']]) mk('cabin', x, z, 8, 7, f);
-
 // ---------------------------------------------------------------- roads (polylines: [x, z] points; w = width; dirt = a track)
 export const ROADS = [
   { w: 7, pts: [[62, 238], [60, 200], [50, 172], [48, 120], [48, 95], [50, 50], [58, 12], [85, -50], [120, -92], [150, -112], [166, -108]] },
   { w: 6, pts: [[-24, 95], [48, 95], [135, 95], [168, 112], [176, 140], [178, 168]] },
-  { w: 6, pts: [[30, 95], [8, 80], [BRIDGE.xa, BRIDGE.z]] },
+  { w: 6, pts: [[49, 66], [10, 64], [BRIDGE.xa, BRIDGE.z]] },
   { w: 6, pts: [[BRIDGE.xb, BRIDGE.z], [-100, 58], [-128, 40], [-146, 30]] },
   { w: 6, pts: [[166, -108], [165, -132], [165, -168]] },
   { w: 4.5, dirt: 1, pts: [[58, 12], [10, -22], [-30, -60], [-52, -100], [-60, -150]] },
@@ -195,6 +191,27 @@ export function distRoad(x, z) {
   }
   return best;   // metres from the road edge (negative = on the road)
 }
+// ---- Haris Town (centre east): two streets, houses, shops, apartments, a church and the school
+for (const x of [6, 22]) { mk('house', x, 79, 10 + (x === 22 ? 1 : 0), 9, 'S'); mk('house', x, 111, 10 + (x === 22 ? 1 : 0), 9, 'N'); }
+for (const x of [84, 100, 116]) { mk('house', x, 79, 10, 9, 'S'); if (x > 84) mk('house', x, 111, 10, 9, 'N'); }
+mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } });
+mk('shop', 30, 50, 12, 9, 'S'); mk('church', 12, 40, 10, 18, 'S', { win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 } });
+mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.45, dir: 1 } });
+mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
+mk('kiosk', 62, 192, 8, 6, 'W');   // the petrol station on the highway
+// ---- the military base on the hill (north east): barracks, HQ, hangar, sheds
+for (const z of [-176, -158, -140]) mk('barracks', 148, z, 24, 9, 'E', { fy: BASE_Y });
+mk('apart', 198, -150, 14, 12, 'W', { fy: BASE_Y, c: '#9aa38a', stair: { x0: -4, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('hangar', 186, -112, 32, 20, 'S', { fy: BASE_Y, c: '#8f9a8a' });
+mk('shack', 124, -128, 6, 5, 'E', { fy: BASE_Y, c: '#8f9a8a' }); mk('shack', 214, -176, 6, 5, 'W', { fy: BASE_Y, c: '#8f9a8a' });
+// ---- the industrial yard (south east)
+mk('warehouse', 160, 160, 26, 22, 'N', { c: '#a8b0b3' }); mk('warehouse', 196, 160, 26, 22, 'N', { c: '#b5a48c' }); mk('warehouse', 196, 196, 36, 18, 'W', { c: '#9aa6b0' });
+mk('shack', 150, 196, 6, 5, 'E', { c: '#b0a890' });
+// ---- the farm west of the river
+mk('house', -150, 20, 11, 9, 'E'); mk('barn', -178, 58, 22, 14, 'N', { c: '#a14b3a', rc: '#3f3f44' }); mk('shack', -148, 52, 8, 6, 'N');
+// ---- the river village (east bank) and cabins in the forests
+for (let i = 0; i < 6; i++) { const z = -150 + i * 22, x = Math.round(riverX(z) + 40 + ((i % 2) * 8)); mk(i % 3 === 2 ? 'cabin' : 'shack', x, z, i % 3 === 2 ? 8 : 6, i % 3 === 2 ? 7 : 5, 'E'); }
+for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'], [-10, -205, 'S'], [70, -205, 'W'], [235, -40, 'W'], [225, 70, 'W'], [-30, 225, 'N'], [-140, 120, 'E'], [-120, 150, 'E']]) mk('cabin', x, z, 8, 7, f);
+
 export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
 export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
 export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; return false; };
@@ -245,10 +262,10 @@ function build() {
     else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
     else if (f === 'clinic') {
       const P = (fl, x, z, w, d, h, c, k, solid = true) => { const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
-      P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [2.2, 3.6, 5.0]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
+      P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [3.2, 4.6, 6.0]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
       P(0, -10, -6.4, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
       P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
-      for (const [x, z] of [[-11.8, 5.4], [-8.4, 5.4], [-11.8, 8.4], [-8.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
+      for (const [x, z] of [[-10.6, 5.4], [-7.4, 5.4], [-10.6, 8.4], [-7.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
       P(0, 10, -4.8, 1.1, 2.4, 0.95, '#dfe7ea', 'table'); P(0, 12.8, -8.4, 0.6, 3.4, 1.6, '#9fb4bf', 'shelf'); P(0, 8.2, -8.6, 2.6, 0.7, 1.0, '#b8c6cc', 'counter');   // operation theatre: the table, instrument shelves
       for (const z of [3.6, 6.4, 9.0]) P(0, 10.4, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // second ward
       P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the big lobby: a sofa each side and a table
@@ -287,7 +304,7 @@ function build() {
     for (let ix = -5; ix < 5; ix++) for (let iz = -5; iz < 5; iz++) { const cx = ix * 0.8 + 0.4, cz = iz * 0.8 + 0.4, r = Math.hypot(cx, cz); if (r > S2 + 0.35) continue; let ph = Math.atan2(cx, cz); if (ph < 0) ph += 2 * Math.PI; if (r > K + 0.5 && ph > TW.open) continue; W(cx - 0.4, cz - 0.4, cx + 0.4, cz + 0.4, py - 0.3, py, 'floor'); }
     // the spiral: every step is a small ring of box cells (finer where it is wide) so you walk up it smoothly
     for (let i = 0; i < n; i++) { const top = gy + (i + 1) * ST;
-      for (let rr = 0; rr < 6; rr++) { const r = K + 0.35 + rr * 0.4, arc = r * dph, m = Math.max(1, Math.ceil(arc / 0.45));
+      for (let rr = 0; rr < 5; rr++) { const r = K + 0.35 + rr * 0.4, arc = r * dph, m = Math.max(1, Math.ceil(arc / 0.45));
         for (let j = 0; j < m; j++) { const ph = i * dph + (j + 0.5) / m * dph, sn = Math.abs(Math.sin(ph)), cs = Math.abs(Math.cos(ph)), hr = 0.2, ht = arc / m / 2, hx = sn * hr + cs * ht + 0.01, hz = cs * hr + sn * ht + 0.01, px = Math.sin(ph) * r, pz = Math.cos(ph) * r; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); } } }
     props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
     return { x, z, gy, py, n, step: ST, flag, a };

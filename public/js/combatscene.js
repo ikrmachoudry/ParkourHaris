@@ -302,7 +302,12 @@ export class CombatScene {
     const THR = THREE, g = new THR.Group(), cr = new THR.Mesh(new THR.BoxGeometry(1.5, 1.1, 1.5), SM('#c7332b', 0.5)), st = new THR.Mesh(new THR.BoxGeometry(1.56, 0.25, 1.56), SM('#f2f2f2', 0.5)); cr.position.y = 0.55; st.position.y = 0.55; g.add(cr, st);
     const ch = new THR.Group(), cano = new THR.Mesh(new THR.SphereGeometry(3.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THR.MeshBasicMaterial({ color: 0xffffff, side: THR.DoubleSide })), cs2 = new THR.Mesh(new THR.SphereGeometry(3.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.8), new THR.MeshBasicMaterial({ color: 0xe8442a, side: THR.DoubleSide })); cano.position.y = cs2.position.y = 4.6; ch.add(cano, cs2);
     const lp = []; for (const [x, z] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) lp.push(0.7 * x, 1.1, 0.7 * z, 2.3 * x, 4.7, 2.3 * z); const lg = new THR.BufferGeometry(); lg.setAttribute('position', new THR.Float32BufferAttribute(lp, 3)); ch.add(new THR.LineSegments(lg, new THR.LineBasicMaterial({ color: 0x222222 }))); g.add(ch); g.userData.ch = ch;
-    const sm = new THR.Mesh(new THR.CylinderGeometry(0.9, 2.2, 70, 12, 1, true), new THR.MeshBasicMaterial({ color: 0xff3b2a, transparent: true, opacity: 0.28, side: THR.DoubleSide, depthWrite: false, fog: false })); sm.position.y = 36; g.add(sm); g.userData.smoke = sm; return g;
+    { const puffs = [], tex = this._smokeTex || (this._smokeTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THR.CanvasTexture(cv); })());
+      for (let i = 0; i < 22; i++) { const sp = new THR.Sprite(new THR.SpriteMaterial({ map: tex, color: i % 3 ? 0xd8362a : 0xb8281f, transparent: true, opacity: 0, depthWrite: false })); sp.userData.ph = i / 22; sp.userData.rx = Math.random() - 0.5; sp.userData.rz = Math.random() - 0.5; sp.visible = false; g.add(sp); puffs.push(sp); } g.userData.puffs = puffs; }   /* v255: real SMOKE (soft puffs that rise, billow and thin out, drifting with the wind) instead of a red cylinder */
+    return g;
+  }
+  stepSmoke(g, dt, on) {   /* the red smoke column from the crate: each puff lives 9 s, climbs ~5 m/s, swells and fades; the wind leans the column */
+    const P = g.userData.puffs; if (!P) return; for (const sp of P) { const u = sp.userData; u.ph = (u.ph + dt / 9) % 1; const k = u.ph; sp.visible = on; if (!on) continue; sp.position.set(u.rx * 1.2 * (1 + k * 3) + k * 14, 1.3 + k * 46, u.rz * 1.2 * (1 + k * 3) + k * 4); const sc = 1.8 + k * 11; sp.scale.set(sc, sc, 1); sp.material.opacity = Math.min(1, k * 8) * (1 - k) * 0.55; }
   }
   onAirplane(e) {
     if (this.airs) for (const a of this.airs) if (a.n === e.n) return; (this.airs || (this.airs = [])).push({ n: e.n, x: e.x, z: e.z, hd: e.hd, t: 0, plane: this.airKit(), crate: this.airCrate(), landed: false, rm: 0 });
@@ -316,7 +321,7 @@ export class CombatScene {
     for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
       const sx = a.x - a.hd[0] * AIR.back, sz = a.z - a.hd[1] * AIR.back, tt = Math.min(a.t, 2 * tp + 6);
       a.plane.position.set(CMB.x + sx + a.hd[0] * AIR.v * tt, AIR.alt + 6, CMB.z + sz + a.hd[1] * AIR.v * tt); a.plane.rotation.y = Math.atan2(a.hd[0], a.hd[1]); a.plane.visible = a.t < 2 * tp + 6;
-      if (a.t >= tp) { const gy = cmbH(a.x, a.z), fall = Math.max(0, AIR.alt - (a.t - tp) * AIR.fall), on = fall <= 0.05 || a.landed; a.crate.visible = true; a.crate.position.set(CMB.x + a.x, gy + (on ? 0 : fall), CMB.z + a.z); a.crate.userData.ch.visible = !on; a.crate.userData.ch.rotation.y += dt * 0.3; a.crate.userData.smoke.visible = a.t < tp + AIR.alt / AIR.fall + 90; }
+      if (a.t >= tp) { const gy = cmbH(a.x, a.z), fall = Math.max(0, AIR.alt - (a.t - tp) * AIR.fall), on = fall <= 0.05 || a.landed; a.crate.visible = true; a.crate.position.set(CMB.x + a.x, gy + (on ? 0 : fall), CMB.z + a.z); a.crate.userData.ch.visible = !on; a.crate.userData.ch.rotation.y += dt * 0.3; this.stepSmoke(a.crate, dt, a.t < tp + AIR.alt / AIR.fall + 110); }
       if (a.landed || a.t > tp + AIR.alt / AIR.fall) { a.rm += dt; if (a.rm > 420) { this.group.remove(a.plane); this.group.remove(a.crate); this.airs.splice(i, 1); if (this.R.minimap && this.R.minimap.air && !this.airs.length) this.R.minimap.air = null; } }
     }
   }
@@ -474,7 +479,7 @@ export class CombatScene {
     const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
     if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press F to swap
     if (k === 'bat') return !cb.owned.bat;
-    if (k === 'ammo') return this.guns().length > 0;
+    if (k === 'ammo') return true;   /* v255: PUBG: you can always pick ammo up; it waits in the backpack for your first gun */
     return this.count(k) < (CAP[k] || 4);
   }
   // E: swap the gun in your hands (or the first one) for the gun on the ground in front of you
@@ -501,11 +506,11 @@ export class CombatScene {
   }
   pickup(it) {
     const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
-    const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = it.am ? it.am.res : S.ammoPack; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
+    const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = (it.am ? it.am.res : S.ammoPack) + (cb.spare | 0) * (S.ammoPack || 0); cb.spare = 0; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
     if (isGunK(k)) gun(k);
     else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
     else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('PICKED UP GRENADE  x' + cb.nades + '  (BACKPACK)'); }
-    else if (k === 'ammo') { let n = 0; for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO BOX  -  ammo for ' + Object.keys(cb.owned).filter((w) => WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]).map((w) => LOOT_NAME[w] || w.toUpperCase()).join(', ') : 'AMMO BOX - FIND A GUN FIRST'); }
+    else if (k === 'ammo') { let n = 0; if (!Object.keys(cb.owned).some((w) => cb.owned[w] && WEAPONS[w] && WEAPONS[w].mag)) { cb.spare = (cb.spare | 0) + 1; A_('AMMO BOX picked up - it goes to your first gun'); R.updateAmmoHud && R.updateAmmoHud(); this.updateHud(); if (this.inv) this.inv.render(); return; } for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO BOX  -  ammo for ' + Object.keys(cb.owned).filter((w) => WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]).map((w) => LOOT_NAME[w] || w.toUpperCase()).join(', ') : 'AMMO BOX - FIND A GUN FIRST'); }
     else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud(); if (this.inv) this.inv.render();
   }
