@@ -1251,3 +1251,6 @@ body.jang-mode #wanted { display: none !important; }   /* v251: no police stars 
 #c-slots button { height: auto; min-height: 38px; } #c-slots button img { width: 64px; height: 32px; object-fit: contain; pointer-events: none; margin-top: 2px; }
 #c-inv .iv-row > i { width: 64px; } #c-inv .iv-row > i img { width: 64px; height: 36px; object-fit: contain; display: block; pointer-events: none; }
 @media (max-height: 460px) { #c-slots button img { width: 50px; height: 25px; } #c-inv .iv-row > i { width: 52px; } #c-inv .iv-row > i img { width: 52px; height: 28px; } }
+
+/* v272: while moving the buttons, the MOVE pad is shown and can be grabbed like the others */
+body.btn-edit.touch #joy, body.btn-edit #joy { display: block !important; pointer-events: auto; }

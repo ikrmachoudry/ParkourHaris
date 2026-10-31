@@ -138,11 +138,9 @@ const ANIMS = [
   { id: 'run', label: 'RUN', run: () => ({ st: { speed: 5.2 } }) },
   { id: 'jump', label: 'JUMP', run: jumpArc },
   { id: 'crouch', label: 'CROUCH', run: () => ({ st: { crouch: true } }) },
-  { id: 'cwalk', label: 'CROUCH WALK', run: () => ({ st: { crouch: true, speed: 1.2 } }) },
   { id: 'prone', label: 'PRONE', run: () => ({ st: { prone: true } }) },
   { id: 'crawl', label: 'CRAWL', run: () => ({ st: { prone: true, speed: 0.7 } }) },
   { id: 'aim', label: 'RIFLE AIM', run: () => ({ st: { weapon: 'ak', aiming: true } }) },
-  { id: 'rcw', label: 'RIFLE CROUCH WALK', run: () => ({ st: { crouch: true, weapon: 'ak', speed: 1.2 } }) },
   { id: 'rifle', label: 'RIFLE WALK', run: () => ({ st: { weapon: 'ak', speed: 1.6 } }) },
   { id: 'punch', label: 'PUNCH', run: (t) => ({ st: { punch: (t % 0.9) / 0.9 } }) },
   { id: 'wave', label: 'WAVE', run: () => ({ st: { gesture: 'wave' } }) },
@@ -2099,7 +2097,7 @@ function openProfile(mode) {
   charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();
-  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'crouch', 'cwalk', 'aim', 'rifle', 'rcw', 'wave', 'hi', 'salute', 'cheer'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
+  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'crouch', 'aim', 'rifle', 'wave', 'hi', 'salute', 'cheer'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
@@ -2429,7 +2427,7 @@ $('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
-const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup'];
+const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup', 'joy'];   /* v272: the MOVE pad (joystick) can be moved and resized too */
 let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') || {}; } catch (e) { LAY = {}; }
 const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); } else { el.style.translate = ''; el.style.scale = ''; } } };
 const laySave = () => { try { localStorage.setItem('ph_layout', JSON.stringify(LAY)); } catch (e) { /* ignore */ } };
@@ -2616,7 +2614,7 @@ window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towe
   const RAD = 56;
   let joyId = null, camId = null, ox = 0, oy = 0, lx = 0, ly = 0;
   const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
-  const joyReset = () => { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; knob.style.transform = 'translate(-50%, -50%)'; };   /* knob back to the middle every time it is let go */
+  const joyReset = () => { joyId = null; touch.x = touch.y = 0; joy.classList.remove('on'); joy.style.left = joy.style.top = ''; if (window.phApplyLayout) window.phApplyLayout(); knob.style.transform = 'translate(-50%, -50%)'; };   /* knob back to the middle every time it is let go */
   window.addEventListener('blur', () => { setSprintLock(false); joyReset(); }); document.addEventListener('visibilitychange', () => { if (document.hidden) { setSprintLock(false); joyReset(); } });
   setInterval(() => { if (document.body.classList.contains('driving')) { if (joyId !== null) joyReset(); if (sprintLock) setSprintLock(false); } }, 200);
   { const lk = document.createElement('i'); lk.id = 'joy-lock'; lk.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>'; joy.appendChild(lk); }
@@ -2626,7 +2624,9 @@ window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towe
     for (const t of e.changedTouches) {
       if (t.clientX < window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) && joyId === null && !document.body.classList.contains('driving')) {   // the joystick lives in the LEFT third only (left fifth while scoped): the rest of the screen only turns the camera
         if (sprintLock) setSprintLock(false);
-        joyId = t.identifier; ox = t.clientX; oy = t.clientY; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
+        joyId = t.identifier; ox = t.clientX; oy = t.clientY;
+        if (LAY.joy) { const r = joy.getBoundingClientRect(); if (r.width > 20) { const pcx = r.left + r.width / 2, pcy = r.top + r.height / 2; if (Math.hypot(ox - pcx, oy - pcy) < r.width * 0.8) { ox = pcx; oy = pcy; } } }   /* v272: a moved pad is a fixed stick (a touch on or near it uses its centre) */
+        joy.style.translate = ''; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
       } else if (camId === null && (t.clientX >= window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
     }
   }, { passive: false });
