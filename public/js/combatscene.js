@@ -489,7 +489,7 @@ export class CombatScene {
       for (const s of sim.bots) {
         const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1); bi++;   // (scoped with a sniper: twice as far)
         if (!s.alive && s.dieT >= 6) { if (a.g.visible) a.g.visible = false; continue; }
-        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, g0(s.x, s.z), CMB.z + s.z);
+        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         a.acc = (a.acc || 0) + dt; const skip = d2 > BOT_MID2 && (fr + bi) % 3 !== 0; if (skip && a.g.visible) continue;   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;

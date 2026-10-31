@@ -521,7 +521,7 @@ export class CombatSim {
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
   nearSpawn(b) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - b.x, s.z - b.z) < 170 && Math.hypot(s.x - b.x, s.z - b.z) > 30); return c.length ? this.pick(c) : this.pick(this.L.spawns); }
   spawnPoint(avoid) { const L = this.L; let best = null, bd = -1; for (let i = 0; i < 6; i++) { const p = this.pick(L.spawns); const d = avoid ? Math.hypot(p.x - avoid.x, p.z - avoid.z) : 99; if (d > bd) { bd = d; best = p; } } return best; }
-  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0 }; }
+  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0, y: null, cl: null, bld: null }; }
   spawnLoot(avoid) {
     const L = this.L; for (let tries = 0; tries < 40; tries++) {
       const k = Math.floor(this.R() * L.spots.length); if (this.used.has(k)) continue; const s = L.spots[k];
@@ -561,8 +561,11 @@ export class CombatSim {
   }
   // move a circle through the walls (slides along them)
   step(o, dx, dz, r = 0.45) {
-    const L = this.L; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r)) o.z = nz;
+    const L = this.L, gy = o.y == null ? undefined : o.y; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r, gy)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r, gy)) o.z = nz;   // v285: a bot upstairs (o.y) collides with the walls of ITS floor
   }
+  // v285: bots follow you UP THE STAIRS into rooms and villas: the foot, the line and the top landing of a building's main flight
+  stairInfo(B) { const st = B.stairs; if (!st) return null; const zc = B.z + st.z0 + st.sw / 2, d = st.dir > 0 ? 1 : -1, xb = B.x + st.x0 + d * 0.25, xt = B.x + st.x0 + d * ((st.n - 1) * st.tread + 0.7); return { fy: B.fy, rise: st.rise, xb, xt, zc, foot: { x: xb, z: zc + st.sw / 2 + 0.9 }, len: Math.abs(xt - xb) }; }
+  upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
     if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
@@ -581,10 +584,16 @@ export class CombatSim {
     for (const b of this.bots) {
       if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { let p = this.spawnPoint(P0); const w = b.weapon; if (zn && Math.hypot(p.x - zn.x, p.z - zn.z) > zn.r * 0.95) p = this.zoneSpot(zn.x, zn.z, zn.r); Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
+      if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
+        const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
+          b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zc; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, 0) * (b.cl.dir > 0 ? 1 : -1); b.speed = 2.3; b.walk = false;
+          if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.xt; b.z = si.foot.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
+        continue;
+      }
       if (zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 2) { b.zt = (b.zt || 0) + dt; if (b.zt >= 1) { b.zt -= 1; this.hurt(b, zn.dps * 0.7, 0, 0, -2); if (!b.alive) continue; } } else b.zt = 0;   // v251: bots take the blue-circle damage too
       let P = P0; if (PL.length > 1) { let bd = 1e18; for (const q of PL) { const dd = (q.x - b.x) ** 2 + (q.z - b.z) ** 2 + (q.alive ? 0 : 1e6); if (dd < bd) { bd = dd; P = q; } } }   // v245: the nearest living player
       const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz) || 1;
-      let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && los(L, b.x, b.z, P.x, P.z) && !this.smoked(b.x, b.z, P.x, P.z);
+      const lv3 = b.y != null || (P.y !== undefined && P.y > cmbH(P.x, P.z) + 2.2); let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && (lv3 ? shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y) : los(L, b.x, b.z, P.x, P.z)) && !this.smoked(b.x, b.z, P.x, P.z);
       if (sees && b.alert <= 0) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da > 1.9 && d > 10) sees = false; }
       if (sees && !b.seen) { b.seen = true; b.react = 0.55 + this.R() * 0.4; } else if (!sees && b.seen) { b.seen = false; b.alert = Math.max(b.alert, 6); b.path = null; }
       let mx = 0, mz = 0, sp = 0;
@@ -592,15 +601,22 @@ export class CombatSim {
         const want = Math.atan2(dx, dz); let da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 7);
         b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = 1 + this.R() * 1.6; b.strafe = this.R() < 0.5 ? -1 : 1; }
         const ux = dx / d, uz = dz / d; let f = d > 26 ? 1 : d < 12 ? -0.7 : 0.15; mx = ux * f - uz * b.strafe * 0.8; mz = uz * f + ux * b.strafe * 0.8; sp = 3.3; b.walk = false;
-        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); if (!shotClear(L, b.x, b.z, P.x, P.z, undefined, P.y)) { b.cool = 0.25; b.seen = false; b.alert = Math.max(b.alert, 4); continue; } const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
+        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); if (!shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y)) { b.cool = 0.25; b.seen = false; b.alert = Math.max(b.alert, 4); continue; } const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {
           b.think = 5 + this.R() * 5; let tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b);
+          if (b.alert > 0 && d < 70 && b.y == null) { const UB = this.upBld(P), usi = UB && this.stairInfo(UB); if (usi) { tgt = usi.foot; b.think = 2; } }   /* the player is upstairs: go to the foot of the stairs */
           if (zn) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92, tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
           b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
         }
-        if (b.path && b.pi < b.path.length) {
+        let dir3 = false; { const UB = b.alert > 0 && d < 70 ? this.upBld(P) : null;
+          if (b.y == null && UB && !b.cl) { const usi = this.stairInfo(UB); if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 2.2) { b.cl = { B: UB, t: 0, dir: 1 }; b.path = null; continue; } else if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 6) { dir3 = true; const fx = usi.foot.x - b.x, fz = usi.foot.z - b.z, fl = Math.hypot(fx, fz) || 1; mx = fx / fl; mz = fz / fl; sp = 3.0; b.walk = false; b.yaw = Math.atan2(fx, fz); } }
+          else if (b.y != null && !b.cl) {
+            if (UB && UB === b.bld) { const l3 = Math.hypot(dx, dz) || 1; mx = dx / l3; mz = dz / l3; sp = 3.0; b.walk = false; b.path = null; const want = Math.atan2(dx, dz), da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
+            else if (b.bld) { b.cl = { B: b.bld, t: 1, dir: -1 }; continue; }
+            else { b.y = null; } } }
+        if (b.y == null && !dir3 && b.path && b.pi < b.path.length) {
           const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }

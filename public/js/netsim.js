@@ -12,7 +12,7 @@ export class NetSim extends CombatSim {
   addLoot(a) { const [id, k, x, z, spot, am, al, gold, yy] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, y: yy === null || yy === undefined ? undefined : yy, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
   applyBots(arr, snap) {
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;
-      b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i;
+      b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i; b.y = a[8] == null ? null : a[8];
       if (was && !b.alive) b.dieT = 0; this.tgt[i] = { x: a[0], z: a[1], yaw: a[2] };
       if (snap || !was || Math.hypot(a[0] - b.x, a[1] - b.z) > 8) { b.x = a[0]; b.z = a[1]; b.yaw = a[2]; } }
   }
