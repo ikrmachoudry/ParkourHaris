@@ -303,7 +303,7 @@ export class CombatScene {
     this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
     const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; const px = this.R.drive && this.R.paxMode ? this.R.drive : null, pvi = px ? this.R.cars.indexOf(px) : -1;
-    if (this.down) ph = 7;   // v244: lying down
+    if (this.down || this.deadT > 0) ph = 7;   // v244: lying down (v292: also when dead - the others used to see a dead teammate standing, or nothing)
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
@@ -526,18 +526,21 @@ export class CombatScene {
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
   }
-  die() { if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
+  die() { this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
   // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
   teamWiped() { const T = this.R.jangTeam; if (!T || !this.shared || this.dropping) return false; const now = performance.now(); let seen = 0; for (const [, g] of this.mates) { if (g.tm !== T.tm || !g.has || now - g.at > 3000) continue; seen++; if (g.al !== 0 && g.ph !== 7) return false; } return seen > 0; }
   teamLost() {
     if (this.over) return; const T = this.R.jangTeam, nm = String((T && T.teamName) || 'YOUR TEAM').toUpperCase();
+    this.ejectCar();
     this.hp = 0; this.down = false; this.reviving = null; this.deaths++; try { this.dropAll(); } catch (e) { /* noop */ } A.voice.death(1); this.R.fireHeld = false; this.R.aiming = false;
     this.R.toast && this.R.toast('TEAM ' + nm + ' LOST', 6); this.finish('TEAM ' + nm + ' LOST');
   }
+  // v292: knocked down or killed inside a car / jeep / Civic: you are thrown out beside it (the others see you lying there, and the car coasts to a stop) - before this you stayed seated, hidden inside the car
+  ejectCar() { const R = this.R, c = R.drive; if (!c) return; const pax = R.paxMode, sp = Math.abs(c.st.speed || 0); try { R.toggleCar(true); } catch (e) { console.warn(e); } if (!pax && sp > 1 && R.rolling && !R.rolling.includes(c)) { c.st.driver = -1; c.st.parked = false; R.rolling.push(c); } if (R.drive === c) { R.drive = null; R.paxMode = false; document.body.classList.remove('driving'); } }
   goDown() {
-    const R = this.R, T = R.jangTeam; this.down = true; this.downT = 40; this.hp = 1; R.me.body.stun = 2; R.fireHeld = false; R.aiming = false; A.voice.death(0.6);
+    this.ejectCar(); const R = this.R, T = R.jangTeam; this.down = true; this.downT = 40; this.hp = 1; R.me.body.stun = 2; R.fireHeld = false; R.aiming = false; A.voice.death(0.6);
     if (this.ov) { this.ov.style.display = 'grid'; } R.toast && R.toast('YOU ARE DOWN - a teammate can revive you', 4);
   }
   getUp(hp) { this.down = false; this.downT = 0; this.hp = hp; this.R.me.body.stun = 0; if (this.ov) this.ov.style.display = 'none'; this.R.toast && this.R.toast('YOU WERE REVIVED', 3); }
@@ -547,7 +550,7 @@ export class CombatScene {
     const R = this.R, T = R.jangTeam, b = R.me.body;
     if (this.down) { this.downT -= dt; b.stun = Math.max(b.stun, 1); if (this.ov) this.ov.textContent = 'YOU ARE DOWN  -  ' + Math.max(0, Math.ceil(this.downT)) + ' s  -  waiting for a teammate'; if (this.downT <= 0) this.die(); }
     // a teammate of mine lies down close to me: the REVIVE button; hold on for 7 s next to him and he gets up
-    let near = null; if (T && !this.down && this.hp > 0 && this.deadT <= 0 && !this.dropping) for (const [, g] of this.mates) if (g.ph === 7 && g.tm === T.tm && g.has && Math.hypot(g.x - b.x, g.z - b.z) < 3.2) { near = g; break; }
+    let near = null; if (T && !this.down && this.hp > 0 && this.deadT <= 0 && !this.dropping) for (const [, g] of this.mates) if (g.ph === 7 && g.al !== 0 && g.tm === T.tm && g.has && Math.hypot(g.x - b.x, g.z - b.z) < 3.2) { near = g; break; }
     if (this.reviving) { const g = this.reviving; if (!near || near !== g || this.hp <= 0) { this.reviving = null; R.toast && R.toast('REVIVE CANCELLED', 1.5); } else { { const bb = R.me.body; bb.yaw = Math.atan2(g.x - bb.x, g.z - bb.z); bb.vx = bb.vz = 0; if (this.rvAt && Math.hypot(bb.x - this.rvAt.x, bb.z - this.rvAt.z) > 0.15) { bb.x = this.rvAt.x; bb.z = this.rvAt.z; } } g.rv = (g.rv || 0) + dt; if (g.rv >= 7) { g.rv = 0; this.reviving = null; T.net && T.net.send({ t: 'jr', to: g.id }); R.toast && R.toast('TEAMMATE REVIVED', 2.5); } } }
     if (!this.reviveBtn) { const rb = document.createElement('button'); rb.id = 'c-rev'; rb.type = 'button'; rb.textContent = 'F  -  REVIVE TEAMMATE'; rb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.startRevive(); }); document.body.appendChild(rb); this.reviveBtn = rb; }
     const show = !!near && !this.reviving; if ((this.reviveBtn.style.display === 'block') !== show) this.reviveBtn.style.display = show ? 'block' : 'none'; this.nearDown = near;
