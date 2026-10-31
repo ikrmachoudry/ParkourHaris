@@ -423,7 +423,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); this.lookT = 1.6;
+    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -1891,7 +1891,7 @@ class Race {
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     else if (this.drive) {
       const st = this.drive.st; this.lookT -= dt; dist = (9.2 + Math.min(4, Math.abs(st.speed) * 0.12)) * (IS_TOUCH ? 0.7 : 1);   // phones: chase camera a bit closer
-      if (this.lookT <= 0 || this.paxMode) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); /* v247: a passenger's camera always follows the driver's heading until he gets out */ this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
+      if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); /* v247: a passenger's camera always follows the driver's heading until he gets out */ this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
     this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
