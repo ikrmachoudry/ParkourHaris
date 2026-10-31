@@ -296,7 +296,11 @@ export class CombatScene {
   // ---------------------------------------------------------------- per frame
   // ---------------------------------------------------------------- v235 team: my teammates (ghost soldiers) in the plane, in the air and on the ground
   sendMate(dt) {
-    const T = this.R.jangTeam; if (!T || !T.net) return; this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
+    const T = this.R.jangTeam; if (!T || !T.net) return;
+    { this._fps = (this._fps || 60) * 0.95 + (dt > 0 ? 1 / dt : 60) * 0.05; this._nh = (this._nh || 0) + dt;   /* v282: a tiny live network line (ping, frame rate, how old the last packet of each teammate is) so a lag complaint says WHERE the lag is */
+      if (this._nh > 0.5) { this._nh = 0; let nl = this.netLine; if (!nl) { nl = this.netLine = document.createElement('div'); nl.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:6;padding:1px 8px;border-radius:8px;background:rgba(0,0,0,.4);color:#cfe;font:600 10px system-ui,sans-serif;pointer-events:none;white-space:nowrap'; document.body.appendChild(nl); }
+        const now = performance.now(), ms = []; for (const [, g] of this.mates) ms.push((g.nm ? String(g.nm).slice(0, 6) : 'mate') + ' ' + (g.at ? Math.min(99, (now - g.at) / 1000).toFixed(1) + 's' : 'no data')); nl.textContent = 'PING ' + Math.round(T.net.rtt || 0) + ' ms  |  FPS ' + Math.round(this._fps) + '  |  ' + (ms.length ? ms.join('  ') : 'no teammates seen'); } }
+    this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
     const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; const px = this.R.drive && this.R.paxMode ? this.R.drive : null, pvi = px ? this.R.cars.indexOf(px) : -1;
     if (this.down) ph = 7;   // v244: lying down
