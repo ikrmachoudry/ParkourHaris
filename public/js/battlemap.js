@@ -225,8 +225,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         plane(2.5, 1.55, bx, fy + 4.85, bzf + 0.07, signTex('ساڈا گھر', '', '', 400, 248, 3)); }
       // shop shutters + boards on the ground floor, under a brown awning
       B.box('trim', bx - hx - 0.1, fy + 3.12, zO, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#8a6347', 0); B.box('trim', bx - hx - 0.1, fy + 3.02, zO + 0.9, bx + hx + 0.1, fy + 3.26, zO + 0.95, '#6d4c35', 0);
-      for (const sx of [-1, 1]) { if (sx > 0) { plane(3.3, 2.35, bx + sx * 11.95, fy + 1.22, zO + 0.04, signTex('', '', '', 160, 170, 4)); plane(2.9, 1.05, bx + sx * 11.95, fy + 1.3, zO + 0.07, signTex('سوک دا گیراج', '', '', 320, 116, 3)); }   /* v260: the left shutter is gone; the right one is the GARAGE */
-        if (sx > 0) plane(3.3, 0.55, bx + sx * 11.95, fy + 2.78, zO + 0.04, signTex('', '#2d6b57', '#ffffff', 330, 56, 2));
+      for (const sx of [-1, 1]) {   /* v268: the CIVIC DA GARAGE shutter now sits on its own garage to the right of the brother's home */
         plane(1.7, 0.95, bx + sx * 3.05, fy + 2.0, zO + 0.04, signTex('', sx > 0 ? '#e8c040' : '#f4f0e2', '#1d1d1d', 170, 96, 2));
         B.box('trim', bx + sx * 3.05 - 0.9, fy + 1.48, zO, bx + sx * 3.05 + 0.9, fy + 2.52, zO + 0.03, tan, 0); }
       B.box('trim', bx + 6.4, fy + fh + 2.0, zf, bx + 7.5, fy + fh + 2.55, zf + 0.45, '#ecebe7', 0.01); B.box('trim', bx + 6.5, fy + fh + 2.1, zf + 0.44, bx + 7.4, fy + fh + 2.14, zf + 0.46, '#8a8a8a', 0); B.box('trim', bx + 6.5, fy + fh + 2.3, zf + 0.44, bx + 7.4, fy + fh + 2.34, zf + 0.46, '#8a8a8a', 0);
@@ -240,6 +239,29 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         const sgB = plane(4.4, 1.15, b.x + H.x1 + 2.4, roofY + 0.07, b.z + (H.z0 + H.z1) / 2, signTex('\u25C0 STAIRS DOWN', '#f2b705', '#17171a', 560, 148, 1)); sgB.rotation.x = -Math.PI / 2; }
       B.box('trim', b.x + hx - 0.5, roofY + 0.02, b.z - 2.2, b.x + hx - 0.36, roofY + 0.06, b.z + 2.2, '#ffd23f', 0);
     }
+    if (b.kind === 'clinic') {   /* v268: Pakistani electric meter box beside the new stair door, with wires */
+      const mx = b.x + 11.6, my = b.fy + 1.55, mz = b.z + b.d / 2 + 0.2;
+      B.box('metal', mx - 0.3, my - 0.4, mz - 0.04, mx + 0.3, my + 0.4, mz + 0.2, '#8a8d92', 0); B.box('trim', mx - 0.22, my - 0.08, mz + 0.2, mx + 0.22, my + 0.3, mz + 0.24, '#e8e6df', 0); B.box('trim', mx - 0.12, my + 0.05, mz + 0.24, mx + 0.12, my + 0.22, mz + 0.26, '#2a2a2a', 0);
+      B.box('trim', mx - 0.2, my - 0.34, mz + 0.2, mx + 0.2, my - 0.2, mz + 0.24, '#c33', 0);
+      for (const [wx, top] of [[-0.12, 1.4], [0, 1.9], [0.12, 1.6]]) { B.box('trim', mx + wx - 0.012, my + 0.4, mz + 0.05, mx + wx + 0.012, my + 0.4 + top, mz + 0.08, '#101010', 0); }
+      B.box('trim', mx - 0.012, my - 0.8, mz + 0.05, mx + 0.012, my - 0.4, mz + 0.08, '#101010', 0);
+      B.box('trim', mx + 0.3, my + 1.7, mz + 0.05, mx + 4.5, my + 1.73, mz + 0.08, '#101010', 0); B.box('trim', mx + 0.3, my + 1.62, mz + 0.05, mx + 4.5, my + 1.65, mz + 0.08, '#101010', 0);   // the wires run on to the next house
+    }
+    if (b.home) {   /* v268: the brother's home: brown/orange walls, a balcony with an ornamental railing on the upper floor, a balustrade round the roof; open garage below (empty) */
+      const zf2 = b.z + b.d / 2, bx2 = b.x, w2 = b.w / 2, top = fy + b.fh + 0.3, cream2 = '#f1e4c6', br = '#4b2f1f';
+      B.box('trim', bx2 - w2 - 0.12, fy + b.fh - 0.05, zf2 - 0.05, bx2 + w2 + 0.12, fy + b.fh + 0.3, zf2 + 0.2, cream2, 0);
+      const by = fy + b.fh + 0.3; B.box('trim', bx2 - w2 + 0.3, by - 0.2, zf2 - 0.02, bx2 + w2 - 0.3, by, zf2 + 1.3, '#7a5238', 0);   // balcony slab
+      for (let u = -w2 + 0.4; u <= w2 - 0.4; u += 0.28) B.box('trim', bx2 + u - 0.03, by, zf2 + 1.2, bx2 + u + 0.03, by + 0.95, zf2 + 1.26, br, 0);
+      B.box('trim', bx2 - w2 + 0.3, by + 0.92, zf2 + 1.16, bx2 + w2 - 0.3, by + 1.0, zf2 + 1.3, br, 0);
+      for (const sx of [-1, 1]) B.box('trim', bx2 + sx * (w2 - 0.4) - 0.04, by, zf2 + 0.02, bx2 + sx * (w2 - 0.4) + 0.04, by + 0.95, zf2 + 1.3, br, 0);
+      B.box('trim', bx2 - 1.1, by + 0.05, zf2 + 0.0, bx2 + 1.1, by + 2.3, zf2 + 0.05, '#2b3f52', 0);   // balcony door
+      const roofT = fy + b.fh * 2 + 0.2; B.box('trim', bx2 - w2 - 0.1, roofT, b.z - b.d / 2 - 0.1, bx2 + w2 + 0.1, roofT + 0.12, zf2 + 0.1, cream2, 0);
+      for (const [x0, z0, x1, z1] of [[-w2, -b.d / 2, w2, -b.d / 2], [-w2, zf2 - b.z, w2, zf2 - b.z], [w2, -b.d / 2, w2, b.d / 2]]) { const n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0)); for (let u = 0; u <= n; u += 0.4) { const px = x1 !== x0 ? bx2 + x0 + u : bx2 + x0, pz = x1 !== x0 ? b.z + z0 : b.z + z0 + u; B.box('trim', px - 0.03, roofT + 0.12, pz - 0.03, px + 0.03, roofT + 0.9, pz + 0.03, br, 0); } }
+      B.box('trim', bx2 - w2 - 0.05, roofT + 0.85, zf2 - 0.05, bx2 + w2 + 0.05, roofT + 0.95, zf2 + 0.05, cream2, 0);
+    }
+    if (b.civic) { const zc = b.z + b.d / 2 + 0.05; const m1 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 2.35), new THREE.MeshBasicMaterial({ map: signTex('', '', '', 160, 170, 4) })); m1.position.set(b.x, fy + 1.22, zc + 0.04); group.add(m1);
+      const m2 = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.05), new THREE.MeshBasicMaterial({ map: signTex('سوک دا گیراج', '', '', 320, 116, 3) })); m2.position.set(b.x, fy + 1.3, zc + 0.07); group.add(m2);
+      const m3 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 0.55), new THREE.MeshBasicMaterial({ map: signTex('', '#2d6b57', '#ffffff', 330, 56, 2) })); m3.position.set(b.x, fy + 2.78, zc + 0.04); group.add(m3); }
     if (b.kind === 'house' || b.kind === 'cabin') B.box('conc', b.x + (along ? hx * 0.4 : 0), fy + tri + 0.3, b.z + (along ? 0 : hz * 0.4) + 0.5, b.x + (along ? hx * 0.4 : 0) + 0.7, fy + tri + 2.3 + Math.min(b.w, b.d) * 0.2, b.z + (along ? 0 : hz * 0.4) + 1.2, '#8a5a48', 0.05);   // a chimney
     if (b.kind === 'church') { const sx = b.x, sz = b.z + (b.front === 'S' ? hz - 2.4 : -hz + 2.4); B.box('wall', sx - 2.4, fy + tri, sz - 2.4, sx + 2.4, fy + tri + 7, sz + 2.4, b.c, 0.02); roofTri(sx - 2.4, sz - 2.4, sx + 2.4, sz + 2.4, fy + tri + 7, 4, true, '#5d5f66', 0.3); B.box('trim', sx - 0.1, fy + tri + 11, sz - 0.1, sx + 0.1, fy + tri + 13, sz + 0.1, '#ddd', 0); B.box('trim', sx - 0.6, fy + tri + 12.2, sz - 0.07, sx + 0.6, fy + tri + 12.4, sz + 0.07, '#ddd', 0); }
     if (b.kind === 'hangar' || b.kind === 'warehouse') { B.box('trim', b.x - hx, fy + 0.0, b.z + (b.front === 'S' ? hz : -hz) - 0.05, b.x + hx, fy + 0.5, b.z + (b.front === 'S' ? hz : -hz) + 0.05, '#555', 0); }

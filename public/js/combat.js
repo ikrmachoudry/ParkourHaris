@@ -99,10 +99,16 @@ function buildSolids(o) {
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
     const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step };
-    if (o.stair2) {   /* v264: a SECOND staircase (the new door beside the garage): same flight, any direction, its own hole in the upper floor */
-      const t2 = { ...o.stair2 }; t2.z0 += 0.5;
-      for (let i = 0; i < n; i++) { const xa = t2.dir > 0 ? t2.x0 + i * tread : t2.x0 - (i + 1) * tread; wall(xa, t2.z0, xa + tread, t2.z0 + sw, -0.1, (i + 1) * step, 'step'); }
-      const gx0 = t2.dir > 0 ? t2.x0 : t2.x0 - (n - 1) * tread; hole2 = { x0: gx0, x1: gx0 + (n - 1) * tread, z0: t2.z0, z1: t2.z0 + sw }; o.stairs2 = { ...t2, n, tread, sw, rise, step };
+    if (o.stair2) {   /* v264/v268: a SECOND staircase (the new door beside the garage). ax 'z' = a straight flight going away from the door (dir -1 rises towards -z), ax 'x' = along the wall */
+      const t2 = { tr: 0.5, ...o.stair2 }, tr2 = t2.tr, n2 = Math.ceil(rise / 0.27);
+      if (t2.ax === 'z') {
+        for (let i = 0; i < n2; i++) { const za = t2.dir < 0 ? t2.z0 - (i + 1) * tr2 : t2.z0 + i * tr2; wall(t2.x0, za, t2.x0 + sw, za + tr2, -0.1, (i + 1) * (rise / n2), 'step'); }
+        const gz0 = t2.dir < 0 ? t2.z0 - (n2 - 1) * tr2 : t2.z0; hole2 = { x0: t2.x0, x1: t2.x0 + sw, z0: gz0, z1: gz0 + (n2 - 1) * tr2 }; o.stairs2 = { ...t2, n: n2, tread: tr2, sw, rise, step: rise / n2 };
+      } else {
+        t2.z0 += 0.5;
+        for (let i = 0; i < n2; i++) { const xa = t2.dir > 0 ? t2.x0 + i * tr2 : t2.x0 - (i + 1) * tr2; wall(xa, t2.z0, xa + tr2, t2.z0 + sw, -0.1, (i + 1) * (rise / n2), 'step'); }
+        const gx0 = t2.dir > 0 ? t2.x0 : t2.x0 - (n2 - 1) * tr2; hole2 = { x0: gx0, x1: gx0 + (n2 - 1) * tr2, z0: t2.z0, z1: t2.z0 + sw }; o.stairs2 = { ...t2, n: n2, tread: tr2, sw, rise, step: rise / n2 };
+      }
     }
     const holes = [hole].concat(hole2 ? [hole2] : []).sort((u, v) => u.z0 - v.z0);
     for (let f = 1; f < nfl; f++) {
@@ -232,16 +238,19 @@ export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f
 export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; return false; };
 // ---- Dr. Ikrma's house: hospital on the ground floor (reception, admission rooms, operation theatre, wards), the family home upstairs (a big lobby with five bedrooms round it), a roof terrace with a water tank
 { const CL = { w: 28, d: 20 }, cand = []; for (let x = -200; x <= 230; x += 8) for (let z = -190; z <= 220; z += 8) cand.push([x, z]); cand.sort((p, q) => Math.hypot(p[0] - 50, p[1] - 30) - Math.hypot(q[0] - 50, q[1] - 30));
-  const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + 28) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
+  const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'E', o: 5, w: 2.2, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { x0: 13.4, z0: 5.9, dir: -1 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 11.6, z: -8.3 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 9.5, dir: -1, tr: 0.38 }, roofStair: { x0: 0.5, z0: -CL.d / 2 + TH / 2 + 0.45 }, tank: { x: 11.6, z: -8.3 },
     inner: [
       { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 3.4, gaps: [[-4.8, 2.4]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
       // v264 UPSTAIRS = the family floor from the video: a big HALL in the west, the lobby with the two flights in the middle, a long AISLE along the south (the new stair from the door beside the garage arrives in it), a bedroom and HARIS'S GAME ROOM in the east
-      { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-2, 2.4], [7.6, 2.6]] }, { f: 1, ax: 'x', pos: 5.4, a: -6, b: 13.8, gaps: [[0, 2.4], [10.4, 2.0]] },
-      { f: 1, ax: 'z', pos: 6.8, a: -9.8, b: 5.4, gaps: [[-6.4, 1.8]] }, { f: 1, ax: 'x', pos: -3.2, a: 6.8, b: 13.8 }] });
+      { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-2, 2.4], [6.6, 3.0]] }, { f: 1, ax: 'x', pos: 3.4, a: -6, b: 13.8, gaps: [[0, 2.4], [9, 2.4]] },
+      { f: 1, ax: 'z', pos: 6.8, a: -9.8, b: 3.4, gaps: [[-6.4, 1.8]] }, { f: 1, ax: 'x', pos: -3.2, a: 6.8, b: 13.8 }] });
+  /* v268: Haris's brother's home built on to the east side of the villa: an open GARAGE below (empty, the Mehran comes later), rooms above; and the CIVIC DA GARAGE moves on to the right of it */
+  { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10, hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 0, w: 5.6, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true;
+    mk('shop', pick[0] + 14 + 9 + 3.2, pick[1] + 5, 6, 10, 'S', { fy: fy0, fh: 3.4, c: '#d9c9a3', doors: [{ s: 'N', o: 0, w: 2.0, h: 2.5 }] }); BUILDINGS[BUILDINGS.length - 1].civic = true; }
 }
 // ---- more town: houses, shops, flats and sheds scattered over the open ground, mostly beside the roads (concrete country, not meadows)
 { const RX = seeded(777), kinds = [['house', 10, 9], ['house', 11, 9], ['shop', 12, 9], ['apart', 16, 12], ['warehouse', 22, 18], ['cabin', 8, 7], ['shack', 6, 5], ['house', 10, 9], ['shop', 14, 10]], fr = ['N', 'S', 'E', 'W'];
@@ -288,7 +297,7 @@ function build() {
       P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the lobby: a sofa each side and a table
       P(1, -9.8, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -7.0, -9.0, 0.7, 1.2, 1.9, '#6a4a30', 'wardrobe'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
       P(1, 10.6, -8.3, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 13.2, -5.4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // the bedroom (north east)
-      P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 2.6, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
+      P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 1.2, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
     else if (f === 'ghar') {
       const P = (fl, x, z, w, d, h, c, k, solid = true) => { const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
