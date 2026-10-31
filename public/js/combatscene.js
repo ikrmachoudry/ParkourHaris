@@ -171,6 +171,7 @@ export class CombatScene {
       return;
     }
     if (this.plane) { this.plane.position.x += d.hd[0] * d.v * dt; this.plane.position.z += d.hd[1] * d.v * dt; if (d.t > 40) this.plane.visible = false; }
+    if (d.tw) { this.stepGlide(dt, inp, b); return; }
     const gy = cmbH(b.x - CMB.x, b.z - CMB.z), h = b.y - gy;
     if (d.ph === 'fall' && (inp.jumpPressed && d.t > (d.mt || 1.2) || h < (d.oh || 110))) { d.ph = 'chute'; d.ch = 0; }   // open the parachute (by hand, or automatically at 110 m)
     this.diveUI(d.ph === 'fall' || d.ph === 'chute'); const dv = (this.diveHold.dive ? 1 : 0) - (this.diveHold.up ? 1 : 0);   // v234: PUBG-style: DIVE (Shift) = head down, faster; PULL UP (C) = flare, slower and floating
@@ -184,6 +185,38 @@ export class CombatScene {
     const gy2 = Math.max(gy, supportY(Lm, b.x - CMB.x, b.z - CMB.z, 0.3, py));   // land on a roof or a crate, not through it
     if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
     this.chuteVis(d.ph === 'chute', b, dt);
+  }
+  /* v257: the TOWER PARAGLIDER (a ram-air wing): it opens at once, flies forward all the time, the stick turns it, DIVE = speed bar (fast, steep), PULL UP = brakes (slow, shallow). Trim 13 m/s forward at 2 m/s down = glide ratio 6.5: a 43 m tower reaches ~280 m */
+  stepGlide(dt, inp, b) {
+    const d = this.drop, Lm = layout(), dv = (this.diveHold && this.diveHold.dive ? 1 : 0) - (this.diveHold && this.diveHold.up ? 1 : 0), ml = Math.hypot(inp.mx, inp.mz);
+    this.diveUI(true);
+    let turn = 0; if (ml > 0.15) { let df = Math.atan2(inp.mx, inp.mz) - d.gh; df = Math.atan2(Math.sin(df), Math.cos(df)); turn = Math.max(-1, Math.min(1, df * 1.6)); d.gh += turn * 1.25 * dt; }
+    d.bank += (turn - d.bank) * Math.min(1, dt * 3);
+    const spT = dv > 0 ? 19 : dv < 0 ? 8.5 : 13, sinkT = (dv > 0 ? 4.2 : dv < 0 ? 1.4 : 2.0) * (1 + 0.5 * Math.abs(d.bank));
+    d.sp += (spT - d.sp) * Math.min(1, dt * 1.1); b.vy += (-sinkT - b.vy) * Math.min(1, dt * 2.2);
+    d.vx = Math.sin(d.gh) * d.sp; d.vz = Math.cos(d.gh) * d.sp;
+    const py = b.y; let nx = b.x + d.vx * dt, nz = b.z + d.vz * dt;
+    { const hs = hitsSolid(Lm, nx - CMB.x, nz - CMB.z, 0.38, py); if (hs && hs.k !== 'tree' && hs.k !== 'roof' && hs.k !== 'floor') { nx = b.x; nz = b.z; d.sp *= 0.35; } }
+    b.x = nx; b.z = nz; b.y += b.vy * dt; b.vx = d.vx; b.vz = d.vz; b.grounded = false; b.yaw = d.gh; this.dropPose = 2;
+    const gy = cmbH(b.x - CMB.x, b.z - CMB.z), gy2 = Math.max(gy, supportY(Lm, b.x - CMB.x, b.z - CMB.z, 0.3, py));
+    if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
+    this.chuteVis(true, b, dt);
+  }
+  mkGlider() {
+    const g = new THREE.Group(), cv = document.createElement('canvas'); cv.width = 512; cv.height = 160; const c = cv.getContext('2d');   /* the wing carries the PAKISTAN FLAG: green, white hoist stripe, crescent and star */
+    c.fillStyle = '#01411c'; c.fillRect(0, 0, 512, 160); c.fillStyle = '#fff'; c.fillRect(0, 0, 128, 160);
+    c.beginPath(); c.arc(318, 80, 56, 0, 7); c.fill(); c.fillStyle = '#01411c'; c.beginPath(); c.arc(340, 70, 49, 0, 7); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 11 : 27, a = -Math.PI / 2 + i * Math.PI / 5 + 0.5; c.lineTo(386 + Math.cos(a) * r, 52 + Math.sin(a) * r); } c.closePath(); c.fill();
+    const tx = new THREE.CanvasTexture(cv); tx.anisotropy = 2;
+    const span = 9.4, chord = 2.9, geo = new THREE.PlaneGeometry(span, chord, 28, 6), P = geo.attributes.position;
+    for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), u = x / (span / 2); P.setXYZ(i, x, -u * u * 1.9 + 0.3 * (1 - (y / (chord / 2)) ** 2) - (y > 0 ? 0 : 0.18 * (1 + y / (chord / 2)) * 0), y); }   // a curved wing: the tips droop, a little camber
+    geo.computeVertexNormals();
+    const wing = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tx, side: THREE.DoubleSide })); wing.position.set(0, 4.6, 0.5); g.add(wing);
+    const lp = [], V = THREE.Vector3; const top = (x, z) => { const u = x / (span / 2); return [x, 4.6 - u * u * 1.9 + 0.12, 0.5 + z]; };
+    for (let k = 0; k < 9; k++) { const x = -4.1 + k * 1.025, sx = x < 0 ? -0.24 : 0.24; for (const z of [-0.9, 0.9]) { const a = top(x, z); lp.push(a[0], a[1], a[2], sx, 1.62, 0.02); } }
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xe8e4d6 })));
+    const hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }); for (const sx of [-1, 1]) { const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); g.add(sb); }
+    return g;
   }
   diveUI(on) {
     if (!this.diveHold) { this.diveHold = { dive: false, up: false };
@@ -210,10 +243,13 @@ export class CombatScene {
       return g;
   }
   chuteVis(on, b, dt) {
-    if (!this.chute) { this.chute = this.mkChute(); this.group.add(this.chute); }
-    const d = this.drop; this.chute.visible = on; if (!on) return; d.ch = Math.min(1, d.ch + dt * 2.5); this.chute.scale.setScalar(0.25 + 0.75 * d.ch); this.chute.position.set(b.x, b.y, b.z); this.chute.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
+    const d = this.drop, gl = !!(d && d.tw);
+    if (!this.chute) { this.chute = this.mkChute(); this.group.add(this.chute); } if (gl && !this.glider) { this.glider = this.mkGlider(); this.group.add(this.glider); }
+    const o = gl ? this.glider : this.chute; this.chute.visible = on && !gl; if (this.glider) this.glider.visible = on && gl; if (!on) return;
+    d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
+    if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else o.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   syncLoot() {
     const sim = this.sim; if (!sim) return;
@@ -381,11 +417,11 @@ export class CombatScene {
     { const f = !this.dropping && this.hp > 0; if (this._fight !== f) { this._fight = f; document.body.classList.toggle('jang-fight', f); } this.slotsTick(); }
     const run = M && M.phase === 'run' && !this.over;
     { let roof = false; if (OPT.tips !== false && !this.dropping && P.alive && !R.drive) for (const t of layout().towers) if (Math.hypot(P.x - t.x, P.z - t.z) < 4.8 && Math.abs(b.y - t.py) < 2.5) roof = true;
-      if (!this.tipEl) { const e = document.createElement('div'); e.id = 'c-tip'; e.innerHTML = '<b>PARACHUTE TOWER</b><span>1. Pick up the parachute (you get it by standing on the roof).</span><span>2. Walk to the yellow LEDGE (the parachute sign) and step off.</span><span>3. In the air press <u>JUMP / SPACE</u> to open the chute (it also opens by itself near the ground).</span><span>DIVE = Shift &nbsp;·&nbsp; PULL UP = C &nbsp;·&nbsp; hide this text: Settings - Instructions</span>'; document.body.appendChild(e); this.tipEl = e; }
+      if (!this.tipEl) { const e = document.createElement('div'); e.id = 'c-tip'; e.innerHTML = '<b>PARAGLIDER TOWER</b><span>1. Stand on the roof: you pick up the paraglider.</span><span>2. Walk to the yellow LEDGE (the sign) and step off: the wing opens at once.</span><span>3. Steer with the stick / WASD and glide to a far landing: about 6 m forward for every 1 m of height.</span><span>DIVE = Shift (faster) &nbsp;·&nbsp; PULL UP = C (brake, flatter glide) &nbsp;·&nbsp; hide this text: Settings - Instructions</span>'; document.body.appendChild(e); this.tipEl = e; }
       if (this._tipOn !== roof) { this._tipOn = roof; this.tipEl.style.display = roof ? 'block' : 'none'; } }   // v251: how to use the tower parachute (can be switched off in Settings)
     if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
-      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast(OPT.tips !== false ? 'PARACHUTE PACKED - walk off the yellow ledge, then press JUMP / SPACE to open it. DIVE = Shift, PULL UP = C' : 'PARACHUTE PACKED', 3.5); A.sfx.pickup && A.sfx.pickup(); }
-      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { this.drop = { ph: 'fall', t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0 }; this.dropping = true; this.dropPose = 1; R.toast && R.toast('FALLING - press JUMP / SPACE to open the parachute (it opens by itself near the ground)', 3.5); }
+      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast(OPT.tips !== false ? 'PARAGLIDER PACKED - walk off the yellow ledge: it opens by itself. Steer to glide far. DIVE = Shift, PULL UP = C' : 'PARAGLIDER PACKED', 3.5); A.sfx.pickup && A.sfx.pickup(); }
+      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { { const sp0 = Math.hypot(b.vx || 0, b.vz || 0); this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 }; } this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); R.toast && R.toast('PARAGLIDER OPEN - steer with the stick / WASD. DIVE (Shift) = faster, PULL UP (C) = brake. It glides about 6 m for every 1 m of height', 4.5); }
     }
     if (run) {
       this.time -= dt; this.stepDown(dt);
