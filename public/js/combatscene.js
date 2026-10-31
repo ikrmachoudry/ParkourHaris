@@ -75,7 +75,7 @@ export class CombatScene {
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
-    this.group.visible = true; this.pay = 0; this.deer = new JangDeer(this.group);   // the wild stag (Jang only)
+    this.group.visible = true; this.pay = 0; this.deer = null;   // the wild stag (Jang only)
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }

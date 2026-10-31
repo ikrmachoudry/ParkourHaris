@@ -121,7 +121,9 @@ export class Minimap {
     // rim + north marker
     g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = Math.max(2, S / 60); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - g.lineWidth / 2, 0, 7); g.stroke();
     const na = Math.atan2(-s * -1, c * 0) ; void na;
-    { const [nx, ny] = toScr(view.x, view.z - 1000); const dx = nx - S / 2, dy = ny - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 22; g.fillStyle = '#d62828'; g.beginPath(); g.arc(S / 2 + dx / d * nr, S / 2 + dy / d * nr, S / 28, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(S / 22) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('N', S / 2 + dx / d * nr, S / 2 + dy / d * nr + 1); }
+    for (const [lt, wx, wz, col] of [['N', 0, -1, '#e5322d'], ['E', 1, 0, '#ffffff'], ['S', 0, 1, '#ffffff'], ['W', -1, 0, '#ffffff']]) {   // v264: a real compass on the rim: N red, E S W white, they turn with the map
+      const [qx, qy] = toScr(view.x + wx * 1000, view.z + wz * 1000), dx = qx - S / 2, dy = qy - S / 2, d = Math.hypot(dx, dy) || 1, nr = S / 2 - S / 12, px = S / 2 + dx / d * nr, py = S / 2 + dy / d * nr, rr = S / 15;
+      g.fillStyle = 'rgba(10,14,22,.78)'; g.beginPath(); g.arc(px, py, rr, 0, 7); g.fill(); g.fillStyle = col; g.font = '900 ' + Math.round(S / 10) + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(lt, px, py + S / 250); }
   }
   bigOpen() { if (this.bz) this.bz.set = false; }
   // zoom about the screen point (px, py) of the big map canvas by the factor f; pan by a screen-pixel drag

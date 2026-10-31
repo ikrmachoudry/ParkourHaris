@@ -82,7 +82,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   else if (gasIn < -0.01) { if (u > 0.8) brake = -gasIn; else throttle = gasIn; } // below walking pace the same key reverses
   // ---- longitudinal force
   const hp0 = c.hp === undefined ? 100 : c.hp;
-  const P = spec.kW * 1300 * (c.pwr || 1) * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
+  const P = spec.kW * 1300 * (spec.style === 'jeep' ? 1.7 : 1) * (c.pwr || 1) * (hp0 > 25 ? 1 : hp0 > 0 ? 0.6 : 0);   // arcade-friendly: a bit punchier than the real figure; a wrecked engine loses power, a dead one (hp 0) none
   // stability control (like a real ESC): when the rear steps out, the engine backs off and the nose is gently pulled straight, so you can always steer under power
   const slipRe = Math.atan((vl - b * c.yr) / Math.max(Math.abs(u), 0.5)), beta = vl / Math.max(Math.abs(u), 1);   // beta = how sideways the body really travels (the steady turn itself is NOT a slide)
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
@@ -93,7 +93,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
   const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
-  const Fslope = m * G * slope * cosT * (onRd || slope < 0.06 ? 1 : slope > 0 ? 1 + Math.min(2.2, slope * 5) : 1);   // off the road an uphill drags 2-3x harder: a hillside without a road is a real struggle (the steep ones stop the car and roll it back)
+  const Fslope = m * G * slope * cosT * (spec.style === 'jeep' ? 0.5 : (onRd || slope < 0.06 ? 1 : slope > 0 ? 1 + Math.min(2.2, slope * 5) : 1));   /* v264: the 4x4 jeep climbs hills (half the slope pull, no off-road penalty, 1.7x low-range power) */   // off the road an uphill drags 2-3x harder: a hillside without a road is a real struggle (the steep ones stop the car and roll it back)
   const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
   // ---- normal loads with weight transfer (filtered longitudinal acceleration)
   const axF = c.ax;
