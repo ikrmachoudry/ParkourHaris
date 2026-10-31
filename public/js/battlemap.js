@@ -4,6 +4,7 @@
 // quality 0 = phones (fewer / shorter things), 1 = middle, 2 = laptops.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { propParts, propDim } from './props.js';
 import { TW, towerWins, CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
@@ -52,6 +53,12 @@ class Batches {
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(colr, 3));
     if (g.index) g = g.toNonIndexed(); const key = cx + ',' + cz + ',' + mat; let a = this.map.get(key); if (!a) this.map.set(key, a = { cx, cz, mat, gs: [] }); a.gs.push(g);
   }
+  // v263: a part of a real GLB model (already positioned in map-local coordinates); it keeps its own material (texture)
+  addRaw(key, material, g) {
+    g.computeBoundingBox(); const bb = g.boundingBox, cx = Math.floor(((bb.min.x + bb.max.x) / 2 + H) / CH), cz = Math.floor(((bb.min.z + bb.max.z) / 2 + H) / CH);
+    if (!this.mats[key]) this.mats[key] = { m: material, uvs: 1 }; const n = g.attributes.position.count, col = new Float32Array(n * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const k2 = cx + ',' + cz + ',' + key; let a = this.map.get(k2); if (!a) this.map.set(k2, a = { cx, cz, mat: key, gs: [] }); a.gs.push(g);
+  }
   box(mat, x0, y0, z0, x1, y1, z1, col, jitter = 0.06) { const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); this.add(mat, g, col, jitter); }
   finish(group, shadows = true) {
     const out = [];
@@ -63,7 +70,7 @@ class Batches {
     return out;
   }
 }
-const _c = new THREE.Color();
+const _c = new THREE.Color(), _q = new THREE.Quaternion(), _m4 = new THREE.Matrix4(), _v3 = new THREE.Vector3(), _s3 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 export function buildBattleMap(quality = 1) { flags.length = 0;
   const q = quality, L = layout(), T = makeTextures(q), group = new THREE.Group(), R = rngS(99), uni = { time: { value: 0 } };
@@ -75,6 +82,10 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     rock: { m: std({ map: T.rock, bumpMap: T.rock, bumpScale: 2, roughness: 1 }), uvs: 3 },
   };
   const B = new Batches(MATS), meshes = [];
+  const place = (name, x, y, z, w, h, d, ry = 0, uni = false) => {   // one copy of a GLB model scaled to a w x h x d box (origin = bottom centre)
+    const parts = propParts(name), dim = propDim(name); if (!parts || !dim) return false;
+    const sx = w / dim.x, sy = h / dim.y, sz = d / dim.z; _q.setFromAxisAngle(_up, ry); _m4.compose(_v3.set(x, y, z), _q, uni ? _s3.set(sy, sy, sy) : _s3.set(sx, sy, sz));
+    parts.forEach((pt, i) => { const g = pt.geo.clone(); g.applyMatrix4(_m4); B.addRaw('glb:' + name + ':' + i, pt.mat, g); }); return true; };
 
   // ================================================================ terrain
   { const step = q === 0 ? 5 : q === 1 ? 4 : 3, half = H + 26, n = Math.round(2 * half / step), vs = (n + 1) * (n + 1), pos = new Float32Array(vs * 3), col = new Float32Array(vs * 3), uv = new Float32Array(vs * 2), hh = new Float32Array(vs), cn = new Float32Array(vs);
@@ -220,8 +231,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         B.box('trim', bx + sx * 3.05 - 0.9, fy + 1.48, zO, bx + sx * 3.05 + 0.9, fy + 2.52, zO + 0.03, tan, 0); }
       B.box('trim', bx + 6.4, fy + fh + 2.0, zf, bx + 7.5, fy + fh + 2.55, zf + 0.45, '#ecebe7', 0.01); B.box('trim', bx + 6.5, fy + fh + 2.1, zf + 0.44, bx + 7.4, fy + fh + 2.14, zf + 0.46, '#8a8a8a', 0); B.box('trim', bx + 6.5, fy + fh + 2.3, zf + 0.44, bx + 7.4, fy + fh + 2.34, zf + 0.46, '#8a8a8a', 0);
       for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
-      const tx = b.x + 11.6, tz = b.z - 8.3; { const g = new THREE.CylinderGeometry(0.95, 1.05, 1.5, 14); g.translate(tx, roofY + 0.75 + 0.4, tz); B.add('metal', g, '#1d2024', 0.02); const g2 = new THREE.CylinderGeometry(0.3, 0.3, 0.12, 10); g2.translate(tx, roofY + 2.0 + 0.2, tz); B.add('metal', g2, '#2d3136', 0); }
-      B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);
+      const tx = b.x + 11.6, tz = b.z - 8.3; if (!place('tank', tx, roofY, tz, 1.3, 2.3, 1.3, 0, true)) B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);   // v263: the real water tank model
       // v247: no second roof over the tank any more; the stair hole gets a bright yellow rim (you can see where the stairs go down) and the jump-down gap in the east railing a yellow edge line
       if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0); }
       B.box('trim', b.x + hx - 0.5, roofY + 0.02, b.z - 2.2, b.x + hx - 0.36, roofY + 0.06, b.z + 2.2, '#ffd23f', 0);
@@ -238,6 +248,9 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     shelf: (p) => { B.box('wood', p.x - p.w / 2, p.y, p.z - p.d / 2, p.x + p.w / 2, p.y + p.h, p.z + p.d / 2, '#7a5638', 0.04); for (let i = 1; i < 4; i++) B.box('trim', p.x - p.w / 2 + 0.04, p.y + p.h * i / 4, p.z - p.d / 2 - 0.01, p.x + p.w / 2 - 0.04, p.y + p.h * i / 4 + 0.04, p.z + p.d / 2 + 0.01, '#c9c0a8', 0.1); },
   };
   const generic = (p) => {
+    if (p.k === 'crate' && place('crate', p.x, p.y - 0.05, p.z, p.w, p.h, p.d, ((p.x * 31 + p.z * 17) % 1) * 0.6)) return;
+    if (p.k === 'barrel' && place('barrel', p.x, p.y, p.z, 0.7, 0.95, 0.7, (p.x * 13) % 6, false)) return;
+    if (p.k === 'sandbag') { const long = Math.max(p.w, p.d), thin = Math.min(p.w, p.d), alongX = p.w >= p.d; if (place('sandwall', p.x, p.y - 0.05, p.z, long, p.h, Math.max(thin, 0.55), alongX ? 0 : Math.PI / 2)) return; }
     const mat = p.k === 'container' ? 'metal' : p.k === 'pallet' || p.k === 'crate' || p.k === 'bale' || p.k === 'stall' || p.k === 'bench' || p.k === 'desk' || p.k === 'counter' ? 'wood' : p.k === 'rack' || p.k === 'barrel' ? 'metal' : p.k === 'barrier' || p.k === 'ruin' ? 'wall' : 'trim';
     B.box(mat, p.x - p.w / 2, p.y - (p.k === 'container' || p.k === 'crate' || p.k === 'sandbag' || p.k === 'ruin' || p.k === 'barrel' || p.k === 'barrier' ? 0.4 : 0), p.z - p.d / 2, p.x + p.w / 2, p.y + p.h, p.z + p.d / 2, p.c, 0.06);
     if (p.k === 'ruin' && p.h < 2.5) { const rx = p.x + (((p.x * 7.3 + p.z * 3.1) % 1) - 0.5) * 0.1; B.box('trim', rx - 0.015, p.y + p.h, p.z - 0.015, rx + 0.015, p.y + p.h + 0.35, p.z + 0.015, '#5a3a22', 0); }   /* rebar sticking out of the broken top */

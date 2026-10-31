@@ -13,6 +13,7 @@ import { WEAPONS } from './economy.js';
 import { CombatSim, CMB, COMBAT_MS, layout, cmbH, supportY, hitsSolid } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
+import { propModel, hasProp, propDim } from './props.js';
 import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
 import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
@@ -21,10 +22,10 @@ import { OPT } from './opts.js';
 import { JangDeer } from './jangdeer.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff' };
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)' };
-const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0 } });
-const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope', 'sscope'];
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
+const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, scope: 0, sscope: 0, vest: 0, helmet: 0 }, vestHp: 0, helmHp: 0 });
+const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'scope', 'sscope', 'vest', 'helmet'];
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
 const USE = { med: { dur: 4, hp: 50, name: 'FIRST AID' }, pills: { dur: 3, hp: 25, name: 'PAIN PILLS' }, inject: { dur: 1.8, hp: 20, name: 'ADRENALINE', boost: 6 } };
 const MY_DMG = 100;   // hit points of the player
@@ -233,18 +234,17 @@ export class CombatScene {
     const sh = on ? 'flex' : 'none'; if (this.diveBtn.style.display !== sh) { this.diveBtn.style.display = this.upBtn.style.display = sh; if (!on) this.diveHold.dive = this.diveHold.up = false; }
     if (on && !this.diveHint) { this.diveHint = true; this.R.toast && this.R.toast('DIVE (Shift) = faster down  -  PULL UP (C) = slow down and glide', 4.5); }
   }
-  mkChute() {
-    const g = new THREE.Group(), c = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#1c201c', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); c.scale.y = 0.7; c.position.y = 3.4; g.add(c);
-      for (let q = 0; q < 4; q++) { const st = new THREE.Mesh(new THREE.SphereGeometry(2.81, 16, 8, q * Math.PI / 2, Math.PI / 4, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#46523a', roughness: 0.85, side: THREE.DoubleSide, transparent: false })); st.scale.y = 0.7; st.position.y = 3.4; g.add(st); }   // olive panels on the black canopy
+  mkChute() {   // v263: the REAL army parachute model (canopy + lines); the harness, risers and pack on the player are still drawn here
+    const g = new THREE.Group(), cm = propModel('chute'); const SC = 1.1;
+    if (cm) { cm.scale.setScalar(SC); cm.position.y = 1.62; g.add(cm); }
+    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 8; c.font = '900 72px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText('HARIS', 128, 50); c.fillText('HARIS', 128, 50);   /* the name on the canopy, four times round */
+      const tm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+      for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 + Math.PI / 4, n = new THREE.Vector3(Math.cos(a) * 0.78, 0.62, Math.sin(a) * 0.78).normalize(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.7 * SC, 0.65 * SC), tm); m.position.set(Math.cos(a) * 1.64 * SC, 1.62 + 4.9 * SC, Math.sin(a) * 1.64 * SC).addScaledVector(n, 0.04); m.lookAt(m.position.clone().add(n)); g.add(m); } }
       const lm = new THREE.MeshBasicMaterial({ color: '#e8e4d6' }), hm = new THREE.MeshStandardMaterial({ color: '#23262b', roughness: 0.8 }), V = THREE.Vector3;
       const seg = (p, q, r, mat) => { const d = q.clone().sub(p), l = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 5), mat); m.position.copy(p).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); return m; };
-      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.39, rim = new V(Math.cos(a) * 2.7, 3.2, Math.sin(a) * 2.7), sh = new V(Math.cos(a) > 0 ? 0.24 : -0.24, 1.62, 0); g.add(seg(rim, sh, 0.018, lm)); }   // eight suspension lines down to the two risers on the shoulders
       for (const sx of [-1, 1]) { g.add(seg(new V(sx * 0.24, 1.62, 0), new V(sx * 0.2, 1.05, 0.05), 0.035, hm)); const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); sb.rotation.z = sx * 0.06; g.add(sb); const lg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), hm); lg.position.set(sx * 0.16, 0.62, 0.02); g.add(lg); }
       const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.32), hm); belt.position.set(0, 0.98, 0); g.add(belt); const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.31), hm); chest.position.set(0, 1.46, 0); g.add(chest);
       const pack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: '#3f5d34', roughness: 0.9 })); pack.position.set(0, 1.25, -0.28); g.add(pack);   // the empty pack on the back
-      { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d'); c.fillStyle = '#ffd23f'; c.strokeStyle = '#000'; c.lineWidth = 8; c.font = '900 72px Impact, Arial Black, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.strokeText('HARIS', 128, 50); c.fillText('HARIS', 128, 50);   /* v260: the name on the canopy, four times round */
-        const tm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-        for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2, px = Math.cos(a) * 1.9, pz = Math.sin(a) * 1.9, py = 3.4 + 0.7 * Math.sqrt(2.8 * 2.8 - 1.9 * 1.9), n = new THREE.Vector3(px, (py - 3.4) / 0.49, pz).normalize(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.72), tm); m.position.set(px, py, pz).addScaledVector(n, 0.05); m.lookAt(m.position.clone().add(n)); g.add(m); } }
       return g;
   }
   chuteVis(on, b, dt) {
@@ -257,28 +257,25 @@ export class CombatScene {
   endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
-    if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper', 'bat', 'grenade', 'med', 'pills', 'inject', 'smoke', 'sscope', 'scope', 'ammo']) m[q] = this.lootModel(q); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
+    if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
     return this._icons[k] || '';
   }
-  lootModel(k) {   // v258: ONE place builds every item's 3D model (the ground loot and the icons in the hotbar / backpack use the same thing)
-    const it = { k };
-      let mdl; if (it.k === 'ammo') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.5, 0.3, 0.34), SM('#3d5a2a', 0.7))); const s = new THREE.Mesh(GEO('Box',0.52, 0.08, 0.36), SM('#ffd23f')); s.position.y = 0.04; mdl.add(s); }
-      else if (it.k === 'med') { mdl = new THREE.Group(); mdl.add(new THREE.Mesh(GEO('Box',0.55, 0.38, 0.38), SM('#f4f4f4'))); const rm = SM('#e0242b'); const a = new THREE.Mesh(GEO('Box',0.26, 0.4, 0.06), rm), c = new THREE.Mesh(GEO('Box',0.1, 0.4, 0.4), rm); c.rotation.x = 0; mdl.add(a, c); a.scale.set(1, 1, 1.4); }
-      else if (ITEM_K.includes(it.k)) { mdl = new THREE.Group(); const M = (c) => SM(c, 0.6);
-        if (it.k === 'inject') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.34, 8), M('#e8f4ff')), n = new THREE.Mesh(GEO('Cylinder',0.012, 0.012, 0.16, 5), M('#c0c6cc')), p = new THREE.Mesh(GEO('Cylinder',0.08, 0.08, 0.04, 8), M('#2aa5ff')); b.rotation.z = Math.PI / 2; n.rotation.z = Math.PI / 2; n.position.x = 0.25; p.rotation.z = Math.PI / 2; p.position.x = -0.18; mdl.add(b, n, p); mdl.scale.setScalar(1.5); }
-        else if (it.k === 'pills') { const b = new THREE.Mesh(GEO('Cylinder',0.13, 0.13, 0.3, 10), M('#ff9a2e')), c = new THREE.Mesh(GEO('Cylinder',0.14, 0.14, 0.08, 10), M('#fff')); c.position.y = 0.18; mdl.add(b, c); }
-        else if (it.k === 'smoke') { const b = new THREE.Mesh(GEO('Cylinder',0.12, 0.12, 0.3, 10), M('#8c949b')), c = new THREE.Mesh(GEO('Cylinder',0.05, 0.05, 0.1, 8), M('#2b2f33')); c.position.y = 0.2; mdl.add(b, c); }
-        else if (it.k === 'sscope') { const b = new THREE.Mesh(GEO('Cylinder',0.06, 0.06, 0.46, 10), M('#20242c')), f = new THREE.Mesh(GEO('Cylinder',0.1, 0.085, 0.1, 10), M('#14171d')), e = new THREE.Mesh(GEO('Cylinder',0.085, 0.1, 0.09, 10), M('#14171d')), l = new THREE.Mesh(GEO('Circle',0.075, 10), SM('#7fe0ff', 0.3)); b.rotation.z = f.rotation.z = e.rotation.z = Math.PI / 2; f.position.x = 0.26; e.position.x = -0.26; l.rotation.y = Math.PI / 2; l.position.x = 0.312; mdl.add(b, f, e, l); mdl.scale.setScalar(0.55); }   // v238: a rifle scope lying on the ground (v251: 0.55 = a real rifle scope is about 25 cm long; it was a huge tube)
-        else { const b = new THREE.Mesh(GEO('Cylinder',0.07, 0.09, 0.5, 10), M('#2c2c34')), c = new THREE.Mesh(GEO('Cylinder',0.1, 0.1, 0.08, 10), M('#b48cff')); b.rotation.z = Math.PI / 2; c.rotation.z = Math.PI / 2; c.position.x = 0.2; mdl.add(b, c); } }
-      else { mdl = makeWeaponModel(it.k); mdl.scale.setScalar(it.k === 'grenade' ? 2.2 : it.k === 'bat' ? 1.5 : it.k === 'pistol' || it.k === 'revolver' ? 2.4 : 1.5); if (it.k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; }
-    return mdl;
+  lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
+    const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet' }[k], wrap = new THREE.Group();
+    if (G && hasProp(G)) {
+      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); wrap.add(m);
+      if (!icon) { if (k === 'inject') wrap.rotation.z = Math.PI / 2; else if (k === 'med' || k === 'vest') wrap.rotation.x = -Math.PI / 2; } else if (k === 'inject') wrap.rotation.z = Math.PI / 2;
+      return wrap;
+    }
+    if (isGunK(k) || k === 'grenade' || k === 'bat') { const mdl = makeWeaponModel(k); mdl.scale.setScalar(k === 'grenade' ? 2.2 : k === 'bat' ? 1.5 : k === 'pistol' || k === 'revolver' ? 2.4 : 1.5); if (k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; return mdl; }
+    wrap.add(new THREE.Mesh(GEO('Box', 0.3, 0.2, 0.3), SM('#8a8f96', 0.7))); return wrap;
   }
   syncLoot() {
     const sim = this.sim; if (!sim) return;
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = it.gold ? '#ffd23f' : LOOT_COL[it.k];
       const mdl = this.lootModel(it.k);
-      const gunish = it.k !== 'ammo' && it.k !== 'med' && !ITEM_K.includes(it.k), lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : ITEM_K.includes(it.k) && it.k !== 'med' ? 0.13 : 0.17; g.add(pivot); g.userData.pivot = pivot;
-      if (it.gold === 1) { pivot.position.y += 0.34; const bx = new THREE.Mesh(GEO('Box', 0.62, 0.3, 0.62), SM('#e8b412', 0.35)), lid = new THREE.Mesh(GEO('Box', 0.66, 0.06, 0.66), SM('#fff1a8', 0.3)); bx.position.y = 0.17; lid.position.y = 0.34; g.add(bx, lid); }   // v251: a dead enemy's GOLD box: everything he carried lies on it   // lying on the floor like PUBG: guns on their side, boxes flat
+      const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'sscope', 'scope', 'vest', 'helmet'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
+      if (it.gold === 1) { const gb = propModel('goldbox'), hh = (propDim('goldbox') || { y: 0.3 }).y; if (gb) g.add(gb); pivot.position.y += hh + 0.02; }   // v251/v263: a dead enemy's GOLD box (the real loot box model): everything he carried lies on it
       const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, it.y !== undefined ? it.y : cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
@@ -348,10 +345,9 @@ export class CombatScene {
     const THR = THREE, g = new THR.Group(), body = SM('#8d9aa6', 0.6), dark = SM('#4a5560', 0.7);
     const fu = new THR.Mesh(new THR.CylinderGeometry(1.5, 1.2, 20, 10), body); fu.rotation.x = Math.PI / 2; const wing = new THR.Mesh(new THR.BoxGeometry(26, 0.35, 3.6), body), tail = new THR.Mesh(new THR.BoxGeometry(7, 0.3, 2.2), body), fin = new THR.Mesh(new THR.BoxGeometry(0.3, 3.4, 2.4), dark); wing.position.z = 1; tail.position.z = -9.5; fin.position.set(0, 1.8, -9.4); g.add(fu, wing, tail, fin); g.scale.setScalar(1.25); return g;
   }
-  airCrate() {
-    const THR = THREE, g = new THR.Group(), cr = new THR.Mesh(new THR.BoxGeometry(1.5, 1.1, 1.5), SM('#c7332b', 0.5)), st = new THR.Mesh(new THR.BoxGeometry(1.56, 0.25, 1.56), SM('#f2f2f2', 0.5)); cr.position.y = 0.55; st.position.y = 0.55; g.add(cr, st);
-    const ch = new THR.Group(), cano = new THR.Mesh(new THR.SphereGeometry(3.2, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THR.MeshBasicMaterial({ color: 0xffffff, side: THR.DoubleSide })), cs2 = new THR.Mesh(new THR.SphereGeometry(3.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2.8), new THR.MeshBasicMaterial({ color: 0xe8442a, side: THR.DoubleSide })); cano.position.y = cs2.position.y = 4.6; ch.add(cano, cs2);
-    const lp = []; for (const [x, z] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) lp.push(0.7 * x, 1.1, 0.7 * z, 2.3 * x, 4.7, 2.3 * z); const lg = new THR.BufferGeometry(); lg.setAttribute('position', new THR.Float32BufferAttribute(lp, 3)); ch.add(new THR.LineSegments(lg, new THR.LineBasicMaterial({ color: 0x222222 }))); g.add(ch); g.userData.ch = ch;
+  airCrate() {   // v263: the real PUBG airdrop box + the real parachute models
+    const THR = THREE, g = new THR.Group(), cr = propModel('airdrop'); if (cr) { cr.scale.setScalar(1.5 / 1.8); g.add(cr); }
+    const ch = new THR.Group(), cm = propModel('chute'); if (cm) { cm.scale.setScalar(1.25); cm.position.y = 1.15; ch.add(cm); } g.add(ch); g.userData.ch = ch;
     { const puffs = [], tex = this._smokeTex || (this._smokeTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THR.CanvasTexture(cv); })());
       for (let i = 0; i < 22; i++) { const sp = new THR.Sprite(new THR.SpriteMaterial({ map: tex, color: i % 3 ? 0xd8362a : 0xb8281f, transparent: true, opacity: 0, depthWrite: false })); sp.userData.ph = i / 22; sp.userData.rx = Math.random() - 0.5; sp.userData.rz = Math.random() - 0.5; sp.visible = false; g.add(sp); puffs.push(sp); } g.userData.puffs = puffs; }   /* v255: real SMOKE (soft puffs that rise, billow and thin out, drifting with the wind) instead of a red cylinder */
     return g;
@@ -490,6 +486,7 @@ export class CombatScene {
   hurt(d) {
     if (this.safeUntil && this.t < this.safeUntil) return;   // v251: 4 s of protection after you respawn
     if (this.down) { this.downT -= d * 0.5; if (this.vig) this.vig.style.opacity = 0.7; if (this.downT <= 0) this.die(); return; }   // v244: already down: more hits make you bleed out faster
+    { const cb = this.R.wallet && this.R.wallet.cb; if (cb) { if (cb.vestHp > 0) { const a = Math.min(cb.vestHp, d * 0.3); cb.vestHp -= a; d -= a; if (cb.vestHp <= 0) { cb.inv.vest = 0; this.R.toast && this.R.toast('BODY ARMOR BROKE', 2); } } if (cb.helmHp > 0) { const a = Math.min(cb.helmHp, d * 0.15); cb.helmHp -= a; d -= a; if (cb.helmHp <= 0) { cb.inv.helmet = 0; this.R.toast && this.R.toast('HELMET BROKE', 2); } } } }   /* v263: PUBG armor: the vest takes 30% of every hit, the helmet 15%, until they break */
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else this.die(); }
@@ -520,7 +517,7 @@ export class CombatScene {
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb) return;
     if (!this.slotEl) { const e = document.createElement('div'); e.id = 'c-slots'; document.body.appendChild(e); this.slotEl = e;
       e.addEventListener('pointerdown', (ev) => { const t = ev.target.closest('[data-w]'); if (!t) return; ev.preventDefault(); ev.stopPropagation(); const w = t.dataset.w; R.equip(R.weapon === w && w !== 'fist' ? 'fist' : w); this._sk = ''; }); }
-    const gs = this.guns(), list = [gs[0] || '', gs[1] || '', cb.owned.bat ? 'bat' : ''], key = list.join() + '|' + (R.weapon || 'fist') + '|' + this._fight;
+    const gs = this.guns(), list = [gs[0] || '', gs[1] || ''], key = list.join() + '|' + (R.weapon || 'fist') + '|' + this._fight;
     if (key === this._sk) return; this._sk = key; this.slotEl.style.display = this._fight ? 'flex' : 'none';
     this.slotEl.innerHTML = list.map((w, i) => '<button type="button" data-w="' + w + '" class="' + (w ? '' : 'empty ') + (w && R.weapon === w ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (w && this.icon(w) ? '<img alt="" src="' + this.icon(w) + '">' : '') + (w ? '<b>' + (w === 'bat' ? 'BAT' : w.toUpperCase()) + '</b><small>' + (w === 'bat' ? '' : ((cb.mag[w] | 0) + '/' + (cb.ammo[w] | 0))) + '</small>' : '') + '</button>').join('');
   }
@@ -529,7 +526,7 @@ export class CombatScene {
   canTake(it) {
     const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
     if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press F to swap
-    if (k === 'bat') return !cb.owned.bat;
+    if (k === 'bat') return false;   /* v263: no bat in Jang (GTA only) */
     if (k === 'ammo') return true;   /* v255: PUBG: you can always pick ammo up; it waits in the backpack for your first gun */
     return this.count(k) < (CAP[k] || 4);
   }
@@ -562,7 +559,7 @@ export class CombatScene {
     else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
     else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('PICKED UP GRENADE  x' + cb.nades + '  (BACKPACK)'); }
     else if (k === 'ammo') { let n = 0; if (!Object.keys(cb.owned).some((w) => cb.owned[w] && WEAPONS[w] && WEAPONS[w].mag)) { cb.spare = (cb.spare | 0) + 1; A_('AMMO BOX picked up - it goes to your first gun'); R.updateAmmoHud && R.updateAmmoHud(); this.updateHud(); if (this.inv) this.inv.render(); return; } for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO BOX  -  ammo for ' + Object.keys(cb.owned).filter((w) => WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]).map((w) => LOOT_NAME[w] || w.toUpperCase()).join(', ') : 'AMMO BOX - FIND A GUN FIRST'); }
-    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
+    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; if (k === 'vest') cb.vestHp = 100; if (k === 'helmet') cb.helmHp = 60; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud(); if (this.inv) this.inv.render();
   }
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
@@ -571,6 +568,7 @@ export class CombatScene {
     if (k === 'sscope') { if (have <= 0) { R.toast && R.toast('NO SNIPER SCOPE'); return false; } if (!cb.owned.sniper) { R.toast && R.toast('You need the SNIPER RIFLE (Kar98) first - the scope clips onto it', 3); return false; } R.equip('sniper'); R.toast && R.toast('SCOPE FITTED to the Kar98 - hold AIM (right mouse / AIM button) to look through it; + / - or the mouse wheel zoom', 4.5); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  scroll / +  - to zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
+    if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 30% of every hit' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 15% of every hit') : 'NONE', 2.5); return false; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
     if (k === 'smoke') { R.nadeKind = 'smoke'; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
     const U = USE[k]; if (!U) return false; if (this.using) { this.using = null; R.toast && R.toast('CANCELLED'); return false; }

@@ -3,9 +3,10 @@ import { track } from './loading.js';
 import { preloadGuns } from './weaponmodels.js';
 import { preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
 import { bankReady } from './audio.js';
+import { preloadProps } from './props.js';
 const done = {};
 export function preloadAssets(kind) {   // kind: 'jang' | 'gta'
   if (done[kind]) return done[kind];
   const list = kind === 'jang' ? [...JANG_GLB, HERO_GLB[2], 'models/bag.glb'] : [...HERO_GLB, 'models/bag.glb'];   // the soldiers of Jang (+ the army soldier) / the five heroes of the city
-  return done[kind] = Promise.all([preloadGuns(), preloadActors(list), track(bankReady(25000), 'SOUNDS')]).catch((e) => { console.warn('preload', e); });
+  return done[kind] = Promise.all([preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(25000), 'SOUNDS')]).catch((e) => { console.warn('preload', e); });
 }

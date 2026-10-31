@@ -2,7 +2,7 @@
 // Tap an item to use it (heal / throw / zoom), tap a gun to hold it, DROP to leave it on the ground. Keyboard: I opens and closes it, 6-0 use items, E swaps a gun on the ground.
 import { WEAPONS } from './economy.js';
 
-export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, scope: 1, sscope: 1, grenade: 5 };
+export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1 };
 const ITEMS = [
   { k: 'med', icon: '✚', name: 'FIRST AID', info: '+50 health, 4 s', key: '6', col: '#ff5c5c' },
   { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+25 health, 3 s', key: '7', col: '#ffa94d' },
@@ -10,7 +10,9 @@ const ITEMS = [
   { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: '9', col: '#cfd6dc' },
   { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: '', col: '#8dff6b' },
   { k: 'sscope', icon: '🎯', name: 'SNIPER SCOPE', info: 'Kar98 uses it by itself', key: '', col: '#7fe0ff' },
-  { k: 'scope', icon: '🔭', name: 'TELESCOPE', info: 'tap again to put away', key: '0', col: '#b48cff' },
+  { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: '', col: '#9ad0ff' },
+  { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: '', col: '#b0b8c0' },
+  { k: 'scope', icon: '🔭', name: 'SCOPE', info: 'tap to zoom, again to put away', key: '0', col: '#b48cff' },
 ];
 const GUN_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', sniper: 'SNIPER RIFLE' };
 
@@ -45,7 +47,6 @@ export class Inventory {
       else row.innerHTML = '<i>🔫</i><div><b>GUN SLOT ' + (i + 1) + '</b><small>empty</small></div>';
       hands.appendChild(row);
     }
-    { const row = document.createElement('div'); row.className = 'iv-row' + (cb.owned.bat ? '' : ' empty') + (R.weapon === 'bat' ? ' sel' : ''); row.innerHTML = '<i>' + pic(cs, 'bat', '🏏') + '</i><div><b>BASEBALL BAT</b><small>' + (cb.owned.bat ? 'melee' : 'empty') + '</small></div>'; if (cb.owned.bat) row.addEventListener('pointerdown', (e) => { e.preventDefault(); R.equip('bat'); this.render(); }); hands.appendChild(row); }
     { const row = document.createElement('div'); row.className = 'iv-row' + (!R.weapon ? ' sel' : ''); row.innerHTML = '<i>✊</i><div><b>FISTS</b><small>punch / kick</small></div>'; row.addEventListener('pointerdown', (e) => { e.preventDefault(); R.equip('fist'); this.render(); }); hands.appendChild(row); }
     let used = 0;
     for (const it of ITEMS) {
