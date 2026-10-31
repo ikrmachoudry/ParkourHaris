@@ -7,7 +7,7 @@ let SRC = null, P = null; const waiting = [];
 const BODY = new THREE.MeshStandardMaterial({ color: '#14141a', roughness: 0.35, metalness: 0.25 });   // placeholder for the paint material until the file is in
 function prep(sc) {
   sc.traverse((o) => { if (!o.isMesh) return; o.castShadow = true; const m = o.material; if (!m) return;
-    if (m.name === 'CIVIC13') { m.color.set('#14141a'); m.roughness = 0.35; m.metalness = 0.25; }   // the paint: BLACK (it was red)
+    if (m.name === 'CIVIC13') { m.color.set('#0c0c10'); m.roughness = 0.35; m.metalness = 0.25; }   // the paint: BLACK (it was red)
     if (m.name === 'glass') { m.transparent = true; m.opacity = 0.35; m.depthWrite = false; } });
 }
 export function preloadCivic() {

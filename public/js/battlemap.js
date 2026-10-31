@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, towerWins, CMB, cmbH, setMeshStep, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -88,7 +88,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     parts.forEach((pt, i) => { const g = pt.geo.clone(); g.applyMatrix4(_m4); B.addRaw('glb:' + name + ':' + i, pt.mat, g); }); return true; };
 
   // ================================================================ terrain
-  { const step = q === 0 ? 5 : q === 1 ? 4 : 3, half = H + 26, n = Math.round(2 * half / step), vs = (n + 1) * (n + 1), pos = new Float32Array(vs * 3), col = new Float32Array(vs * 3), uv = new Float32Array(vs * 2), hh = new Float32Array(vs), cn = new Float32Array(vs);
+  { const step = q === 0 ? 5 : q === 1 ? 4 : 3, half = H + 26, n = (setMeshStep(step), Math.round(2 * half / step)), vs = (n + 1) * (n + 1), pos = new Float32Array(vs * 3), col = new Float32Array(vs * 3), uv = new Float32Array(vs * 2), hh = new Float32Array(vs), cn = new Float32Array(vs);
     for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) { const x = -half + i * step, z = -half + j * step, k = j * (n + 1) + i; hh[k] = cmbH(x, z); pos[k * 3] = x; pos[k * 3 + 1] = hh[k]; pos[k * 3 + 2] = z; uv[k * 2] = x / 9; uv[k * 2 + 1] = z / 9; }
     const c = new THREE.Color(), grassA = new THREE.Color('#6f9a3e'), grassB = new THREE.Color('#9aa34a'), dry = new THREE.Color('#b5a85a'), sand = new THREE.Color('#bba982'), rock = new THREE.Color('#8e8778'), snow = new THREE.Color('#d9dcdf'), mud = new THREE.Color('#6a5a3e'), field = new THREE.Color('#79a143'), concC = new THREE.Color('#b9b8b0');
     for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {

@@ -1,7 +1,7 @@
 // The only level: Punjabi GTA (an open city). buildLevel(0) builds it; the layout itself lives in gta.js / gtaworld.js.
 import { World } from './world.js';
 import { buildGta } from './gtaworld.js';
-import { layout as cmbLayout, CMB, cmbInside, cmbH, ROADS } from './combat.js';
+import { layout as cmbLayout, CMB, cmbInside, cmbG as cmbH, ROADS } from './combat.js';
 import { jangJeeps, garageCars } from './jangcars.js';
 
 export const THEMES = {

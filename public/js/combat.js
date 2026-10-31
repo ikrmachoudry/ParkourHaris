@@ -39,6 +39,16 @@ export function cmbH(x, z) {
   return ws > 0 ? raw + (wy / ws - raw) * wm : raw;   // near several sites: blend towards their average level
 }
 
+// v275: the ground you WALK on is the very triangle mesh that is DRAWN (same grid, same diagonal), so you can never sink into a lump of the terrain or float over a dip
+let MSTEP = 3; export function setMeshStep(st) { MSTEP = st; }
+export function cmbG(x, z) {
+  const half = H + 26, s = MSTEP; if (x < -half || z < -half || x >= half - s || z >= half - s) return cmbH(x, z);
+  const i = Math.floor((x + half) / s), j = Math.floor((z + half) / s), x0 = -half + i * s, z0 = -half + j * s, u = (x - x0) / s, v = (z - z0) / s;
+  const a = cmbH(x0, z0), b = cmbH(x0 + s, z0), d = cmbH(x0, z0 + s);
+  if (u + v <= 1) return a + (b - a) * u + (d - a) * v;
+  return cmbH(x0 + s, z0 + s) + (b - cmbH(x0 + s, z0 + s)) * (1 - v) + (d - cmbH(x0 + s, z0 + s)) * (1 - u);
+}
+
 // ---------------------------------------------------------------- buildings
 const SL = 0.3, BASE = -0.6, TH = 0.4;   // floor slab thickness, how far walls reach below the floor, wall thickness
 const WALLS = ['#e6d9bd', '#d8c7a0', '#cfd8d4', '#e0b9a2', '#d9d3c4', '#c9b79a', '#bfcfd6', '#e8d9a8'];
@@ -249,7 +259,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
       { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-2, 2.4], [6.6, 3.0]] }, { f: 1, ax: 'x', pos: 3.4, a: -6, b: 13.8, gaps: [[0, 2.4], [9, 2.4]] },
       { f: 1, ax: 'z', pos: 6.8, a: -9.8, b: 3.4, gaps: [[-6.4, 1.8]] }, { f: 1, ax: 'x', pos: -3.2, a: 6.8, b: 13.8 }] });
   /* v268: Haris's brother's home built on to the east side of the villa: an open GARAGE below (empty, the Mehran comes later), rooms above; and the CIVIC DA GARAGE moves on to the right of it */
-  { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10; padRect(pick[0] - 17, pick[1] + 10, pick[0] + 36, pick[1] + 27, fy0); /* v270: a flat, plain yard in front of the villa and the two new houses (no ditches, no bumps) */ const hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 1.4, w: 4.0, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true; bb.fur = null;
+  { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10; padRect(pick[0] - 24, pick[1] + 6, pick[0] + 43, pick[1] + 32, fy0); /* v270: a flat, plain yard in front of the villa and the two new houses (no ditches, no bumps) */ const hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 1.4, w: 4.0, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true; bb.fur = null;
     mk('shop', pick[0] + 14 + 9 + 3.2, pick[1] + 5, 6, 10, 'S', { fy: fy0, fh: 3.4, c: '#d9c9a3', doors: [{ s: 'S', o: 0, w: 3.3, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }] }); const cb = BUILDINGS[BUILDINGS.length - 1]; cb.civic = true; cb.noLoot = true; cb.fur = null;
     cb.shutter = { x0: cb.x - 1.65, x1: cb.x + 1.65, z0: cb.z + cb.d / 2 - TH, z1: cb.z + cb.d / 2, y0: cb.fy, y1: cb.fy + 2.8, k: 'shutter', open: false }; cb.solids.push(cb.shutter); }
 }
