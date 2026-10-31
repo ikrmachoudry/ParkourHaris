@@ -544,4 +544,5 @@ setInterval(() => {
   }
 }, 25000);
 
+process.on('SIGTERM', () => { try { for (const ws of wss.clients) if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'err', msg: 'The server is updating to a new version - wait about a minute, then reload the page and rejoin.' })); } catch { /* ignore */ } setTimeout(() => process.exit(0), 400); });   // v283: a deploy restarts the server; players are told why instead of a silent drop
 server.listen(PORT, '0.0.0.0', () => console.log(`Parkour Haris running on http://localhost:${PORT}`));
