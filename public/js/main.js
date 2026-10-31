@@ -204,8 +204,18 @@ class Stage {
     o.name = name;
     if (name) { o.tag = makeNameTag(name, CHARACTERS[i].color); o.tag.position.set(0, o.c.height + 0.55, 0); o.c.group.add(o.tag); }
   }
-  setTitle(sel = -1) { this.mode = 'title'; this.sel = sel; this.lobby = []; this.chars.forEach((o, i) => { o.show = true; this.setName(i, null); }); }
-  setLobby(players) { this.mode = 'lobby'; this.lobby = players; players.forEach((p) => this.setSkin(p.char, p.skin === undefined ? p.char : p.skin)); this.chars.forEach((o, i) => { const idx = players.findIndex((p) => p.char === i); o.show = idx >= 0; o.slot = idx; this.setName(i, idx >= 0 ? players[idx].name : null); }); }
+  setTitle(sel = -1) { this.mode = 'title'; this.sel = sel; this.lobby = []; this.lobbyDup = false; if (this.xa) this.clearLobbyDup(); this.chars.forEach((o, i) => { o.show = true; this.setName(i, null); }); }
+  // v288: a team room can have the SAME character several times (up to 12 players): then everybody gets their own actor, in rows, instead of one model per character
+  setLobbyDup(players) {
+    if (!this.xa) this.xa = new Map(); this.chars.forEach((o, i) => { o.show = false; this.setName(i, null); }); const keep = new Set();
+    players.forEach((p, k) => { const skin = p.skin === undefined ? p.char : p.skin; let e = this.xa.get(p.id);
+      if (!e || e.char !== p.char || e.skin !== skin) { if (e) { this.scene.remove(e.c.group); if (e.c.dispose) e.c.dispose(); } e = { c: makeActor(p.char, false, skin), char: p.char, skin, tag: null, name: null, slot: 0, scale: 1 }; this.scene.add(e.c.group); this.xa.set(p.id, e); }
+      e.slot = k; keep.add(p.id);
+      if (e.name !== p.name) { if (e.tag) { e.c.group.remove(e.tag); e.tag.material.map.dispose(); e.tag.material.dispose(); e.tag = null; } e.name = p.name; e.tag = makeNameTag(p.name, CHARACTERS[p.char].color); e.tag.position.set(0, e.c.height + 0.55, 0); e.c.group.add(e.tag); } });
+    for (const [id, e] of this.xa) if (!keep.has(id)) { this.scene.remove(e.c.group); if (e.c.dispose) e.c.dispose(); this.xa.delete(id); }
+  }
+  clearLobbyDup() { if (!this.xa) return; for (const [, e] of this.xa) { this.scene.remove(e.c.group); if (e.c.dispose) e.c.dispose(); } this.xa.clear(); }
+  setLobby(players) { this.mode = 'lobby'; this.lobby = players; this.lobbyDup = new Set(players.map((p) => p.char)).size !== players.length; if (this.lobbyDup) { this.setLobbyDup(players); return; } this.clearLobbyDup(); players.forEach((p) => this.setSkin(p.char, p.skin === undefined ? p.char : p.skin)); this.chars.forEach((o, i) => { const idx = players.findIndex((p) => p.char === i); o.show = idx >= 0; o.slot = idx; this.setName(i, idx >= 0 ? players[idx].name : null); }); }
   burst(i) { const p = this.slotPos[this.slotOf(i)]; this.particles.emit(p[0], p[1] + 1.4, p[2] + 0.5, 40, { rainbow: true, speed: 4, up: 6, life: 1.0, size: 0.35, gravity: 7 }); }
   slotOf(i) { if (this.mode === 'lobby') return [1, 2, 0, 3][Math.max(0, this.chars[i].slot) % 4]; return i; }
   setPreview(slot, skin) { this.setSkin(slot, skin); this.mode = 'preview'; this.sel = slot; this.pv.slot = slot; this.pv.t = 0; this.chars.forEach((o, i) => { o.show = i === slot; this.setName(i, null); }); }
@@ -233,6 +243,10 @@ class Stage {
     else {    cam.position.set(Math.sin(this.t * 0.25) * 1.8 + this.camX, 2.9 + Math.sin(this.t * 0.4) * 0.15, 10.5); cam.lookAt(this.camX, 1.9, 0);}
     this.sky.position.copy(cam.position);
     this.water.material.uniforms.time.value = this.t;
+    { const xon = this.mode === 'lobby' && this.lobbyDup, n = this.lobby.length || 1, per = n <= 5 ? n : Math.ceil(n / 2), sc = n <= 4 ? 1 : n <= 8 ? 0.8 : 0.68;
+      if (this.xa) for (const [, e] of this.xa) { e.c.group.visible = xon; if (!xon) continue; const row = Math.floor(e.slot / per), col = e.slot % per, cnt = Math.min(per, n - row * per);
+        e.scale = lerp(e.scale, sc, Math.min(1, dt * 8)); e.c.group.scale.setScalar(e.scale); e.c.group.position.set((col - (cnt - 1) / 2) * 2.3 * sc, 0, -row * 2.2); e.c.group.rotation.y = lerpAngle(e.c.group.rotation.y, Math.sin(this.t * 0.7 + e.slot) * 0.3, Math.min(1, dt * 4));
+        e.c.update(dt, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false, gesture: GESTURES[e.slot % 4] }); if (e.tag) e.tag.scale.set(2.4, 0.6, 1); } }
     this.chars.forEach((o, i) => {
       o.c.group.visible = o.show;
       if (!o.show) return;
