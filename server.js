@@ -302,7 +302,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
         p.jx = m.x; p.jy = m.y; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 3;   // v245: where I am and whether the bots may shoot me
-        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, rv: m.rv ? 1 : 0 }, p.id); break;
+        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, rv: m.rv ? 1 : 0, al: m.al ? 1 : 0 }, p.id); break;
       }
       case 'jr': {   // v244: a teammate revives me (relay only)
         if (!room || !room.combat || room.phase !== 'race') return;

@@ -312,7 +312,7 @@ export class CombatScene {
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
@@ -523,11 +523,18 @@ export class CombatScene {
     { const cb = this.R.wallet && this.R.wallet.cb; if (cb) { if (cb.vestHp > 0) { const a = Math.min(cb.vestHp, d * 0.3); cb.vestHp -= a; d -= a; if (cb.vestHp <= 0) { cb.inv.vest = 0; this.R.toast && this.R.toast('BODY ARMOR BROKE', 2); } } if (cb.helmHp > 0) { const a = Math.min(cb.helmHp, d * 0.15); cb.helmHp -= a; d -= a; if (cb.helmHp <= 0) { cb.inv.helmet = 0; this.R.toast && this.R.toast('HELMET BROKE', 2); } } } }   /* v263: PUBG armor: the vest takes 30% of every hit, the helmet 15%, until they break */
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
     A.voice.grunt(0.8);
-    if (this.hp <= 0) { if (this.canDown()) this.goDown(); else this.die(); }
+    if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
   }
   die() { if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
+  // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
+  teamWiped() { const T = this.R.jangTeam; if (!T || !this.shared || this.dropping) return false; const now = performance.now(); let seen = 0; for (const [, g] of this.mates) { if (g.tm !== T.tm || !g.has || now - g.at > 3000) continue; seen++; if (g.al !== 0 && g.ph !== 7) return false; } return seen > 0; }
+  teamLost() {
+    if (this.over) return; const T = this.R.jangTeam, nm = String((T && T.teamName) || 'YOUR TEAM').toUpperCase();
+    this.hp = 0; this.down = false; this.reviving = null; this.deaths++; try { this.dropAll(); } catch (e) { /* noop */ } A.voice.death(1); this.R.fireHeld = false; this.R.aiming = false;
+    this.R.toast && this.R.toast('TEAM ' + nm + ' LOST', 6); this.finish('TEAM ' + nm + ' LOST');
+  }
   goDown() {
     const R = this.R, T = R.jangTeam; this.down = true; this.downT = 40; this.hp = 1; R.me.body.stun = 2; R.fireHeld = false; R.aiming = false; A.voice.death(0.6);
     if (this.ov) { this.ov.style.display = 'grid'; } R.toast && R.toast('YOU ARE DOWN - a teammate can revive you', 4);
@@ -535,6 +542,7 @@ export class CombatScene {
   getUp(hp) { this.down = false; this.downT = 0; this.hp = hp; this.R.me.body.stun = 0; if (this.ov) this.ov.style.display = 'none'; this.R.toast && this.R.toast('YOU WERE REVIVED', 3); }
   onRevive() { if (this.down) this.getUp(40); }
   stepDown(dt) {   // bleeding out / reviving
+    if (this.down && this.teamWiped()) { this.teamLost(); return; }
     const R = this.R, T = R.jangTeam, b = R.me.body;
     if (this.down) { this.downT -= dt; b.stun = Math.max(b.stun, 1); if (this.ov) this.ov.textContent = 'YOU ARE DOWN  -  ' + Math.max(0, Math.ceil(this.downT)) + ' s  -  waiting for a teammate'; if (this.downT <= 0) this.die(); }
     // a teammate of mine lies down close to me: the REVIVE button; hold on for 7 s next to him and he gets up
@@ -634,9 +642,9 @@ export class CombatScene {
     this.useBar.style.display = 'block'; this.useBar.firstChild.textContent = 'USING ' + U.name + '  ' + Math.round(f * 100) + '%'; this.useBar.lastChild.style.width = (f * 100) + '%';
     if (u.t >= u.dur) { cb.inv[u.k] = Math.max(0, (cb.inv[u.k] | 0) - 1); if (U.boost) { this.boostT = U.boost; R.toast && R.toast(U.name + ' - SPEED BOOST!'); } else R.toast && R.toast(U.name + '  +' + U.hp + ' HEALTH'); A.sfx.pickup && A.sfx.pickup(); this.using = null; this.updateHud(); if (this.inv) this.inv.render(); }
   }
-  finish() {
+  finish(msg) {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
-    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:#ffd23f">MATCH OVER</div><div>KILLS: ' + this.kills + '  •  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div><div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div></div>';
+    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  •  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div><div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div></div>';
     if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round });
   }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
