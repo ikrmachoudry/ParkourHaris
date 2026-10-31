@@ -164,7 +164,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     for (const s of b.solids) {
       if (s.k === 'wall') B.box(wm, s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, wallC, 0.04);
       else if (s.k === 'floor') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8c6b48', 0.05);
-      else if (s.k === 'step') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#9a7650', 0.08);
+      else if (s.k === 'step') { B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1 - 0.05, s.z1, '#cbbd9f', 0.02); B.box('wood', s.x0 - 0.01, s.y1 - 0.07, s.z0 - 0.01, s.x1 + 0.01, s.y1, s.z1 + 0.01, '#9a7650', 0.05); }   /* v264: a plaster stair body with a wooden tread on every step (the stretched all-wood blocks looked like a wall of planks) */
       else if (s.k === 'roof') { B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, b.roof === 'flat' ? '#8d8b84' : '#cfc6b2', 0.02); }
     }
     // the floor inside
@@ -233,7 +233,11 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
       const tx = b.x + 11.6, tz = b.z - 8.3; if (!place('tank', tx, roofY, tz, 1.3, 2.3, 1.3, 0, true)) B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);   // v263: the real water tank model
       // v247: no second roof over the tank any more; the stair hole gets a bright yellow rim (you can see where the stairs go down) and the jump-down gap in the east railing a yellow edge line
-      if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0); }
+      if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0);
+        /* v264: the way DOWN must be easy to find from the roof: yellow posts with a bar over the stair opening and two big STAIRS DOWN markings on the roof (you read them from the south and from the east) */
+        for (const px of [H.x0 - 0.05, H.x1 + 0.05]) B.box('trim', b.x + px - 0.07, roofY, b.z + H.z1 + 0.05, b.x + px + 0.07, roofY + 1.5, b.z + H.z1 + 0.19, '#ffd23f', 0); B.box('trim', b.x + H.x0 - 0.07, roofY + 1.4, b.z + H.z1 + 0.05, b.x + H.x1 + 0.07, roofY + 1.52, b.z + H.z1 + 0.19, '#ffd23f', 0);
+        const tcx = b.x + (H.x0 + H.x1) / 2, sgA = plane(5.0, 1.15, tcx, roofY + 0.07, b.z + H.z1 + 1.2, signTex('\u25BC STAIRS DOWN \u25BC', '#f2b705', '#17171a', 640, 148, 1)); sgA.rotation.x = -Math.PI / 2;
+        const sgB = plane(4.4, 1.15, b.x + H.x1 + 2.4, roofY + 0.07, b.z + (H.z0 + H.z1) / 2, signTex('\u25C0 STAIRS DOWN', '#f2b705', '#17171a', 560, 148, 1)); sgB.rotation.x = -Math.PI / 2; }
       B.box('trim', b.x + hx - 0.5, roofY + 0.02, b.z - 2.2, b.x + hx - 0.36, roofY + 0.06, b.z + 2.2, '#ffd23f', 0);
     }
     if (b.kind === 'house' || b.kind === 'cabin') B.box('conc', b.x + (along ? hx * 0.4 : 0), fy + tri + 0.3, b.z + (along ? 0 : hz * 0.4) + 0.5, b.x + (along ? hx * 0.4 : 0) + 0.7, fy + tri + 2.3 + Math.min(b.w, b.d) * 0.2, b.z + (along ? 0 : hz * 0.4) + 1.2, '#8a5a48', 0.05);   // a chimney

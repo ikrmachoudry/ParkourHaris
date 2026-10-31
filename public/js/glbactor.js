@@ -204,7 +204,7 @@ export class GlbActor extends HeroActor {
     loadGlb('models/bag.glb').then((g) => {   /* v258: the real TACTICAL BAG (2.4k triangles, 512 px texture) replaces the box pack; four colour variants by character id */
       if (this.disposed || !this.pack || this.pack.userData.real) return; const old = this.pack, wrap = new THREE.Group(), inner = g.scene.clone(true), v = BAG_TINT[(this.id | 0) % BAG_TINT.length];
       inner.traverse((o) => { if (o.isMesh) { const k = o.material.uuid + v; let m = BAG_MAT.get(k); if (!m) { m = o.material.clone(); m.color.set(v); BAG_MAT.set(k, m); } o.material = m; o.frustumCulled = false; o.castShadow = false; } });
-      inner.rotation.y = Math.PI; inner.scale.setScalar(1.12); inner.position.set(0, -0.3, BAG_Z); wrap.position.copy(old.position); wrap.quaternion.copy(old.quaternion); wrap.scale.copy(old.scale); wrap.add(inner); wrap.userData.real = 1;
+      inner.rotation.y = Math.PI; inner.scale.setScalar(0.76); inner.position.set(0, -0.26, BAG_Z); wrap.position.copy(old.position); wrap.quaternion.copy(old.quaternion); wrap.scale.copy(old.scale); wrap.add(inner); wrap.userData.real = 1;
       const par = old.parent; par.remove(old); par.add(wrap); wrap.updateMatrixWorld(true); this.pack = wrap;
     }, () => {});
   }
@@ -277,6 +277,8 @@ export class GlbActor extends HeroActor {
     this.mixT = (this.mixT == null ? 1 : this.mixT) + dt; const mk = Math.min(1, this.mixT / 0.18), ms = mk * mk * (3 - 2 * mk);
     for (const n of NEED) { Wout[n] = Wout[n] || new THREE.Quaternion(); if (ms < 1 && rt.fromW) Wout[n].copy(rt.fromW[n]).slerp(src[n], ms); else Wout[n].copy(src[n]); }
     rt.curOff = (rt.curOff || new THREE.Vector3()); if (ms < 1 && rt.fromOff) rt.curOff.copy(rt.fromOff).lerp(off, ms); else rt.curOff.copy(off);
+    // v264: PEEK for the baked Mixamo clips too (the sideways bend above only reached the procedural driver, so rifle / pistol poses never leaned): bend at the waist, head stays more upright
+    if (srcKey !== 'drv' && Math.abs(this.peek || 0) > 0.005) { _q.setFromAxisAngle(_v.set(0, 0, 1), this.peek * 0.62); for (const n of ['spine', 'chest', 'neck', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R']) Wout[n].premultiply(_q); _q.setFromAxisAngle(_v.set(0, 0, 1), this.peek * 0.62 * 0.35); Wout.head.premultiply(_q.invert()); }
     // ---- AIM: while a gun is raised, swing the upper body (a small feedback loop on the real barrel direction) until the barrel points exactly where the shots go: st.aimElev = elevation in radians (+ up), straight ahead sideways
     { const W = this.ch.wmesh && st.weapon && this.ch.wmesh[st.weapon], on = !!(W && /(Aim|Shoot)$/.test(this.pose || '') && this.ch.gun.visible);
       const aq = this.aimQ || (this.aimQ = new THREE.Quaternion()), tgt = on ? 1 : 0; this.aimK = (this.aimK || 0) + (tgt - (this.aimK || 0)) * Math.min(1, dt * 10);

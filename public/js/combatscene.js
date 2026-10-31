@@ -39,7 +39,7 @@ const SM = (c, r) => { const id = 'S' + c + (r || ''); let m = _SH.get(id); if (
 const RM = (c, o) => { const id = 'R' + c + o; let m = _SH.get(id); if (!m) { m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false }); _SH.set(id, m); } return m; };
 export class CombatScene {
   constructor(race) {
-    this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.mates = new Map(); this.loot = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
+    this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.mates = new Map(); this.loot = new Map(); this.dsm = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
     this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
     this.tmpV = new THREE.Vector3(); this.using = null; this.boostT = 0; this.promptIt = null; this.inv = new Inventory(this);
   }
@@ -74,7 +74,7 @@ export class CombatScene {
   begin(m, seat) {
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
-    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim((m.round * 7919 + 13) | 0, 8); }   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0; this.deer = new JangDeer(this.group);   // the wild stag (Jang only)
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
@@ -91,7 +91,7 @@ export class CombatScene {
     if (this.deer) { this.deer.dispose(); this.deer = null; }
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
-    for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
+    for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none';
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
     if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
@@ -277,6 +277,10 @@ export class CombatScene {
       const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'sscope', 'scope', 'vest', 'helmet'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
       if (it.gold === 1) { const gb = propModel('goldbox'), hh = (propDim('goldbox') || { y: 0.3 }).y; if (gb) g.add(gb); pivot.position.y += hh + 0.02; }   // v251/v263: a dead enemy's GOLD box (the real loot box model): everything he carried lies on it
       const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
+      if (it.gold === 1) {   // v264: a dead bot / player: a thin GREEN smoke column over his loot box (one column per box, however many items lie on it)
+        const key = Math.round(it.x / 2) + ',' + Math.round(it.z / 2); let sm = this.dsm.get(key);
+        if (!sm) { const sg = this.mkPuffs(new THREE.Group(), 12, 0x3be36a, 0x23b84e); sg.userData.sm = { H: 16, life: 5, s0: 0.8, s1: 3.4, drift: 3, a: 0.5 }; sg.position.set(CMB.x + it.x, (it.y !== undefined ? it.y : cmbH(it.x, it.z)) + 0.5, CMB.z + it.z); this.group.add(sg); sm = { g: sg, ids: new Set(), x: CMB.x + it.x, z: CMB.z + it.z }; this.dsm.set(key, sm); }
+        sm.ids.add(it.id); }
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, it.y !== undefined ? it.y : cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
   }
@@ -348,20 +352,24 @@ export class CombatScene {
   airCrate() {   // v263: the real PUBG airdrop box + the real parachute models
     const THR = THREE, g = new THR.Group(), cr = propModel('airdrop'); if (cr) { cr.scale.setScalar(1.5 / 1.8); g.add(cr); }
     const ch = new THR.Group(), cm = propModel('chute'); if (cm) { cm.scale.setScalar(1.25); cm.position.y = 1.15; ch.add(cm); } g.add(ch); g.userData.ch = ch;
-    { const puffs = [], tex = this._smokeTex || (this._smokeTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THR.CanvasTexture(cv); })());
-      for (let i = 0; i < 22; i++) { const sp = new THR.Sprite(new THR.SpriteMaterial({ map: tex, color: i % 3 ? 0xd8362a : 0xb8281f, transparent: true, opacity: 0, depthWrite: false })); sp.userData.ph = i / 22; sp.userData.rx = Math.random() - 0.5; sp.userData.rz = Math.random() - 0.5; sp.visible = false; g.add(sp); puffs.push(sp); } g.userData.puffs = puffs; }   /* v255: real SMOKE (soft puffs that rise, billow and thin out, drifting with the wind) instead of a red cylinder */
+    this.mkPuffs(g, 30, 0x2fdc5a, 0x1fae45); g.userData.sm = { H: 120, life: 16, s0: 3, s1: 20, drift: 26, a: 0.6 };   /* v264: a BIG green column (120 m, 23 m wide at the top, no fog) so the care package is seen from far across the island */
     return g;
   }
-  stepSmoke(g, dt, on) {   /* the red smoke column from the crate: each puff lives 9 s, climbs ~5 m/s, swells and fades; the wind leans the column */
-    const P = g.userData.puffs; if (!P) return; for (const sp of P) { const u = sp.userData; u.ph = (u.ph + dt / 9) % 1; const k = u.ph; sp.visible = on; if (!on) continue; sp.position.set(u.rx * 1.2 * (1 + k * 3) + k * 14, 1.3 + k * 46, u.rz * 1.2 * (1 + k * 3) + k * 4); const sc = 1.8 + k * 11; sp.scale.set(sc, sc, 1); sp.material.opacity = Math.min(1, k * 8) * (1 - k) * 0.55; }
+  mkPuffs(g, n, c1, c2) {   // soft smoke puffs (sprites, no fog: seen from far) that rise, billow and thin out; stepSmoke moves them
+    const THR = THREE, tex = this._smokeTex || (this._smokeTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); return new THR.CanvasTexture(cv); })());
+    const puffs = []; for (let i = 0; i < n; i++) { const sp = new THR.Sprite(new THR.SpriteMaterial({ map: tex, color: i % 3 ? c1 : c2, transparent: true, opacity: 0, depthWrite: false, fog: false })); sp.userData.ph = i / n; sp.userData.rx = Math.random() - 0.5; sp.userData.rz = Math.random() - 0.5; sp.visible = false; sp.renderOrder = 4; g.add(sp); puffs.push(sp); }
+    g.userData.puffs = puffs; return g;
+  }
+  stepSmoke(g, dt, on) {   /* each puff lives `life` s, climbs H metres, swells and fades; the wind leans the column */
+    const P = g.userData.puffs, M = g.userData.sm; if (!P || !M) return; for (const sp of P) { const u = sp.userData; u.ph = (u.ph + dt / M.life) % 1; const k = u.ph; sp.visible = on; if (!on) continue; sp.position.set(u.rx * 1.2 * (1 + k * 3) + k * M.drift, 1.3 + k * M.H, u.rz * 1.2 * (1 + k * 3) + k * M.drift * 0.3); const sc = M.s0 + k * M.s1; sp.scale.set(sc, sc, 1); sp.material.opacity = Math.min(1, k * 8) * (1 - k) * M.a; }
   }
   onAirplane(e) {
     if (this.airs) for (const a of this.airs) if (a.n === e.n) return; (this.airs || (this.airs = [])).push({ n: e.n, x: e.x, z: e.z, hd: e.hd, t: 0, plane: this.airKit(), crate: this.airCrate(), landed: false, rm: 0 });
     const a = this.airs[this.airs.length - 1]; a.crate.visible = false; this.group.add(a.plane); this.group.add(a.crate);
-    if (!this.dropping && this.R.toast) this.R.toast('AIRDROP! A plane is dropping a care package - watch the sky, then run to the red smoke (yellow square on the minimap)', 5);
+    if (!this.dropping && this.R.toast) this.R.toast('AIRDROP! A plane is dropping a care package - watch the sky, then run to the GREEN smoke (yellow square on the minimap)', 5);
     if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z };
   }
-  onAirland(e) { const a = this.airs && this.airs.find((q) => q.n === e.n); if (a) { a.landed = true; a.t = Math.max(a.t, AIR.back / AIR.v + AIR.alt / AIR.fall); } if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z }; if (!this.dropping && this.R.toast) this.R.toast('AIRDROP LANDED - gold loot at the red smoke', 3.5); }
+  onAirland(e) { const a = this.airs && this.airs.find((q) => q.n === e.n); if (a) { a.landed = true; a.t = Math.max(a.t, AIR.back / AIR.v + AIR.alt / AIR.fall); } if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z }; if (!this.dropping && this.R.toast) this.R.toast('AIRDROP LANDED - gold loot at the green smoke', 3.5); }
   stepAir(dt) {
     if (!this.airs) return; const tp = AIR.back / AIR.v;
     for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
@@ -444,6 +452,10 @@ export class CombatScene {
       if (this.time <= 0) this.finish();
     }
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
+    for (const [key, sm] of this.dsm) {   // the green smoke over dead players' boxes: gone when the last item is taken; drawn within 260 m
+      for (const id of sm.ids) if (!this.loot.has(id)) sm.ids.delete(id);
+      if (!sm.ids.size) { this.group.remove(sm.g); this.dsm.delete(key); continue; }
+      const pb = this.R.me.body, dx = pb.x - sm.x, dz = pb.z - sm.z; this.stepSmoke(sm.g, dt, dx * dx + dz * dz < 67600); }
     for (const [id, l] of this.loot) {   // spin and bob the loot; remove what was taken
       if (!l.it.alive) { this.group.remove(l.g); this.loot.delete(id); continue; }
       { const pb = this.R.me.body, dx = pb.x - CMB.x - l.it.x, dz = pb.z - CMB.z - l.it.z, vis = dx * dx + dz * dz < LOOT_VIS2 * (this.dropping ? 4 : 1);   // v219: items only exist on screen near you (64 guns / items over the whole island were ~45% of all triangles and draw calls)
@@ -516,10 +528,10 @@ export class CombatScene {
   slotsTick() {   // PUBG-style weapon slots: tap a slot to hold it, tap the held one to put it away
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb) return;
     if (!this.slotEl) { const e = document.createElement('div'); e.id = 'c-slots'; document.body.appendChild(e); this.slotEl = e;
-      e.addEventListener('pointerdown', (ev) => { const t = ev.target.closest('[data-w]'); if (!t) return; ev.preventDefault(); ev.stopPropagation(); const w = t.dataset.w; R.equip(R.weapon === w && w !== 'fist' ? 'fist' : w); this._sk = ''; }); }
-    const gs = this.guns(), list = [gs[0] || '', gs[1] || ''], key = list.join() + '|' + (R.weapon || 'fist') + '|' + this._fight;
+      e.addEventListener('pointerdown', (ev) => { const t = ev.target.closest('[data-w]'); if (!t) return; ev.preventDefault(); ev.stopPropagation(); const w = t.dataset.w; if (!w) return; R.equip(R.weapon === w && w !== 'fist' ? 'fist' : w); this._sk = ''; }); }
+    const gs = this.guns(), nd = cb.nades | 0, list = [gs[0] || '', gs[1] || '', nd > 0 ? 'grenade' : ''], key = list.join() + '|' + nd + '|' + (R.weapon || 'fist') + '|' + this._fight;   /* v264: slot 3 = grenades (tap it / press 3 or 4, then throw with the fire button) */
     if (key === this._sk) return; this._sk = key; this.slotEl.style.display = this._fight ? 'flex' : 'none';
-    this.slotEl.innerHTML = list.map((w, i) => '<button type="button" data-w="' + w + '" class="' + (w ? '' : 'empty ') + (w && R.weapon === w ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (w && this.icon(w) ? '<img alt="" src="' + this.icon(w) + '">' : '') + (w ? '<b>' + (w === 'bat' ? 'BAT' : w.toUpperCase()) + '</b><small>' + (w === 'bat' ? '' : ((cb.mag[w] | 0) + '/' + (cb.ammo[w] | 0))) + '</small>' : '') + '</button>').join('');
+    this.slotEl.innerHTML = list.map((w, i) => '<button type="button" data-w="' + w + '" class="' + (w ? '' : 'empty ') + (w && R.weapon === w ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (w && this.icon(w) ? '<img alt="" src="' + this.icon(w) + '">' : '') + (w ? '<b>' + (w === 'bat' ? 'BAT' : w.toUpperCase()) + '</b><small>' + (w === 'bat' ? '' : w === 'grenade' ? 'x' + nd : ((cb.mag[w] | 0) + '/' + (cb.ammo[w] | 0))) + '</small>' : '') + '</button>').join('');
   }
   guns() { const cb = this.R.wallet && this.R.wallet.cb; return cb ? Object.keys(cb.owned).filter((w) => cb.owned[w] && isGunK(w)) : []; }
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
