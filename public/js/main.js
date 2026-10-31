@@ -2297,14 +2297,34 @@ function onLobby(m) {
   if (prev && m.players.length > prev.players.length) A.sfx.join();
   renderLobby();
 }
+// v274 PUBG custom room: up to 3 teams of 2-4, a team name, JOIN / LEAVE, the leader's FILL switch; each team flies in its own plane
+function renderTeams(m) {
+  const box = $('lobby-teams'), bar = $('lobby-tbar'); if (!box) return; const on = !!m.combat; box.style.display = on ? 'block' : 'none'; bar.style.display = on && (m.teams || []).length < 3 ? 'flex' : 'none'; bar.style.gap = '6px'; if (!on) return;
+  const me = app.myId, esc = (t) => String(t).replace(/[<>&]/g, ''), mine = (m.teams || []).find((t) => t.ids.includes(me)), byId = new Map(m.players.map((p) => [p.id, p])); box.innerHTML = '';
+  const COL = ['#ffd23f', '#5bd2ff', '#ff6a8d'];
+  (m.teams || []).forEach((t, i) => {
+    const d = document.createElement('div'); d.style.cssText = 'border:2px solid ' + COL[i % 3] + ';border-radius:10px;padding:6px 8px;margin:0 0 6px;background:rgba(0,0,0,.35)';
+    let h = '<div style="display:flex;align-items:center;gap:6px;font-weight:800"><span style="color:' + COL[i % 3] + '">' + esc(t.name) + '</span><small>' + t.ids.length + '/4</small><span style="flex:1"></span>';
+    if (mine === t) { if (t.leader === me) h += '<button class="btn small ' + (t.fill ? 'green' : 'grey') + '" data-a="fill">FILL ' + (t.fill ? 'ON' : 'OFF') + '</button>'; h += '<button class="btn small grey" data-a="leave">LEAVE</button>'; }
+    else if (t.ids.length < 4) h += '<button class="btn small pink" data-a="join" data-t="' + t.id + '">JOIN</button>'; else h += '<small>FULL</small>';
+    h += '</div>';
+    for (let k = 0; k < 4; k++) { const p = byId.get(t.ids[k]); h += '<div class="slot' + (p ? '' : ' empty') + '" style="margin-top:3px">' + (p ? '<i style="background:' + CHARACTERS[p.char].color + '"></i><span>' + esc(p.name) + '</span>' + (p.id === t.leader ? '<span>\u{1F451}</span>' : '') + (p.id === me ? '<span class="you">YOU</span>' : '') : '<i style="background:#888"></i><span>Empty</span>') + '</div>'; }
+    d.innerHTML = h; box.appendChild(d);
+  });
+  const loose = m.players.filter((p) => !(m.teams || []).some((t) => t.ids.includes(p.id)));
+  if (loose.length) { const d = document.createElement('div'); d.className = 'note'; d.innerHTML = 'Not in a team yet: ' + loose.map((p) => esc(p.name) + (p.id === me ? ' (you)' : '')).join(', '); box.appendChild(d); }
+  box.onclick = (e) => { const b = e.target.closest && e.target.closest('button[data-a]'); if (!b) return; A.sfx.click(); const a = b.dataset.a; if (a === 'join') app.net.send({ t: 'tjoin', team: +b.dataset.t }); else if (a === 'leave') app.net.send({ t: 'tleave' }); else if (a === 'fill') { const t = (m.teams || []).find((q) => q.leader === me); app.net.send({ t: 'tfill', on: !(t && t.fill) }); } };
+  $('b-tcreate').onclick = () => { A.sfx.click(); const n = $('lobby-tname').value.trim(); app.net.send({ t: 'tcreate', name: n || ((app.name || 'MY') + ' TEAM') }); $('lobby-tname').value = ''; };
+}
 function renderLobby() {
   const m = app.room; if (!m) return;
   const meP = m.players.find((p) => p.id === app.myId);
   if (meP) { app.char = meP.char; app.skin = meP.skin | 0; }
   $('lobby-code').textContent = m.code;
-  $('lobby-count').textContent = `${m.players.length}/${MAX_PLAYERS}`;
+  $('lobby-count').textContent = `${m.players.length}/${m.combat ? 12 : MAX_PLAYERS}`;
+  renderTeams(m);
   const slots = $('lobby-players'); slots.innerHTML = '';
-  for (let i = 0; i < MAX_PLAYERS; i++) {
+  for (let i = 0; i < (m.combat ? 0 : MAX_PLAYERS); i++) {
     const p = m.players[i], d = document.createElement('div'); d.className = 'slot' + (p ? '' : ' empty');
     d.innerHTML = p ? `<i style="background:${CHARACTERS[p.char].color}"></i><span>${p.name.replace(/[<>&]/g, '')}</span>${p.id === m.hostId ? '<span>\u{1F451}</span>' : ''}${p.id === app.myId ? '<span class="you">YOU</span>' : ''}` : '<i style="background:#888"></i><span>Waiting for player...</span>';
     slots.appendChild(d);
@@ -2320,7 +2340,7 @@ function renderLobby() {
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
   $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)'; { const lb = $('lobby-level-block'); if (lb) lb.style.display = m.combat ? 'none' : ''; }
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
-  $('lobby-hint').textContent = m.combat ? (host ? 'COMBAT TEAM ROOM: tell your team the room name. Press START when everybody is in - the match begins by itself.' : 'COMBAT TEAM ROOM: the host will start the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
+  $('lobby-hint').textContent = m.combat ? (host ? 'Make a team (name it) or tap JOIN on one. Every team needs 2 to 4 players; players without a team are placed by FILL. Host: press START.' : 'Make a team or tap JOIN on one. The host starts the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
   stage.setLobby(m.players);
 }
 function onGo(m) {
@@ -2329,8 +2349,8 @@ function onGo(m) {
   const room = app.room; if (!room) return;
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
     app.level = 0; loadScreen.show('JANG', 'LOADING...');
-    const ord = (m.order && m.order.length ? m.order : room.players.map((p) => p.id)), ix = Math.max(0, ord.indexOf(app.myId)), nn = ord.length, half = Math.ceil(nn / 2);   // v235: up to 4 players = one team, one plane; more = two teams, two planes
-    const tm = nn <= 4 ? 0 : (ix < half ? 0 : 1), tmates = ord.filter((id, i) => (nn <= 4 ? 0 : (i < half ? 0 : 1)) === tm), tm0 = { shared: nn >= 2, seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf: Object.fromEntries(ord.map((id, i) => [id, nn <= 4 ? 0 : (i < half ? 0 : 1)])), seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])) };
+    const ord = (m.order && m.order.length ? m.order : room.players.map((p) => p.id)), nn = ord.length, teamOf = m.teamOf || Object.fromEntries(ord.map((id) => [id, 0])), tm = teamOf[app.myId] | 0, tmates = ord.filter((id) => (teamOf[id] | 0) === tm);   // v274: the server places every player in a team (0..2); each team flies its own plane
+    const tm0 = { shared: nn >= 2, seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf, seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])), teamName: (m.teamNames || [])[tm] || '' };
     requestAnimationFrame(() => setTimeout(() => { startJang(tm0); }, 40));
     return;
   }

@@ -88,9 +88,16 @@ function genCode() {
   }
 }
 
+const COMBAT_TEAMS = 3, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 3 teams of 2-4 (PUBG custom room)
+let teamSeq = 1;
+function teamsOf(room) { return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, ids: [...t.ids] })); }
+function leaveTeam(room, p) {
+  if (!room || !room.teams || p.team == null) return; const t = room.teams.find((q) => q.id === p.team); p.team = null; if (!t) return; t.ids.delete(p.id);
+  if (!t.ids.size) room.teams = room.teams.filter((q) => q !== t); else if (t.leader === p.id) t.leader = t.ids.values().next().value;
+}
 function lobbyMsg(room) {
   return {
-    t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat,
+    t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat, teams: teamsOf(room),
     players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, skin: p.skin, zom: !!p.zom })),
   };
 }
@@ -141,6 +148,29 @@ function endRound(room, reason) {
   bcast(room, { t: 'end', results, winnerId: results[0] ? results[0].id : null, reason });
 }
 
+// v274: before a Jang match: players without a team are placed (FILL teams first, then a new team, then any free seat); with 2+ players every team needs 2 to 4 members
+function prepTeams(room, ws) {
+  room.teams = room.teams || []; const players = [...room.players.values()];
+  if (players.length > 1) {
+    const loose = players.filter((q) => q.team == null).sort(() => Math.random() - 0.5);
+    for (const q of loose) {
+      let t = room.teams.filter((x) => x.fill && x.ids.size < TEAM_MAX).sort((a, b) => a.ids.size - b.ids.size)[0];
+      if (!t && room.teams.length < COMBAT_TEAMS) { t = { id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: q.id, fill: false, ids: new Set() }; room.teams.push(t); }
+      if (!t) t = room.teams.filter((x) => x.ids.size < TEAM_MAX).sort((a, b) => a.ids.size - b.ids.size)[0];
+      if (!t) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; }
+      t.ids.add(q.id); q.team = t.id;
+    }
+    const small = room.teams.find((t) => t.ids.size < 2);
+    if (small) { send(ws, { t: 'err', msg: `Team ${small.name} has only 1 player. Every team needs 2 to 4 players (or the player can leave the team).` }); return false; }
+    bcast(room, lobbyMsg(room));
+  } else if (!room.teams.length) { const q = players[0]; const t = { id: teamSeq++, name: 'TEAM 1', leader: q.id, fill: false, ids: new Set([q.id]) }; room.teams.push(t); q.team = t.id; }
+  return true;
+}
+const goMsg = (room, meta) => ({
+  t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed, order: [...room.players.values()].map((p) => p.id),
+  ...(room.combat ? { teamOf: Object.fromEntries([...room.players.values()].map((p) => [p.id, Math.max(0, (room.teams || []).findIndex((t) => t.id === p.team))])), teamNames: (room.teams || []).map((t) => t.name) } : null),
+});
+
 function startRound(room) {
   const meta = LEVEL_META[room.level];
   room.phase = 'countdown';
@@ -152,10 +182,8 @@ function startRound(room) {
   room.seed = 1 + Math.floor(Math.random() * 1e9);
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }) : null;   // v245: the shared Jang match: the server runs the bots + loot
-  bcast(room, {
-    t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed,
-    order: [...room.players.values()].map((p) => p.id),
-  });
+  if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
+  bcast(room, goMsg(room, meta));
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
   if (false && room.combat) room.timers.push(setTimeout(() => {   // v189: off - every player runs Jang alone on their own map; the server starts no shared mission   // TEAM UP COMBAT: once everybody has loaded the city the mission starts by itself, with the whole team in it
@@ -167,7 +195,7 @@ function startRound(room) {
 function removePlayer(p) {
   const room = p.room;
   if (!room) return;
-  room.players.delete(p.id);
+  leaveTeam(room, p); room.players.delete(p.id);
   p.room = null;
   if (room.hub) room.hub.drop(p.id, pids(room));
   if (room.players.size === 0) { clearTimers(room); if (room.hub) room.hub.reset(); rooms.delete(room.code); return; }
@@ -182,15 +210,15 @@ function removePlayer(p) {
 
 function joinRoom(p, room) {
   p.room = room;
-  p.char = freeChar(room, p.char, p.id); if (!(p.skin >= 0 && p.skin < 9) || (p.skin < 4 && p.skin !== p.char)) p.skin = p.char;   // a GTA hero look belongs to its slot; the Jang soldiers (4..8) can sit in any slot
-  if (p.skin >= 4) { const used = new Set([...room.players.values()].filter((q) => q.id !== p.id).map((q) => q.skin)); if (used.has(p.skin)) { let k = 4; while (k < 9 && used.has(k)) k++; p.skin = k < 9 ? k : p.char; } }
+  p.char = room.combat ? (Number.isInteger(p.char) && p.char >= 0 && p.char < CHARACTERS.length ? p.char : 0) : freeChar(room, p.char, p.id); if (!(p.skin >= 0 && p.skin < 9) || (p.skin < 4 && p.skin !== p.char)) p.skin = p.char;   // a GTA hero look belongs to its slot; the Jang soldiers (4..8) can sit in any slot
+  if (p.skin >= 4 && !room.combat) { const used = new Set([...room.players.values()].filter((q) => q.id !== p.id).map((q) => q.skin)); if (used.has(p.skin)) { let k = 4; while (k < 9 && used.has(k)) k++; p.skin = k < 9 ? k : p.char; } }
   room.players.set(p.id, p);
   p.finished = false; p.finTime = 0; p.x = 0; p.y = 0; p.z = 0;
   send(p.ws, { t: 'joined', id: p.id, code: room.code }); sendBusy(room, p);
   bcast(room, lobbyMsg(room));
   if (room.phase === 'race' || room.phase === 'countdown') { // joined a race that is already running: drop in at the start line
     const meta = LEVEL_META[room.level];
-    send(p.ws, { t: 'go', t0: room.t0, level: room.level, limit: meta.limit, seed: room.seed, order: [...room.players.values()].map((q) => q.id) });
+    send(p.ws, goMsg(room, meta));
     if (room.cars && Object.keys(room.cars).length) send(p.ws, { t: 'cars', cars: room.cars });
   }
 }
@@ -228,7 +256,7 @@ wss.on('connection', (ws, req) => {
         const out = { t: 'vc', from: p.id, k: m.k, d: m.d }, js = JSON.stringify(out); if (js.length > 7000) return;
         if (q.ws.readyState === 1) q.ws.send(js); break;
       }
-      case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < MAX_PLAYERS && !!x.combat === !!m.combat); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
+      case 'rooms': { const open = [...rooms.values()].filter((x) => x.players.size < capOf(x) && !!x.combat === !!m.combat); send(ws, { t: 'rooms', n: open.length, l: open.slice(0, 8).map((x) => x.code) }); break; }   // lets the JOIN button know whether a room exists
 
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
@@ -251,13 +279,13 @@ wss.on('connection', (ws, req) => {
         } else {
           const all = [...rooms.values()].filter((x) => !!x.combat === !!m.combat);
           if (all.length > 1) return send(ws, { t: 'err', msg: 'There is more than one room open - type the room name your friend made, then tap JOIN ROOM.' });
-          r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < MAX_PLAYERS) || all.find((x) => x.players.size < MAX_PLAYERS);
+          r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < capOf(x)) || all.find((x) => x.players.size < capOf(x));
           if (!r) {
             if (!all.length) return send(ws, { t: 'err', msg: 'No room has been created yet. Ask the host to tap CREATE ROOM first, then tap JOIN ROOM.' });
             return send(ws, { t: 'err', msg: `The room is full (${MAX_PLAYERS} players max).` });
           }
         }
-        if (r.players.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: `Room is full (${MAX_PLAYERS} players max).` });
+        if (r.players.size >= capOf(r)) return send(ws, { t: 'err', msg: `Room is full (${capOf(r)} players max).` });
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom;
         joinRoom(p, r);
@@ -272,8 +300,8 @@ wss.on('connection', (ws, req) => {
         if (!room || !room.combat || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
-        p.jx = m.x; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 1;   // v245: where I am and whether the bots may shoot me
-        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, nm: p.name, tm: m.tm & 1, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, rv: m.rv ? 1 : 0 }, p.id); break;
+        p.jx = m.x; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 3;   // v245: where I am and whether the bots may shoot me
+        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, rv: m.rv ? 1 : 0 }, p.id); break;
       }
       case 'jr': {   // v244: a teammate revives me (relay only)
         if (!room || !room.combat || room.phase !== 'race') return;
@@ -308,9 +336,9 @@ wss.on('connection', (ws, req) => {
       case 'char': {
         if (!room || room.phase === 'race' || room.phase === 'countdown') return;
         const c = m.char | 0;
-        const taken = [...room.players.values()].some((q) => q.id !== p.id && q.char === c);
+        const taken = !room.combat && [...room.players.values()].some((q) => q.id !== p.id && q.char === c);
         if (taken || c < 0 || c >= CHARACTERS.length) return;
-        const sk = m.skin | 0; if (sk >= 4 && sk < 9 && [...room.players.values()].some((q) => q.id !== p.id && q.skin === sk)) return;   // two players never wear the same soldier
+        const sk = m.skin | 0; if (!room.combat && sk >= 4 && sk < 9 && [...room.players.values()].some((q) => q.id !== p.id && q.skin === sk)) return;   // two players never wear the same soldier
         p.char = c; p.skin = sk >= 4 && sk < 9 ? sk : c;
         bcast(room, lobbyMsg(room));
         break;
@@ -329,8 +357,18 @@ wss.on('connection', (ws, req) => {
         bcast(room, lobbyMsg(room));
         break;
       }
+      case 'tcreate': case 'tjoin': case 'tleave': case 'tfill': {   // v274 PUBG custom room: make a team (name), join a team, leave it, FILL switch
+        if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return; room.teams = room.teams || [];
+        if (m.t === 'tcreate') { if (room.teams.length >= COMBAT_TEAMS) return send(ws, { t: 'err', msg: `Only ${COMBAT_TEAMS} teams fit in a match. Join one of them.` }); leaveTeam(room, p); const t = { id: teamSeq++, name: cleanName(m.name || 'Team').slice(0, 12).toUpperCase() || 'TEAM', leader: p.id, fill: false, ids: new Set([p.id]) }; room.teams.push(t); p.team = t.id; }
+        else if (m.t === 'tjoin') { const t = room.teams.find((q) => q.id === (m.team | 0)); if (!t) return; if (t.ids.has(p.id)) return; if (t.ids.size >= TEAM_MAX) return send(ws, { t: 'err', msg: 'That team is full (4 players).' }); leaveTeam(room, p); t.ids.add(p.id); p.team = t.id; }
+        else if (m.t === 'tleave') leaveTeam(room, p);
+        else { const t = room.teams.find((q) => q.id === p.team); if (!t || t.leader !== p.id) return; t.fill = !!m.on; }
+        bcast(room, lobbyMsg(room));
+        break;
+      }
       case 'start': {
         if (!room || room.hostId !== p.id || (room.phase !== 'lobby' && room.phase !== 'results')) return;
+        if (room.combat && !prepTeams(room, ws)) return;
         startRound(room);
         break;
       }
