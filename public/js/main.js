@@ -2025,7 +2025,7 @@ function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
-  app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby');
+  app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby'); try { voiceUI(); } catch (e) { /* voice not ready yet */ }
 }
 let toastTimer = 0;
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -2178,7 +2178,7 @@ const voiceOn = () => !!(voice && app.room && voiceMates().length > 1);
 function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); voiceUI(); return; } const on = voiceOn(); voice.setRoom(app.myId, voiceMates(), on); voiceUI(); }
 function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
 function voiceUI(speakOnly) {
-  if (!voice) return; const on = voiceOn();
+  if (!voice) return; const on = voiceOn() || (document.body.classList.contains('in-lobby') && !!app.room);   // v284: in the lobby the buttons are there even before a friend joins
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
   $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);

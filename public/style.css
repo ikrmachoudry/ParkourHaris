@@ -1171,6 +1171,7 @@ body.touch.in-race.driving #joy.locked { display: none !important; }
 #vc { display: none; position: fixed; z-index: 45; pointer-events: auto; left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(88px, 19vmin, 142px) + 10px); top: max(10px, env(safe-area-inset-top), 2vh); font-family: system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 body.touch #vc { left: calc(max(12px, var(--sal, env(safe-area-inset-left)), 2vw) + clamp(78px, 17vmin, 112px) + 10px); }
 body.vc-on.in-race.city-mode #vc { display: block; }
+body.vc-on.in-lobby #vc, body.in-lobby #vc.lob { display: block; left: max(14px, env(safe-area-inset-left)); top: 64px; z-index: 60; }   /* v284: mic + speaker in the main lobby too (the voice channel was already connected there) */
 #vc-btns { display: flex; gap: 8px; }
 #vc button { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.75); background: rgba(20,24,30,.55); padding: 0; display: grid; place-items: center; position: relative; -webkit-tap-highlight-color: transparent; }
 body.touch #vc button { width: 44px; height: 44px; }
