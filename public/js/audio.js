@@ -319,6 +319,8 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   hot:   { a: 'eng_car', ra: [0.95, 3.1], b: 'eng_moto', rb: [1.5, 4.2], gb: [0, 0.35], lp: [900, 5200], gain: 0.55 },
   rough: { a: 'eng_car', ra: [0.7, 2.0], b: 'eng_v8', rb: [0.9, 2.1], gb: [0.1, 0.25], lp: [500, 2800], gain: 0.6, chop: [9, 0.2] },
   suv:   { a: 'eng_v8', ra: [0.8, 2.3], b: 'eng_car', rb: [0.8, 1.9], gb: [0.15, 0.2], lp: [600, 3300], gain: 0.6 },
+  civic: { a: 'eng_car', ra: [1.0, 3.5], b: 'eng_moto', rb: [1.5, 4.6], gb: [0.08, 0.55], lp: [1100, 7200], gain: 0.6 },   // v269: Honda Civic Si: a high-revving 4-cylinder (VTEC-like top end), not the jeep's V8 growl
+  mehran: { a: 'eng_car', ra: [0.95, 2.9], b: 'eng_car', rb: [1.5, 3.8], gb: [0, 0.25], lp: [800, 4200], gain: 0.5, chop: [13, 0.12] },   // small 3-cylinder
   v8:    { a: 'eng_v8', ra: [0.85, 2.7], b: 'eng_car', rb: [1.0, 2.6], gb: [0, 0.25], lp: [800, 4600], gain: 0.62 },
   sport: { a: 'eng_v8', ra: [1.0, 3.6], b: 'eng_moto', rb: [1.7, 4.6], gb: [0.05, 0.55], lp: [1200, 7000], gain: 0.62 },
   racer: { a: 'eng_v8', ra: [1.1, 3.9], b: 'eng_moto', rb: [2.0, 5.0], gb: [0.1, 0.65], lp: [1600, 9000], gain: 0.62 },
@@ -333,7 +335,7 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   fishboat:  { a: 'eng_diesel', ra: [0.8, 1.5], b: 'eng_boat', rb: [0.5, 0.95], gb: [0.1, 0.25], lp: [420, 1500], gain: 0.85, chop: [5.5, 0.42], boat: 0.8 },
   yacht:     { a: 'eng_diesel', ra: [0.78, 1.7], b: 'eng_boat', rb: [0.55, 1.2], gb: [0.2, 0.4], lp: [380, 1900], gain: 0.8, chop: [3, 0.08], boat: 1.1 },
 };
-const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht' };
+const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht', 33: 'v8', 34: 'civic', 35: 'mehran' };
 // a looping recording: a source, a low-pass and a gain; starts at a random point so layers never line up
 function loopV(name, vol = 0, rate = 1, lpf = 0, dest = sfxG) {
   const b = bank[name]; if (!ctx || !b) return null;

@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { loadGlb } from './glbactor.js';
 export const CIVIC = { L: 4.47, w: 1.95, wb: 2.6, seatX: -0.25, seatR: 0.38, seatTop: 0.75 };
 let SRC = null, P = null; const waiting = [];
-const BODY = new THREE.MeshStandardMaterial({ color: '#0b0b0e', roughness: 0.3, metalness: 0.6 });   // placeholder for the paint material until the file is in
+const BODY = new THREE.MeshStandardMaterial({ color: '#14141a', roughness: 0.35, metalness: 0.25 });   // placeholder for the paint material until the file is in
 function prep(sc) {
   sc.traverse((o) => { if (!o.isMesh) return; o.castShadow = true; const m = o.material; if (!m) return;
-    if (m.name === 'CIVIC13') { m.color.set('#0b0b0e'); m.roughness = 0.28; m.metalness = 0.6; }   // the paint: BLACK (it was red)
+    if (m.name === 'CIVIC13') { m.color.set('#14141a'); m.roughness = 0.35; m.metalness = 0.25; }   // the paint: BLACK (it was red)
     if (m.name === 'glass') { m.transparent = true; m.opacity = 0.35; m.depthWrite = false; } });
 }
 export function preloadCivic() {
@@ -20,15 +20,15 @@ export function buildCivic({ detail = 'hi' } = {}) {
   inner.rotation.y = Math.PI / 2; g.add(inner);   // model +z (nose) -> car space +x
   const fill = () => {
     const m = SRC.clone(true), parts = [];
+    m.scale.setScalar(100); m.position.y = -0.0713; m.updateMatrixWorld(true);   // the file is in centimetres / 100: its own nodes scale it by 0.01, so x100 gives metres (4.47 m long)
     m.traverse((o) => { if (o.isMesh && o.material && /^(CIVIC13_rin|llanta|disk)$/.test(o.material.name)) parts.push(o); });
     const by = new Map();
     for (const o of parts) { const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3()), k = (c.x > 0 ? 'r' : 'l') + (c.z > 0 ? 'f' : 'b'); let e = by.get(k); if (!e) by.set(k, e = { box: new THREE.Box3(), list: [] }); e.box.union(b); e.list.push(o); }
-    for (const [k, e] of by) {
-      const c = e.box.getCenter(new THREE.Vector3()), steer = new THREE.Group(), spin = new THREE.Group(); steer.position.copy(c); steer.add(spin); m.add(steer); steer.updateMatrixWorld(true);
-      for (const o of e.list) spin.attach(o);
-      wheels.push({ steer, spin, front: k[1] === 'f' });
-    }
-    m.position.y = -0.0713; inner.add(m); mats.paint = BODY;
+    inner.add(m);
+    for (const [k, e] of by) { const c = e.box.getCenter(new THREE.Vector3()), steer = new THREE.Group(), spin = new THREE.Group(); steer.position.copy(c); steer.add(spin); inner.add(steer); wheels.push({ steer, spin, front: k[1] === 'f', list: e.list }); }
+    g.updateMatrixWorld(true);
+    for (const w of wheels) for (const o of w.list) w.spin.attach(o);
+    mats.paint = BODY;
   };
   if (SRC) fill(); else { waiting.push(fill); preloadCivic(); }
   return {
