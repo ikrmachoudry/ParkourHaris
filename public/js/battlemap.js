@@ -207,7 +207,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         B.box('trim', cx - hw2 - 0.15, ya - 0.1, zO, cx + hw2 + 0.15, sp, zO + 0.06, tan, 0); half(cx, sp, hw2 + 0.15, zO, zO + 0.06, tan);
         plane(hw2 * 2, hh, cx, ya + hh / 2, zO + 0.08, signTex('', '', '', 160, 188, 5), true); }
       // roof: a balustrade of spiked balusters between square posts, all round
-      B.box('trim', bx - hx - 0.34, capY, b.z - hz - 0.34, bx + hx + 0.34, capY + 0.1, b.z + hz + 0.34, tan, 0);
+      /* v277: this was ONE solid slab over the whole roof, 0.55 m above the terrace (it hid the stairs and swallowed your feet): now only the rail-top ring round the edge, with the jump-down gap left open in the east side */
+      for (const [x0, z0, x1, z1] of [[-hx - 0.34, -hz - 0.34, hx + 0.34, -hz + 0.1], [-hx - 0.34, hz - 0.1, hx + 0.34, hz + 0.34], [-hx - 0.34, -hz - 0.34, -hx + 0.1, hz + 0.34], [hx - 0.1, -hz - 0.34, hx + 0.34, -2.2], [hx - 0.1, 2.2, hx + 0.34, hz + 0.34]]) B.box('trim', bx + x0, capY, b.z + z0, bx + x1, capY + 0.1, b.z + z1, tan, 0);
       { const sp = new THREE.OctahedronGeometry(0.2); sp.scale(0.5, 2.1, 0.5); const geos = []; const posts = [];
         for (const [x0, z0, x1, z1, al] of [[-hx, -hz, hx, -hz, 1], [-hx, hz, hx, hz, 1], [-hx, -hz, -hx, hz, 0], [hx, -hz, hx, hz, 0]]) {
           const len = al ? x1 - x0 : z1 - z0, gap = (pz0) => !al && x0 > 0 && Math.abs(pz0 - b.z) < 2.3; for (let u = 0.3; u < len; u += 0.5) { const px = al ? bx + x0 + u : bx + x0, pz = al ? b.z + z0 : b.z + z0 + u; if (gap(pz)) continue; const g = sp.clone(); g.translate(px, capY + 0.1 + 0.42, pz); geos.push(g); }
