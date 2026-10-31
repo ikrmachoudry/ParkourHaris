@@ -575,7 +575,7 @@ class Race {
     let landed = false;
     for (const e of b.events) {
       if (e === 'jump') { this.particles.emit(b.x, b.y + 0.05, b.z, 5, { color: '#ffffff', speed: 1.5, up: 1, life: 0.35, size: 0.25, gravity: 2 }); }
-      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; { const cs = this.jang && this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && b.landSpeed > 11 && cs.hp > 0 && cs.deadT <= 0) { cs.hurt(Math.min(60, (b.landSpeed - 10) * 5)); this.toast && this.toast('HARD LANDING', 1.5); } } /* v247: a fall from a roof hurts (PUBG): about 20 from 7 m */ this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
+      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; { const cs = this.jang && this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && b.landSpeed > 13 && cs.hp > 0 && cs.deadT <= 0) { cs.hurt(Math.min(40, (b.landSpeed - 12) * 2.5)); this.toast && this.toast('HARD LANDING', 1.5); } } /* v247: a fall from a roof hurts (PUBG): about 20 from 7 m */ this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
       else if (e === 'bounce') { A.sfx.bounce(); landed = true; this.particles.emit(b.x, b.y + 0.1, b.z, 18, { rainbow: true, speed: 3, up: 2, life: 0.6, size: 0.3 }); }
       else if (e === 'dive') A.sfx.dive();
       else if (e === 'splash') {

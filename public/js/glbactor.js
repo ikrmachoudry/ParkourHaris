@@ -15,6 +15,7 @@ const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 
 
 import { av } from './assetver.js';
 const cache = new Map();
+const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.0;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
 export function loadGlb(url) {
   if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
   return cache.get(url);
@@ -186,6 +187,7 @@ export class GlbActor extends HeroActor {
     if (gun.parent) gun.parent.remove(gun);
     hr.bone.add(gun); gun.quaternion.copy(rel); gun.position.copy(gp); gun.scale.setScalar(1 / S);
     model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.12, 1, 1.12); if (hd && hd.bone) hd.bone.scale.set(0.74, 0.74, 0.74); } gun.scale.multiplyScalar(1 / (0.74 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
     this.shell = shell; this.ch.mesh.visible = false; this.ready = true;
     if (!this.opts.zombie && this.opts.pack !== false) { try { this.addPack(T.chest.bone, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('backpack', e); } }   // every survivor carries a backpack
     this.height = this.opts.height || 1.78;
@@ -199,6 +201,12 @@ export class GlbActor extends HeroActor {
     const merged = mergeGeometries(geos, false), pack = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
     const cw = chestBone.getWorldPosition(new THREE.Vector3()); pack.position.copy(cw).addScaledVector(fwdW, -0.165); pack.position.y -= 0.11; pack.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), fwdW); pack.updateMatrixWorld(true);
     pack.castShadow = true; pack.frustumCulled = false; chestBone.attach(pack); this.pack = pack;
+    loadGlb('models/bag.glb').then((g) => {   /* v258: the real TACTICAL BAG (2.4k triangles, 512 px texture) replaces the box pack; four colour variants by character id */
+      if (this.disposed || !this.pack || this.pack.userData.real) return; const old = this.pack, wrap = new THREE.Group(), inner = g.scene.clone(true), v = BAG_TINT[(this.id | 0) % BAG_TINT.length];
+      inner.traverse((o) => { if (o.isMesh) { const k = o.material.uuid + v; let m = BAG_MAT.get(k); if (!m) { m = o.material.clone(); m.color.set(v); BAG_MAT.set(k, m); } o.material = m; o.frustumCulled = false; o.castShadow = false; } });
+      inner.rotation.y = Math.PI; inner.scale.setScalar(1.12); inner.position.set(0, -0.3, BAG_Z); wrap.position.copy(old.position); wrap.quaternion.copy(old.quaternion); wrap.add(inner); wrap.userData.real = 1;
+      const par = old.parent; par.remove(old); par.add(wrap); wrap.updateMatrixWorld(true); this.pack = wrap;
+    }, () => {});
   }
   update(dt, st) {
     super.update(dt, st);

@@ -284,8 +284,10 @@ function build() {
   // the base: a fence round the compound with a gate on the south side, sandbags, containers
   const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
   padRect(FB.x0 + 5, FB.z0 + 5, FB.x1 - 5, FB.z1 - 5, BASE_Y);
-  const fence = (x0, z0, x1, z1) => { fences.push({ x0, z0, x1, z1 }); const alongX = Math.abs(z1 - z0) < 0.1, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 6); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0, bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1, gy = Math.max(cmbH(ax, az), cmbH(bx, bz)); addS({ x0: Math.min(ax, bx) - (alongX ? 0 : 0.15), x1: Math.max(ax, bx) + (alongX ? 0 : 0.15), z0: Math.min(az, bz) - (alongX ? 0.15 : 0), z1: Math.max(az, bz) + (alongX ? 0.15 : 0), y0: gy - 1.5, y1: gy + 2.4, k: 'fence' }); } };
-  fence(FB.x0, FB.z0, FB.x1, FB.z0); fence(FB.x0, FB.z0, FB.x0, FB.z1); fence(FB.x1, FB.z0, FB.x1, FB.z1); fence(FB.x0, FB.z1, FB.gate[0], FB.z1); fence(FB.gate[1], FB.z1, FB.x1, FB.z1);
+  const fence = (x0, z0, x1, z1, h = 1.15, col = '#6c7078') => { fences.push({ x0, z0, x1, z1, h, col }); const alongX = Math.abs(z1 - z0) < 0.1, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 6); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0, bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1, gy = Math.max(cmbH(ax, az), cmbH(bx, bz)); addS({ x0: Math.min(ax, bx) - (alongX ? 0 : 0.15), x1: Math.max(ax, bx) + (alongX ? 0 : 0.15), z0: Math.min(az, bz) - (alongX ? 0.15 : 0), z1: Math.max(az, bz) + (alongX ? 0.15 : 0), y0: gy - 1.5, y1: gy + h, k: 'fence', vault: 1 }); } };   /* v258: fences are LOW (1.15 m): you cannot walk through them and must VAULT them; gates and gaps let the bots through */
+  const fenceGap = (x0, z0, x1, z1, g0, g1, h, col) => { const l = Math.hypot(x1 - x0, z1 - z0), f = (d) => [x0 + (x1 - x0) * d / l, z0 + (z1 - z0) * d / l]; const p0 = f(g0), p1 = f(g1); fence(x0, z0, p0[0], p0[1], h, col); fence(p1[0], p1[1], x1, z1, h, col); };
+  fenceGap(FB.x0, FB.z0, FB.x1, FB.z0, 38, 54); fenceGap(FB.x0, FB.z0, FB.x0, FB.z1, 40, 56); fenceGap(FB.x1, FB.z0, FB.x1, FB.z1, 40, 56); fence(FB.x0, FB.z1, FB.gate[0], FB.z1); fence(FB.gate[1], FB.z1, FB.x1, FB.z1);   /* gates on all four sides (bots were stuck at the fence) */
+  for (const [fx0, fz0, fx1, fz1] of FIELDS) { const w = fx1 - fx0, d = fz1 - fz0; fenceGap(fx0, fz0, fx1, fz0, w / 2 - 3, w / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx0, fz1, fx1, fz1, w / 2 - 3, w / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx0, fz0, fx0, fz1, d / 2 - 3, d / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx1, fz0, fx1, fz1, d / 2 - 3, d / 2 + 3, 1.15, '#8a6a4a'); }
   for (const [x, z, a] of [[105, -170, 'z'], [235, -90, 'x'], [176, -100, 'x'], [160, -100, 'x'], [165, -186, 'x']]) { if (Math.abs(x - 105) < 1) continue; container(x, z, a, ['#6a7a5a', '#8a6a4a', '#5a6a7a'][Math.floor(R() * 3)]); }
   for (let i = 0; i < 6; i++) container(236 + (i % 2) * 7, 126 + Math.floor(i / 2) * 7, 'x', ['#c0482e', '#2f5d8a', '#c9a22b', '#4a7a4a'][i % 4], i % 3 === 0 ? 2 : 1);   // the container yard (south east)
   for (const [x, z] of [[118, -108], [214, -110], [124, -178], [220, -184]]) { crate(x, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); crate(x + 1.8, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); }
@@ -389,6 +391,15 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
     }
   }
   return best;
+}
+// v258: can a bullet fly from the bot (ground ay) to the player (height py) without crossing ANY solid (walls, pillars, floors, roofs)? 3D: samples the sloped line every 0.5 m
+export function shotClear(L, ax, az, bx, bz, ay, by) {
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.8) return true; const B = L.B, n = Math.ceil(d / 0.5), y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3;
+  for (let k = 1; k < n; k++) {
+    const t = k / n, x = ax + dx * t, z = az + dz * t, y = y0 + (y1 - y0) * t, a = L.bucket.get(Math.floor(x / B) * 4099 + Math.floor(z / B)); if (!a) continue;
+    for (const s of a) { if (y < s.y0 - 0.05 || y > s.y1 + 0.05 || x < s.x0 || x > s.x1 || z < s.z0 || z > s.z1) continue; if (k * 0.5 < 0.45 || (n - k) * 0.5 < 0.45) continue; return false; }
+  }
+  return true;
 }
 export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.01) return true; return rayWalls(L, ax, az, dx / d, dz / d, d, 1.4) >= d - 0.05; }
 
@@ -518,7 +529,7 @@ export class CombatSim {
         const want = Math.atan2(dx, dz); let da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 7);
         b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = 1 + this.R() * 1.6; b.strafe = this.R() < 0.5 ? -1 : 1; }
         const ux = dx / d, uz = dz / d; let f = d > 26 ? 1 : d < 12 ? -0.7 : 0.15; mx = ux * f - uz * b.strafe * 0.8; mz = uz * f + ux * b.strafe * 0.8; sp = 3.3; b.walk = false;
-        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
+        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); if (!shotClear(L, b.x, b.z, P.x, P.z, undefined, P.y)) { b.cool = 0.25; b.seen = false; b.alert = Math.max(b.alert, 4); continue; } const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {

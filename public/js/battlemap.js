@@ -289,8 +289,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   } else generic(p); }
   // the base's fence: posts, two rails and a sloping barbed top; farm fences round the fields
   const postFence = (x0, z0, x1, z1, col, h, step) => { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / step)); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n, y = cmbH(x, z); B.box('trim', x - 0.07, y - 0.3, z - 0.07, x + 0.07, y + h, z + 0.07, col, 0.05); if (i < n) { const xn = x0 + (x1 - x0) * (i + 1) / n, zn = z0 + (z1 - z0) * (i + 1) / n, yn = cmbH(xn, zn); for (const k of [0.45, 0.92]) { const g = new THREE.BoxGeometry(Math.hypot(xn - x, zn - z), 0.06, 0.05); g.rotateZ(Math.atan2(yn - y, Math.hypot(xn - x, zn - z))); g.rotateY(-Math.atan2(zn - z, xn - x)); g.translate((x + xn) / 2, (y + yn) / 2 + h * k, (z + zn) / 2); B.add('trim', g, col, 0.04); } } } };
-  for (const f of L.fences) postFence(f.x0, f.z0, f.x1, f.z1, '#6c7078', 2.2, 3.2);
-  for (const [x0, z0, x1, z1] of FIELDS) { postFence(x0, z0, x1, z0, '#8a6a4a', 1.1, 3); postFence(x0, z1, x1, z1, '#8a6a4a', 1.1, 3); postFence(x0, z0, x0, z1, '#8a6a4a', 1.1, 3); postFence(x1, z0, x1, z1, '#8a6a4a', 1.1, 3); }
+  for (const f of L.fences) postFence(f.x0, f.z0, f.x1, f.z1, f.col || '#6c7078', f.h || 1.15, 3);   /* v258: low fences with gates (they are solid now) */
   // the fields: draped crop rows (vertex-coloured stripes)
   { const gs = []; for (const [x0, z0, x1, z1, base] of FIELDS) {
       const nx = Math.round((x1 - x0) / 2), nz = Math.round((z1 - z0) / 4), pos = [], col = [], c0 = new THREE.Color(base);

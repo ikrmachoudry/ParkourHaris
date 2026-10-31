@@ -409,7 +409,7 @@ export class CombatScene {
   }
   update(dt) {
     const R = this.R; if (!this.on || !this.sim) return; if (R.jangTeam) this.stepMates(dt); this.t += dt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
-    const P = { x: b.x - CMB.x, z: b.z - CMB.z, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
+    const P = { x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));
       if (cx !== ox || cz !== oz) { b.x = CMB.x + cx; b.z = CMB.z + cz; b.vx = b.vz = 0; if (this.drop) { this.drop.vx = 0; this.drop.vz = 0; } }
