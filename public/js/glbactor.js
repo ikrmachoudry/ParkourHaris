@@ -15,7 +15,7 @@ const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 
 
 import { av } from './assetver.js';
 const cache = new Map();
-const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.0;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
+const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.12;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
 export function loadGlb(url) {
   if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
   return cache.get(url);

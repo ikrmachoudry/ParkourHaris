@@ -314,6 +314,7 @@ export class CombatScene {
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
     if (!this.zw) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 48, 1, true), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; }
     this.zw.position.set(CMB.x + z.x, 30, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
+    this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 30);   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
     if (R.minimap) R.minimap.zone = z;
     const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
     this.zoneTxt = z.last ? 'ZONE: FINAL' : (z.shrinking ? 'ZONE CLOSING ' : 'ZONE ') + fm(z.left);
