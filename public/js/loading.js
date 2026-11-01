@@ -28,19 +28,28 @@ const CSS = `#loadscr{position:fixed;inset:0;z-index:100;background:#050b16;colo
 #loadscr .ls-m{font:600 clamp(13px,3.4vh,20px)/1.2 system-ui,sans-serif;text-align:center;margin-bottom:6px;text-shadow:0 1px 5px #000}
 #loadscr .ls-bar{height:12px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.6);border-radius:2px;overflow:hidden}
 #loadscr .ls-fill{height:100%;width:0;background:linear-gradient(90deg,#8d1f1f,#d93a3a);box-shadow:0 0 10px rgba(217,58,58,.6)}
-#loadscr .ls-n{font:700 12px system-ui,sans-serif;text-align:center;margin-top:5px;color:#fff;text-shadow:0 1px 4px #000}`;
+#loadscr .ls-n{font:700 12px system-ui,sans-serif;text-align:center;margin-top:5px;color:#fff;text-shadow:0 1px 4px #000}
+#loadscr .ls-net{position:absolute;inset:0;z-index:3;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.82);text-align:center;padding:20px}#loadscr .ls-net.on{display:flex}
+#loadscr .ls-net>div{max-width:460px;font:600 17px/1.4 system-ui,Arial,sans-serif}#loadscr .ls-net h2{margin:6px 0;font:800 clamp(20px,4.6vh,28px)/1.15 system-ui,Arial,sans-serif;color:#ffd23f}#loadscr .ls-net button{margin:12px 6px 0;padding:12px 22px;border:0;border-radius:10px;font:800 16px system-ui,Arial,sans-serif;cursor:pointer;touch-action:manipulation}#loadscr .ls-net .rs{background:#d93a3a;color:#fff}#loadscr .ls-net .kw{background:rgba(255,255,255,.16);color:#fff}`;
 function build() {
   if (L.el || typeof document === 'undefined') return;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'loadscr'; el.className = 'out';
-  el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div>';
-  document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip');
+  el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div><div class="ls-net"><div><div style="font-size:40px">\u26A0\uFE0F</div><h2>CHECK YOUR NETWORK AND RESTART</h2><div>The game is loading very slowly (bad connection). Nothing can hurt you while you wait.</div><button type="button" class="rs">RESTART</button><button type="button" class="kw">KEEP WAITING</button></div></div>';
+  document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip'); L.net = el.querySelector('.ls-net');
+  const rs = el.querySelector('.ls-net .rs'), kw = el.querySelector('.ls-net .kw');
+  rs.onclick = () => location.reload(); rs.ontouchend = (e) => { e.preventDefault(); location.reload(); };
+  const keep = (e) => { if (e) e.preventDefault(); L.netAt = performance.now(); L.net.classList.remove('on'); }; kw.onclick = keep; kw.ontouchend = keep;
 }
 function frame() {
   L.raf = 0; if (!L.shown) return;
   const now = performance.now(), t = (now - L.t0) / 1000, real = L.total ? L.done / L.total : 0;
   let target = Math.max(90 * (1 - Math.exp(-t / 5)), real * 92);
-  if (t > 150) { L.wantHide = true; L.done = L.total; }   // never stuck
+  /* v296: a slow network must never leave you staring at 90%: after SLOW seconds the line says so, after WARN seconds the CHECK YOUR NETWORK AND RESTART panel appears (RESTART / KEEP WAITING) */
+  { const SL = (typeof window !== 'undefined' && window.__LS_SLOW) || [25, 60], tn = (now - (L.netAt || L.t0)) / 1000;
+    if (!(L.wantHide && L.done >= L.total)) { if (t > SL[0] && L.msg && now - (L.slowT || 0) > 1000) { L.slowT = now; L.msg.textContent = 'SLOW NETWORK - STILL LOADING...  ' + Math.round(t) + ' s'; }
+      if (tn > SL[1] && L.net && !L.net.classList.contains('on')) L.net.classList.add('on'); } else if (L.net && L.net.classList.contains('on')) L.net.classList.remove('on'); }
+  if (t > 600) { L.wantHide = true; L.done = L.total; }   // last-resort fail-safe (the restart panel has been up for minutes)
   const ready = L.wantHide && L.done >= L.total && now - L.t0 > 900;
   if (ready) target = 100;
   L.pct += (target - L.pct) * 0.12 + (ready ? 0.8 : 0.02); if (L.pct > target) L.pct = target;
@@ -52,7 +61,7 @@ function frame() {
 export const loadScreen = {
   show(title, label) {
     if (typeof document === 'undefined') return; build(); if (!L.el) return;
-    if (!L.shown) { L.shown = true; L.wantHide = false; L.t0 = performance.now(); L.pct = 0; L.tipT = 0; L.done = Math.min(L.done, L.total); }
+    if (!L.shown) { L.shown = true; L.wantHide = false; L.t0 = performance.now(); L.netAt = 0; L.slowT = 0; if (L.net) L.net.classList.remove('on'); L.pct = 0; L.tipT = 0; L.done = Math.min(L.done, L.total); }
     L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
