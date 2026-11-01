@@ -78,8 +78,14 @@ function resize() {
   if (race) { race.camera.aspect = window.innerWidth / window.innerHeight; race.camera.updateProjectionMatrix(); race.particles.setScale(renderer.domElement.height); if (race.fxP) race.fxP.setScale(renderer.domElement.height); }
   stage.particles.setScale(renderer.domElement.height);
 }
+/* v297: how busy is this device? a timer asks to run every 250 ms; the delay it really gets is the time the main thread was blocked. The in-game PING contains that delay (the pong waits in the queue behind a slow frame), which is why a phone on the SAME wifi showed 1200 ms while the laptop showed 300 ms. */
+const LAG = { avg: 0, max: 0, last: performance.now() };
+try { setInterval(() => { const n = performance.now(), d = Math.max(0, n - LAG.last - 250); LAG.last = n; LAG.avg = LAG.avg * 0.85 + d * 0.15; LAG.max = Math.max(d, LAG.max * 0.97); }, 250); } catch { /* noop */ }
+window.__lag = LAG;
 function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolution first, then shadows
   if (Q.low) return;
+  if (IS_TOUCH && !Q.low2 && Q.warm <= 0) { Q.lagT = (Q.lagT || 0) + (LAG.avg > 90 ? dt : -dt * 0.5); if (Q.lagT < 0) Q.lagT = 0; if (Q.lagT > 8) { Q.low2 = true; Q.dpr = 0.62; Q.shadows = false; Q.far = 240; if (race) { race.setShadows(false); race.setFar(); } resize(); try { race && race.toast && race.toast('Phone is overloaded: graphics lowered to keep the game smooth', 3.5); } catch { /* noop */ } } }   // v297: still stalling after the normal steps: drop to the lightest look (the phone answers the network late otherwise)
+  if (Q.low2) return;
   if (Q.warm > 0) { Q.warm -= dt; return; }
   Q.t += dt; Q.frames++;
   if (Q.t < 1.2) return;
