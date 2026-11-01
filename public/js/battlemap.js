@@ -183,7 +183,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05); }
     else if (b.kind !== 'clinic') { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); if (b.kind !== 'clinic') B.box('trim', b.x - 2, fy + tri + 0.3, b.z - 1.5, b.x + 1.2, fy + tri + 1.2, b.z + 0.8, '#6c6c70', 0.02); }   // flat roof: a parapet and a roof box
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
-      B.box('conc', b.x - 17, fy - 0.15, b.z + b.d / 2, b.x + 36, fy + 0.012, b.z + b.d / 2 + 16.5, '#c9bfa8', 0);   /* v270: a plain flat concrete yard in front of the villa and the new houses */
+      /* v298: the flat concrete slab in front of the villa is gone (it showed as a raised platform and clipped the player's legs) */
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;
       const zf = b.z + hz, bx = b.x, capY = fy + tri + 0.85;
       // -- a copy of Dr. Ikrma's real house (the Danial Clinic photo): sandstone walls, arched windows with black iron grilles, blind arches at both ends,

@@ -26,7 +26,7 @@ export class CombatHost {
   }
   // ---- what a player asks for (checked: sane numbers, close to where he really is)
   near(p, x, z, r) { return p && Number.isFinite(p.jx) && Math.hypot(p.jx - CMB.x - x, p.jz - CMB.z - z) < r; }
-  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 400) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id); }
+  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 520) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id, 0.6); }
   melee(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.reach, 0, 4.5) || !f(m.dmg, 0, 60) || !this.near(p, m.x, m.z, 15)) return; this.sim.melee(m.x, m.z, m.fx, m.fz, m.reach, m.dmg, p.id); }
   blast(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.r, 1, 14) || !this.near(p, m.x, m.z, 60)) return; this.sim.blast(m.x, m.z, m.r, 3.2, p.id); }
   take(p, m) { const id = m.id | 0, it = this.sim.loot.find((l) => l.id === id && l.alive); if (!it || !this.near(p, it.x, it.z, 8)) return; this.sim.take(it.x, it.z, (l) => l.id === id); }
