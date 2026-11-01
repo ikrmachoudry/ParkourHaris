@@ -1,7 +1,7 @@
 // COMBAT MISSION on the client: drops the player onto the hidden battle map, draws the bots and the loot, runs the 5 minute match (combat.js has the brain),
 // shows the HUD (time, kills, health) and turns the player's bullets, fists and grenades into hits on the bots.
 import * as THREE from 'three';
-import { makeHero } from './glbactor.js';
+import { makeHero, makeSkin } from './glbactor.js';
 import { buildCabin } from './planecabin.js';
 import { av } from './assetver.js';
 import { preloadAssets } from './preload.js';
@@ -90,7 +90,7 @@ export class CombatScene {
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
-    for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
+    if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none';
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
@@ -144,7 +144,7 @@ export class CombatScene {
     this.dropping = true; this.dropPose = 0;
     if (!this.plane) { this.plane = new THREE.Group(); this.group.add(this.plane); }
     this.plane.visible = true; this.plane.clear(); this.loadPlane().then((w) => { if (w && this.plane && this.drop) { this.plane.clear(); this.plane.add(w); } });
-    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a; R.toast && R.toast('✈ move (W / joystick) to stand up, walk to the back door and press JUMP', 4);
+    this.placeDrop(0); b.vx = b.vz = b.vy = 0; b.grounded = false; R.camInit = false; R.camYaw = a + Math.PI; R.toast && R.toast('✈ move (W / joystick) to stand up, walk to the back door and press JUMP', 4);
   }
   placeDrop(t) { const d = this.drop, b = this.R.me.body; const x = d.sx + d.hd[0] * d.v * t, z = d.sz + d.hd[1] * d.v * t;
     if (this.plane) { this.plane.position.set(x, d.alt, z); this.plane.rotation.y = d.a; }
@@ -303,7 +303,11 @@ export class CombatScene {
     { this._fps = (this._fps || 60) * 0.95 + (dt > 0 ? 1 / dt : 60) * 0.05; this._nh = (this._nh || 0) + dt;   /* v282: a tiny live network line (ping, frame rate, how old the last packet of each teammate is) so a lag complaint says WHERE the lag is */
       if (this._nh > 0.5) { this._nh = 0; let nl = this.netLine; if (!nl) { nl = this.netLine = document.createElement('div'); nl.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:6;padding:1px 8px;border-radius:8px;background:rgba(0,0,0,.4);color:#cfe;font:600 10px system-ui,sans-serif;pointer-events:none;white-space:nowrap'; document.body.appendChild(nl); }
         const now = performance.now(), ms = []; for (const [, g] of this.mates) ms.push((g.nm ? String(g.nm).slice(0, 6) : 'mate') + ' ' + (g.at ? Math.min(99, (now - g.at) / 1000).toFixed(1) + 's' : 'no data')); const lg = (typeof window !== 'undefined' && window.__lag) ? window.__lag.avg : 0; nl.textContent = 'PING ' + Math.round(T.net.rtt || 0) + ' ms' + (lg > 60 ? ' (DEVICE BUSY ' + Math.round(lg) + ' ms: net ~' + Math.max(20, Math.round((T.net.rtt || 0) - lg * 2)) + ')' : '') + '  |  FPS ' + Math.round(this._fps) + '  |  ' + (ms.length ? ms.join('  ') : 'no teammates seen'); } }
-    this._jt = (this._jt || 0) + dt; if (this._jt < 0.1) return; this._jt = 0;
+    this._jt = (this._jt || 0) + dt; if (!this._jtTimer) this._jtTimer = setInterval(() => { try { if (this.on && performance.now() - (this._jtAt || 0) > 900) this.sendJt(); } catch (e) { /* noop */ } }, 1000);   /* v299: a tab / phone in the background stops drawing frames, so this function stopped and the others lost the player after 4 s: a timer keeps the position going out about once a second */
+    if (this._jt < 0.1) return; this._jt = 0; this.sendJt();
+  }
+  sendJt() {
+    const T = this.R.jangTeam; if (!T || !T.net || !this.on) return; this._jtAt = performance.now();
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
     const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; const px = this.R.drive && this.R.paxMode ? this.R.drive : null, pvi = px ? this.R.cars.indexOf(px) : -1;
     if (this.down || this.deadT > 0) ph = 7;   // v244: lying down (v292: also when dead - the others used to see a dead teammate standing, or nothing)
@@ -314,8 +318,8 @@ export class CombatScene {
   }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
-    if (!g) { const mo = makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
-    g.id = m.id; g.c = m.c; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
+    if (!g) { const sk = m.sk | 0, mo = sk >= 4 && sk <= 8 ? makeSkin(sk, undefined, false) : makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
+    g.id = m.id; g.c = m.c; g.sk = m.sk | 0; g.wp = m.wp || ''; g.ai = m.ai; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
@@ -413,13 +417,14 @@ export class CombatScene {
     const T = this.R.jangTeam; if (!T) return; this.sendMate(dt); this.mateSounds(dt);
     const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
     for (const [, g] of this.mates) {
-      const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 4000;
+      const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 9000;
       if (inP) { if (g.tm !== T.tm || !w || !this.drop) show = false; else { this.plane.updateMatrixWorld(true); const sd = w.userData.seat;
         if (g.ph === 1 && sd) { const v = sd.getWorldPosition(new THREE.Vector3()), si = T.seatOf[g.id] != null ? T.seatOf[g.id] : 0; x = v.x + this.drop.hd[0] * (si - 1.5) * 0.6; y = v.y - 0.3; z = v.z + this.drop.hd[1] * (si - 1.5) * 0.6; }
         else { const v = w.localToWorld(new THREE.Vector3(g.tx, -0.49, g.tz)); x = v.x; y = v.y; z = v.z; } } }
-      if (g.hadCar !== undefined && (g.ph !== 5 || !show || g.vi !== g.hadCar) && this.R.mateCars) { this.R.mateCars.delete(g.hadCar); g.hadCar = undefined; }   // he got out: the jeep stays where it is
+      if (g.hadCar !== undefined && (g.ph !== 5 || !show || g.vi !== g.hadCar) && this.R.mateCars) { this.R.mateCars.delete(g.hadCar); { const oc = this.R.cars[g.hadCar]; if (oc && oc.st.driver === g.id) { oc.st.driver = -1; oc.st.parked = true; oc.st.speed = 0; oc.st.vx = oc.st.vz = 0; } } g.hadCar = undefined; }   /* v299: the car he left is FREE again on my screen (it stayed 'driven' by him for ever: nobody could enter it) */   // he got out: the jeep stays where it is
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
       if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
+      if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
       if (g.fire > 0) g.fire -= dt; g.m.update(dt, { weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 4 || g.ph === 5 || g.ph === 6, skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, revive: g.ph === 4 && !!g.rvg, zp: 1, seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
