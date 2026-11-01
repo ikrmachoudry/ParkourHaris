@@ -1,7 +1,7 @@
 // COMBAT MISSION: the BATTLE MAP far outside the city (no road leads there) and the bots that fight on it.
 // This file has NO three.js and no DOM: terrain, towns, roads, buildings (with windows, doors, stairs and furniture), forests and loot spots are plain data and maths,
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
-export const TW = { ST: 0.3, n: 144, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.34 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
+export const TW = { ST: 0.3, n: 144, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.24 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
 // v237: shooting windows in the tower wall: one a turn, alternating east / west, 0.9 m above the step you stand on, 1.3 m high, so you can look out, peek and shoot (and be shot)
 export const towerWins = (gy) => { const o = [], dph = 2 * Math.PI / TW.per; for (let t = 0; t * TW.per + 18 < TW.n; t++) { const ph = t % 2 ? 1.5 * Math.PI : 0.5 * Math.PI, i = t * TW.per + Math.round(ph / dph), fy = gy + (i + 1) * TW.ST; o.push({ ph, hw: 0.12, y0: fy + 0.9, y1: fy + 2.2 }); } return o; };
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
@@ -347,6 +347,7 @@ function build() {
     // the round wall: a ring of small cells (the collision is boxes, the drawing in battlemap.js is a real cylinder)
     { const wins = towerWins(gy), rc = S2 + 0.3, cell = 0.3, nn = 60; for (let q = 0; q < nn; q++) { const f = q * 2 * Math.PI / nn, cx = Math.sin(f) * rc, cz = Math.cos(f) * rc, door = cz > 0 && Math.abs(cx) < 1.45; const yb = door ? gy + 2.9 : gy - 1, fa = Math.atan2(cx, cz), ws = wins.filter((w) => { let d = (fa - w.ph) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) < w.hw + 0.05; });   // cells in front of a window are split: wall below the sill, wall above the lintel
       let cur = yb; for (const w of ws) { if (w.y0 > cur) W(cx - cell, cz - cell, cx + cell, cz + cell, cur, w.y0); cur = w.y1; } { let dl = (fa - TW.ledge) % (2 * Math.PI); if (dl > Math.PI) dl -= 2 * Math.PI; if (dl < -Math.PI) dl += 2 * Math.PI; W(cx - cell, cz - cell, cx + cell, cz + cell, cur, Math.abs(dl) < TW.lhw + 0.04 ? py - 0.3 : py + 1.2); } } }   // the door is on the south side, 2.9 m high; v251: a LEDGE on the east side of the roof: no parapet there, you walk off the edge
+    W(O - 0.1, -0.85, O + 2.2, 0.85, py - 0.62, py - 0.3, 'floor');   /* v300: a small LEDGE platform sticking out of the roof wall: walk out on it and step off the end */
     W(-0.95, -0.95, 0.95, 0.95, gy - 1, py - 0.3); W(-K, -0.5, K, 0.5, gy - 1, py - 0.3); W(-0.5, -K, 0.5, K, gy - 1, py - 0.3);   // the round core in the middle: the stairs wind round it, nobody can fall into a well
     // the roof: a disc, open over the last steps (from the opening angle up to the door side)
     for (let ix = -5; ix < 5; ix++) for (let iz = -5; iz < 5; iz++) { const cx = ix * 0.8 + 0.4, cz = iz * 0.8 + 0.4, r = Math.hypot(cx, cz); if (r > S2 + 0.35) continue; let ph = Math.atan2(cx, cz); if (ph < 0) ph += 2 * Math.PI; if (r > K + 0.5 && ph > TW.open) continue; W(cx - 0.4, cz - 0.4, cx + 0.4, cz + 0.4, py - 0.3, py, 'floor'); }
@@ -357,7 +358,15 @@ function build() {
     props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
     return { x, z, gy, py, n, step: ST, flag, a };
   };
-  const towers = [tower(116, -186, 'pk'), tower(212, -128, 'us'), tower(0, -120, 'ps')];
+  /* v300: the Pakistani-flag tower and the 'us' tower were built INTO the military hill: the base ground (14 m higher) buried the 'us' tower and walled off the door of the flag tower, so nobody could reach their stairs. Each tower now takes the nearest FLAT, free spot (no building ground, no road, no steep slope) to where it used to stand. */
+  const towerSpot = (x, z) => {
+    const free = (px, pz) => { for (const p of PADS) if (px > p.x0 - 18 && px < p.x1 + 18 && pz > p.z0 - 18 && pz < p.z1 + 18) return false;
+      const c0 = rawH(px, pz); if (c0 < 2 || distRoad(px, pz) < 12 || Math.abs(px) > H - 60 || Math.abs(pz) > H - 60) return false;
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; if (Math.abs(rawH(px + Math.cos(a) * 13, pz + Math.sin(a) * 13) - c0) > 2.2) return false; } return true; };
+    if (free(x, z)) return [x, z];
+    for (let r = 10; r <= 160; r += 10) for (let k = 0; k < 16; k++) { const px = Math.round(x + Math.cos(k * Math.PI / 8) * r), pz = Math.round(z + Math.sin(k * Math.PI / 8) * r); if (free(px, pz)) return [px, pz]; }
+    return [x, z]; };
+  const towers = [tower(...towerSpot(116, -186), 'pk'), tower(...towerSpot(212, -128), 'us'), tower(...towerSpot(0, -120), 'ps')];
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
@@ -379,11 +388,13 @@ function build() {
     for (let tries = 0, n = 0; n < 230 && tries < 9000; tries++) {
       const x = (R() * 2 - 1) * (H - 24), z = (R() * 2 - 1) * (H - 24), gy = cmbH(x, z); if (gy < 0.2 || distRoad(x, z) < 3 || onPad(x, z, 5) || inField(x, z, 3) || (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2)) continue;
       const kind = R(), ang = R() < 0.5, c = CC[Math.floor(R() * 4)]; n++;
-      if (kind < 0.45) { const m = 2 + Math.floor(R() * 3); for (let i = 0; i < m; i++) { const bx = ang ? x + i * 3.2 : x, bz = ang ? z : z + i * 3.2; if (cmbH(bx, bz) < 0.2) continue; crate(bx, bz, ang ? 3.0 : 0.9, ang ? 0.9 : 3.0, 1.15, c, 'barrier'); } }
-      else if (kind < 0.58) { const m = 6 + Math.floor(R() * 4), HT = [2.7, 2.6, 2.1, 1.2, 1.7, 0.8, 1.1, 2.3, 2.7, 1.5, 0.9, 2.0], o0 = Math.floor(R() * 12);   /* v258: a PUBG ruin wall: concrete with a jagged broken top; the low pieces (under 1.3 m) can be climbed over */
-        for (let i = 0; i < m; i++) { const bx = ang ? x + i * 1.0 : x, bz = ang ? z : z + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; crate(bx, bz, ang ? 1.0 : 0.32, ang ? 0.32 : 1.0, h, '#b4b3ac', 'ruin'); } }
-      else if (kind < 0.75) { crate(x, z, 2.2, 2.2, 1.5, c, 'barrier'); if (R() < 0.6) crate(x + 2.3, z + 0.4, 2.0, 2.0, 1.0, c, 'barrier'); if (R() < 0.35) crate(x + 0.2, z + 0.2, 1.6, 1.6, 2.6, c, 'barrier'); }
-      else { crate(x, z, ang ? 5.5 : 0.6, ang ? 0.6 : 5.5, 2.4, c, 'barrier'); crate(ang ? x - 2.6 : x + 1.2, ang ? z + 1.2 : z - 2.6, ang ? 0.6 : 2.4, ang ? 2.4 : 0.6, 2.4, c, 'barrier'); }
+      /* v300: no more grey blocks / jersey barriers / slabs in random shades: PUBG-style BROKEN WALLS (one concrete colour, jagged tops), same number of random draws as before so the rest of the map does not move */
+      const RC = '#b4b3ac', HT = [2.7, 2.6, 2.1, 1.2, 1.7, 0.8, 1.1, 2.3, 2.7, 1.5, 0.9, 2.0], o1 = Math.floor(Math.abs(x * 7.3 + z * 3.1)) % 12;
+      const run = (rx, rz, m, alongX, o0) => { for (let i = 0; i < m; i++) { const bx = alongX ? rx + i * 1.0 : rx, bz = alongX ? rz : rz + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; crate(bx, bz, alongX ? 1.0 : 0.32, alongX ? 0.32 : 1.0, h, RC, 'ruin'); } };
+      if (kind < 0.45) { const m = 2 + Math.floor(R() * 3); run(x, z, 4 + m * 2, ang, o1); }
+      else if (kind < 0.58) { const m = 6 + Math.floor(R() * 4), o0 = Math.floor(R() * 12); run(x, z, m, ang, o0); }
+      else if (kind < 0.75) { run(x, z, 5, ang, o1); const a1 = R() < 0.6, a2 = R() < 0.35; if (a1) run(ang ? x : x + 1.0, ang ? z + 0.3 : z, 4, !ang, (o1 + 5) % 12); if (a2) run(x + 0.2, z + 3.0, 3, ang, (o1 + 8) % 12); }
+      else { run(x, z, 6, ang, o1); run(ang ? x - 0.3 : x + 1.2, ang ? z + 0.3 : z - 0.3, 4, !ang, (o1 + 4) % 12); }
     } }
   // some wandering crates / barrels near the buildings and roads (cover)
   for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; crate(b.x + sx, b.z + sz); if (R() < 0.5) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }

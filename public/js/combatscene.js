@@ -257,7 +257,7 @@ export class CombatScene {
     d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
     if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else o.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = false; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
     if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
@@ -266,7 +266,7 @@ export class CombatScene {
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
     const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet' }[k], wrap = new THREE.Group();
     if (G && hasProp(G)) {
-      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); wrap.add(m);
+      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); if (!icon && (k === 'sscope' || k === 'scope')) m.scale.multiplyScalar(0.5); wrap.add(m);   /* v300: a scope lying on the floor is half as big */
       if (!icon) { if (k === 'inject') wrap.rotation.z = Math.PI / 2; else if (k === 'med' || k === 'vest') wrap.rotation.x = -Math.PI / 2; } else if (k === 'inject') wrap.rotation.z = Math.PI / 2;
       return wrap;
     }
@@ -378,16 +378,18 @@ export class CombatScene {
   onAirplane(e) {
     if (this.airs) for (const a of this.airs) if (a.n === e.n) return; (this.airs || (this.airs = [])).push({ n: e.n, x: e.x, z: e.z, hd: e.hd, t: 0, plane: this.airKit(), crate: this.airCrate(), landed: false, rm: 0 });
     const a = this.airs[this.airs.length - 1]; a.crate.visible = false; this.group.add(a.plane); this.group.add(a.crate);
+    this.loadPlane().then((w) => { try { if (!w || !a.plane.parent) return; const cp = w.clone(true); cp.userData = {}; a.plane.clear(); a.plane.add(cp); a.plane.scale.setScalar(1); } catch (e) { /* noop */ } });   // v300: the airdrop plane is the real transport plane, not a grey box with wings
     if (!this.dropping && this.R.toast) this.R.toast('AIRDROP! A plane is dropping a care package - watch the sky, then run to the GREEN smoke (yellow square on the minimap)', 5);
     if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z };
   }
   onAirland(e) { const a = this.airs && this.airs.find((q) => q.n === e.n); if (a) { a.landed = true; a.t = Math.max(a.t, AIR.back / AIR.v + AIR.alt / AIR.fall); } if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z }; if (!this.dropping && this.R.toast) this.R.toast('AIRDROP LANDED - gold loot at the green smoke', 3.5); }
   stepAir(dt) {
+    { const pf = this._pf; if (pf && this.plane) { if (!this.plane.visible || pf.t > 60 || this.dropping) this._pf = null; else { pf.t += dt; this.plane.position.x += pf.hd[0] * pf.v * dt; this.plane.position.z += pf.hd[1] * pf.v * dt; if (this.planeProps) for (const pv of this.planeProps) { pv.rotation.z += dt * 38; pv.visible = true; } if (pf.t > 55) { this.plane.visible = false; this._pf = null; } } } }   /* v300: the transport plane did not stand still in the sky after you landed: it flies on at its speed and leaves */
     if (!this.airs) return; const tp = AIR.back / AIR.v;
     for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
       const sx = a.x - a.hd[0] * AIR.back, sz = a.z - a.hd[1] * AIR.back, tt = Math.min(a.t, 2 * tp + 6);
-      a.plane.position.set(CMB.x + sx + a.hd[0] * AIR.v * tt, AIR.alt + 6, CMB.z + sz + a.hd[1] * AIR.v * tt); a.plane.rotation.y = Math.atan2(a.hd[0], a.hd[1]); a.plane.visible = a.t < 2 * tp + 6;
-      if (a.t >= tp) { const gy = cmbH(a.x, a.z), fall = Math.max(0, AIR.alt - (a.t - tp) * AIR.fall), on = fall <= 0.05 || a.landed; a.crate.visible = true; a.crate.position.set(CMB.x + a.x, gy + (on ? 0 : fall), CMB.z + a.z); a.crate.userData.ch.visible = !on; a.crate.userData.ch.rotation.y += dt * 0.3; this.stepSmoke(a.crate, dt, a.t < tp + AIR.alt / AIR.fall + 110); }
+      if (a.py === undefined) a.py = cmbH(a.x, a.z) + AIR.alt + 5; a.plane.position.set(CMB.x + sx + a.hd[0] * AIR.v * tt, a.py, CMB.z + sz + a.hd[1] * AIR.v * tt); a.plane.rotation.y = Math.atan2(a.hd[0], a.hd[1]); a.plane.visible = a.t < 2 * tp + 6;
+      if (a.t >= tp + 18 / AIR.v) { const gy = cmbH(a.x, a.z), fall = Math.max(0, AIR.alt - Math.max(0, a.t - tp - 18 / AIR.v) * AIR.fall), on = fall <= 0.05 || a.landed, rel = a.t - (tp + 18 / AIR.v); a.crate.visible = true; a.crate.position.set(CMB.x + a.x, gy + (on ? 0 : fall), CMB.z + a.z); a.crate.userData.ch.visible = !on; a.crate.userData.ch.scale.setScalar(Math.max(0.05, Math.min(1, (rel - 0.4) / 1.4)));   /* v300: the crate leaves the plane's tail ramp and its parachute opens a moment later */ a.crate.userData.ch.rotation.y += dt * 0.3; this.stepSmoke(a.crate, dt, a.t < tp + AIR.alt / AIR.fall + 110); }
       if (a.landed || a.t > tp + AIR.alt / AIR.fall) { a.rm += dt; if (a.rm > 420) { this.group.remove(a.plane); this.group.remove(a.crate); this.airs.splice(i, 1); if (this.R.minimap && this.R.minimap.air && !this.airs.length) this.R.minimap.air = null; } }
     }
   }
@@ -465,12 +467,10 @@ export class CombatScene {
       if (!this.dropping && b.y < cmbH(cx, cz) - 3) { b.y = cmbH(cx, cz) + 1.2; b.vy = 0; b.grounded = false; b.swim = 0; b.inWater = false; } }
     { const f = !this.dropping && this.hp > 0; if (this._fight !== f) { this._fight = f; document.body.classList.toggle('jang-fight', f); } this.slotsTick(); }
     const run = M && M.phase === 'run' && !this.over;
-    { let roof = false; if (OPT.tips !== false && !this.dropping && P.alive && !R.drive) for (const t of layout().towers) if (Math.hypot(P.x - t.x, P.z - t.z) < 4.8 && Math.abs(b.y - t.py) < 2.5) roof = true;
-      if (!this.tipEl) { const e = document.createElement('div'); e.id = 'c-tip'; e.innerHTML = '<b>PARAGLIDER TOWER</b><span>1. Stand on the roof: you pick up the paraglider.</span><span>2. Walk to the yellow LEDGE (the sign) and step off: the wing opens at once.</span><span>3. Steer with the stick / WASD and glide to a far landing: about 6 m forward for every 1 m of height.</span><span>DIVE = Shift (faster) &nbsp;·&nbsp; PULL UP = C (brake, flatter glide) &nbsp;·&nbsp; hide this text: Settings - Instructions</span>'; document.body.appendChild(e); this.tipEl = e; }
-      if (this._tipOn !== roof) { this._tipOn = roof; this.tipEl.style.display = roof ? 'block' : 'none'; } }   // v251: how to use the tower parachute (can be switched off in Settings)
+    /* v300: the big PARAGLIDER TOWER instruction box is gone (it covered the screen) */
     if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
-      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast(OPT.tips !== false ? 'PARAGLIDER PACKED - walk off the yellow ledge: it opens by itself. Steer to glide far. DIVE = Shift, PULL UP = C' : 'PARAGLIDER PACKED', 3.5); A.sfx.pickup && A.sfx.pickup(); }
-      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { { const sp0 = Math.hypot(b.vx || 0, b.vz || 0); this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 }; } this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); R.toast && R.toast('PARAGLIDER OPEN - steer with the stick / WASD. DIVE (Shift) = faster, PULL UP (C) = brake. It glides about 6 m for every 1 m of height', 4.5); }
+      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; R.toast && R.toast('Walk out on the ledge and step off: free fall, the parachute opens by itself', 3); }
+      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { { const sp0 = Math.hypot(b.vx || 0, b.vz || 0); void sp0; this.drop = { ph: 'fall', t: 0, mt: 0.9, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: (b.vx || 0) * 0.6, vz: (b.vz || 0) * 0.6, hint: 0, ch: 0 }; } this.dropping = true; this.dropPose = 1; R.toast && R.toast('FREE FALL - the parachute opens by itself (or press JUMP)', 2.5); }
     }
     if (run) {
       this.time -= dt; this.stepDown(dt);

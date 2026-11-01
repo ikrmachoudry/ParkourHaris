@@ -1913,9 +1913,9 @@ class Race {
         // v214 corridor assist (like Uncharted / Tomb Raider stair cams): while you climb and are not touching the look control, the camera swings round behind you, along the stairs
         { const yw = this.camYaw, moved = Math.abs(Math.atan2(Math.sin(yw - (this._twYaw === undefined ? yw : this._twYaw)), Math.cos(yw - (this._twYaw === undefined ? yw : this._twYaw)))) > 0.003; this._twIdle = moved ? 0 : (this._twIdle || 0) + dt;
           const mv = Math.hypot(b0.vx, b0.vz) > 0.8 || Math.hypot(touch.x, touch.y) > 0.25 || keys.has('KeyW') || keys.has('ArrowUp');
-          if (tw && twT && this._twIdle > 0.7 && mv && this.twK > 0.8) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ph = Math.atan2(rx, rz);
+          if (tw && twT && this._twIdle > 0.2 && mv && this.twK > 0.5) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ph = Math.atan2(rx, rz);
             const dx = Math.cos(ph), dz = -Math.sin(ph);   // v222 round tower: the way the spiral climbs is the tangent of the circle (south side goes east, east side goes north...)
-            const want = Math.atan2(-dx, -dz), df = Math.atan2(Math.sin(want - this.camYaw), Math.cos(want - this.camYaw)); this.camYaw += df * (1 - Math.exp(-2.2 * dt)); this.camPitch += (0.22 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
+            const want = Math.atan2(-dx, -dz), df = Math.atan2(Math.sin(want - this.camYaw), Math.cos(want - this.camYaw)); this.camYaw += df * (1 - Math.exp(-9 * dt)); this.camPitch += (0.22 - this.camPitch) * (1 - Math.exp(-3 * dt)); }   /* v300: the camera now STAYS on the stairs (it lagged ~30 degrees behind the curve and you faced the outer wall): it locks to the spiral at once and only lets go while you turn it yourself */
           /* v298 PUBG-like stair camera in villas, houses and clinics: while you walk UP (or down) a flight and are not touching the look control, the camera turns by itself to look along the stairs, so you do not have to keep swinging it. Touch / move the camera and it is yours again. */
           { let su = this._stU; this._stN = (this._stN || 0) - dt;
             if (!tw && !this.scoped && !this.aiming && !this.drive) { try { const x = b0.x - CMB.x, z = b0.z - CMB.z, a = Lm.bucket.get(Math.floor(x / Lm.B) * 4099 + Math.floor(z / Lm.B)); let cur = null;
