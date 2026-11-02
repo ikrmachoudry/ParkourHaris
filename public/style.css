@@ -1152,6 +1152,9 @@ body.jang-mode #a-weapon, body.jang-mode #wheel { display: none !important; }
 body.touch.jang-mode #act-pad #a-jump, body.touch.jang-mode #act-pad #a-crouch, body.touch.jang-mode #act-pad #a-prone { --s: clamp(58px, 15vh, 78px); width: var(--s) !important; height: var(--s) !important; border-width: 2.5px; background: rgba(10,12,14,.5) !important; }
 body.touch.jang-mode #act-pad #a-jump svg, body.touch.jang-mode #act-pad #a-crouch svg, body.touch.jang-mode #act-pad #a-prone svg { width: 90%; height: 90%; }
 body.touch.jang-mode #c-slots { bottom: 46px; }
+/* v328: Jang phone: a big RELOAD button beside the fire button (it sat behind the weapon slot bar) */
+body.touch.in-race.city-mode.jang-mode:not(.driving) #act-pad #a-reload { --s: clamp(52px, 13.5vh, 74px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.745); top: 80%; background: rgba(10,12,14,.5); border-width: 2.5px; z-index: 48; }
+body.touch.jang-mode #a-reload svg { width: 62%; height: 62%; }
 body.touch.jang-mode #c-bag { left: auto !important; right: calc(50% + 120px) !important; top: auto !important; bottom: max(30px, 8.5vh) !important; }
 body.jang-mode #hud-money { display: none !important; }
 
