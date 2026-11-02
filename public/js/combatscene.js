@@ -523,13 +523,22 @@ export class CombatScene {
       const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, mine ? tx : CMB.x + e.tx, mine ? b.y + 1.3 : gy + 1.3, mine ? tz : CMB.z + e.tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
       if (cd < 160) { const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
       if (!e.hit && cd < 90 && A.sfx.whiz) { const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
-      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) this.hurt(e.dmg, wx, wz);
+      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
-      if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; R.toast && R.toast('ENEMY DOWN'); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
+      if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
     } else if (e.k === 'airplane') this.onAirplane(e); else if (e.k === 'airland') this.onAirland(e);
-    else if (e.k === 'bothit') { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
+    else if (e.k === 'bothit') { if (this.shared && performance.now() - (this.shotAt || 0) < 450) this.hitX(false); const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
   }
+  /* v318 PUBG kill feed + hit marker: top-right feed lines ("YOU > AK-47 > BOT 3"), a white X on the crosshair when your bullet hits and a red one on a kill; the death screen says who killed you, with what and from how far */
+  wName(w) { return ({ ak: 'AK-47', ak49: 'AK-49', sniper: 'KAR98', smg: 'SMG', pistol: 'PISTOL', shotgun: 'SHOTGUN', bat: 'BAT', fist: 'FIST', grenade: 'GRENADE', molotov: 'MOLOTOV', car: 'VEHICLE' })[w] || String(w || 'GUN').toUpperCase(); }
+  feed(a, wn, b, hot) {
+    let f = this.feedEl; if (!f) { f = this.feedEl = document.createElement('div'); f.style.cssText = 'position:fixed;right:84px;top:max(58px,8vh);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font:800 13px/1.15 system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000'; document.body.appendChild(f); }
+    const e = document.createElement('div'); e.style.cssText = 'background:rgba(0,0,0,.5);border-radius:6px;padding:3px 9px;border-left:3px solid ' + (hot ? '#ffd23f' : '#ff5a4a'); e.innerHTML = '<span style="color:' + (hot ? '#ffd23f' : '#fff') + '"></span> <span style="color:#bbb;font-weight:600"></span> <span></span>';
+    const sp = e.querySelectorAll('span'); sp[0].textContent = a; sp[1].textContent = '\u25B8 ' + wn + ' \u25B8'; sp[2].textContent = b; f.appendChild(e); while (f.children.length > 4) f.firstChild.remove(); setTimeout(() => e.remove(), 6000); }
+  hitX(kill) {
+    let m = this.hitXEl; if (!m) { m = this.hitXEl = document.createElement('div'); m.style.cssText = 'position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;z-index:29;pointer-events:none;opacity:0;transition:opacity .12s;background:linear-gradient(45deg,transparent 46%,currentColor 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,currentColor 46% 54%,transparent 54%);filter:drop-shadow(0 0 2px #000)'; document.body.appendChild(m); }
+    m.style.color = kill ? '#ff3b30' : '#fff'; m.style.opacity = 1; clearTimeout(this._hxT); this._hxT = setTimeout(() => { m.style.opacity = 0; }, kill ? 260 : 130); }
   /* v313 PUBG HIT DIRECTION: a red arc on a ring round the crosshair shows where a shot came from; it turns with the camera and fades in ~2 s */
   hitMark(sx, sz) {
     if (!Number.isFinite(sx) || !Number.isFinite(sz)) return; let ring = this.hitRing;
@@ -549,7 +558,7 @@ export class CombatScene {
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
   }
-  die() { this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; this.ov.textContent = 'YOU WERE KILLED  -  RESPAWNING...'; } }
+  die() { this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; { const lh = this.lastHit, pv = this.lastBy && performance.now() - (this.lastByAt || 0) < 6000, rec = lh && performance.now() - lh.at < 6000 ? 'KILLED BY ' + lh.who + '  \u2022  ' + this.wName(lh.w) + '  \u2022  ' + Math.round(lh.d) + ' m' : pv ? 'KILLED BY AN ENEMY PLAYER' : 'YOU WERE KILLED'; this.ov.textContent = rec + '  -  RESPAWNING...'; if (lh && rec.indexOf('BOT') > 0) this.feed(lh.who, this.wName(lh.w), 'YOU', false); } } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
   // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
@@ -677,7 +686,8 @@ export class CombatScene {
   }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
-    if (!this.active) return -1; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
+    if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
+    if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill'); break; } } }   // solo: the hit is known at once
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
@@ -686,7 +696,7 @@ export class CombatScene {
     return d;
   }
   hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(60, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
-  onKillCredit() { this.kills++; this.R.toast && this.R.toast('ENEMY DOWN'); }
+  onKillCredit() { this.kills++; this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
 }
