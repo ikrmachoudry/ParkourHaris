@@ -204,6 +204,10 @@ const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 
 // the river bridge on the road to the farm
 export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
+/* v313 BULLET DROP + height: a shot carries the line through the crosshair (y at the muzzle, slope per metre) and gravity k = g / (2 v^2): the bullet FALLS k*a^2 below it. It only hits a target when it arrives between his feet and head: aim up for far targets (Kar98 760 m/s drops ~0.7 m at 300 m) and a shot over a head misses. */
+export const BULLET_V = { pistol: 350, revolver: 400, smg: 400, shotgun: 400, ak: 715, ak49: 715, m4: 880, sniper: 760 };
+export const bulletK = (w) => 4.9 / ((BULLET_V[w] || 600) ** 2);
+export const ballOK = (bal, a, gy) => { const y = bal.y + bal.sl * a - bal.k * a * a; return y > gy - 0.3 && y < gy + 2.1; };
 export const onDeck = (x, z) => x > BRIDGE.xb && x < BRIDGE.xa && Math.abs(z - BRIDGE.z) < BRIDGE.w / 2 - 0.15;   // v301: inside the deck footprint (map-local): a jeep drives ON the bridge, not under it
 BR = BRIDGE; padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
 
@@ -536,7 +540,7 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'smoke', 'scope', 'sscope', 'sscope'];
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'sscope'];
 export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
 export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 
@@ -579,7 +583,10 @@ export class CombatSim {
   // v251: put an item on the ground anywhere (a dead bot's gold box, an airdrop): it vanishes after `life` seconds (0 = stays)
   addLootAt(k, x, z, o = {}) { const it = { k, x, z, spot: -1, alive: true, id: (this._id = (this._id || 0) + 1), nt: this.t + (o.nt || 0), gold: o.gold || 0, am: o.am || 0 }; if (o.life) it.exp = this.t + o.life; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
   // a spot inside the circle (cx, cz, r) the bots can walk to: any spawn point of the island that lies in it, else the middle
-  zoneSpot(cx, cz, r, near) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - cx, s.z - cz) < r * 0.9 && (!near || Math.hypot(s.x - near.x, s.z - near.z) < near.d)); if (c.length) return this.pick(c); const a = this.R() * 6.28, d = Math.sqrt(this.R()) * r * 0.6; return { x: cx + Math.cos(a) * d, z: cz + Math.sin(a) * d }; }
+  zoneSpot(cx, cz, r, near) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - cx, s.z - cz) < r * 0.9 && (!near || Math.hypot(s.x - near.x, s.z - near.z) < near.d)); if (c.length) return this.pick(c);
+    /* v313: the circle has no spawn point inside it any more: the old fallback picked ANY point, often in the river / on the bank / in a wall, so the bot walked to the edge of it and stood there. Now: a point on dry open ground (not water, not the river bank, not in a solid), the nearest spawn to the middle if none is found */
+    for (let k = 0; k < 30; k++) { const a = this.R() * 6.28, d = Math.sqrt(this.R()) * r * (k < 20 ? 0.75 : 0.95), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (cmbH(x, z) > 0.6 && Math.abs(x - riverX(z)) > 7 && !hitsSolid(this.L, x, z, 0.7, cmbH(x, z) + 0.6)) return { x, z }; }
+    let bs = null, bd = 1e9; for (const sp of this.L.spawns) { const d = Math.hypot(sp.x - cx, sp.z - cz); if (d < bd) { bd = d; bs = sp; } } return bs || { x: cx, z: cz }; }
   // the player walks over loot: returns the item (and removes it; a new one appears somewhere else after LOOT_RESPAWN seconds)
   take(px, pz, can, py) {   // can(item) = false leaves the item on the ground (backpack full, hands full...)
     for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if ((it.x - px) ** 2 + (it.z - pz) ** 2 < 1.8 * 1.8) { if (it.y !== undefined && py !== undefined && Math.abs(py - it.y) > 1.7) continue; if (can && !can(it)) continue; it.alive = false; if (it.spot >= 0) { if (this.L.spots[it.spot] && this.L.spots[it.spot].force) (this.pendF || (this.pendF = [])).push({ t: this.t + LOOT_RESPAWN, k: it.spot }); else { this.used.delete(it.spot); (this.pend || (this.pend = [])).push(this.t + LOOT_RESPAWN); } } this.events.push({ k: 'lootgone', id: it.id }); return it; } }
@@ -590,12 +597,14 @@ export class CombatSim {
   // the player drops something: it lies on the ground (it cannot be picked up again for 1.5 s) and never respawns
   dropLoot(k, x, z, gold) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1), gold: gold ? 1 : 0 }; if (gold) it.exp = this.t + 150; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
   // smoke clouds block the bots' sight
+  /* v313 MOLOTOV: a fire patch burns the ground for 8 s; bots standing in it lose health every half second */
+  addFire(x, z, r = 3.4, t = 8, by) { (this.fires || (this.fires = [])).push({ x, z, r, t, by, tk: 0.5 }); }
   addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
   smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
   // a bullet from (ox,oz) along (fx,fz): the nearest bot it reaches before a wall.  returns the distance or -1
-  shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
+  shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
     const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yAbs); let best = null, bd = Math.min(range, wall);
-    for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > 0.65 + (slack || 0)) continue; best = b; bd = a; }
+    for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > 0.65 + (slack || 0)) continue; if (bal && !ballOK(bal, a, b.y != null ? b.y : onDeck(b.x, b.z) ? BRIDGE.y : cmbH(b.x, b.z))) continue; best = b; bd = a; }
     if (best) this.hurt(best, dmg * 34, ox, oz, by); return best ? bd : (wall < range ? wall : -1);
   }
   melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg, x, z, by); n++; } return n; }
@@ -616,6 +625,7 @@ export class CombatSim {
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
     if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
+    if (this.fires) { for (const f of this.fires) { f.t -= dt; f.tk -= dt; if (f.tk <= 0) { f.tk += 0.5; for (const b of this.bots) if (b.alive && (b.x - f.x) ** 2 + (b.z - f.z) ** 2 < (f.r + 0.4) ** 2) this.hurt(b, 7, f.x, f.z, f.by); } } this.fires = this.fires.filter((f) => f.t > 0); }
     const zn = this.Z ? zoneAt(this.Z, this.t) : null; this._zn = zn;
     for (const it of this.loot) if (it.alive && it.exp && this.t > it.exp) { it.alive = false; this.events.push({ k: 'lootgone', id: it.id }); }
     if (this.Z && this.airN < this.Z.AD.length) {   // v251: the airdrop: the plane appears, later the crate lands and its loot lies there for everybody

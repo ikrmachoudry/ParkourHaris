@@ -26,11 +26,12 @@ export class CombatHost {
   }
   // ---- what a player asks for (checked: sane numbers, close to where he really is)
   near(p, x, z, r) { return p && Number.isFinite(p.jx) && Math.hypot(p.jx - CMB.x - x, p.jz - CMB.z - z) < r; }
-  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 520) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id, 0.6); }
+  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 520) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id, 0.6, f(m.b0, -60, 300) && f(m.bs, -4, 4) && f(m.bk, 0, 60) ? { y: m.b0, sl: m.bs, k: m.bk / 1e6 } : undefined); }
   melee(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.reach, 0, 4.5) || !f(m.dmg, 0, 60) || !this.near(p, m.x, m.z, 15)) return; this.sim.melee(m.x, m.z, m.fx, m.fz, m.reach, m.dmg, p.id); }
   blast(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.r, 1, 14) || !this.near(p, m.x, m.z, 60)) return; this.sim.blast(m.x, m.z, m.r, 3.2, p.id); }
   take(p, m) { const id = m.id | 0, it = this.sim.loot.find((l) => l.id === id && l.alive); if (!it || !this.near(p, it.x, it.z, 8)) return; this.sim.take(it.x, it.z, (l) => l.id === id); }
   drop(p, m) { if (typeof m.k !== 'string' || m.k.length > 12 || !Number.isFinite(m.x) || !Number.isFinite(m.z) || !this.near(p, m.x, m.z, 12)) return; const it = this.sim.dropLoot(m.k, m.x, m.z); if (Number.isFinite(m.y) && m.y > -10 && m.y < 200) it.y = m.y; it.am = m.am && typeof m.am === 'object' ? { mag: Math.max(0, Math.min(999, m.am.mag | 0)), res: Math.max(0, Math.min(999, m.am.res | 0)) } : 0; if (m.g) { it.gold = 1; it.exp = this.sim.t + 150; } if (Number.isFinite(m.cid)) this.cid.set(it.id, m.cid | 0); }
+  fire(p, m) { if (Number.isFinite(m.x) && Number.isFinite(m.z) && this.near(p, m.x, m.z, 60)) this.sim.addFire(m.x, m.z, 3.4, 8, p.id); }
   smoke(p, m) { if (Number.isFinite(m.x) && Number.isFinite(m.z) && this.near(p, m.x, m.z, 60)) this.sim.addSmoke(m.x, m.z, 6.5, 15); }
 }
 void LOOT_KINDS;

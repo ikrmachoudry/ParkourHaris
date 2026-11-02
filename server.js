@@ -311,12 +311,12 @@ wss.on('connection', (ws, req) => {
         send(q.ws, { t: 'jr', from: p.id }); break;
       }
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
-      case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': {
+      case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': {
         if (!room || !room.chost || room.phase !== 'race') return;
         const t = Date.now();
         if (m.t === 'cdrop') { if (t - (p.dropW || 0) > 1000) { p.dropW = t; p.dropN = 0; } if (++p.dropN > 40) return; }   // v301: a dead player's whole kit is 8-20 drops in ONE tick: the 25 ms gap below threw all but the first away, so other players never saw the gold box's items
         else { if (t - (p.lastC || 0) < 25) return; p.lastC = t; }
-        const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m) })[m.t](); break;
+        const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m), cfire: () => h.fire(p, m) })[m.t](); break;
       }
       case 'cpv': case 'cpk': {   // v246: PvP (relay only, checked): a shot at a player of the OTHER team / the kill credit for the shooter
         if (!room || !room.combat || room.phase !== 'race') return;
@@ -477,7 +477,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastGr || 0) < 80) return; p.lastGr = t;
         if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0 }, p.id); break; }
         if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.vx, -40, 40) || !num(m.vy, -40, 40) || !num(m.vz, -40, 40)) return;
-        bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz }, p.id);
+        bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz, aim: m.aim ? 1 : 0, sm: m.sm ? 1 : 0, mo: m.mo ? 1 : 0 }, p.id);
         break;
       }
       case 'ph': { // host -> a player: an AI pedestrian punched him

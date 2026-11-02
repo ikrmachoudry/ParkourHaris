@@ -2,12 +2,13 @@
 // Tap an item to use it (heal / throw / zoom), tap a gun to hold it, DROP to leave it on the ground. Keyboard: I opens and closes it, 6-0 use items, E swaps a gun on the ground.
 import { WEAPONS } from './economy.js';
 
-export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1 };
+export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, molotov: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1 };
 const ITEMS = [
   { k: 'med', icon: '✚', name: 'FIRST AID', info: '+50 health, 4 s', key: '6', col: '#ff5c5c' },
   { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+25 health, 3 s', key: '7', col: '#ffa94d' },
   { k: 'inject', icon: '💉', name: 'ADRENALINE', info: '+20 health, speed boost', key: '8', col: '#5ec8ff' },
   { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: '9', col: '#cfd6dc' },
+  { k: 'molotov', icon: '🔥', name: 'MOLOTOV', info: 'throw: fire on the ground for 8 s', key: 'N', col: '#ff9a3c' },
   { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: '', col: '#8dff6b' },
   { k: 'sscope', icon: '🎯', name: 'SNIPER SCOPE', info: 'Kar98 uses it by itself', key: '', col: '#7fe0ff' },
   { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: '', col: '#9ad0ff' },

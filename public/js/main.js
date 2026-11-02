@@ -9,7 +9,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid } from './combat.js';
+import { layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid, bulletK } from './combat.js';
 const CAMK = new Set(['wall', 'roof', 'floor', 'cliff', 'ruin', 'crate', 'sandbag', 'container', 'tower']);   // v305: solids the third-person camera must not enter
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
@@ -1394,7 +1394,7 @@ class Race {
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
   throwNade() {
-    const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || !this.wallet || (this.nadeKind === 'smoke' ? !(cbk && cbk.inv && cbk.inv.smoke > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
+    const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
     if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
@@ -1410,7 +1410,7 @@ class Race {
     if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(2, m.toss | 0)); return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
     if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
-    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; if (n.smoke) n.t = 1.3; } A.sfx.swing && A.sfx.swing(false);
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) n.t = 1.3; } A.sfx.swing && A.sfx.swing(false);
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
@@ -1443,19 +1443,19 @@ class Race {
     mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7));
   }
   updateNades(dt, b) {
-    this.nadeMarkTick(); this.smokeTick(dt);
+    this.nadeMarkTick(); this.smokeTick(dt); this.fireTick(dt);
     if (this.nadeT > 0) {   // the throw animation: 0..1 (the same clip lengths as the baked clips, a little sped up)
       const mode = this.nadeToss | 0, dur = NADE_DUR[mode], rel = NADE_REL[mode];
       this.nadeT += dt / dur;
       if (!this.nadeRel && this.nadeT >= rel) {
         this.nadeRel = true;
-        const smk = this.nadeKind === 'smoke', cbk = this.wallet.cb; this.nadeKind = null;
-        if (smk ? !!(cbk && cbk.inv && cbk.inv.smoke-- > 0) : this.wallet.useNade()) {
+        const nk = this.nadeKind, smk = nk === 'smoke', mol = nk === 'molotov', cbk = this.wallet.cb; this.nadeKind = null;
+        if (smk || mol ? !!(cbk && cbk.inv && cbk.inv[nk]-- > 0) : this.wallet.useNade()) {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
           const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
           const T = clamp(0.45 + d * 0.03, 0.5, 1.5), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
-          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; if (smk) n.t = 1.3; this.updateAmmoHud();
-          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
+          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) n.t = 1.3; this.updateAmmoHud();
+          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }
       }
@@ -1472,8 +1472,21 @@ class Race {
         if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
-      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
     }
+  }
+  /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
+  fireBoom(x, y, z, mine = true) {
+    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+  }
+  fireTick(dt) {
+    const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
+    for (let i = a.length - 1; i >= 0; i--) { const f = a[i]; f.t -= dt; f.tk -= dt;
+      if (f.t <= 0) { a.splice(i, 1); continue; }
+      const n = Math.max(1, Math.round(dt * 40)); for (let k = 0; k < n; k++) { const ang = Math.random() * 6.283, r = Math.sqrt(Math.random()) * 3.2; this.particles.emit(f.x + Math.cos(ang) * r, f.y + 0.1, f.z + Math.sin(ang) * r, 1, { color: Math.random() < 0.5 ? '#ff7a1a' : '#ffd23f', speed: 0.5, up: 2.2, life: 0.55, size: 0.5, gravity: -1.5 }); }
+      if (Math.random() < dt * 8) this.particles.emit(f.x + (Math.random() - 0.5) * 4, f.y + 1.2, f.z + (Math.random() - 0.5) * 4, 1, { color: '#3a3a3a', speed: 0.3, up: 1.6, life: 1.2, size: 0.9, gravity: -0.5 });
+      if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
   }
   // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
   smokeBoom(x, y, z, mine = true) {
@@ -1630,7 +1643,8 @@ class Race {
           inW = (() => { try { return !!cmbHitsSolid(this.mission.cs.sim.L, sx0 - CMB.x, sz0 - CMB.z, 0.05, b.y); } catch (e) { return false; } })();
         let ox2 = sx0, oz2 = sz0, dx2 = cx, dz2 = cz;
         if (inW) { const px = cp.x + cx * 80, pz = cp.z + cz * 80, bx0 = b.x + lnx, bz0 = b.z + lnz, l2 = Math.hypot(px - bx0, pz - bz0) || 1; ox2 = bx0; oz2 = bz0; dx2 = (px - bx0) / l2; dz2 = (pz - bz0) / l2; }   /* v295: hugging a wall the camera (over the shoulder) can sit a few cm inside it and every bullet died there: then the bullet leaves the BODY and flies to the far end of the crosshair line */
-        const dd0 = this.mission.cs.shoot(ox2, oz2, dx2, dz2, W.range + dl, W.dmg, w, oy - 0.15);
+        let bal; { const hh = Math.hypot(aimP.x - cp.x, aimP.z - cp.z); if (!inW && hh > 1 && !OPT.autoAim) { const sl = (aimP.y - cp.y) / hh; bal = { y: cp.y + sl * t0, sl, k: bulletK(w) }; } }   /* v313: bullet drop + height (only with auto-aim OFF: the assist keeps the old forgiving shots) */
+        const dd0 = this.mission.cs.shoot(ox2, oz2, dx2, dz2, W.range + dl, W.dmg, w, oy - 0.15, bal);
         if (dd0 >= 0) { const hx = ox2 + dx2 * dd0, hz = oz2 + dz2 * dd0, cd = Math.max(0.05, (hx - ox) * fx + (hz - oz) * fz); if (cd < len) len = cd; } }
       else { const cd0 = this.mission.cs.shoot(b.x + lnx, b.z + lnz, fx, fz, len + 0.7, W.dmg, w, oy - 0.15), cd = cd0 >= 0 ? Math.max(0.05, cd0 - 0.7) : -1; if (cd >= 0 && cd < len) len = cd; } }
     if (zomOn) { const zd = this.mission.zs.shoot(ox, oz, fx, fz, len, w); if (zd >= 0 && zd < len) { len = zd; shotAt = shotAt; } }
@@ -2460,7 +2474,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape') { const open = ['s-help', 's-about', 's-settings'].map($).find((x) => x && x.classList.contains('active')); if (open) { $({ 's-help': 'b-help-close', 's-about': 'b-about-close', 's-settings': 'b-settings-close' }[open.id]).click(); return; } }   // v224: Esc closes any page that sits on top
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
-  { const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.inv) { if (e.code === 'Escape' && cs.inv.isOpen()) { cs.inv.toggle(false); return; } if (!e.repeat && !race.menuOpen && !race.over) { if (e.code === 'KeyI') { cs.inv.toggle(); return; } if (e.code === 'KeyF') { cs.swapPick(); return; } const k = { Digit6: 'med', Digit7: 'pills', Digit8: 'inject', Digit9: 'smoke', Digit0: 'scope' }[e.code]; if (k) { cs.useItem(k); return; }
+  { const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.inv) { if (e.code === 'Escape' && cs.inv.isOpen()) { cs.inv.toggle(false); return; } if (!e.repeat && !race.menuOpen && !race.over) { if (e.code === 'KeyI') { cs.inv.toggle(); return; } if (e.code === 'KeyF') { cs.swapPick(); return; } const k = { Digit6: 'med', Digit7: 'pills', Digit8: 'inject', Digit9: 'smoke', Digit0: 'scope', KeyN: 'molotov' }[e.code]; if (k) { cs.useItem(k); return; }
       /* v264 (PUBG): 1 / 2 = the two guns in your hands, 3 or 4 = GRENADE (then fire to throw), 5 = fists */
       if (/^Digit[1-5]$/.test(e.code) && !race.drive) { const n = +e.code.slice(5); if (n <= 2) { const g = cs.guns()[n - 1]; if (g) race.equip(race.weapon === g ? 'fist' : g); } else if (n <= 4) { if ((race.wallet.nades | 0) > 0) race.equip(race.weapon === 'grenade' ? 'fist' : 'grenade'); else race.toast && race.toast('NO GRENADES'); } else race.equip('fist'); cs._sk = ''; return; } } } }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }

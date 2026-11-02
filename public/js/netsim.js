@@ -39,8 +39,9 @@ export class NetSim extends CombatSim {
     Promise.resolve().then(() => this.net.send({ t: 'cdrop', k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am && typeof it.am === 'object' ? { mag: it.am.mag | 0, res: it.am.res | 0 } : 0, cid, g: gold ? 1 : 0, y: Number.isFinite(it.y) ? +it.y.toFixed(2) : undefined }));   // (the caller sets it.am right after this call)
     return it;
   }
-  shoot(ox, oz, fx, fz, range, dmg, y) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y); this.net.send({ t: 'cshoot', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: Math.min(500, range), dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }
+  shoot(ox, oz, fx, fz, range, dmg, y, bal) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y, undefined, undefined, bal); this.net.send({ t: 'cshoot', ...(bal ? { b0: +bal.y.toFixed(2), bs: +bal.sl.toFixed(4), bk: +(bal.k * 1e6).toFixed(2) } : null), ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: Math.min(500, range), dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }
   melee(x, z, fx, fz, reach, dmg) { const r = super.melee(x, z, fx, fz, reach, dmg); this.net.send({ t: 'cmelee', x: +x.toFixed(2), z: +z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), reach, dmg }); return r; }
   blast(x, z, r, dmg) { super.blast(x, z, r, dmg); this.net.send({ t: 'cblast', x: +x.toFixed(2), z: +z.toFixed(2), r }); }
   addSmoke(x, z) { this.net.send({ t: 'csmoke', x: +x.toFixed(2), z: +z.toFixed(2) }); }
+  addFire(x, z) { this.net.send({ t: 'cfire', x: +x.toFixed(2), z: +z.toFixed(2) }); }
 }
