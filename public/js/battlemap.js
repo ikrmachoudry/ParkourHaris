@@ -147,7 +147,14 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     B.box('conc', xa, y - 0.9, z0, xb, y, z1, '#9a9a94', 0.02); B.box('trim', xa, y + 0.0, z0 + 0.35, xb, y + 0.05, z1 - 0.35, '#444448', 0);
     for (const zz of [z0, z1 - 0.25]) { B.box('conc', xa, y, zz, xb, y + 1.1, zz + 0.25, '#b8b6ad', 0.02); }
     for (let x = xa + 2; x < xb; x += 9) { B.box('conc', x - 0.8, -3.2, BRIDGE.z - 1.0, x + 0.8, y - 0.9, BRIDGE.z + 1.0, '#8c8a82', 0.02); }
-    for (let x = xa + 1; x < xb; x += 3) for (const zz of [z0 + 0.1, z1 - 0.1]) B.box('trim', x - 0.08, y + 1.1, zz - 0.08, x + 0.08, y + 1.5, zz + 0.08, '#555', 0); }
+    for (let x = xa + 1; x < xb; x += 3) for (const zz of [z0 + 0.1, z1 - 0.1]) B.box('trim', x - 0.08, y + 1.1, zz - 0.08, x + 0.08, y + 1.5, zz + 0.08, '#555', 0);
+    /* v306: the bridge's name painted on the road, readable from both driving directions */
+    try { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256; const g = cv.getContext('2d'); g.clearRect(0, 0, 1024, 256);
+      g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 150px "Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Noto Naskh Arabic","Segoe UI","Arial",serif';
+      g.lineWidth = 14; g.strokeStyle = 'rgba(20,20,20,.55)'; g.strokeText('\u0633\u064F\u06A9\u06D2 \u062F\u0631\u06CC\u0627 \u062F\u0627 \u067E\u064F\u0644', 512, 132); g.fillStyle = '#f4efe0'; g.fillText('\u0633\u064F\u06A9\u06D2 \u062F\u0631\u06CC\u0627 \u062F\u0627 \u067E\u064F\u0644', 512, 132);
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
+      const mk = (cx, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, yaw, 0); m.position.set(cx, y + 0.08, BRIDGE.z); group.add(m); };
+      mk(BRIDGE.c - 13, -Math.PI / 2); mk(BRIDGE.c + 13, Math.PI / 2); } catch (e) { /* no canvas: skip the paint */ } }
 
   // ================================================================ buildings
   const WALLMAT = { house: 'wall', shop: 'wall', apart: 'wall', school: 'wall', church: 'wall', barracks: 'wall', barn: 'wood', shack: 'wood', cabin: 'wood', warehouse: 'metal', hangar: 'metal', kiosk: 'wall' };

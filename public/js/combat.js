@@ -28,7 +28,15 @@ export function rawH(x, z) {
   return h;
 }
 const PADS = [];   // flat building sites {x0,z0,x1,z1,y}: the ground is levelled under every building and blended into the hillside over 9 m
-export function cmbH(x, z) {
+let BR = null;   // v306: set once BRIDGE exists
+// v306: a gentle EMBANKMENT (about 7 degrees) leads up to each end of the bridge: the low east end used to drop 4 m in 9 m and the jeep ploughed its nose into the slope
+function embank(x, z, h) {
+  const B = BR; if (!B) return h; const dz = Math.abs(z - B.z); if (dz > 14 || x < B.xb - 60 || x > B.xa + 60) return h;
+  const s = x > B.c ? x - (B.xa + 6) : (B.xb - 4) - x; if (s < 0) return h;
+  const ramp = B.y - 0.12 * s; if (ramp <= h) return h;
+  return h + (ramp - h) * (1 - smooth(6, 14, dz)); }
+export function cmbH(x, z) { return embank(x, z, cmbH0(x, z)); }
+function cmbH0(x, z) {
   const raw = rawH(x, z); let ws = 0, wy = 0, wm = 0;
   for (const p of PADS) {
     if (x < p.x0 - 9 || x > p.x1 + 9 || z < p.z0 - 9 || z > p.z1 + 9) continue;
@@ -197,7 +205,7 @@ const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 // the river bridge on the road to the farm
 export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
 export const onDeck = (x, z) => x > BRIDGE.xb && x < BRIDGE.xa && Math.abs(z - BRIDGE.z) < BRIDGE.w / 2 - 0.15;   // v301: inside the deck footprint (map-local): a jeep drives ON the bridge, not under it
-padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
+BR = BRIDGE; padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
 
 // ---------------------------------------------------------------- roads (polylines: [x, z] points; w = width; dirt = a track)
 export const ROADS = [
@@ -396,8 +404,8 @@ function build() {
       const run = (rx, rz, m, alongX, o0) => { for (let i = 0; i < m; i++) { const bx = alongX ? rx + i * 1.0 : rx, bz = alongX ? rz : rz + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; crate(bx, bz, alongX ? 1.0 : 0.32, alongX ? 0.32 : 1.0, h, RC, 'ruin'); } };
       if (kind < 0.45) { const m = 2 + Math.floor(R() * 3); run(x, z, 4 + m * 2, ang, o1); }
       else if (kind < 0.58) { const m = 6 + Math.floor(R() * 4), o0 = Math.floor(R() * 12); run(x, z, m, ang, o0); }
-      else if (kind < 0.75) { run(x, z, 5, ang, o1); const a1 = R() < 0.6, a2 = R() < 0.35; if (a1) run(ang ? x : x + 1.0, ang ? z + 0.3 : z, 4, !ang, (o1 + 5) % 12); if (a2) run(x + 0.2, z + 3.0, 3, ang, (o1 + 8) % 12); }
-      else { run(x, z, 6, ang, o1); run(ang ? x - 0.3 : x + 1.2, ang ? z + 0.3 : z - 0.3, 4, !ang, (o1 + 4) % 12); }
+      else if (kind < 0.75) { run(x, z, 5, ang, o1); const a1 = R() < 0.6, a2 = R() < 0.35; if (a1) run(ang ? x : x + 0.34, ang ? z + 0.3 : z, 4, !ang, (o1 + 5) % 12);   /* v306: the cross wall starts INSIDE the first wall's end cell: a real corner, no gap */ if (a2) run(x + 0.2, z + 3.0, 3, ang, (o1 + 8) % 12); }
+      else { run(x, z, 6, ang, o1); run(ang ? x - 0.3 : x + 0.34, ang ? z + 0.3 : z - 0.3, 4, !ang, (o1 + 4) % 12); }
     } }
   // some wandering crates / barrels near the buildings and roads (cover)
   for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; crate(b.x + sx, b.z + sz); if (R() < 0.5) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }

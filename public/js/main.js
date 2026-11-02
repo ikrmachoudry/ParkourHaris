@@ -9,7 +9,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { layout as cmbLayout, CMB, TW, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid } from './combat.js';
+import { layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid } from './combat.js';
 const CAMK = new Set(['wall', 'roof', 'floor', 'cliff', 'ruin', 'crate', 'sandbag', 'container', 'tower']);   // v305: solids the third-person camera must not enter
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
@@ -684,6 +684,8 @@ class Race {
       let ox = st.x + lx * 2.4, oz = st.z + lz * 2.4;
       if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
       let oy = this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05;
+      /* v306: out of a car ON THE BRIDGE you stand on the deck (the ground under it is the river bed: you used to be put at the bottom of the bridge), kept inside the rails */
+      if (this.jang && !boatV && cmbOnDeck(st.x - CMB.x, st.z - CMB.z)) { const zl = Math.max(BRIDGE.z - BRIDGE.w / 2 + 0.8, Math.min(BRIDGE.z + BRIDGE.w / 2 - 0.8, oz - CMB.z)); oz = CMB.z + zl; if (cmbOnDeck(ox - CMB.x, oz - CMB.z)) oy = BRIDGE.y + 0.05; }
       if (boatV) {   // off a boat: onto the pier / quay if there is one beside it, otherwise into the water
         const bg = STYLE_GEO[cityVeh(st.id).style], fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), rx = -fz, rz = fx, bxs = (this.info.track && this.info.track.boxes) || [];
         let found = null;
