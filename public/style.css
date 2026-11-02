@@ -587,6 +587,10 @@ body.touch #a-punch.gun { background: rgba(214,70,60,.5) !important; outline: 2p
 #scope i { position: absolute; left: 50%; top: 50%; width: 62vmin; height: 3px; margin: -1px 0 0 -31vmin; background: linear-gradient(#000, #000) left center / 13vmin 3px no-repeat, linear-gradient(#000, #000) right center / 13vmin 3px no-repeat, linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,.85)) center / 100% 1px no-repeat; }
 #scope b { position: absolute; left: 50%; top: 50%; width: 3px; height: 62vmin; margin: -31vmin 0 0 -1px; background: linear-gradient(#000, #000) center top / 3px 13vmin no-repeat, linear-gradient(#000, #000) center bottom / 3px 13vmin no-repeat, linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,.85)) center / 1px 100% no-repeat; }
 body.scoped #scope { display: block; }
+/* v314 BINOCULARS: two round lenses side by side (the Kar98 scope keeps its single ring) */
+body.binoc #scope { background: none; }
+body.binoc #scope::before { content: ""; position: absolute; inset: 0; background: #000; -webkit-mask: radial-gradient(circle at calc(50% - 21vmin) 50%, transparent 0, transparent 26vmin, #000 26.6vmin), radial-gradient(circle at calc(50% + 21vmin) 50%, transparent 0, transparent 26vmin, #000 26.6vmin); -webkit-mask-composite: source-in; mask: radial-gradient(circle at calc(50% - 21vmin) 50%, transparent 0, transparent 26vmin, #000 26.6vmin), radial-gradient(circle at calc(50% + 21vmin) 50%, transparent 0, transparent 26vmin, #000 26.6vmin); mask-composite: intersect; }
+body.binoc #scope i, body.binoc #scope b { display: none; }
 
 /* in-game MENU button (city mode has no top bar): under the fullscreen button, phones and laptops */
 #b-gm { display: none; position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 52px); right: max(8px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: rgba(20,14,50,.55); color: #fff; font-size: 22px; line-height: 1; z-index: 60; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }

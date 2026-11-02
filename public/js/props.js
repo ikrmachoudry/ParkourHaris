@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { loadGlb } from './glbactor.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall'];
+export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'molotov', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall'];
 export const PROP_FILES = PROP_NAMES.map((n) => 'models/props/' + n + '.glb');
 const S = {}, DIM = {}, PARTS = {};
 export const preloadProps = () => Promise.all(PROP_NAMES.map((n) => loadGlb('models/props/' + n + '.glb').then((g) => { S[n] = g.scene; g.scene.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g.scene); DIM[n] = b.getSize(new THREE.Vector3()); }, (e) => console.warn('prop', n, e))));

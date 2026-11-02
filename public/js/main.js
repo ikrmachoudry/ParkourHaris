@@ -1925,7 +1925,7 @@ class Race {
       if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
       const scoped = this._scW >= 0.1 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
       if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 18 : 12)));
-      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); this.camera.updateProjectionMatrix(); }
+      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); { const bn = scoped && !!this.telescope; if (document.body.classList.contains('binoc') !== bn) document.body.classList.toggle('binoc', bn); } this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
         const b0 = this.me.body, Lm = cmbLayout(); let tw = false;
@@ -2029,7 +2029,8 @@ class Race {
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
     {
       if (this.me && this.me.model) this.me.model.group.rotation.z = this.leanV * 0.06; }
-    this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
+    if (fpScope) { const cc = this.camera.position; this.camera.lookAt(cc.x - Math.sin(this.camYaw) * cp * 20, cc.y - sp * 20, cc.z - Math.cos(this.camYaw) * cp * 20); }   // v314: first-person scope: look ALONG the view (the old look-at-the-pivot pointed at the sky from 5 cm away = a solid blue scope)
+    else this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
   }
   updateLights() {
     if (this.dn && this._tOpt !== OPT.time) { this._tOpt = OPT.time; if (window.applyTime) window.applyTime(); }
@@ -2085,7 +2086,7 @@ class Race {
     if (this.copGhosts) { this.copGhosts.dispose(); this.copGhosts = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race', 'jang-mode', 'scoped'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);
@@ -2614,7 +2615,7 @@ async function boot() {
     ['a-aim', 'AIM', 'Right mouse', 'Look through the sights: more accurate, slower. Telescope scopes zoom.'], ['a-jump', 'JUMP', '<kbd>SPACE</kbd>', 'Climb over low walls and boxes.'], ['a-crouch', 'CROUCH', '<kbd>Z</kbd>', 'Smaller and harder to hit.'], ['a-prone', 'PRONE', '<kbd>X</kbd> / <kbd>CTRL</kbd>', 'Lie down: the hardest to hit.'],
     ['a-reload', 'RELOAD', '<kbd>R</kbd>', 'Reloads by itself when the magazine is empty.'], ['a-fmode', 'FIRE MODE', '<kbd>B</kbd>', 'Single shots / burst / auto, if the gun has them.'], ['a-weapon', 'SWAP WEAPON', '<kbd>V</kbd> or the number slots 1 2 3', 'Tap a slot to take that gun out.', '🔄'], ['a-leanl', 'PEEK LEFT / RIGHT', '<kbd>Q</kbd> <kbd>E</kbd>', 'Look round a corner without stepping out (Q = left, E = right on a keyboard).'],
     ['x', 'SNIPER SCOPE (Kar98)', 'Laptop: hold <kbd>RIGHT MOUSE</kbd> &bull; Phone: hold the AIM button', 'Hold the Kar98 and AIM to look through the scope. Zoom with the MOUSE WHEEL (laptop) or the + / &minus; buttons that appear on screen (phone). You need the SNIPER SCOPE item in your backpack: carry it and the Kar98 uses it by itself (no scope item = iron sights only). Let go of AIM to leave the scope.', '🎯'],
-    ['x', 'TELESCOPE', 'Laptop: backpack &rarr; TELESCOPE or <kbd>0</kbd> &bull; Phone: backpack &rarr; TELESCOPE', 'Works with any gun: it is a spotting scope to look far away. Tap it again (or <kbd>0</kbd>) to put it away. Zoom with the mouse wheel / the + / &minus; buttons. Open the backpack with the bag button (laptop <kbd>I</kbd>).', '🔭'],
+    ['x', 'BINOCULARS', 'Laptop: backpack &rarr; BINOCULARS or <kbd>0</kbd> &bull; Phone: backpack &rarr; BINOCULARS', 'Their own item (not the Kar98 scope): look far away through two round lenses. Tap it again (or <kbd>0</kbd>) to put it away. Zoom with the mouse wheel / the + / &minus; buttons. Open the backpack with the bag button (laptop <kbd>I</kbd>).', '🔭'],
     ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>T</kbd> talk · <kbd>L</kbd> speaker', 'In a team room: T switches your mic on / off, L mutes / unmutes the speaker. Works in the team lobby too. On a phone use the mic and speaker buttons.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Parachute: take the pack on a tower roof, jump off, it opens by itself.', '🪂']];
   const openHelp = (jang) => {
     document.body.classList.toggle('helpjang', !!jang);

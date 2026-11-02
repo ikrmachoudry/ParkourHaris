@@ -23,7 +23,7 @@ import { OPT } from './opts.js';
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', molotov: '#ff9a3c', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
 const fitPx = (c, t, px, maxW) => { c.font = '900 ' + px + 'px Impact, Arial Black, sans-serif'; const w = c.measureText(t).width; return Math.max(18, Math.floor(w > maxW ? px * maxW / w : px)); };   // v271: shrink a name to fit the canopy
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'TELESCOPE', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'BINOCULARS', sscope: 'SNIPER SCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
 const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0, vest: 0, helmet: 0 }, vestHp: 0, helmHp: 0 });
 const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet'];
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
@@ -265,9 +265,9 @@ export class CombatScene {
     return this._icons[k] || '';
   }
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
-    const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', molotov: 'grenade', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet' }[k], wrap = new THREE.Group();
+    const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', molotov: 'molotov', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet' }[k], wrap = new THREE.Group();
     if (G && hasProp(G)) {
-      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : k === 'molotov' ? '#d9792a' : null); if (k === 'smoke' || k === 'molotov') m.scale.multiplyScalar(1.25); if (!icon && (k === 'sscope' || k === 'scope')) m.scale.multiplyScalar(0.5); wrap.add(m);   /* v300: a scope lying on the floor is half as big */
+      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); if (k === 'molotov') m.scale.multiplyScalar(1.6); if (!icon && (k === 'sscope' || k === 'scope')) m.scale.multiplyScalar(0.5); wrap.add(m);   /* v300: a scope lying on the floor is half as big */
       if (!icon) { if (k === 'inject') wrap.rotation.z = Math.PI / 2; else if (k === 'med' || k === 'vest') wrap.rotation.x = -Math.PI / 2; } else if (k === 'inject') wrap.rotation.z = Math.PI / 2;
       return wrap;
     }
@@ -652,7 +652,7 @@ export class CombatScene {
   useItem(k) {
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb || !this.active || this.dropping || R.drive || this.over) return false; const have = this.count(k);
     if (k === 'sscope') { if (have <= 0) { R.toast && R.toast('NO SNIPER SCOPE'); return false; } if (!cb.owned.sniper) { R.toast && R.toast('You need the SNIPER RIFLE (Kar98) first - the scope clips onto it', 3); return false; } R.equip('sniper'); R.toast && R.toast('SCOPE FITTED to the Kar98 - hold AIM (right mouse / AIM button) to look through it; the mouse wheel or the + / - buttons on screen zoom', 4.5); if (this.inv) this.inv.toggle(false); return true; }
-    if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'TELESCOPE  -  mouse wheel / the + - buttons zoom' : 'TELESCOPE AWAY'); if (this.inv) this.inv.toggle(false); return true; }
+    if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO BINOCULARS'); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'BINOCULARS  -  mouse wheel / the + - buttons zoom' : 'BINOCULARS AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 30% of every hit' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 15% of every hit') : 'NONE', 2.5); return false; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
