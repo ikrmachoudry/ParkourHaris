@@ -113,10 +113,19 @@ function buildSolids(o) {
     o.partDoor = { ax: p.ax, pos: p.pos, gap: p.gap, w: dw };
   }
   let hole = null, hole2 = null;
-  if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
+  let zf = null;   /* v317 (PUBG): in an ordinary two-storey building the stairs run STRAIGHT into the room (you face the steps from the front), the roof flight stands right beside it in the same direction, a landing joins them (floor 2) and you arrive on the roof */
+  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const rise0 = fh + SL, n0 = Math.ceil(rise0 / 0.27), tr0 = 0.38; if (o.d >= n0 * tr0 + 4.6 && o.w >= 9) zf = { rise: rise0, n: n0, tr: tr0, sw: 2.0 }; }
+  if (nfl > 1 && zf) {
+    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = xA + sw, zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr;
+    for (let i = 0; i < n; i++) { const za = zF - (i + 1) * tr; wall(xA, za, xA + sw, za + tr, -0.1, (i + 1) * step, 'step'); }   // flight 1 (ground to floor 2): the foot is in the south, you climb towards the north wall, the landing lies behind its top step
+    hole = { x0: xA, x1: xA + sw, z0: zTop + tr, z1: zF };
+    for (let j = 0; j < n; j++) { const za = zTop + j * tr; wall(xB, za, xB + sw, za + tr, rise - 0.1, rise + (j + 1) * step, 'step'); }   // flight 2 (floor 2 to the roof): starts on the landing and climbs back towards the south, beside flight 1
+    o.roofZ = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xB + sw, z0: zTop, z1: zF };
+    o.stairs = { ax: 'z', x0: xA, z0: zF, dir: -1, n, tread: tr, sw, rise, step, zTop };
+  } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
-    const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step };
+    const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step }; o.stairRect = { ...hole };
     if (o.stair2) {   /* v264/v268: a SECOND staircase (the new door beside the garage). ax 'z' = a straight flight going away from the door (dir -1 rises towards -z), ax 'x' = along the wall */
       const t2 = { tr: 0.5, ...o.stair2 }, tr2 = t2.tr, n2 = Math.ceil(rise / 0.27);
       if (t2.ax === 'z') {
@@ -147,6 +156,11 @@ function buildSolids(o) {
     o.roofHole = { x0: h0, x1: h1, z0: st.z0, z1: st.z0 + sw };
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');   // v247: a 4.4 m gap in the east parapet = jump down from the roof (PUBG: roofs have edges you can drop over)
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
+  } else if (o.roofZ) {   // v317: roof terrace reached by the second straight flight: slab with a hole over it, a parapet with a 4.4 m jump-down gap in the east side
+    const H = o.roofZ, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
+    wall(X0, Z0, X1, H.z0, top, top + SL, 'roof'); wall(X0, H.z1, X1, Z1, top, top + SL, 'roof'); wall(X0, H.z0, H.x0, H.z1, top, top + SL, 'roof'); wall(H.x1, H.z0, X1, H.z1, top, top + SL, 'roof');
+    o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 };
+    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');
   } else
     wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
   if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
@@ -298,6 +312,7 @@ function build() {
     const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
       if (b.hole2 && x + w / 2 > b.hole2.x0 - 0.8 && x - w / 2 < b.hole2.x1 + 0.8 && z + d / 2 > b.hole2.z0 - 0.8 && z - d / 2 < b.hole2.z1 + 0.8) return;
       if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
+      if (b.stairRect && x + w / 2 > b.stairRect.x0 - 0.8 && x - w / 2 < b.stairRect.x1 + 0.8 && z + d / 2 > b.stairRect.z0 - 0.8 && z - d / 2 < b.stairRect.z1 + 0.8) return;
       for (const dr of b.doors) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (Math.abs(x - ex) < w / 2 + 1.9 && Math.abs(z - ez) < d / 2 + 1.9) return; }
       if (b.partDoor) { const p = b.partDoor; if (p.ax === 'z' ? (Math.abs(x - p.pos) < w / 2 + 1.5 && Math.abs(z - p.gap) < d / 2 + 2.2) : (Math.abs(z - p.pos) < d / 2 + 1.5 && Math.abs(x - p.gap) < w / 2 + 2.2)) return; if (p.ax === 'z' && Math.abs(x - p.pos) < w / 2 + 0.3) return; }
       const it = { x: b.x + x, z: b.z + z, y: fy, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: fy, y1: fy + h, k: 'prop' });
@@ -434,7 +449,7 @@ function build() {
   const addY = (x, z, y, o = {}) => { if (!hasFloor(x, z, y) || !openY(x, z, 0.9, y) || spots.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < 4 && Math.abs((q.y === undefined ? 0 : q.y) - y) < 1.5)) return false; spots.push({ x, z, y, w: 1, ...o }); return true; };
   for (const b of BUILDINGS) {
     if (b.noLoot) continue;
-    if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const st = b.stairs; if (st) { const hx0 = st.dir > 0 ? st.x0 : st.x0 - (st.n - 1) * st.tread; if (x > b.x + hx0 - 2 && x < b.x + hx0 + (st.n - 1) * st.tread + 2 && z > b.z + st.z0 - 2 && z < b.z + st.z0 + st.sw + 2) continue; } addY(x, z, y2); } }
+    if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; addY(x, z, y2); } }
     if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
   }
   { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4], [-7, 3], [7, 3], [-7, 6], [7, 6]]) { if (n >= 6) break; const f = ['sscope', 'sniper', 'smg', 'ak', 'ammo', 'ammo'][n]; if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
@@ -620,7 +635,9 @@ export class CombatSim {
     const L = this.L, gy = o.y == null ? undefined : o.y; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r, gy)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r, gy)) o.z = nz;   // v285: a bot upstairs (o.y) collides with the walls of ITS floor
   }
   // v285: bots follow you UP THE STAIRS into rooms and villas: the foot, the line and the top landing of a building's main flight
-  stairInfo(B) { const st = B.stairs; if (!st) return null; const zc = B.z + st.z0 + st.sw / 2, d = st.dir > 0 ? 1 : -1, xb = B.x + st.x0 + d * 0.25, xt = B.x + st.x0 + d * ((st.n - 1) * st.tread + 0.7); return { fy: B.fy, rise: st.rise, xb, xt, zc, foot: { x: xb, z: zc + st.sw / 2 + 0.9 }, len: Math.abs(xt - xb) }; }
+  stairInfo(B) { const st = B.stairs; if (!st) return null;
+    if (st.ax === 'z') { const xc = B.x + st.x0 + st.sw / 2, zb = B.z + st.z0 - 0.25, zt = B.z + st.zTop - 0.3; return { fy: B.fy, rise: st.rise, xb: xc, zb, xt: xc, zt, foot: { x: xc, z: zb + 1.3 }, top: { x: xc, z: zt }, len: Math.abs(zt - zb) }; }
+    const zc = B.z + st.z0 + st.sw / 2, d = st.dir > 0 ? 1 : -1, xb = B.x + st.x0 + d * 0.25, xt = B.x + st.x0 + d * ((st.n - 1) * st.tread + 0.7), fz = zc + st.sw / 2 + 0.9; return { fy: B.fy, rise: st.rise, xb, zb: zc, xt, zt: zc, foot: { x: xb, z: fz }, top: { x: xt, z: fz }, len: Math.abs(xt - xb) }; }
   upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
@@ -643,8 +660,8 @@ export class CombatSim {
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
-          b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zc; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, 0) * (b.cl.dir > 0 ? 1 : -1); b.speed = 2.3; b.walk = false;
-          if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.xt; b.z = si.foot.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
+          b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zb + (si.zt - si.zb) * t; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, si.zt - si.zb) + (b.cl.dir > 0 ? 0 : Math.PI); b.speed = 2.3; b.walk = false;
+          if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.top.x; b.z = si.top.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
         continue;
       }
       if (zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 2) { b.zt = (b.zt || 0) + dt; if (b.zt >= 1) { b.zt -= 1; this.hurt(b, zn.dps * 0.7, 0, 0, -2); if (!b.alive) continue; } } else b.zt = 0;   // v251: bots take the blue-circle damage too
