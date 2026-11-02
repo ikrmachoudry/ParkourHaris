@@ -78,7 +78,8 @@ export class CombatScene {
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
-    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }   // the landscape is built the first time a match starts (the city never pays for it)
+    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }
+    if (!this.zipG) this.buildZip();   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
     this.startDrop();
@@ -319,7 +320,7 @@ export class CombatScene {
   }
   /* v320: every movement the others can see (PUBG): crouch, prone, jump / fall, vault, reload, lean, punch, kick, grenade throw, camera pitch for the aim */
   poseBits(ph) { const R = this.R, b = R.me.body; if (ph !== 4) return { st: 0 };
-    const st = (R.crouch ? 1 : 0) | (R.prone ? 2 : 0) | (!b.grounded && !R.hang ? 4 : 0) | (R.vlt ? 32 : 0) | (R.reloadT > 0 ? 16 : 0) | (R.punchT > 0 && !R.kickK ? 128 : 0) | (R.punchT > 0 && R.kickK ? 256 : 0) | (R.nadeT > 0 ? 512 : 0);
+    const st = (R.crouch ? 1 : 0) | (R.prone ? 2 : 0) | (!b.grounded && !R.hang ? 4 : 0) | (R.vlt ? 32 : 0) | (R.reloadT > 0 ? 16 : 0) | (R.punchT > 0 && !R.kickK ? 128 : 0) | (R.punchT > 0 && R.kickK ? 256 : 0) | (R.nadeT > 0 ? 512 : 0) | (R.zipR ? 1024 : 0);
     return { st, lv: +(R.leanV || 0).toFixed(2), rl: R.reloadT > 0 && R.reloadTot ? +Math.max(0, 1 - R.reloadT / R.reloadTot).toFixed(2) : 0, cp: +(R.camPitch || 0).toFixed(2), nt: R.nadeToss | 0, vy: +(b.vy || 0).toFixed(1) }; }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
@@ -437,7 +438,7 @@ export class CombatScene {
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
       if (g.fire > 0) g.fire -= dt; const on4 = g.ph === 4, gs = on4 ? g.st | 0 : 0; if (g.pt > 0) { g.pt += dt / 0.72; if (g.pt >= 1) g.pt = 0; } if (g.vt > 0) { g.vt += dt / 1.25; if (g.vt >= 1) g.vt = 0; } const nadeP = on4 && (gs & 512) && g.nt0 ? Math.min(0.999, (now - g.nt0) / 1000 / 1.12) : 0;
       const dyS = g.py !== undefined && dt > 0 ? (g.y - g.py) / dt : 0; g.py = g.y; g.sa = (g.sa || 0) + ((dyS > 0.9 && on4 && !(gs & 4) ? 1 : 0) - (g.sa || 0)) * Math.min(1, dt * 6);   // v323: a teammate climbing a flight (rising fast on the ground)
-      g.m.update(dt, { stairs: g.sa > 0.6, weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), crouch: !!(gs & 1), prone: !!(gs & 2), vy: on4 ? g.vy : 0, shooting: on4 && g.fire > 0, peek: on4 ? g.lv : 0, reload: on4 && (gs & 16) ? g.rl : 0, punch: on4 && g.pt > 0 ? g.pt : 0, kick: on4 && !!(gs & 256), nade: nadeP, nadeToss: g.nts | 0, aimElev: on4 ? Math.atan((0.34 - g.cp) * 0.9) : 0, ...(on4 && g.vt > 0 ? { vault: true, zp: g.vt } : null), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 5 || g.ph === 6 || (on4 && !(gs & 4)), skydive: g.ph === 2 ? 1 : g.ph === 3 ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, revive: g.ph === 4 && !!g.rvg, ...(g.vt > 0 ? null : { zp: 1 }), seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      g.m.update(dt, { stairs: g.sa > 0.6, weapon: g.ph === 4 ? (g.wp || null) : null, aiming: g.ph === 4 && (g.fire > 0 || !!g.ai), crouch: !!(gs & 1), prone: !!(gs & 2), vy: on4 ? g.vy : 0, shooting: on4 && g.fire > 0, peek: on4 ? g.lv : 0, reload: on4 && (gs & 16) ? g.rl : 0, punch: on4 && g.pt > 0 ? g.pt : 0, kick: on4 && !!(gs & 256), nade: nadeP, nadeToss: g.nts | 0, aimElev: on4 ? Math.atan((0.34 - g.cp) * 0.9) : 0, ...(on4 && g.vt > 0 ? { vault: true, zp: g.vt } : null), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 5 || g.ph === 6 || (on4 && !(gs & 4) && !(gs & 1024)), skydive: g.ph === 2 ? 1 : g.ph === 3 || (on4 && (gs & 1024)) ? 2 : 0, zpose: g.ph === 7 ? 'dieF' : undefined, revive: g.ph === 4 && !!g.rvg, ...(g.vt > 0 ? null : { zp: 1 }), seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
         const car = this.R.cars[g.vi]; if (car && (this.R.drive !== car || this.R.paxMode)) {   // v291: a PASSENGER of this car (drive === car, paxMode) must also get the driver's movement, otherwise the car stands still on his screen
 
@@ -620,10 +621,22 @@ export class CombatScene {
     const it = this.sim.near(P.x, P.z, this.R.me.body.y); this.promptIt = it && isGunK(it.k) && !this.canTake(it) ? it : null;
     if (it && !isGunK(it.k) && !this.canTake(it)) { const nw = performance.now(); if (nw - (this._noT || 0) > 1800) { this._noT = nw; const nm = LOOT_NAME[it.k] || it.k.toUpperCase(); this.R.toast && this.R.toast(it.k === 'ammo' ? 'AMMO BOX - you need a gun first' : it.k === 'bat' ? 'You already have a BASEBALL BAT' : nm + ' - BACKPACK FULL (' + this.count(it.k) + '/' + (CAP[it.k] || 4) + ')', 1.8); } }   // v247: always say WHY an item cannot be taken
     if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
-    const on = !!this.promptIt && !this.inv.isOpen(); if (on) { const t = 'F  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k]; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
+    { const b = this.R.me.body, nw = performance.now(); for (const t of layout().towers) { const dx = b.x - CMB.x - t.x, dz = b.z - CMB.z - t.z - 5.6; if (Math.abs(b.y - t.gy) < 1.5 && Math.hypot(dx, dz) < 3.2 && nw - (this._twT || 0) > 15000) { this._twT = nw; this.R.toast && this.R.toast('Walk in through the DOOR - the stairs wind up inside the tower', 3); } } }
+    { const Z = layout().zip, b = this.R.me.body; let zn = false; if (Z && !this.R.zipR && !this.down) { const ox = b.x - CMB.x, oz = b.z - CMB.z; zn = Math.hypot(ox - Z.ax, oz - Z.az) < 1.9 && Math.abs(b.y - Z.ay) < 1.3; } this.zipNear = zn; }
+    const on = (!!this.promptIt || this.zipNear) && !this.inv.isOpen(); if (on) { const t = this.promptIt ? 'F  -  SWAP FOR ' + LOOT_NAME[this.promptIt.k] : this.zipBusy() ? 'ZIP LINE IN USE' : 'F  -  RIDE ZIP LINE'; if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
   }
+  buildZip() {   // v329: code-made placeholder (two posts, a steel cable, a handle) until the real zip line GLB arrives
+    const Z = layout().zip; if (!Z) return; const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: 0x2b2f33 }), cab = new THREE.MeshLambertMaterial({ color: 0xc9ced3 });
+    const A = new THREE.Vector3(CMB.x + Z.ax, Z.ah, CMB.z + Z.az), B = new THREE.Vector3(CMB.x + Z.bx, Z.bh, CMB.z + Z.bz), d = B.clone().sub(A), len = d.length();
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, len, 6), cab); c.position.copy(A).addScaledVector(d, 0.5); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); g.add(c);
+    const post = (x, y0, z, h) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, h, 0.16), mat); m.position.set(CMB.x + x, y0 + h / 2, CMB.z + z); g.add(m); };
+    post(Z.ax, Z.ay, Z.az, Z.H + 0.05); post(Z.bx, Z.by, Z.bz, Z.H + 0.05);
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), mat); h.position.copy(A).add(new THREE.Vector3(0, -0.05, 0)); g.add(h); this.zipHandle = h; this.zipA = A; this.zipB = B;
+    this.zipG = g; this.group.add(g); }
+  zipBusy() { for (const [, g] of this.mates) if (g.ph === 4 && ((g.st | 0) & 1024)) return true; return false; }
   swapPick() {
     if (this.nearDown && this.startRevive()) return true;   // v244: F next to a downed teammate = revive him
+    if (this.zipNear && !this.promptIt) { if (this.zipBusy()) { this.R.toast && this.R.toast('Zip line in use - wait your turn', 1.6); return true; } return this.R.startZip && this.R.startZip(); }
     const R = this.R, cb = R.wallet && R.wallet.cb, it = this.promptIt; if (!cb || !it || !it.alive || !this.active) return false;
     const held = R.weapon && cb.owned[R.weapon] && isGunK(R.weapon) ? R.weapon : this.guns()[0]; if (!held) return false;
     this.dropGun(held, true);

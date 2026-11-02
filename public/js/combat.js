@@ -404,7 +404,7 @@ function build() {
     // the spiral: every step is a small ring of box cells (finer where it is wide) so you walk up it smoothly
     for (let i = 0; i < n; i++) { const top = gy + (i + 1) * ST;
       for (let rr = 0; rr < 5; rr++) { const r = K + 0.35 + rr * 0.4, arc = r * dph, m = Math.max(1, Math.ceil(arc / 0.45));
-        for (let j = 0; j < m; j++) { const ph = i * dph + (j + 0.5) / m * dph, sn = Math.abs(Math.sin(ph)), cs = Math.abs(Math.cos(ph)), hr = 0.2, ht = arc / m / 2, hx = sn * hr + cs * ht + 0.01, hz = cs * hr + sn * ht + 0.01, px = Math.sin(ph) * r, pz = Math.cos(ph) * r; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); } } }
+        for (let j = 0; j < m; j++) { const ph = i * dph + (j + 0.5) / m * dph, sn = Math.abs(Math.sin(ph)), cs = Math.abs(Math.cos(ph)), hr = 0.2, ht = arc / m / 2, hx = sn * hr + cs * ht + 0.01, hz = cs * hr + sn * ht + 0.01, px = Math.sin(ph) * r, pz = Math.cos(ph) * r; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); solids[solids.length - 1].fine = 1; } } }   // v329: 'fine': the next step (0.3 m up) is exactly the body's wall threshold: it must never count as a wall
     props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
     return { x, z, gy, py, n, step: ST, flag, a };
   };
@@ -475,9 +475,11 @@ function build() {
   { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4], [-7, 3], [7, 3], [-7, 6], [7, 6]]) { if (n >= 6) break; const f = ['sscope', 'sniper', 'smg', 'ak', 'ammo', 'ammo'][n]; if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
   const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
   // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
+  /* v329: ZIP LINE from the end of the 'us' tower ledge down to the Sada Ghar (clinic) roof */
+  let zip = null; { const tw = towers[1], cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (tw && cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL, ax = tw.x + TW.O + 2.0, az = tw.z, ay = tw.py - 0.3, bx = cl.x + 3.5, bz = cl.z + 4.5, H = 2.1; zip = { ax, az, ay, ah: ay + H, bx, bz, by: yr, bh: yr + H, H, len: Math.hypot(bx - ax, bz - az) }; } }
   let nav = null;
   const L = {
-    solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
+    zip, solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
       /* v302: a fence is thinner than a cell: the cell CENTRES either side were 'free' and A* drew paths straight through the fence, so bots ran into it for ever. Every cell the fence touches is blocked now (gates are real gaps in the fence, they stay open) */
