@@ -116,11 +116,11 @@ function buildSolids(o) {
   let zf = null;   /* v317 (PUBG): in an ordinary two-storey building the stairs run STRAIGHT into the room (you face the steps from the front), the roof flight stands right beside it in the same direction, a landing joins them (floor 2) and you arrive on the roof */
   if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const rise0 = fh + SL, n0 = Math.ceil(rise0 / 0.27), tr0 = 0.38; if (o.d >= n0 * tr0 + 4.6 && o.w >= 9) zf = { rise: rise0, n: n0, tr: tr0, sw: 2.0 }; }
   if (nfl > 1 && zf) {
-    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = xA + sw, zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr;
+    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = Math.max(xA + 2 * sw + 1.0, hx - 1.0 - sw), zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr;
     for (let i = 0; i < n; i++) { const za = zF - (i + 1) * tr; wall(xA, za, xA + sw, za + tr, -0.1, (i + 1) * step, 'step'); }   // flight 1 (ground to floor 2): the foot is in the south, you climb towards the north wall, the landing lies behind its top step
     hole = { x0: xA, x1: xA + sw, z0: zTop + tr, z1: zF };
     for (let j = 0; j < n; j++) { const za = zTop + j * tr; wall(xB, za, xB + sw, za + tr, rise - 0.1, rise + (j + 1) * step, 'step'); }   // flight 2 (floor 2 to the roof): starts on the landing and climbs back towards the south, beside flight 1
-    o.roofZ = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xB + sw, z0: zTop, z1: zF };
+    o.roofZ = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xA + sw, z0: zTop, z1: zF }; o.stairRect2 = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + n * tr };   /* v321: like a real house: the first flight in one corner, a landing / floor, then the second flight in the OTHER corner */
     o.stairs = { ax: 'z', x0: xA, z0: zF, dir: -1, n, tread: tr, sw, rise, step, zTop };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
@@ -313,6 +313,7 @@ function build() {
       if (k === 'counter') return;   // v318: the plain wooden block counters are gone (user)
       if (b.hole2 && x + w / 2 > b.hole2.x0 - 0.8 && x - w / 2 < b.hole2.x1 + 0.8 && z + d / 2 > b.hole2.z0 - 0.8 && z - d / 2 < b.hole2.z1 + 0.8) return;
       if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
+      if (b.stairRect2 && x + w / 2 > b.stairRect2.x0 - 0.8 && x - w / 2 < b.stairRect2.x1 + 0.8 && z + d / 2 > b.stairRect2.z0 - 0.8 && z - d / 2 < b.stairRect2.z1 + 0.8) return;
       if (b.stairRect && x + w / 2 > b.stairRect.x0 - 0.8 && x - w / 2 < b.stairRect.x1 + 0.8 && z + d / 2 > b.stairRect.z0 - 0.8 && z - d / 2 < b.stairRect.z1 + 0.8) return;
       for (const dr of b.doors) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (Math.abs(x - ex) < w / 2 + 1.9 && Math.abs(z - ez) < d / 2 + 1.9) return; }
       if (b.partDoor) { const p = b.partDoor; if (p.ax === 'z' ? (Math.abs(x - p.pos) < w / 2 + 1.5 && Math.abs(z - p.gap) < d / 2 + 2.2) : (Math.abs(z - p.pos) < d / 2 + 1.5 && Math.abs(x - p.gap) < w / 2 + 2.2)) return; if (p.ax === 'z' && Math.abs(x - p.pos) < w / 2 + 0.3) return; }
@@ -450,7 +451,7 @@ function build() {
   const addY = (x, z, y, o = {}) => { if (!hasFloor(x, z, y) || !openY(x, z, 0.9, y) || spots.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < 4 && Math.abs((q.y === undefined ? 0 : q.y) - y) < 1.5)) return false; spots.push({ x, z, y, w: 1, ...o }); return true; };
   for (const b of BUILDINGS) {
     if (b.noLoot) continue;
-    if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; addY(x, z, y2); } }
+    if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; const s2 = b.stairRect2; if (s2 && x > b.x + s2.x0 - 2 && x < b.x + s2.x1 + 2 && z > b.z + s2.z0 - 2 && z < b.z + s2.z1 + 2) continue; addY(x, z, y2); } }
     if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
   }
   { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4], [-7, 3], [7, 3], [-7, 6], [7, 6]]) { if (n >= 6) break; const f = ['sscope', 'sniper', 'smg', 'ak', 'ammo', 'ammo'][n]; if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
