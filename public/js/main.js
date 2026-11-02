@@ -1937,6 +1937,8 @@ class Race {
           this._twYaw = this.camYaw; } if (this.twK > 0.01) dist = dist * (1 - this.twK) + Math.min(dist, 1.5) * this.twK; } }   // looking up: the camera swings in close under the player, like PUBG
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // the drop: inside the plane, then a camera high behind the player looking DOWN at the island
       if (dr) { const ph = dr.ph; dist = ph === 'plane' ? 2.7 : ph === 'fall' ? 6.5 : 9; const tp = ph === 'plane' ? 0.16 : ph === 'fall' ? 1.05 : 0.42; this.camPitch += (tp - this.camPitch) * (1 - Math.exp(-(ph === 'plane' ? 4 : 2.2) * dt)); } }
+    const fpScope = !!(this.scoped && !this.drive && !this.over && !spec && !(this.mission && this.mission.cs && this.mission.cs.dropping));   // v307 PUBG: looking through a scope you are INSIDE the character's head (first person, body hidden), not watching him from behind
+    if (fpScope) dist = 0.05;
     const inHome = this.meta.city && homeZone(b.x, b.z, 0.2);
     if (inHome && !this.drive) dist = Math.min(dist, 2.9);
     if (spec) { dist = 10.5; this.camYaw = lerpAngle(this.camYaw, spec.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
@@ -1946,7 +1948,7 @@ class Race {
       if (this.lookT <= 0) { this.camYaw = lerpAngle(this.camYaw, st.yaw + Math.PI, 1 - Math.exp(-3.2 * dt)); /* v247: a passenger's camera always follows the driver's heading until he gets out */ this.camPitch += (0.28 - this.camPitch) * (1 - Math.exp(-2 * dt)); }
     }
     // GTA-style over-the-shoulder framing on foot: close behind, camera nudged to the right so the player sits left of centre
-    this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
+    this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) && !fpScope ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
     { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // v228 peek: the lean is part of the pivot (before smoothing and wall checks), it used to be added to the camera AFTER them every frame = shaking
       const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12); if (Math.abs(this.leanV) < 0.002 && !tg) this.leanV = 0; }
     let lo = (this.leanV || 0) * ((this.leanV || 0) < 0 ? 0.5 : 0.75),   /* v264: leaning LEFT moves the camera only 0.5 m (it was 0.75 and put the head exactly under the crosshair) */  tx = b.x + Math.cos(this.camYaw) * (this.shoulder + lo), ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * (this.shoulder + lo);
@@ -1963,7 +1965,7 @@ class Race {
     const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
     this.camTarget.y += (ty - this.camTarget.y) * (inPlane ? 1 : 1 - Math.exp(-(this.twK > 0.3 ? 22 : 7) * dt));   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
-    this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + 0.4, this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
+    this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + (fpScope ? 0 : 0.4), this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage tube (radius 2, in the cabin's OWN frame - it is turned 53 degrees against the plane group)
       const w = dr && dr.ph === 'plane' && cs.plane && cs.plane.children[0]; if (w && w.userData.cabin) { w.updateMatrixWorld(true); const c = this.camera.position, L = w.worldToLocal(c.clone()), ly = L.y - 0.57, r = Math.hypot(L.x, ly), k = r > 1.6 ? 1.6 / r : 1; L.x = clamp(L.x * k, -1.2, 1.2); L.y = 0.57 + Math.min(1.3, ly * k); L.z = clamp(L.z, -7.3, 6.0); c.copy(w.localToWorld(L)); } }   // keep the camera in the aisle, below the ceiling lights
     if (inHome) this.camera.position.y = Math.min(this.camera.position.y, 3.25);   // stay under the ceiling
@@ -2008,6 +2010,7 @@ class Race {
       { const cs = this.mission && this.mission.cs, g = this.me && this.me.model && this.me.model.group;   // v214 (PUBG): squeezed against a wall / in a stair shaft the camera ends up almost inside the head: hide the body then (first-person view) instead of staring into it
         if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); const hT = this.twK > 0.3 ? 0.5 : 0.7, sT = this.twK > 0.3 ? 1.0 : 0.95; if (g.visible && dd < hT) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > sT) { g.visible = true; this._bodyHid = false; } }
         else if (g && this._bodyHid) { g.visible = true; this._bodyHid = false; } }
+      { const g2 = this.me && this.me.model && this.me.model.group; if (g2) { if (fpScope) { if (g2.visible) { g2.visible = false; this._scHid = true; } } else if (this._scHid) { g2.visible = true; this._scHid = false; } } }
     }
     if (this.shake > 0.01) { const k = this.shake * 0.5; this.camera.position.x += (Math.random() - 0.5) * k; this.camera.position.y += (Math.random() - 0.5) * k * 0.7; this.camera.position.z += (Math.random() - 0.5) * k; this.shake *= Math.exp(-7 * (this.lastDt || 0.016)); } else this.shake = 0;
     {
