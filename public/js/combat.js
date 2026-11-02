@@ -113,15 +113,20 @@ function buildSolids(o) {
     o.partDoor = { ax: p.ax, pos: p.pos, gap: p.gap, w: dw };
   }
   let hole = null, hole2 = null;
-  let zf = null;   /* v317 (PUBG): in an ordinary two-storey building the stairs run STRAIGHT into the room (you face the steps from the front), the roof flight stands right beside it in the same direction, a landing joins them (floor 2) and you arrive on the roof */
-  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const rise0 = fh + SL, n0 = Math.ceil(rise0 / 0.27), tr0 = 0.38; if (o.d >= n0 * tr0 + 6.2 && o.w >= 9) zf = { rise: rise0, n: n0, tr: tr0, sw: 2.0 }; }
+  let zf = null;   /* v324: a REAL staircase (IRC/building-code numbers: riser <= 19 cm, tread 28 cm, 1.1 m wide, 1.2 m landings, 2 m headroom): a stacked U-shaped (switchback) stair in the north-west corner. Flight a climbs from the ground to a half landing, flight b turns back and arrives on floor 2; above it the same two flights go on from floor 2 to the roof. */
+  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
   if (nfl > 1 && zf) {
-    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = Math.max(xA + 2 * sw + 1.0, hx - 1.0 - sw), zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr, gap = Math.max(2.4, Math.min(3.6, hz - TH / 2 - 1.3 - (zTop + n * tr))), zS = zTop + gap;   /* v322: after the first flight there is FLAT floor (gap) before the second flight starts */
-    for (let i = 0; i < n; i++) { const za = zF - (i + 1) * tr; wall(xA, za, xA + sw, za + tr, -0.1, (i + 1) * step, 'step'); }   // flight 1 (ground to floor 2): the foot is in the south, you climb towards the north wall, the landing lies behind its top step
-    hole = { x0: xA, x1: xA + sw, z0: zTop + tr, z1: zF };
-    for (let j = 0; j < n; j++) { const za = zS + j * tr; wall(xB, za, xB + sw, za + tr, rise - 0.1, rise + (j + 1) * step, 'step'); }   // flight 2 (floor 2 to the roof): starts on the landing and climbs back towards the south, beside flight 1
-    o.roofZ = { x0: xB, x1: xB + sw, z0: zS, z1: zS + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xA + sw, z0: zTop, z1: zF }; o.stairRect2 = { x0: xB, x1: xB + sw, z0: zS, z1: zS + n * tr };   /* v321: like a real house: the first flight in one corner, a landing / floor, then the second flight in the OTHER corner */
-    o.stairs = { ax: 'z', x0: xA, z0: zF, dir: -1, n, tread: tr, sw, rise, step, zTop };
+    const R = zf.R, half = R / 2, n = Math.ceil(half / 0.19), r = half / n, t = 0.36, cw = 1.1, gp = 0.1, L = 1.2, x0 = -hx + TH / 2 + 0.05, xa0 = x0, xa1 = x0 + cw, xb0 = xa1 + gp, xb1 = xb0 + cw, zN = -hz + TH / 2 + 0.05, zS0 = zN + L, zE = zS0 + n * t, TK = 0.25;
+    for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, -0.1, (i + 1) * r, 'step'); }   // flight a: ground -> half landing (climbs towards the north wall)
+    wall(xa0, zN, xb1, zS0, -0.1, half, 'step');   // the half landing
+    for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, -0.1, half + (i + 1) * r, 'step'); }   // flight b: half landing -> floor 2 (comes back south)
+    for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, R + (i + 1) * r - TK, R + (i + 1) * r, 'step'); }   // flight a2: floor 2 -> half landing 2 (thin slabs: the stairs above stand free, like a real concrete stair)
+    wall(xa0, zN, xb1, zS0, R + half - TK, R + half, 'step');
+    for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, R + half + (i + 1) * r - TK, R + half + (i + 1) * r, 'step'); }   // flight b2: -> the roof
+    const H = { x0: xa0, x1: xb1, z0: zN, z1: zS0 + (n - 1) * t };   // opening in floor 2 and in the roof over the whole stairwell (the last step is the floor itself)
+    hole = H; o.roofZ = { ...H }; o.stairRect = { x0: xa0, x1: xb1, z0: zN, z1: zE }; o.stairRect2 = null;
+    wall(xb1 - 0.05, zN, xb1 + 0.05, H.z1, R, R + 1.0, 'wall'); o.railTop = { x: xb1, z0: zN, z1: H.z1 };   // a railing on the open side of the stairwell (floor 2); another one is built on the roof
+    o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
@@ -159,7 +164,7 @@ function buildSolids(o) {
   } else if (o.roofZ) {   // v317: roof terrace reached by the second straight flight: slab with a hole over it, a parapet with a 4.4 m jump-down gap in the east side
     const H = o.roofZ, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
     wall(X0, Z0, X1, H.z0, top, top + SL, 'roof'); wall(X0, H.z1, X1, Z1, top, top + SL, 'roof'); wall(X0, H.z0, H.x0, H.z1, top, top + SL, 'roof'); wall(H.x1, H.z0, X1, H.z1, top, top + SL, 'roof');
-    o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 };
+    o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 }; wall(H.x1 - 0.05, H.z0, H.x1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');   // v324: railing round the stair opening on the roof
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');
   } else
     wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
@@ -195,7 +200,9 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
   if (ov.stair) o.stair = ov.stair;
   if ((K.fl || 1) > 1 && !ov.inner) {   /* v255: no door opens onto the foot of the staircase: a door on the stair wall slides to the free part of that wall (or goes when there is no room) */
-    const S0 = o.stair || { x0: -w / 2 + 1.6, z0: -d / 2 }, sx0 = S0.x0 - 0.8, sx1 = S0.x0 + 7.4 + 0.8, sideS = S0.z0 < 0 ? 'N' : 'S', hx_ = w / 2, hz_ = d / 2;
+    const nwU = !ov.stair2 && !ov.roofStair && d >= 8 && w >= 8 && ((K.fh || 3) + SL) < 6;   /* v324: the stairwell is the NW corner (2.4 m wide, 4 m deep): no N / W door on it */
+    if (nwU) o.doors = o.doors.filter((q) => { const hw = (q.w || 3.4) / 2; if (q.s === 'N') { if (q.o - hw > -w / 2 + 3.3) return true; q.o = Math.round((-w / 2 + 3.4 + hw + 0.5) * 2) / 2; return q.o + hw < w / 2 - 1.6; } if (q.s === 'W') { if (q.o - hw > -d / 2 + 5.0) return true; q.o = Math.round((-d / 2 + 5.1 + hw) * 2) / 2; return q.o + hw < d / 2 - 1.2; } return true; });
+    const S0 = nwU ? { x0: -w / 2 - 20, z0: 99 } : (o.stair || { x0: -w / 2 + 1.6, z0: -d / 2 }), sx0 = S0.x0 - 0.8, sx1 = S0.x0 + 7.4 + 0.8, sideS = S0.z0 < 0 ? 'N' : 'S', hx_ = w / 2, hz_ = d / 2;
     if (sideS === 'N' || sideS === 'S') o.doors = o.doors.filter((q) => { if (q.s !== sideS) return true; const hw = (q.w || 3.4) / 2; if (q.o + hw < sx0 || q.o - hw > sx1) return true;
       const fr0 = sx1 + hw + 0.2, fr1 = hx_ - 1.6 - hw, fl0 = -hx_ + 1.6 + hw, fl1 = sx0 - hw - 0.2;
       if (fr1 >= fr0) { q.o = Math.round((fr0 + fr1) / 2 * 2) / 2; return true; } if (fl1 >= fl0) { q.o = Math.round((fl0 + fl1) / 2 * 2) / 2; return true; }
@@ -429,7 +436,7 @@ function build() {
       else { run(x, z, 6, ang, o1); run(ang ? x - 0.3 : x + 0.34, ang ? z + 0.3 : z - 0.3, 4, !ang, (o1 + 4) % 12); }
     } }
   // some wandering crates / barrels near the buildings and roads (cover)
-  for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; crate(b.x + sx, b.z + sz); if (R() < 0.5) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }
+  for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; const inB = (x, z) => BUILDINGS.some((o) => Math.abs(x - o.x) < o.w / 2 + 1.0 && Math.abs(z - o.z) < o.d / 2 + 1.0);   /* v324: a crate beside one house landed INSIDE the next house (it stood in a stairwell) */ if (!inB(b.x + sx, b.z + sz)) crate(b.x + sx, b.z + sz); if (R() < 0.5 && !inB(b.x + sx + 1.4, b.z + sz + 0.3)) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }
   for (let i = 0; i < 40; i++) { const x = (R() * 2 - 1) * (H - 40), z = (R() * 2 - 1) * (H - 40), gy = cmbH(x, z), dr = distRoad(x, z); if (gy < 0 || dr > 5 || dr < 1.5 || onPad(x, z, 5)) continue; crate(x, z, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel'); }
   /* v263: PUBG-style oil drums beside the warehouses / hangars / barns and in the base */
   for (const b of BUILDINGS) if (b.kind === 'warehouse' || b.kind === 'hangar' || b.kind === 'barn') for (let i = 0; i < 3; i++) { const bx = b.x + b.w / 2 + 1.6, bz = b.z - 1.5 + i * 1.0; if (cmbH(bx, bz) > 0.2 && distRoad(bx, bz) > 3) crate(bx, bz, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel'); }
@@ -638,7 +645,7 @@ export class CombatSim {
   }
   // v285: bots follow you UP THE STAIRS into rooms and villas: the foot, the line and the top landing of a building's main flight
   stairInfo(B) { const st = B.stairs; if (!st) return null;
-    if (st.ax === 'z') { const xc = B.x + st.x0 + st.sw / 2, zb = B.z + st.z0 - 0.25, zt = B.z + st.zTop - 0.3; return { fy: B.fy, rise: st.rise, xb: xc, zb, xt: xc, zt, foot: { x: xc, z: zb + 1.3 }, top: { x: xc, z: zt }, len: Math.abs(zt - zb) }; }
+    if (st.ax === 'U') { const xa = B.x + st.x0 + st.cw / 2, xb = B.x + st.xb0 + st.cw / 2, zE = B.z + st.zE - 0.2, zM = B.z + st.zS0 + 0.1, len = Math.abs(zE - zM) * 2 + (xb - xa); return { fy: B.fy, rise: st.rise, xb: xa, zb: zE, mx: xa, mz: zM, mx2: xb, xt: xb, zt: zE, foot: { x: xa, z: zE + 1.3 }, top: { x: xb, z: zE + 0.5 }, len, U: 1 }; }
     const zc = B.z + st.z0 + st.sw / 2, d = st.dir > 0 ? 1 : -1, xb = B.x + st.x0 + d * 0.25, xt = B.x + st.x0 + d * ((st.n - 1) * st.tread + 0.7), fz = zc + st.sw / 2 + 0.9; return { fy: B.fy, rise: st.rise, xb, zb: zc, xt, zt: zc, foot: { x: xb, z: fz }, top: { x: xt, z: fz }, len: Math.abs(xt - xb) }; }
   upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
@@ -662,7 +669,7 @@ export class CombatSim {
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
-          b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zb + (si.zt - si.zb) * t; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, si.zt - si.zb) + (b.cl.dir > 0 ? 0 : Math.PI); b.speed = 2.3; b.walk = false;
+          if (si.U) { const u = t * 2; if (u < 1) { b.x = si.xb; b.z = si.zb + (si.mz - si.zb) * u; } else { b.x = si.xb + (si.xt - si.xb) * Math.min(1, (u - 1) * 6); b.z = si.mz + (si.zt - si.mz) * Math.max(0, (u - 1.1) / 0.9); } b.y = si.fy + si.rise * t; b.yaw = u < 1 ? Math.PI : 0; if (b.cl.dir < 0) b.yaw += Math.PI; } else { b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zb + (si.zt - si.zb) * t; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, si.zt - si.zb) + (b.cl.dir > 0 ? 0 : Math.PI); } b.speed = 2.3; b.walk = false;
           if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.top.x; b.z = si.top.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
         continue;
       }
