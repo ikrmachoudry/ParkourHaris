@@ -1707,7 +1707,7 @@ class Race {
   applyLights(c) {
     if (!c) return; const u = c.mesh.userData, on = this.lightsOn, m = u.hero && u.hero.mats;
     if (m && m.head) { if (m.head.userData.ei0 === undefined) m.head.userData.ei0 = m.head.emissiveIntensity; m.head.emissiveIntensity = on ? 3.2 : m.head.userData.ei0; }
-    if (m && m.tail) { if (m.tail.userData.ei0 === undefined) m.tail.userData.ei0 = m.tail.emissiveIntensity; m.tail.emissiveIntensity = on ? Math.max(1.4, m.tail.userData.ei0 * 2) : m.tail.userData.ei0; }
+    if (m && m.tail) { if (m.tail.userData.ei0 === undefined) m.tail.userData.ei0 = m.tail.emissiveIntensity; m.tail.emissiveIntensity = on ? Math.max(1.4, m.tail.userData.ei0 * 2) : m.tail.userData.ei0; const tw = m.tail.userData.twin; if (tw) tw.emissiveIntensity = on ? 1.6 : m.tail.userData.twin0; }
     if (!this.beam) {
       const sp = new THREE.SpotLight('#fff0c8', 5, 46, 0.46, 0.65, 1.1); sp.castShadow = false; const tg = new THREE.Object3D(); sp.target = tg;
       const gl = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 20), new THREE.MeshBasicMaterial({ map: beamTexture(), transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); gl.rotation.x = -Math.PI / 2; gl.renderOrder = 6;

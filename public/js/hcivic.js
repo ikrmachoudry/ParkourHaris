@@ -29,7 +29,13 @@ export function buildCivic({ detail = 'hi' } = {}) {
     g.updateMatrixWorld(true);
     for (const w of wheels) for (const o of w.list) w.spin.attach(o);
     mats.paint = BODY;
-    m.traverse((o) => { if (!o.isMesh || !o.material) return; const nm = o.material.name; if (nm === 'CIVIC13_luz2' || nm === 'CIVIC13_luz') { o.material = o.material.clone(); const mt = o.material; mt.emissive = new THREE.Color(nm === 'CIVIC13_luz2' ? '#fff1b8' : '#ff2a2a'); mt.emissiveIntensity = nm === 'CIVIC13_luz2' ? 0.15 : 0.1; if (nm === 'CIVIC13_luz2') mats.head = mt; else mats.tail = mt; } });   // v278: headlamps + tail lamps light up with the L / lights button
+    m.traverse((o) => { if (!o.isMesh || !o.material) return; const nm = o.material.name; if (nm === 'CIVIC13_luz2' || nm === 'CIVIC13_luz') { o.material = o.material.clone(); const mt = o.material; mt.emissive = new THREE.Color(nm === 'CIVIC13_luz2' ? '#fff1b8' : '#ff2a2a'); mt.emissiveIntensity = nm === 'CIVIC13_luz2' ? 0.15 : 0.1; if (nm === 'CIVIC13_luz2') mats.head = mt; else { mats.tail = mt; mt.color.set('#0c0404'); mt.emissive.set('#240606'); mt.emissiveIntensity = 0.1; } } });
+    /* v309: Haris's real Civic (8th gen) has ROUND tail lamps, two per side: round red lamp discs sit on the rear of the model (the file itself is untouched); they follow the brake / light button through mats.tail.userData.twin */
+    { const dm = new THREE.MeshStandardMaterial({ color: '#7a0b0b', roughness: 0.25, metalness: 0.1, emissive: new THREE.Color('#ff1a1a'), emissiveIntensity: 0.35 }), rim = new THREE.MeshStandardMaterial({ color: '#1a0606', roughness: 0.5 }), gd = new THREE.CircleGeometry(0.062, 28), gr = new THREE.CircleGeometry(0.076, 28);
+      for (const sd of [-1, 1]) for (const zz of [0.45, 0.61]) { const z = sd * zz, y = 0.79, xo = zz > 0.55 ? 0.03 : 0;
+        const r1 = new THREE.Mesh(gr, rim); r1.position.set(-2.105 + xo, y, z); r1.rotation.y = -Math.PI / 2; g.add(r1);
+        const d1 = new THREE.Mesh(gd, dm); d1.position.set(-2.111 + xo, y, z); d1.rotation.y = -Math.PI / 2; g.add(d1); }
+      if (mats.tail) { mats.tail.userData.twin = dm; mats.tail.userData.twin0 = 0.35; } }   // v278: headlamps + tail lamps light up with the L / lights button
   };
   if (SRC) fill(); else { waiting.push(fill); preloadCivic(); }
   return {
