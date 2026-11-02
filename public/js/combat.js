@@ -120,13 +120,26 @@ function buildSolids(o) {
     for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, -0.1, (i + 1) * r, 'step'); }   // flight a: ground -> half landing (climbs towards the north wall)
     wall(xa0, zN, xb1, zS0, -0.1, half, 'step');   // the half landing
     for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, -0.1, half + (i + 1) * r, 'step'); }   // flight b: half landing -> floor 2 (comes back south)
-    for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, R + (i + 1) * r - TK, R + (i + 1) * r, 'step'); }   // flight a2: floor 2 -> half landing 2 (thin slabs: the stairs above stand free, like a real concrete stair)
-    wall(xa0, zN, xb1, zS0, R + half - TK, R + half, 'step');
-    for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, R + half + (i + 1) * r - TK, R + half + (i + 1) * r, 'step'); }   // flight b2: -> the roof
-    const H = { x0: xa0, x1: xb1, z0: zN, z1: zS0 + (n - 1) * t };   // opening in floor 2 and in the roof over the whole stairwell (the last step is the floor itself)
-    hole = H; o.roofZ = { ...H }; o.stairRect = { x0: xa0, x1: xb1, z0: zN, z1: zE }; o.stairRect2 = null;
-    wall(xb1 - 0.05, zN, xb1 + 0.05, H.z1, R, R + 1.0, 'wall'); o.railTop = { x: xb1, z0: zN, z1: H.z1 };   // a railing on the open side of the stairwell (floor 2); another one is built on the roof
-    o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw };
+    const H = { x0: xa0, x1: xb1, z0: zN, z1: zS0 + (n - 1) * t };   // opening in floor 2 over the first stairwell (the last step is the floor itself)
+    hole = H; o.stairRect = { x0: xa0, x1: xb1, z0: zN, z1: zE };
+    { const X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz, yb = R - SL;   // v325: floor 2 (the v324 stairs forgot it): a slab with the stair opening in it
+      wall(X0, Z0, X1, H.z0, yb, R, 'floor'); wall(X0, H.z0, H.x0, H.z1, yb, R, 'floor'); wall(H.x1, H.z0, X1, H.z1, yb, R, 'floor'); wall(X0, H.z1, X1, Z1, yb, R, 'floor'); }
+    wall(xb1 - 0.05, zN, xb1 + 0.05, H.z1, R, R + 1.0, 'wall'); wall(xa0, H.z1 - 0.05, xa1 + 0.05, H.z1 + 0.05, R, R + 1.0, 'wall'); o.railTop = { x: xb1, z0: zN, z1: H.z1 };   // railings on the open sides of the stairwell (floor 2)
+    const zF = zE + 1.2, zL0 = zF + n * t, zL1 = zL0 + 1.2;   // v325 serpentine: after a 1.2 m flat the second stairwell continues STRAIGHT ahead (same lane, heading south): up to a half landing, then back north in the other lane to the roof
+    if (zL1 + 0.9 <= hz) {
+      for (let i = 0; i < n; i++) wall(xb0, zF + i * t, xb1, zF + (i + 1) * t, R - 0.1, R + (i + 1) * r, 'step');   // flight a2 (lane B, heading south)
+      wall(xa0, zL0, xb1, zL1, R - 0.1, R + half, 'step');   // half landing 2
+      for (let i = 0; i < n; i++) wall(xa0, zL0 - (i + 1) * t, xa1, zL0 - i * t, R - 0.1, R + half + (i + 1) * r, 'step');   // flight b2 (lane A, heading north) up to the roof
+      o.roofZ = { x0: xa0, x1: xb1, z0: zF + t, z1: zL1 }; o.stairRect2 = { x0: xa0, x1: xb1, z0: zF, z1: zL1 };
+      wall(xa0, zL1 - 0.05, xb1 + 0.05, zL1 + 0.05, top + SL, top + SL + 1.0, 'wall'); wall(xb0, zF + t - 0.05, xb1, zF + t + 0.05, top + SL, top + SL + 1.0, 'wall');   // roof railings: south and north (lane B) of the opening
+      o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw, serp: { zF, zL0, zL1 } };
+    } else {   // too short a building: the old stacked U (second stairwell on top of the first)
+      for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, R + (i + 1) * r - TK, R + (i + 1) * r, 'step'); }
+      wall(xa0, zN, xb1, zS0, R + half - TK, R + half, 'step');
+      for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, R + half + (i + 1) * r - TK, R + half + (i + 1) * r, 'step'); }
+      o.roofZ = { ...H }; o.stairRect2 = null; wall(xb1 + 0.05 - 0.1, zN, xb1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');
+      o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw };
+    }
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
@@ -159,13 +172,13 @@ function buildSolids(o) {
     const h0 = st.x0, h1 = st.x0 + (n - 1) * tread, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
     wall(X0, Z0, X1, st.z0, top, top + SL, 'roof'); wall(X0, st.z0 + sw, X1, Z1, top, top + SL, 'roof'); wall(X0, st.z0, h0, st.z0 + sw, top, top + SL, 'roof'); wall(h1, st.z0, X1, st.z0 + sw, top, top + SL, 'roof');
     o.roofHole = { x0: h0, x1: h1, z0: st.z0, z1: st.z0 + sw };
-    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');   // v247: a 4.4 m gap in the east parapet = jump down from the roof (PUBG: roofs have edges you can drop over)
+    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }   // v247: a 4.4 m gap in the east parapet = jump down from the roof (PUBG: roofs have edges you can drop over)
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
   } else if (o.roofZ) {   // v317: roof terrace reached by the second straight flight: slab with a hole over it, a parapet with a 4.4 m jump-down gap in the east side
     const H = o.roofZ, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
     wall(X0, Z0, X1, H.z0, top, top + SL, 'roof'); wall(X0, H.z1, X1, Z1, top, top + SL, 'roof'); wall(X0, H.z0, H.x0, H.z1, top, top + SL, 'roof'); wall(H.x1, H.z0, X1, H.z1, top, top + SL, 'roof');
     o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 }; wall(H.x1 - 0.05, H.z0, H.x1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');   // v324: railing round the stair opening on the roof
-    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall');
+    for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }
   } else
     wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
   if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
@@ -318,6 +331,7 @@ function build() {
   const furn = (b) => {
     const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
       if (k === 'counter') return;   // v318: the plain wooden block counters are gone (user)
+      if ((k === 'bench' && c !== '#6a4a30') || k === 'rack' || (k === 'shelf' && c === '#9a9a9a') || c === '#111418') return;   // v325: the grey wood-textured block props are gone (user)
       if (b.hole2 && x + w / 2 > b.hole2.x0 - 0.8 && x - w / 2 < b.hole2.x1 + 0.8 && z + d / 2 > b.hole2.z0 - 0.8 && z - d / 2 < b.hole2.z1 + 0.8) return;
       if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
       if (b.stairRect2 && x + w / 2 > b.stairRect2.x0 - 0.8 && x - w / 2 < b.stairRect2.x1 + 0.8 && z + d / 2 > b.stairRect2.z0 - 0.8 && z - d / 2 < b.stairRect2.z1 + 0.8) return;
@@ -335,7 +349,7 @@ function build() {
     else if (f === 'ware') { for (const [x, z] of [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]]) put(x, z, 2.4, 2.4, 2.4, '#b08a58', 'pallet'); put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
     else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
     else if (f === 'clinic') {
-      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter') return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
       P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [3.2, 4.6]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
       P(0, -10, -6.4, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
       P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
@@ -348,7 +362,7 @@ function build() {
       P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 1.2, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
     else if (f === 'ghar') {
-      const P = (fl, x, z, w, d, h, c, k, solid = true) => { const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
       P(0, 6, -7, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(0, 1.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 9.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 6, 5.5, 1.8, 0.7, 0.75, '#a07848', 'table'); P(0, 11.2, 7.5, 0.6, 3, 1.6, '#6a4a30', 'shelf');   // the ground floor hall
       P(1, -7.5, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -10.8, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, -7.8, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, 4.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -4.4, -8.4, 0.7, 1.2, 1.9, '#6a4a30', 'wardrobe');   // the big HALL (upstairs, west end)
       P(1, -0.8, -8, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 1.0, -4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // room 1
@@ -536,6 +550,7 @@ export function vaultSpot(L, x, z, dx, dz, feetY) {   // v271: works at EVERY po
       const hgt = s.y1 - feetY; if (hgt < 0.2 || hgt > 1.7) continue;
       const thinX = s.x1 - s.x0 < s.z1 - s.z0, nx = thinX ? (x < (s.x0 + s.x1) / 2 ? 1 : -1) : 0, nz = thinX ? 0 : (z < (s.z0 + s.z1) / 2 ? 1 : -1), dot = dx * nx + dz * nz; if (dot < 0.2) continue;
       const far = thinX ? (nx > 0 ? s.x1 : s.x0) : (nz > 0 ? s.z1 : s.z0);
+      if (s.drop) { const tx = thinX ? far + nx * 0.6 : px, tz = thinX ? pz : far + nz * 0.6; return { tx, tz, top: s.y1, dx: nx, dz: nz, drop: true }; }   // v325: over a roof parapet: vault the edge and fall
       for (const off of [0.65, 0.95, 1.4]) { const tx = thinX ? far + nx * off : (x + (px - x)), tz = thinX ? pz : far + nz * off; if (hitsSolid(L, tx, tz, 0.35, cmbH(tx, tz))) continue; if (Math.abs(cmbH(tx, tz) - feetY) > 1.8) continue; return { tx, tz, top: s.y1, dx: nx, dz: nz }; }
     }
   }

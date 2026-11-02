@@ -363,7 +363,7 @@ class Race {
     const scene = this.scene = new THREE.Scene();
     scene.background = new THREE.Color(v.fog); scene.fog = new THREE.Fog(v.fog, v.fogNear, v.fogFar); this.fogFarBase = v.fogFar; this.fogNearBase = v.fogNear; this.setFar();
     scene.environment = envTex; scene.environmentIntensity = v.env;
-    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1800);
+    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.07, 1800);
 
     // v197: JANG has NOTHING to do with the GTA city - it gets an empty stand-in world (flat ground, no city, no scenery, no pedestrians, no police, no day/night), so it loads fast and uses little memory
     const { world, info } = o.jang ? buildEmptyLevel(o.jseed) : buildLevel(levelIdx, false, arrowTexture(), o.seed || 1);
@@ -504,11 +504,11 @@ class Race {
       { const cR = this.mission && this.mission.cs, RV = cR && cR.reviving;   /* v255: reviving a teammate (PUBG): you kneel at his side, facing him, and cannot move until he is up */
         if (RV && RV.has && !cR.down) { const sx = Math.cos(RV.r || 0) * 0.85, sz = -Math.sin(RV.r || 0) * 0.85, k = Math.min(1, dt * 8); b.x += (RV.x + sx - b.x) * k; b.z += (RV.z + sz - b.z) * k; b.yaw = Math.atan2(-sx, -sz); b.vx = b.vz = 0; inp.mx = inp.mz = 0; inp.jumpPressed = false; this.fireHeld = false; this.crouch = false; } }
       const V = this.vlt;
-      if (V) { V.t += dt; const k = Math.min(1, V.t / V.dur), e = k * k * (3 - 2 * k); b.x = V.x0 + (V.tx - V.x0) * e; b.z = V.z0 + (V.tz - V.z0) * e; b.y = V.y0 + (V.y1 - V.y0) * e + 4 * V.h * k * (1 - k); b.vx = b.vz = b.vy = 0; b.grounded = true; b.yaw = V.yaw; this.fireHeld = false; if (k >= 1) { b.y = V.y1; this.vlt = null; b.vx = V.dx * 0.5; b.vz = V.dz * 0.5; } }
+      if (V) { V.t += dt; const k = Math.min(1, V.t / V.dur), e = k * k * (3 - 2 * k); b.x = V.x0 + (V.tx - V.x0) * e; b.z = V.z0 + (V.tz - V.z0) * e; b.y = V.y0 + (V.y1 - V.y0) * e + 4 * V.h * k * (1 - k); b.vx = b.vz = b.vy = 0; b.grounded = true; b.yaw = V.yaw; this.fireHeld = false; if (k >= 1) { b.y = V.y1; if (V.drop) b.grounded = false; this.vlt = null; b.vx = V.dx * 0.5; b.vz = V.dz * 0.5; } }
       else if (canMove && b.grounded && !this.over && b.stun <= 0 && !(this.mission && this.mission.cs && (this.mission.cs.down || this.mission.cs.dropping))) {
         const ml = Math.hypot(inp.mx, inp.mz), dx = ml > 0.2 ? inp.mx : Math.sin(b.yaw), dz = ml > 0.2 ? inp.mz : Math.cos(b.yaw), ox = b.x - CMB.x, oz = b.z - CMB.z, hgt = b.y;
         if (inp.jumpPressed || (OPT.tips !== false && (this._vt = (this._vt || 0) - dt) < 0)) { const sp = vaultSpot(cmbLayout(), ox, oz, dx, dz, hgt);
-          if (sp && inp.jumpPressed) { const y1 = (sp.climb ? sp.top : cmbHt(sp.tx, sp.tz)) + 0.02; this.vlt = { t: 0, dur: 1.25, x0: b.x, z0: b.z, y0: b.y, tx: CMB.x + sp.tx, tz: CMB.z + sp.tz, y1, h: Math.max(0.1, sp.top + 0.3 - (b.y + y1) / 2), yaw: Math.atan2(sp.dx || dx, sp.dz || dz), dx: sp.dx, dz: sp.dz }; this.crouch = false; inp.jumpPressed = false; }
+          if (sp && inp.jumpPressed) { const y1 = sp.drop ? b.y : (sp.climb ? sp.top : cmbHt(sp.tx, sp.tz)) + 0.02; this.vlt = { drop: sp.drop, t: 0, dur: 1.25, x0: b.x, z0: b.z, y0: b.y, tx: CMB.x + sp.tx, tz: CMB.z + sp.tz, y1, h: Math.max(0.1, sp.top + 0.3 - (b.y + y1) / 2), yaw: Math.atan2(sp.dx || dx, sp.dz || dz), dx: sp.dx, dz: sp.dz }; this.crouch = false; inp.jumpPressed = false; }
           else if (sp && !inp.jumpPressed) { this._vt = 6; this.toast && this.toast(sp.climb ? 'Press JUMP to climb onto the bridge' : 'Press JUMP to climb over the broken wall'); }
           else if (!inp.jumpPressed) this._vt = 0.3; }
       }
@@ -2009,12 +2009,12 @@ class Race {
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
           for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
             for (const s of a) { if (!(CAMK.has(s.k) || (s.k === 'step' && this.twK > 0.3) || (s.k === 'prop' && s.y1 - s.y0 > 1.2))) continue;
-              for (const MM of [M, 0.1]) {   // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
+              for (const MM of [M, 0.22]) {   // v325: thin margin 0.22 (> the near-plane corner reach, was 0.1 = the wall got clipped = see-through) // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
                 let t0 = 0, t1 = tmax, hit = true;
                 for (const [o, d, lo, hi] of [[lx, dx, s.x0 - MM, s.x1 + MM], [lz, dz, s.z0 - MM, s.z1 + MM], [oy, dy, s.y0 - MM, s.y1 + MM]]) {
                   if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
                   let p = (lo - o) / d, q = (hi - o) / d; if (p > q) { const w2 = p; p = q; q = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); if (t0 > t1) { hit = false; break; } }
-                if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } } } } } } }
+                if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } if (hit && MM < 0.3) { tmax = Math.min(tmax, 0.1); break; } } } } } } }
       for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
       this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
       const tws = this.twK > 0.3, wantC = tws ? Math.max(want, 0.38) : want;   // v236 tower shaft: the camera never snaps all the way into the head (it flickered in and out of first person on every step slab above) and moves in smoothly
