@@ -10,6 +10,7 @@ import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
 import { layout as cmbLayout, CMB, TW, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid } from './combat.js';
+const CAMK = new Set(['wall', 'roof', 'floor', 'cliff', 'ruin', 'crate', 'sandbag', 'container', 'tower']);   // v305: solids the third-person camera must not enter
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
 import { setCityCamera, charCar, restoreCar, CULL } from './cityvis.js';
@@ -1946,7 +1947,15 @@ class Race {
     this.shoulder += ((NO_TEXT && !this.drive && !spec && !(this.twK > 0.3) ? 0.62 : 0) - this.shoulder) * Math.min(1, dt * 5);   // v214: in a tower shaft the camera sits dead behind the player (no side offset: it pushed the camera into the wall)
     { const ok = !this.drive && !this.over && !this.prone && !(this.mission && this.mission.cs && this.mission.cs.dropping);   // v228 peek: the lean is part of the pivot (before smoothing and wall checks), it used to be added to the camera AFTER them every frame = shaking
       const tg = ok ? (this.leanWant || 0) : 0; this.leanV = (this.leanV || 0) + (tg - (this.leanV || 0)) * Math.min(1, dt * 12); if (Math.abs(this.leanV) < 0.002 && !tg) this.leanV = 0; }
-    const lo = (this.leanV || 0) * ((this.leanV || 0) < 0 ? 0.5 : 0.75),   /* v264: leaning LEFT moves the camera only 0.5 m (it was 0.75 and put the head exactly under the crosshair) */  tx = b.x + Math.cos(this.camYaw) * (this.shoulder + lo), ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * (this.shoulder + lo);
+    let lo = (this.leanV || 0) * ((this.leanV || 0) < 0 ? 0.5 : 0.75),   /* v264: leaning LEFT moves the camera only 0.5 m (it was 0.75 and put the head exactly under the crosshair) */  tx = b.x + Math.cos(this.camYaw) * (this.shoulder + lo), ty = b.y + (this.drive || spec ? 1.1 : this.prone ? 0.85 : this.crouch && NO_TEXT ? 1.15 : (NO_TEXT ? 1.5 : 1.35)), tz = b.z - Math.sin(this.camYaw) * (this.shoulder + lo);
+    /* v305 PUBG camera vs thin walls: the over-the-shoulder pivot (0.6 m to the side) could lie on the OTHER side of a wall / broken wall from the player, so the camera looked at the inside of the room. The pivot now stops at any wall between the body and it. */
+    { const cs8 = this.mission && this.mission.cs; if (cs8 && cs8.on && !cs8.dropping && !this.drive && !spec && (tx !== b.x || tz !== b.z)) { const L8 = cmbLayout(), ax = b.x - CMB.x, az = b.z - CMB.z, ex = tx - b.x, ez = tz - b.z, yy = ty - 0.2; let tm = 1;
+        for (const kk of [0.5, 1]) { const px = ax + ex * kk, pz = az + ez * kk, a8 = L8.bucket.get(Math.floor(px / L8.B) * 4099 + Math.floor(pz / L8.B)); if (!a8) continue;
+          for (const q of a8) { if (!CAMK.has(q.k) && !(q.k === 'prop' && q.y1 - q.y0 > 1.2)) continue; if (yy < q.y0 - 0.1 || yy > q.y1 + 0.1) continue;
+            const M = 0.3; let t0 = 0, t1 = tm, hit = true;
+            for (const [o, d, lo, hi] of [[ax, ex, q.x0 - M, q.x1 + M], [az, ez, q.z0 - M, q.z1 + M]]) { if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; } let u = (lo - o) / d, v = (hi - o) / d; if (u > v) { const w2 = u; u = v; v = w2; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { hit = false; break; } }
+            if (hit && t0 > 0 && t0 < tm) tm = t0; } }
+        if (tm < 1) { const k = Math.max(0, tm - 0.06); tx = b.x + ex * k; tz = b.z + ez * k; } } }
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const inPlane = (() => { const cs0 = this.mission && this.mission.cs; return !!(cs0 && cs0.dropping && cs0.drop && cs0.drop.ph === 'plane'); })();   // v222: inside the plane (34 m/s) the camera pivot is welded to the player: a smoothed pivot lagged by a metre or so and the lag changed with every frame time = the shaking
     const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
@@ -1977,7 +1986,7 @@ class Race {
         const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.42;
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
           for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
-            for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor' || s.k === 'cliff' || (s.k === 'step' && this.twK > 0.3) || (s.k === 'prop' && s.y1 - s.y0 > 3))) continue;
+            for (const s of a) { if (!(CAMK.has(s.k) || (s.k === 'step' && this.twK > 0.3) || (s.k === 'prop' && s.y1 - s.y0 > 1.2))) continue;
               for (const MM of [M, 0.1]) {   // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
                 let t0 = 0, t1 = tmax, hit = true;
                 for (const [o, d, lo, hi] of [[lx, dx, s.x0 - MM, s.x1 + MM], [lz, dz, s.z0 - MM, s.z1 + MM], [oy, dy, s.y0 - MM, s.y1 + MM]]) {
