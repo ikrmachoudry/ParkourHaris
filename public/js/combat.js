@@ -114,13 +114,13 @@ function buildSolids(o) {
   }
   let hole = null, hole2 = null;
   let zf = null;   /* v317 (PUBG): in an ordinary two-storey building the stairs run STRAIGHT into the room (you face the steps from the front), the roof flight stands right beside it in the same direction, a landing joins them (floor 2) and you arrive on the roof */
-  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const rise0 = fh + SL, n0 = Math.ceil(rise0 / 0.27), tr0 = 0.38; if (o.d >= n0 * tr0 + 4.6 && o.w >= 9) zf = { rise: rise0, n: n0, tr: tr0, sw: 2.0 }; }
+  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const rise0 = fh + SL, n0 = Math.ceil(rise0 / 0.27), tr0 = 0.38; if (o.d >= n0 * tr0 + 6.2 && o.w >= 9) zf = { rise: rise0, n: n0, tr: tr0, sw: 2.0 }; }
   if (nfl > 1 && zf) {
-    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = Math.max(xA + 2 * sw + 1.0, hx - 1.0 - sw), zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr;
+    const { rise, n, tr, sw } = zf, step = rise / n, st0 = o.stair || { x0: -hx + 1.6 }, xA = Math.max(-hx + 1.0, Math.min(hx - 1.0 - 2 * sw, st0.x0)), xB = Math.max(xA + 2 * sw + 1.0, hx - 1.0 - sw), zTop = -hz + TH / 2 + 1.4, zF = zTop + n * tr, gap = Math.max(2.4, Math.min(3.6, hz - TH / 2 - 1.3 - (zTop + n * tr))), zS = zTop + gap;   /* v322: after the first flight there is FLAT floor (gap) before the second flight starts */
     for (let i = 0; i < n; i++) { const za = zF - (i + 1) * tr; wall(xA, za, xA + sw, za + tr, -0.1, (i + 1) * step, 'step'); }   // flight 1 (ground to floor 2): the foot is in the south, you climb towards the north wall, the landing lies behind its top step
     hole = { x0: xA, x1: xA + sw, z0: zTop + tr, z1: zF };
-    for (let j = 0; j < n; j++) { const za = zTop + j * tr; wall(xB, za, xB + sw, za + tr, rise - 0.1, rise + (j + 1) * step, 'step'); }   // flight 2 (floor 2 to the roof): starts on the landing and climbs back towards the south, beside flight 1
-    o.roofZ = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xA + sw, z0: zTop, z1: zF }; o.stairRect2 = { x0: xB, x1: xB + sw, z0: zTop, z1: zTop + n * tr };   /* v321: like a real house: the first flight in one corner, a landing / floor, then the second flight in the OTHER corner */
+    for (let j = 0; j < n; j++) { const za = zS + j * tr; wall(xB, za, xB + sw, za + tr, rise - 0.1, rise + (j + 1) * step, 'step'); }   // flight 2 (floor 2 to the roof): starts on the landing and climbs back towards the south, beside flight 1
+    o.roofZ = { x0: xB, x1: xB + sw, z0: zS, z1: zS + (n - 1) * tr }; o.stairRect = { x0: xA, x1: xA + sw, z0: zTop, z1: zF }; o.stairRect2 = { x0: xB, x1: xB + sw, z0: zS, z1: zS + n * tr };   /* v321: like a real house: the first flight in one corner, a landing / floor, then the second flight in the OTHER corner */
     o.stairs = { ax: 'z', x0: xA, z0: zF, dir: -1, n, tread: tr, sw, rise, step, zTop };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
