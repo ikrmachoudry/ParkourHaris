@@ -115,31 +115,28 @@ function buildSolids(o) {
   let hole = null, hole2 = null;
   let zf = null;   /* v324: a REAL staircase (IRC/building-code numbers: riser <= 19 cm, tread 28 cm, 1.1 m wide, 1.2 m landings, 2 m headroom): a stacked U-shaped (switchback) stair in the north-west corner. Flight a climbs from the ground to a half landing, flight b turns back and arrives on floor 2; above it the same two flights go on from floor 2 to the roof. */
   if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
-  if (nfl > 1 && zf) {
-    const R = zf.R, half = R / 2, n = Math.ceil(half / 0.19), r = half / n, t = 0.36, cw = 1.1, gp = 0.1, L = 1.2, x0 = -hx + TH / 2 + 0.05, xa0 = x0, xa1 = x0 + cw, xb0 = xa1 + gp, xb1 = xb0 + cw, zN = -hz + TH / 2 + 0.05, zS0 = zN + L, zE = zS0 + n * t, TK = 0.25;
-    for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, -0.1, (i + 1) * r, 'step'); }   // flight a: ground -> half landing (climbs towards the north wall)
-    wall(xa0, zN, xb1, zS0, -0.1, half, 'step');   // the half landing
-    for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, -0.1, half + (i + 1) * r, 'step'); }   // flight b: half landing -> floor 2 (comes back south)
-    const H = { x0: xa0, x1: xb1, z0: zN, z1: zS0 + (n - 1) * t };   // opening in floor 2 over the first stairwell (the last step is the floor itself)
-    hole = H; o.stairRect = { x0: xa0, x1: xb1, z0: zN, z1: zE };
-    { const X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz, yb = R - SL;   // v325: floor 2 (the v324 stairs forgot it): a slab with the stair opening in it
-      wall(X0, Z0, X1, H.z0, yb, R, 'floor'); wall(X0, H.z0, H.x0, H.z1, yb, R, 'floor'); wall(H.x1, H.z0, X1, H.z1, yb, R, 'floor'); wall(X0, H.z1, X1, Z1, yb, R, 'floor'); }
-    wall(xb1 - 0.05, zN, xb1 + 0.05, H.z1, R, R + 1.0, 'wall'); wall(xa0, H.z1 - 0.05, xa1 + 0.05, H.z1 + 0.05, R, R + 1.0, 'wall'); o.railTop = { x: xb1, z0: zN, z1: H.z1 };   // railings on the open sides of the stairwell (floor 2)
-    const zF = zE + 1.2, zL0 = zF + n * t, zL1 = zL0 + 1.2;   // v325 serpentine: after a 1.2 m flat the second stairwell continues STRAIGHT ahead (same lane, heading south): up to a half landing, then back north in the other lane to the roof
-    if (zL1 + 0.9 <= hz) {
-      for (let i = 0; i < n; i++) wall(xb0, zF + i * t, xb1, zF + (i + 1) * t, R - 0.1, R + (i + 1) * r, 'step');   // flight a2 (lane B, heading south)
-      wall(xa0, zL0, xb1, zL1, R - 0.1, R + half, 'step');   // half landing 2
-      for (let i = 0; i < n; i++) wall(xa0, zL0 - (i + 1) * t, xa1, zL0 - i * t, R - 0.1, R + half + (i + 1) * r, 'step');   // flight b2 (lane A, heading north) up to the roof
-      o.roofZ = { x0: xa0, x1: xb1, z0: zF + t, z1: zL1 }; o.stairRect2 = { x0: xa0, x1: xb1, z0: zF, z1: zL1 };
-      wall(xa0, zL1 - 0.05, xb1 + 0.05, zL1 + 0.05, top + SL, top + SL + 1.0, 'wall'); wall(xb0, zF + t - 0.05, xb1, zF + t + 0.05, top + SL, top + SL + 1.0, 'wall');   // roof railings: south and north (lane B) of the opening
-      o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw, serp: { zF, zL0, zL1 } };
-    } else {   // too short a building: the old stacked U (second stairwell on top of the first)
-      for (let i = 0; i < n; i++) { wall(xa0, zE - (i + 1) * t, xa1, zE - i * t, R + (i + 1) * r - TK, R + (i + 1) * r, 'step'); }
-      wall(xa0, zN, xb1, zS0, R + half - TK, R + half, 'step');
-      for (let i = 0; i < n; i++) { wall(xb0, zS0 + i * t, xb1, zS0 + (i + 1) * t, R + half + (i + 1) * r - TK, R + half + (i + 1) * r, 'step'); }
-      o.roofZ = { ...H }; o.stairRect2 = null; wall(xb1 + 0.05 - 0.1, zN, xb1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');
-      o.stairs = { ax: 'U', x0: xa0, xb0, n, tread: t, cw, rise: R, step: r, zN, zS0, zE, half, sw: cw };
+  if (nfl > 1 && zf) {   /* v326: the user's own stair model (public/models/props/stairs.glb, 'modern_stairs02': a U-turn stair with floating treads and cable rails, 3.3 m per storey) in the NW corner of every ordinary 2-storey building. The collision below follows its treads exactly (original-model numbers: 8 treads per flight, pitch 0.217, riser 0.186, tread top 0.17 + 0.186 i, landing top 1.66, lane A x -0.58..0.58, lane B x -1.79..-0.63, flights run along the model's x and the whole thing is turned 90 degrees so the flights run north-south: lane A (east) climbs north from the south end, the landing is at the north wall, lane B (west, against the west wall) comes back south and arrives on the next floor next to where the next flight starts). Heights are stretched by R / 3.32. */
+    const R = zf.R, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857;
+    const cxB = -hx + TH / 2 + 0.05 + 1.19, czB = -hz + TH / 2 + 0.05 + 1.528, xW = cxB - 1.19, xE = cxB + 1.19, zN = czB - 1.528, zS = czB + 1.514;
+    const Q = (zo0, zo1, xo0, xo1, y0, y1, k) => { wall(cxB + (zo0 - GZ), czB - (xo1 - GX), cxB + (zo1 - GZ), czB - (xo0 - GX), y0, y1, k); const q = out[out.length - 1]; if (k === 'step') { q.fine = 1; q.nd = 1; } };   // a box given in the ORIGINAL model frame (z across, x along the flight)
+    for (let f = 0; f < nfl; f++) {
+      const base = f * R, low = f === 0 ? -0.1 : base;
+      for (let i = 0; i < 8; i++) {   // lane A: climbs from the south end to the landing
+        const x0 = -0.24 + PT * i, x1 = i === 7 ? 1.56 : x0 + PT, top = base + (0.17 + RS * i) * sy; Q(-0.58, 0.58, x0, x1, top - 0.15, top, 'step');
+        const xb0 = 1.28 - PT * i, xb1 = i === 0 ? 1.56 : xb0 + PT, tb = base + (1.80 + RS * i) * sy; Q(-1.79, -0.63, xb0 - (i === 7 ? 0 : 0), i === 7 ? xb0 + PT : xb1, tb - (f === 0 && tb < 2.4 * sy ? tb - low : 0.15), tb, 'step');   // lane B: back from the landing (on the ground floor the low treads are solid down to the floor: nobody walks under them with his head in the tread)
+      }
+      Q(-1.8, 0.58, 1.56, 2.8, f === 0 ? low : base + 1.66 * sy - 0.2, base + 1.66 * sy, 'step');   // the landing (ground floor: solid down to the floor)
+      const rl = f === 0 ? -0.1 : base;   // cable rails: solid for the player's body (k 'rail': not drawn, the camera ignores them), the full storey high so nobody steps off a high tread
+      wall(cxB + 1.137, zN, cxB + 1.237, zS, rl, base + R, 'rail'); wall(cxB - 0.048, czB - 0.28, cxB + 0.052, zS, rl, base + R, 'rail');
     }
+    for (let f = 1; f < nfl; f++) {   // floor f: a slab with the stair opening in it
+      const yb = f * R - SL, yt = f * R, X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz;
+      wall(X0, Z0, X1, zN, yb, yt, 'floor'); wall(X0, zN, xW, zS, yb, yt, 'floor'); wall(xE, zN, X1, zS, yb, yt, 'floor'); wall(X0, zS, X1, Z1, yb, yt, 'floor'); for (let q = 1; q <= 4; q++) out[out.length - q].fine = 1;   // the slab edge sits one tread after the last stair tread: its 0.4 m rise must not count as a wall for the body
+    }
+    wall(cxB + 1.137, zN, cxB + 1.237, zS, nfl * R, nfl * R + 1.0, 'rail'); wall(cxB - 0.048, czB - 0.28, cxB + 0.052, zS, nfl * R, nfl * R + 1.0, 'rail'); wall(cxB, zS - 0.05, xE + 0.05, zS + 0.05, nfl * R, nfl * R + 1.0, 'rail');   // roof: rails round lane A (the roof opening) - lane B is where you step out
+    hole = { x0: xW, x1: xE, z0: zN, z1: zS }; o.roofZ = { ...hole }; o.stairRect = { x0: xW, x1: xE, z0: zN, z1: zS + 1.2 }; o.stairRect2 = null;
+    o.stairModel = { cx: cxB, cz: czB, sy, n: nfl, R };
+    o.stairs = { ax: 'U', x0: cxB + 0.027, xb0: cxB - 1.183, cw: 1.16, rise: R, zN, zS0: czB - 1.0, zE: zS + 0.2, sw: 1.16 };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0; st.z0 += 0.5;   /* v255: a clear 0.95 m aisle between the flight and the wall (it used to touch) */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
@@ -176,7 +173,7 @@ function buildSolids(o) {
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
   } else if (o.roofZ) {   // v317: roof terrace reached by the second straight flight: slab with a hole over it, a parapet with a 4.4 m jump-down gap in the east side
     const H = o.roofZ, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
-    wall(X0, Z0, X1, H.z0, top, top + SL, 'roof'); wall(X0, H.z1, X1, Z1, top, top + SL, 'roof'); wall(X0, H.z0, H.x0, H.z1, top, top + SL, 'roof'); wall(H.x1, H.z0, X1, H.z1, top, top + SL, 'roof');
+    wall(X0, Z0, X1, H.z0, top, top + SL, 'roof'); wall(X0, H.z1, X1, Z1, top, top + SL, 'roof'); wall(X0, H.z0, H.x0, H.z1, top, top + SL, 'roof'); wall(H.x1, H.z0, X1, H.z1, top, top + SL, 'roof'); if (o.stairModel) for (let q = 1; q <= 4; q++) out[out.length - q].fine = 1;
     o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 }; wall(H.x1 - 0.05, H.z0, H.x1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');   // v324: railing round the stair opening on the roof
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }
   } else
@@ -495,7 +492,7 @@ export const layout = () => _L || (_L = build());
 // ---- geometry helpers (map-local coordinates, y is absolute height)
 export function hitsSolid(L, x, z, r, gy) {
   if (gy === undefined) gy = cmbH(x, z); const B = L.B, i0 = Math.floor((x - r) / B), i1 = Math.floor((x + r) / B), j0 = Math.floor((z - r) / B), j1 = Math.floor((z + r) / B);
-  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + 0.3 || s.y0 > gy + 1.0) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } }
+  for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + (s.fine ? 0.5 : 0.3) || s.y0 > gy + 1.0) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } }
   return null;
 }
 // the highest roof / floor / crate top under (x,z) that is at or below yTop + 0.35 (what a parachutist can land on); -1e9 when none

@@ -171,9 +171,11 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     for (const s of b.solids) {
       if (s.k === 'wall') B.box(wm, s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, wallC, 0.04);
       else if (s.k === 'floor') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8c6b48', 0.05);
+      else if (s.k === 'step' && s.nd) { /* v326: drawn by the stairs.glb model below */ }
       else if (s.k === 'step') { B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1 - 0.05, s.z1, '#cbbd9f', 0.02); B.box('wood', s.x0 - 0.01, s.y1 - 0.07, s.z0 - 0.01, s.x1 + 0.01, s.y1, s.z1 + 0.01, '#9a7650', 0.05); }   /* v264: a plaster stair body with a wooden tread on every step (the stretched all-wood blocks looked like a wall of planks) */
       else if (s.k === 'roof') { if (b.roof === 'flat') B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8d8b84', 0.02); else B.box('conc', s.x0 + 0.3, s.y1 - 0.06, s.z0 + 0.3, s.x1 - 0.3, s.y1, s.z1 - 0.3, '#cfc6b2', 0.02); }   /* v318: pitched roofs showed a thick concrete slab UNDER the real roof = two layers; the slab stays for collision, only a thin ceiling plate inside the walls is drawn */
     }
+    if (b.stairModel) { const M = b.stairModel, dm = propDim('stairs'); if (dm) for (let f = 0; f < M.n; f++) place('stairs', b.x + M.cx, fy + f * M.R, b.z + M.cz, dm.x, dm.y * M.sy, dm.z, Math.PI / 2); }   // v326: the user's stair model, one per storey (turned 90 degrees: the flights run north-south)
     // the floor inside
     B.box('conc', b.x - hx + 0.1, fy + 0.01, b.z - hz + 0.1, b.x + hx - 0.1, fy + 0.07, b.z + hz - 0.1, b.kind === 'warehouse' || b.kind === 'hangar' ? '#8a8a86' : b.kind === 'shack' || b.kind === 'cabin' || b.kind === 'house' ? '#a8896a' : '#b0aaa0', 0.03);
     // frames round doors and windows
