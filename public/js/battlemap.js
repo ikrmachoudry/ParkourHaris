@@ -153,8 +153,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 150px "Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Noto Naskh Arabic","Segoe UI","Arial",serif';
       g.lineWidth = 14; g.strokeStyle = 'rgba(20,20,20,.55)'; g.strokeText('\u0633\u064F\u06A9\u06D2 \u062F\u0631\u06CC\u0627 \u062F\u0627 \u067E\u064F\u0644', 512, 132); g.fillStyle = '#f4efe0'; g.fillText('\u0633\u064F\u06A9\u06D2 \u062F\u0631\u06CC\u0627 \u062F\u0627 \u067E\u064F\u0644', 512, 132);
       const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
-      const mk = (cx, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.5), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, yaw, 0); m.position.set(cx, y + 0.08, BRIDGE.z); group.add(m); };
-      mk(BRIDGE.c - 13, -Math.PI / 2); mk(BRIDGE.c + 13, Math.PI / 2); } catch (e) { /* no canvas: skip the paint */ } }
+      const mk = (cx, yaw) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(14, 3.2), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, yaw, 0); m.position.set(cx, y + 0.08, BRIDGE.z); group.add(m); };
+      mk(BRIDGE.c - 14, 0); mk(BRIDGE.c + 14, Math.PI);   /* v312: the text runs ALONG the road (its baseline follows the bridge); the second copy is turned round so it also reads from the other side */ } catch (e) { /* no canvas: skip the paint */ } }
 
   // ================================================================ buildings
   const WALLMAT = { house: 'wall', shop: 'wall', apart: 'wall', school: 'wall', church: 'wall', barracks: 'wall', barn: 'wood', shack: 'wood', cabin: 'wood', warehouse: 'metal', hangar: 'metal', kiosk: 'wall' };
