@@ -604,7 +604,7 @@ class Race {
 
   // ================= swimming pool fx + cars =================
   // seats in a vehicle (driver included): bike 2, rickshaw 2, truck 2, tractor 1, every car 4
-  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m === 'jeep' ? 4 : m ? 2 : 4; }
+  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m === 'civic' ? 5 : m === 'jeep' ? 4 : m ? 2 : 4; }   // v302: the Civic carries 5 like the real car (driver + 4)
   seatModel(g, car, pax, pseat = 0) {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.bike) {   // a motorbike: the rider straddles it and leans with it (about the road line)
@@ -617,11 +617,11 @@ class Race {
         const v = cityVeh(st.id), cap = this.seatCap(car);
         if (v && v.model === 'rick') { f = -0.7; r = 0; }                                  // the passenger bench at the back
         else if (pseat === 0 || cap <= 2) r = -ud.seatR;                                   // front passenger seat
-        else { f = ud.seatF - 1.0; r = (pseat === 1 ? 1 : -1) * Math.max(0.4, ud.seatR); } // rear seats
+        else { f = ud.seatF - 1.0; r = pseat === 3 ? 0 : (pseat === 1 ? 1 : -1) * Math.max(0.4, ud.seatR); } // rear seats
       }
       g.position.set(st.x + sy * f - cy * r, st.y + ud.seatY, st.z + cy * f + sy * r); g.rotation.set(0, st.yaw, 0); g.scale.setScalar((cityVeh(st.id) || {}).model === 'civic' ? 0.0001 : (ud.seatS || 1)); return;   /* v279: nobody is drawn inside the Civic (the driver used to poke out through the roof / door); walking out sets the scale back to 1 */
     }
-    { const sy = Math.sin(st.yaw), cy = Math.cos(st.yaw); let f = seat.z, r = 0; if (pax) { if (pseat === 0 || this.seatCap(car) <= 2) r = -0.4; else { f -= 1.0; r = pseat === 1 ? 0.4 : -0.4; } }
+    { const sy = Math.sin(st.yaw), cy = Math.cos(st.yaw); let f = seat.z, r = 0; if (pax) { if (pseat === 0 || this.seatCap(car) <= 2) r = -0.4; else { f -= 1.0; r = pseat === 3 ? 0 : pseat === 1 ? 0.4 : -0.4; } }
       g.position.set(st.x + sy * f - cy * r, st.y + seat.y, st.z + cy * f + sy * r); g.rotation.y = st.yaw; g.rotation.x = 0; g.scale.setScalar(0.8); }
   }
   // a patrol car that the police are driving can be stolen like any car (GTA V): one of the city's police cars is moved there and you get in it
@@ -712,7 +712,7 @@ class Race {
       { const ci = this.cars.indexOf(c);   // somebody else is driving this vehicle and a seat is free: ride along instead of stealing it
         const cap = this.seatCap(c), pp = c.st.paxs || [], free = [], mc = this.mateCars && this.mateCars.has(ci), used = mc && this.mission && this.mission.cs ? this.mission.cs.paxSeats(ci) : []; for (let k = 0; k < cap - 1; k++) if ((pp[k] === undefined || pp[k] === -1) && !used.includes(k)) free.push(k);
         if (((this.multi && c.st.driver !== -1 && c.st.driver !== this.localId) || mc) && (ci < 12 || ci >= 16) && !c.st.wreck && free.length) {
-          this.drive = c; this.paxMode = true; this.paxSeat = free[0]; (c.st.paxs = pp.length ? pp : [-1, -1, -1])[this.paxSeat] = this.localId; c.st.pax = this.localId; b.vx = b.vz = b.vy = 0; b.grounded = true;
+          this.drive = c; this.paxMode = true; this.paxSeat = free[0]; (c.st.paxs = pp.length ? pp : [-1, -1, -1, -1])[this.paxSeat] = this.localId; c.st.pax = this.localId; b.vx = b.vz = b.vy = 0; b.grounded = true;
           document.body.classList.add('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
           if (c.mesh.userData.hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 700); } else A.sfx.door();
           this.camPitch = 0.3; this.camYaw = c.st.yaw + Math.PI; this.toast(IS_TOUCH ? 'RIDING ALONG - tap the door to get out' : 'RIDING ALONG - press C to get out'); return;
@@ -996,7 +996,7 @@ class Race {
     this.lastDt = dt;
     const b = this.me.body, t = performance.now() / 1000;
     // who drives what (remote drivers stream their car pose through their normal snapshots)
-    for (const c of this.cars) { c.st.pax = -1; if (!c.st.paxs) c.st.paxs = [-1, -1, -1]; else c.st.paxs[0] = c.st.paxs[1] = c.st.paxs[2] = -1; }
+    for (const c of this.cars) { c.st.pax = -1; if (!c.st.paxs) c.st.paxs = [-1, -1, -1, -1]; else c.st.paxs[0] = c.st.paxs[1] = c.st.paxs[2] = c.st.paxs[3] = -1; }
     const seatFree = (c, want) => { const cap = Math.max(1, this.seatCap(c) - 1); for (let k = 0; k < cap; k++) { const q = (want + k) % cap; if (c.st.paxs[q] === -1) return q; } return want % cap; };
     let driverSeen = false; const dIdx = this.drive ? this.cars.indexOf(this.drive) : -1;
     if (this.drive && this.paxMode) { this.drive.st.paxs[this.paxSeat | 0] = this.localId; this.drive.st.pax = this.localId; }
@@ -1237,6 +1237,9 @@ class Race {
     this.moneyEl = $('hud-money'); if (this.moneyEl) this.moneyEl.classList.remove('hidden');
     this.setupShopUI(); this.moneyPop(0); this.updateAmmoHud();
     for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 1), new THREE.MeshBasicMaterial({ color: '#ffe9a0', transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false })); m.visible = false; scene.add(m); this.tracers.push({ m, t: 0 }); }
+    { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), g = c.createRadialGradient(64, 64, 2, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,230,1)'); g.addColorStop(0.25, 'rgba(255,214,110,0.9)'); g.addColorStop(1, 'rgba(255,120,20,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+      c.fillStyle = 'rgba(255,236,170,0.95)'; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3; c.beginPath(); c.moveTo(64 + Math.cos(a - 0.12) * 8, 64 + Math.sin(a - 0.12) * 8); c.lineTo(64 + Math.cos(a) * 62, 64 + Math.sin(a) * 62); c.lineTo(64 + Math.cos(a + 0.12) * 8, 64 + Math.sin(a + 0.12) * 8); c.fill(); }
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); sp.visible = false; scene.add(sp); this.mflash = { sp, t: 0 }; }   // v302: a real MUZZLE FLASH at the barrel for two frames on every shot
   }
   earn(n, why) { if (this.jang) return; if (this.wallet && n) this.wallet.add(n, why); }   // v247: no money in Jang
   moneyPop(n) {
@@ -1379,6 +1382,7 @@ class Race {
     if (this.fireCd > 0) this.fireCd -= dt; if (this.shootT > 0) this.shootT -= dt;
     if (this.aimT > 0) this.aimT -= dt;
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
+    if (this.mflash && this.mflash.t > 0) { this.mflash.t -= dt; if (this.mflash.t <= 0) this.mflash.sp.visible = false; }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
     if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, 1.25); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
     if (this.fireHeld && this.weapon && this.weapon !== 'sniper' && isGun(this.weapon) && !(this.single && WEAPONS[this.weapon].auto)) this.fire();   // hold the fire button: AK and pistol keep firing
@@ -1658,7 +1662,7 @@ class Race {
     let ey = sy; if (aimP) { const ah = Math.max(1, Math.hypot(aimP.x - sx, aimP.z - sz)); ey = sy + (aimP.y - sy) / ah * hd; } ey = Math.max(this.world && this.world.terrain ? this.world.terrain(ex, ez) + 0.05 : 0.05, Math.min(sy + 40, ey));
     const tl = Math.max(0.5, Math.hypot(ex - sx, ey - sy, ez - sz)), q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
-    this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
+    this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); if (this.mflash && mz) { const f = this.mflash; f.sp.position.set(sx, sy, sz); const k = w === 'sniper' ? 0.7 : w === 'pistol' ? 0.38 : 0.55; f.sp.scale.setScalar(k * (0.8 + Math.random() * 0.4)); f.sp.material.rotation = Math.random() * 6; f.sp.visible = true; f.t = 0.06; } { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
     wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
     if (this.jangTeam && this.jangTeam.net) this.jangTeam.net.send({ t: 'jf', x: +ox.toFixed(1), z: +oz.toFixed(1), w: wcls(w) === 'ak' ? 1 : wcls(w) === 'sniper' ? 2 : 0, r: +this.me.body.yaw.toFixed(3) });   // v241: the others hear my shot
     if (this.multi) { app.net.send({ t: 'fx', x: +ox.toFixed(2), y: +oy.toFixed(2), z: +oz.toFixed(2), dx: +fx.toFixed(3), dz: +fz.toFixed(3), l: +Math.min(len, 60).toFixed(1), w: wcls(w) === 'ak' || wcls(w) === 'sniper' ? 3 : 2 }); this.evt({ k: 'sh', ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: W.range, dmg: W.dmg, c: hc, i: shotAt, d: hcode }); }
@@ -1913,6 +1917,8 @@ class Race {
         // v214 corridor assist (like Uncharted / Tomb Raider stair cams): while you climb and are not touching the look control, the camera swings round behind you, along the stairs
         { const yw = this.camYaw, moved = Math.abs(Math.atan2(Math.sin(yw - (this._twYaw === undefined ? yw : this._twYaw)), Math.cos(yw - (this._twYaw === undefined ? yw : this._twYaw)))) > 0.003; this._twIdle = moved ? 0 : (this._twIdle || 0) + dt;
           const mv = Math.hypot(b0.vx, b0.vz) > 0.8 || Math.hypot(touch.x, touch.y) > 0.25 || keys.has('KeyW') || keys.has('ArrowUp');
+          /* v302: the camera now TURNS WITH THE SPIRAL: every metre you walk round the tower the view turns by exactly the angle you walked round it, whatever you do with the mouse / look stick (your own look offset stays), so you never fight the curve; the idle re-centre below only trims the leftover */
+          { if (tw && twT && this.twK > 0.5) { const ph1 = Math.atan2(b0.x - CMB.x - twT.x, b0.z - CMB.z - twT.z); if (this._twPh !== undefined && this._twPhT === twT) { const dp = Math.atan2(Math.sin(ph1 - this._twPh), Math.cos(ph1 - this._twPh)); if (Math.abs(dp) < 0.5) this.camYaw += dp; } this._twPh = ph1; this._twPhT = twT; } else { this._twPh = undefined; this._twPhT = null; } }
           if (tw && twT && this._twIdle > 0.2 && mv && this.twK > 0.5) { const rx = b0.x - CMB.x - twT.x, rz = b0.z - CMB.z - twT.z, ph = Math.atan2(rx, rz);
             const dx = Math.cos(ph), dz = -Math.sin(ph);   // v222 round tower: the way the spiral climbs is the tangent of the circle (south side goes east, east side goes north...)
             const want = Math.atan2(-dx, -dz), df = Math.atan2(Math.sin(want - this.camYaw), Math.cos(want - this.camYaw)); this.camYaw += df * (1 - Math.exp(-9 * dt)); this.camPitch += (0.22 - this.camPitch) * (1 - Math.exp(-3 * dt)); }   /* v300: the camera now STAYS on the stairs (it lagged ~30 degrees behind the curve and you faced the outer wall): it locks to the spiral at once and only lets go while you turn it yourself */

@@ -333,7 +333,7 @@ function build() {
   // the base: a fence round the compound with a gate on the south side, sandbags, containers
   const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
   padRect(FB.x0 + 5, FB.z0 + 5, FB.x1 - 5, FB.z1 - 5, BASE_Y);
-  const fence = (x0, z0, x1, z1, h = 1.15, col = '#6c7078') => { fences.push({ x0, z0, x1, z1, h, col }); const alongX = Math.abs(z1 - z0) < 0.1, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 6); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0, bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1, gy = Math.max(cmbH(ax, az), cmbH(bx, bz)); addS({ x0: Math.min(ax, bx) - (alongX ? 0 : 0.15), x1: Math.max(ax, bx) + (alongX ? 0 : 0.15), z0: Math.min(az, bz) - (alongX ? 0.15 : 0), z1: Math.max(az, bz) + (alongX ? 0.15 : 0), y0: gy - 1.5, y1: gy + h, k: 'fence', vault: 1 }); } };   /* v258: fences are LOW (1.15 m): you cannot walk through them and must VAULT them; gates and gaps let the bots through */
+  const fence = (x0, z0, x1, z1, h = 1.15, col = '#6c7078') => { { let lo = 1e9, hi = -1e9; for (let k = 0; k <= 12; k++) { const g = cmbH(x0 + (x1 - x0) * k / 12, z0 + (z1 - z0) * k / 12); lo = Math.min(lo, g); hi = Math.max(hi, g); } if (hi - lo > 2.5) return; }   /* v302: no fence on a hillside (it climbed the slope like a staircase and bots / players got stuck on it) */ fences.push({ x0, z0, x1, z1, h, col }); const alongX = Math.abs(z1 - z0) < 0.1, n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 6); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0, bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1, gy = Math.max(cmbH(ax, az), cmbH(bx, bz)); addS({ x0: Math.min(ax, bx) - (alongX ? 0 : 0.15), x1: Math.max(ax, bx) + (alongX ? 0 : 0.15), z0: Math.min(az, bz) - (alongX ? 0.15 : 0), z1: Math.max(az, bz) + (alongX ? 0.15 : 0), y0: gy - 1.5, y1: gy + h, k: 'fence', vault: 1 }); } };   /* v258: fences are LOW (1.15 m): you cannot walk through them and must VAULT them; gates and gaps let the bots through */
   const fenceGap = (x0, z0, x1, z1, g0, g1, h, col) => { const l = Math.hypot(x1 - x0, z1 - z0), f = (d) => [x0 + (x1 - x0) * d / l, z0 + (z1 - z0) * d / l]; const p0 = f(g0), p1 = f(g1); fence(x0, z0, p0[0], p0[1], h, col); fence(p1[0], p1[1], x1, z1, h, col); };
   fenceGap(FB.x0, FB.z0, FB.x1, FB.z0, 38, 54); fenceGap(FB.x0, FB.z0, FB.x0, FB.z1, 40, 56); fenceGap(FB.x1, FB.z0, FB.x1, FB.z1, 40, 56); fence(FB.x0, FB.z1, FB.gate[0], FB.z1); fence(FB.gate[1], FB.z1, FB.x1, FB.z1);   /* gates on all four sides (bots were stuck at the fence) */
   for (const [fx0, fz0, fx1, fz1] of FIELDS) { const w = fx1 - fx0, d = fz1 - fz0; fenceGap(fx0, fz0, fx1, fz0, w / 2 - 3, w / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx0, fz1, fx1, fz1, w / 2 - 3, w / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx0, fz0, fx0, fz1, d / 2 - 3, d / 2 + 3, 1.15, '#8a6a4a'); fenceGap(fx1, fz0, fx1, fz1, d / 2 - 3, d / 2 + 3, 1.15, '#8a6a4a'); }
@@ -432,7 +432,10 @@ function build() {
   const L = {
     solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
     get crates() { return outside; },
-    get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; } return (nav = { N, free, cell: CS, H }); },
+    get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
+      /* v302: a fence is thinner than a cell: the cell CENTRES either side were 'free' and A* drew paths straight through the fence, so bots ran into it for ever. Every cell the fence touches is blocked now (gates are real gaps in the fence, they stay open) */
+      for (const q of solids) { if (q.k !== 'fence') continue; const i0 = Math.floor((q.x0 - 0.7 + H) / CS), i1 = Math.floor((q.x1 + 0.7 + H) / CS), j0 = Math.floor((q.z0 - 0.7 + H) / CS), j1 = Math.floor((q.z1 + 0.7 + H) / CS); for (let i = Math.max(0, i0); i <= Math.min(N - 1, i1); i++) for (let j = Math.max(0, j0); j <= Math.min(N - 1, j1); j++) free[i * N + j] = 0; }
+      return (nav = { N, free, cell: CS, H }); },
   };
   return L;
 }
@@ -541,7 +544,23 @@ export class CombatSim {
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
   nearSpawn(b) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - b.x, s.z - b.z) < 170 && Math.hypot(s.x - b.x, s.z - b.z) > 30); return c.length ? this.pick(c) : this.pick(this.L.spawns); }
   spawnPoint(avoid) { const L = this.L; let best = null, bd = -1; for (let i = 0; i < 6; i++) { const p = this.pick(L.spawns); const d = avoid ? Math.hypot(p.x - avoid.x, p.z - avoid.z) : 99; if (d > bd) { bd = d; best = p; } } return best; }
-  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0, y: null, cl: null, bld: null }; }
+  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0, y: null, cl: null, bld: null, stk: 0, unst: 0, mvT: 0, mvD: 0, rsT: 0 }; }
+  /* v302: a bot comes back like in PUBG: never in front of anybody. A random point INSIDE the safe circle (a different one every time, away from the last few), at least 70 m from every living player and out of every player's line of sight; if no such place exists yet it waits a second and tries again (after ~15 s it takes the best one) */
+  respawnPoint(PL, zn, b) {
+    const L = this.L, rec = this._rs || (this._rs = []), live = PL.filter((q) => q.alive); let best = null, bs = -1e9;
+    for (let i = 0; i < 64; i++) {
+      let x, z; if (zn && i >= 48) { const a = this.R() * 6.283, d = zn.r * (1.12 + this.R() * 0.4); x = zn.x + Math.cos(a) * d; z = zn.z + Math.sin(a) * d; }   // the circle is tiny and everybody sees everything: come in from just OUTSIDE it, running in like a PUBG player
+      else if (zn && i % 4 !== 3) { const a = this.R() * 6.283, d = Math.sqrt(this.R()) * zn.r * 0.92; x = zn.x + Math.cos(a) * d; z = zn.z + Math.sin(a) * d; } else { const sp = this.pick(L.spawns); x = sp.x; z = sp.z; if (zn && Math.hypot(x - zn.x, z - zn.z) > zn.r * 0.95) continue; }
+      if (Math.abs(x) > H - 14 || Math.abs(z) > H - 14 || cmbH(x, z) < -0.3 || hitsSolid(L, x, z, 0.9)) continue; if (!L.nav.free[Math.max(0, Math.min(L.nav.N - 1, Math.floor((x + H) / L.nav.cell))) * L.nav.N + Math.max(0, Math.min(L.nav.N - 1, Math.floor((z + H) / L.nav.cell)))]) continue;
+      let dmin = 1e9, seen = false; for (const q of live) { const d = Math.hypot(q.x - x, q.z - z); if (d < dmin) dmin = d; if (d < 220 && los(L, q.x, q.z, x, z)) seen = true; }
+      let rmin = 1e9; for (const r of rec) rmin = Math.min(rmin, Math.hypot(r.x - x, r.z - z));
+      const sc = Math.min(dmin, 130) + Math.min(rmin, 70) * 0.8 - (seen ? 1000 : 0) - (dmin < 70 ? 500 : 0) + this.R() * 8;
+      if (sc > bs) { bs = sc; best = { x, z, ok: !seen && dmin >= 70 }; }
+    }
+    if (!best) return (b.rsT = (b.rsT || 0) + 1) > 15 ? this.spawnPoint(PL[0]) : null;
+    if (!best.ok && (b.rsT = (b.rsT || 0) + 1) <= 15) return null;   // nobody may see him appear: try again in a second
+    rec.push(best); if (rec.length > 6) rec.shift(); return best;
+  }
   spawnLoot(avoid) {
     const L = this.L; for (let tries = 0; tries < 40; tries++) {
       const k = Math.floor(this.R() * L.spots.length); if (this.used.has(k)) continue; const s = L.spots[k];
@@ -602,7 +621,7 @@ export class CombatSim {
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {
-      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { let p = this.spawnPoint(P0); const w = b.weapon; if (zn && Math.hypot(p.x - zn.x, p.z - zn.z) > zn.r * 0.95) p = this.zoneSpot(zn.x, zn.z, zn.r); Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
+      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
@@ -629,6 +648,7 @@ export class CombatSim {
           if (b.alert > 0 && d < 70 && b.y == null) { const UB = this.upBld(P), usi = UB && this.stairInfo(UB); if (usi) { tgt = usi.foot; b.think = 2; } }   /* the player is upstairs: go to the foot of the stairs */
           if (zn) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92, tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
           b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
+          if (!b.path) { b.np = (b.np || 0) + 1; b.think = 1.2; if (b.np >= 3) { const rp = this.respawnPoint(PL, zn, b); if (rp) { b.x = rp.x; b.z = rp.z; b.np = 0; this.events.push({ k: 'bot', id: b.id }); } } } else b.np = 0;   /* v302: no route from here (boxed in): after 3 tries he is moved to a fresh unseen spot */
         }
         let dir3 = false; { const UB = b.alert > 0 && d < 70 ? this.upBld(P) : null;
           if (b.y == null && UB && !b.cl) { const usi = this.stairInfo(UB); if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 2.2) { b.cl = { B: UB, t: 0, dir: 1 }; b.path = null; continue; } else if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 6) { dir3 = true; const fx = usi.foot.x - b.x, fz = usi.foot.z - b.z, fl = Math.hypot(fx, fz) || 1; mx = fx / fl; mz = fz / fl; sp = 3.0; b.walk = false; b.yaw = Math.atan2(fx, fz); } }
@@ -640,7 +660,17 @@ export class CombatSim {
           const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }
-      const l = Math.hypot(mx, mz); if (l > 0.01 && sp > 0) { this.step(b, mx / l * sp * dt, mz / l * sp * dt); b.speed = sp; } else b.speed = 0;
+      const l = Math.hypot(mx, mz);
+      if (l > 0.01 && sp > 0) {
+        let ux = mx / l, uz = mz / l; if (b.unst > 0) { b.unst -= dt; const sd = b.unsD || 1, px = -uz * sd, pz = ux * sd; ux = px * 0.85 + ux * 0.15; uz = pz * 0.85 + uz * 0.15; }   // stuck: slide along the obstacle for a moment
+        const ox = b.x, oz = b.z; this.step(b, ux * sp * dt, uz * sp * dt); b.speed = sp;
+        /* v302: STUCK WATCH - he is trying to move but 2 s later is still within ~1.2 m: re-path and slide sideways; the 2nd time hop to a free spot a few metres away; the 4th time he goes to a fresh out-of-sight spot (never gets stuck for ever on a fence / wall / prop) */
+        b.mvT = (b.mvT || 0) + dt; b.mvD = (b.mvD || 0) + Math.hypot(b.x - ox, b.z - oz); if (b.mvT === dt) { b.sx = ox; b.sz = oz; }
+        if (b.mvT >= 2) { const away = Math.hypot(b.x - b.sx, b.z - b.sz); if (b.mvD < sp * 2 * 0.35 || (away < 1.2 && !sees)) { b.stk = (b.stk || 0) + 1; b.unst = 1 + this.R(); b.unsD = this.R() < 0.5 ? -1 : 1; b.path = null; b.think = 0; b.seen = false;
+              if (b.stk >= 2) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
+              if (b.stk >= 4) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
+          else b.stk = Math.max(0, (b.stk || 0) - 1); b.mvT = 0; b.mvD = 0; }
+      } else { b.speed = 0; b.mvT = 0; b.mvD = 0; }
     }
   }
   drain() { const e = this.events; this.events = []; return e; }

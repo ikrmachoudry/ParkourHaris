@@ -292,6 +292,17 @@ export function remoteEngine(vol, speed01, pan) {
   if (!ctx) return; if (!reng) { const L = loopV('eng_car', 0.0001, 0.8, 1400); if (!L) return; const p = ctx.createStereoPanner ? ctx.createStereoPanner() : null; if (p) { L.g.disconnect(); L.g.connect(p); p.connect(sfxG); } reng = { ...L, p }; }
   const t = ctx.currentTime, k = Math.max(0, Math.min(1, speed01)); reng.s.playbackRate.setTargetAtTime(0.8 + k * 1.7, t, 0.15); reng.f.frequency.setTargetAtTime(700 + k * 1800, t, 0.15); reng.g.gain.setTargetAtTime(Math.max(0.0001, vol) * (0.5 + k * 0.4), t, 0.15); if (reng.p) reng.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.1);
 }
+/* v302: another player's HORN (the driver of a jeep / Civic you can hear): the same reed tones as your own horn, louder the closer he is, panned to where he is. Held while he holds it. */
+let rhorn = null;
+export function remoteHorn(on, vol = 0.2, pan = 0, hz = 420) {
+  if (!ctx) return;
+  if (!on) { if (rhorn) { const h = rhorn; rhorn = null; try { const t = ctx.currentTime; h.g.gain.cancelScheduledValues(t); h.g.gain.setTargetAtTime(0.0001, t, 0.04); setTimeout(() => { for (const o of h.oscs) { try { o.stop(); } catch { /* noop */ } } }, 300); } catch { /* noop */ } } return; }
+  if (!rhorn) { const t = ctx.currentTime, g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000; const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    const mix = ctx.createGain(); mix.gain.value = 0.5; mix.connect(lp); lp.connect(g); if (pn) { g.connect(pn); pn.connect(sfxG); } else g.connect(sfxG);
+    const oscs = []; for (const [f, type] of [[hz, 'sawtooth'], [hz * 1.26, 'sawtooth'], [hz * 2.02, 'triangle']]) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = type === 'triangle' ? 0.2 : 0.55; o.connect(og); og.connect(mix); o.start(); oscs.push(o); }
+    rhorn = { g, oscs, pn }; }
+  const t = ctx.currentTime; rhorn.g.gain.setTargetAtTime(Math.max(0.0001, vol), t, 0.03); if (rhorn.pn) rhorn.pn.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.1);
+}
 export function remoteEngineStop() { if (!reng) return; const e = reng; reng = null; stopLoop(e, 0.4); }
 export function engineStop() { if (!eng) return; const e = eng; eng = null; stopLoop(e, 0.3); }
 
@@ -319,7 +330,7 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   hot:   { a: 'eng_car', ra: [0.95, 3.1], b: 'eng_moto', rb: [1.5, 4.2], gb: [0, 0.35], lp: [900, 5200], gain: 0.55 },
   rough: { a: 'eng_car', ra: [0.7, 2.0], b: 'eng_v8', rb: [0.9, 2.1], gb: [0.1, 0.25], lp: [500, 2800], gain: 0.6, chop: [9, 0.2] },
   suv:   { a: 'eng_v8', ra: [0.8, 2.3], b: 'eng_car', rb: [0.8, 1.9], gb: [0.15, 0.2], lp: [600, 3300], gain: 0.6 },
-  civic: { a: 'eng_car', ra: [1.0, 3.5], b: 'eng_moto', rb: [1.5, 4.6], gb: [0.08, 0.55], lp: [1100, 7200], gain: 0.6 },   // v269: Honda Civic Si: a high-revving 4-cylinder (VTEC-like top end), not the jeep's V8 growl
+  civic: { a: 'eng_car', ra: [0.85, 3.3], b: 'eng_moto', rb: [1.3, 4.9], gb: [0.04, 0.85], lp: [900, 8400], gain: 0.62, vtec: 0.62 },   // v302: Si: a calmer idle and, above ~60 % revs, the VTEC crossover (a second, higher layer comes in and the intake opens up)   // v269: Honda Civic Si: a high-revving 4-cylinder (VTEC-like top end), not the jeep's V8 growl
   mehran: { a: 'eng_car', ra: [0.95, 2.9], b: 'eng_car', rb: [1.5, 3.8], gb: [0, 0.25], lp: [800, 4200], gain: 0.5, chop: [13, 0.12] },   // small 3-cylinder
   v8:    { a: 'eng_v8', ra: [0.85, 2.7], b: 'eng_car', rb: [1.0, 2.6], gb: [0, 0.25], lp: [800, 4600], gain: 0.62 },
   sport: { a: 'eng_v8', ra: [1.0, 3.6], b: 'eng_moto', rb: [1.7, 4.6], gb: [0.05, 0.55], lp: [1200, 7000], gain: 0.62 },
@@ -366,6 +377,7 @@ export function carEngineSet(rpm01, load, speed = 0) {
   e.A.s.playbackRate.setTargetAtTime(lerp(P.ra[0], P.ra[1], rr) * e.pm, t, 0.05);
   if (e.B) { e.B.s.playbackRate.setTargetAtTime(lerp(P.rb[0], P.rb[1], rr) * e.pm, t, 0.05); e.B.g.gain.setTargetAtTime(lerp(P.gb[0], P.gb[1], r) * (0.35 + 0.65 * ld) * P.gain, t, 0.08); }
   e.A.g.gain.setTargetAtTime(P.gain * (0.55 + 0.25 * r + 0.35 * ld), t, 0.06);
+  if (P.vtec && e.B) { const vt = r > P.vtec ? 1 : 0; e.vt = (e.vt || 0) + (vt - (e.vt || 0)) * 0.25; e.B.g.gain.setTargetAtTime(lerp(P.gb[0], P.gb[1], r) * (0.35 + 0.65 * ld) * P.gain * (1 + 0.9 * e.vt), t, 0.05); e.B.s.playbackRate.setTargetAtTime(lerp(P.rb[0], P.rb[1], rr) * e.pm * (1 + 0.1 * e.vt), t, 0.04); }
   e.lp.frequency.setTargetAtTime(lerp(P.lp[0], P.lp[1], Math.min(1, 0.2 + 0.45 * r + 0.55 * ld)), t, 0.08);
   e.out.gain.setTargetAtTime(0.38 + 0.15 * ld, t, 0.06);
   if (e.lg) { e.lfo.frequency.setTargetAtTime(P.chop[0] * (0.6 + 1.1 * r), t, 0.1); e.lg.gain.setTargetAtTime(P.chop[1] * (0.25 + 0.75 * (1 - r)) * 0.4, t, 0.1); }
