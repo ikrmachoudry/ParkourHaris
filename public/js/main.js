@@ -2750,12 +2750,12 @@ window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towe
     e.preventDefault();
     const j = joyId !== null ? find(e.touches, joyId) : null;
     if (j) {
-      let dx = j.clientX - ox, dy = j.clientY - oy; const d = Math.hypot(dx, dy);
+      let dx = j.clientX - ox, dy = j.clientY - oy; const d = Math.hypot(dx, dy), rawDx = dx, rawDy = dy;   // v330: the sprint lock needs the finger dragged out PAST the ring, up onto the lock icon (PUBG), not just to the stick's edge
       if (d > RAD) { dx *= RAD / d; dy *= RAD / d; }
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       const nx = dx / RAD, ny = dy / RAD, mag = Math.hypot(nx, ny), k = mag < 0.14 ? 0 : (mag - 0.14) / 0.86 / mag; // dead zone, then analog 0..1
       touch.x = nx * k; touch.y = -ny * k;
-      { const arm = ny <= -0.9 && Math.abs(nx) < 0.5 && !document.body.classList.contains('driving'); if (arm !== lockArm) { lockArm = arm; joy.classList.toggle('arm', arm); } }
+      { const arm = rawDy <= -(RAD + 34) && Math.abs(rawDx) < 38 && !document.body.classList.contains('driving'); if (arm !== lockArm) { lockArm = arm; joy.classList.toggle('arm', arm); } }
     }
     const c = camId !== null ? find(e.touches, camId) : null;
     if (c) { if (race && !race.over) race.look((c.clientX - lx) * 1.7, (c.clientY - ly) * 1.7); lx = c.clientX; ly = c.clientY; }
