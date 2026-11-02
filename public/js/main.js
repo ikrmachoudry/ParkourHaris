@@ -507,8 +507,8 @@ class Race {
       else if (canMove && b.grounded && !this.over && b.stun <= 0 && !(this.mission && this.mission.cs && (this.mission.cs.down || this.mission.cs.dropping))) {
         const ml = Math.hypot(inp.mx, inp.mz), dx = ml > 0.2 ? inp.mx : Math.sin(b.yaw), dz = ml > 0.2 ? inp.mz : Math.cos(b.yaw), ox = b.x - CMB.x, oz = b.z - CMB.z, hgt = b.y;
         if (inp.jumpPressed || (OPT.tips !== false && (this._vt = (this._vt || 0) - dt) < 0)) { const sp = vaultSpot(cmbLayout(), ox, oz, dx, dz, hgt);
-          if (sp && inp.jumpPressed) { const y1 = cmbHt(sp.tx, sp.tz) + 0.02; this.vlt = { t: 0, dur: 1.25, x0: b.x, z0: b.z, y0: b.y, tx: CMB.x + sp.tx, tz: CMB.z + sp.tz, y1, h: Math.max(0.1, sp.top + 0.3 - (b.y + y1) / 2), yaw: Math.atan2(sp.dx || dx, sp.dz || dz), dx: sp.dx, dz: sp.dz }; this.crouch = false; inp.jumpPressed = false; }
-          else if (sp && !inp.jumpPressed) { this._vt = 6; this.toast && this.toast('Press JUMP to climb over the broken wall'); }
+          if (sp && inp.jumpPressed) { const y1 = (sp.climb ? sp.top : cmbHt(sp.tx, sp.tz)) + 0.02; this.vlt = { t: 0, dur: 1.25, x0: b.x, z0: b.z, y0: b.y, tx: CMB.x + sp.tx, tz: CMB.z + sp.tz, y1, h: Math.max(0.1, sp.top + 0.3 - (b.y + y1) / 2), yaw: Math.atan2(sp.dx || dx, sp.dz || dz), dx: sp.dx, dz: sp.dz }; this.crouch = false; inp.jumpPressed = false; }
+          else if (sp && !inp.jumpPressed) { this._vt = 6; this.toast && this.toast(sp.climb ? 'Press JUMP to climb onto the bridge' : 'Press JUMP to climb over the broken wall'); }
           else if (!inp.jumpPressed) this._vt = 0.3; }
       }
     } else this.vlt = null;
@@ -704,7 +704,7 @@ class Race {
       if (this.lightsOn && this.beam) { this.lightsOn = false; this.applyLights(c); this.lightsOn = true; }
       document.body.classList.remove('driving'); A.engineStop(); A.carEngineStop(); A.skidStop(); A.hornStop(); A.sirenStop(); if (hero) { A.carDoor(true); setTimeout(() => A.carDoor(false), 1500); } else A.sfx.door();
       this.g_g(this.me.model.group);
-      if (this.multi && !force && !pax && !c.local) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
+      if ((this.multi || this.jangTeam) && !force && !pax && !c.local) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) });
       this.camYaw = st.yaw + Math.PI; this.camInit = false; if (NO_TEXT) this.camPitch = 0.17;
     } else {
       const c = this.nearestFreeCar(b);
@@ -880,14 +880,14 @@ class Race {
     const others = this.cars.filter((q) => q !== c).map((q) => q.st); if (this.info.trafficList) for (const q of this.info.trafficList) others.push(q); others.push(...this.extraCars());
       for (let i = 0; i < 2; i++) { const e = stepCar(st, dt / 2, { gas: -0.35, steer: 0 }, this.info.track, others, Math.max(0, this.levelTime)); if (e && i === 0) { A.crashSfx(st.crash || 5); this.particles.emit(st.x, st.y + 0.8, st.z, 12, { color: '#ffd9a0', speed: 5, up: 3, life: 0.4, size: 0.2 }); st.crash = 0; } }
       const hero = c.mesh.userData.hero; if (hero && st.dmgQ && st.dmgQ.length) { for (const q of st.dmgQ) hero.dent(q.lx, q.lz, Math.min(0.3, 0.07 + q.d * 0.012)); st.dmgQ.length = 0; hero.hurtLook(st.hp); }
-      if (Math.abs(st.speed) < 0.4 && !st.air && Math.abs(st.vy || 0) < 0.5 && !((st.wet || 0) > 0 && !st.sunk)) { st.yr = 0; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
+      if (Math.abs(st.speed) < 0.4 && !st.air && Math.abs(st.vy || 0) < 0.5 && !((st.wet || 0) > 0 && !st.sunk)) { st.yr = 0; st.vx = st.vz = st.speed = 0; st.parked = true; st.driver = -1; this.rolling.splice(this.rolling.indexOf(c), 1); if (this.multi || this.jangTeam) app.net.send({ t: 'carpark', c: this.cars.indexOf(c), x: +st.x.toFixed(2), y: +st.y.toFixed(2), z: +st.z.toFixed(2), r: +st.yaw.toFixed(3) }); }
     }
   }
   // JANG: the walls, towers, trees and props of the island that are near the jeep (a few boxes, not all 4900) - the car physics bumps against them like against the GTA buildings
   jangBoxes(st) {
     const L = cmbLayout(), lx = st.x - CMB.x, lz = st.z - CMB.z, Bk = L.B, ci = Math.floor(lx / Bk), cj = Math.floor(lz / Bk), out = [], seen = new Set();
     for (let i = ci - 2; i <= ci + 2; i++) for (let j = cj - 2; j <= cj + 2; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue;
-      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (k === 'floor' || k === 'roof' || k === 'step' || k === 'win' || k === 'shot' || k === 'lootnew' || k === 'tower' || q.y1 - q.y0 < 0.5 || q.open) continue; if (q._hi === undefined) q._hi = q.y0 > cmbHt((q.x0 + q.x1) / 2, (q.z0 + q.z1) / 2) + 1.9; if (q._hi) continue;   /* v278: a lintel over a doorway (or an upper floor) is NOT a wall for a car: this is what stopped the Civic in the garage door */   // v222: EVERY upright solid stops the jeep (sandbags, barriers, rails, crates, benches... were missing, so it drove through them)
+      for (const q of a) { if (seen.has(q)) continue; seen.add(q); const k = q.k; if (k === 'floor' || k === 'roof' || k === 'step' || k === 'win' || k === 'shot' || k === 'lootnew' || k === 'tower' || q.y1 - q.y0 < 0.5 || q.open) continue; if (q._hi === undefined) q._hi = q.k !== 'rail' && q.y0 > cmbHt((q.x0 + q.x1) / 2, (q.z0 + q.z1) / 2) + 1.9;   /* v301: the bridge RAILS are walls for a jeep */ if (q._hi) continue;   /* v278: a lintel over a doorway (or an upper floor) is NOT a wall for a car: this is what stopped the Civic in the garage door */   // v222: EVERY upright solid stops the jeep (sandbags, barriers, rails, crates, benches... were missing, so it drove through them)
         out.push(q._cb || (q._cb = { x0: CMB.x + q.x0, x1: CMB.x + q.x1, z0: CMB.z + q.z0, z1: CMB.z + q.z1, h: q.y1 })); } }
     this.info.track.boxes = out; this.info.track._all = null;
     const lim = CMB.half - 10; st.x = CMB.x + Math.max(-lim, Math.min(lim, st.x - CMB.x)); st.z = CMB.z + Math.max(-lim, Math.min(lim, st.z - CMB.z));
@@ -2109,7 +2109,7 @@ function levelCards(container, opts) {
 }
 
 // ---- thumbnails of the three characters (rendered once with a temporary GL context)
-async function makeThumbs(skins = [0, 1, 2, 3]) {
+async function makeThumbs(skins = [0, 1, 2, 3], fall = false) {   // fall = the skydiving pose seen from behind and above (used to make the loading-screen pictures)
   // the heroes are GLB models that load in the background: wait until every one is in (or failed), then take the pictures
   const heroes = skins.map((i) => makeSkin(i));
   for (let w = 0; w < 100 && heroes.some((c) => c.ready === false && !c.failed); w++) await new Promise((res) => setTimeout(res, 200));
@@ -2118,10 +2118,10 @@ async function makeThumbs(skins = [0, 1, 2, 3]) {
   const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#b9a4ff', 1.6));
   const dl = new THREE.DirectionalLight('#ffffff', 2.6); dl.position.set(3, 5, 6); sc.add(dl);
   const pm = new THREE.PMREMGenerator(r); sc.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; sc.environmentIntensity = 0.7;
-  const cam = new THREE.PerspectiveCamera(30, 256 / 320, 0.1, 50); cam.position.set(0, 1.25, 6.6); cam.lookAt(0, 0.98, 0);
+  const cam = new THREE.PerspectiveCamera(30, 256 / 320, 0.1, 50); if (fall) { cam.position.set(0, 4.2, -6.2); cam.lookAt(0, 0.9, 0); } else { cam.position.set(0, 1.25, 6.6); cam.lookAt(0, 0.98, 0); }
   const out = [];
   for (let i = 0; i < heroes.length; i++) {
-    const c = heroes[i]; c.group.rotation.y = -0.35; sc.add(c.group); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false }); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
+    const c = heroes[i]; c.group.rotation.y = fall ? 0 : -0.35; sc.add(c.group); if (fall) for (let k = 0; k < 40; k++) c.update(0.05, { speed: 0, grounded: false, vy: -20, stun: 0, dive: 0, celebrate: false, skydive: 1 }); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false }); c.update(0.016, { speed: 0, grounded: true, vy: 0, stun: 0, dive: 0, celebrate: false });
     r.render(sc, cam); out.push(r.domElement.toDataURL('image/png')); sc.remove(c.group); c.dispose();
   }
   pm.dispose(); r.dispose(); r.forceContextLoss();
@@ -2156,7 +2156,7 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; if (team && app.pendingCars) { race.onCars(app.pendingCars); app.pendingCars = null; } race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang, jseed) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
@@ -2270,8 +2270,8 @@ async function ensureNet() {
   net.on('s', (m) => { if (race && race.multi) { let r = race.remotes.get(m.id); if (!r && app.room) { const pl = app.room.players.find((q) => q.id === m.id); if (pl && m.id !== app.myId) { race.addRemote(pl); r = race.remotes.get(m.id); } } if (r) r.push(m); } });
   net.on('fin', (m) => { if (race && race.multi) race.onFin(m); });
   net.on('bat', (m) => { if (race && race.multi) race.onBat(m); });
-  net.on('carpark', (m) => { if (race && race.multi) race.onCars({ [m.c]: m }); });
-  net.on('cars', (m) => { if (race && race.multi) race.onCars(m.cars); else app.pendingCars = m.cars; });
+  net.on('carpark', (m) => { if (race && (race.multi || race.jangTeam)) race.onCars({ [m.c]: m }); });
+  net.on('cars', (m) => { if (race && (race.multi || race.jangTeam)) race.onCars(m.cars); else app.pendingCars = m.cars; });
   net.on('shove', (m) => { if (race && race.multi) race.onShove(m); });
   net.on('ph', (m) => { if (race && race.multi) race.onCopHit(m); });
   net.on('jack', (m) => { if (race && race.multi) race.onJack(m); });
@@ -2668,7 +2668,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids) => makeThumbs(ids), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

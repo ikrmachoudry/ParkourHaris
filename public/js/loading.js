@@ -19,7 +19,7 @@ const SVG = `<svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" xm
 <g fill="#05080c"><path d="M690 720 L700 640 q4 -34 28 -42 l8 -14 q12 -20 30 -8 l6 16 l60 -30 l8 12 l-56 34 l-2 60 l8 42 h-26 l-6 -34 l-12 34 h-26 Z"/><rect x="780" y="566" width="96" height="9" rx="3" transform="rotate(-18 780 566)"/></g>
 <rect width="1600" height="720" fill="url(#lsVig)"/></svg>`;
 const CSS = `#loadscr{position:fixed;inset:0;z-index:100;background:#050b16;color:#fff;font-family:"Lilita One","Fredoka One",Arial Black,Arial,sans-serif;opacity:1;transition:opacity .45s;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
-#loadscr.out{opacity:0;pointer-events:none}#loadscr>.ls-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}#loadscr.jang>.ls-bg{display:block}#loadscr.jang>svg{display:none}#loadscr>.ls-sh{position:absolute;inset:0;display:none;background:linear-gradient(180deg,rgba(5,8,14,.55) 0%,rgba(5,8,14,0) 28%,rgba(5,8,14,0) 55%,rgba(5,8,14,.88) 100%)}#loadscr.jang>.ls-sh{display:block}#loadscr>svg{position:absolute;inset:0;width:100%;height:100%}
+#loadscr.out{opacity:0;pointer-events:none}#loadscr>.ls-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}#loadscr.jang>.ls-bg{display:block}#loadscr>.ls-hero{position:absolute;display:none;transform:translateY(-100%);pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}#loadscr.jang>.ls-hero{display:block}#loadscr.jang>svg{display:none}#loadscr>.ls-sh{position:absolute;inset:0;display:none;background:linear-gradient(180deg,rgba(5,8,14,.55) 0%,rgba(5,8,14,0) 28%,rgba(5,8,14,0) 55%,rgba(5,8,14,.88) 100%)}#loadscr.jang>.ls-sh{display:block}#loadscr>svg{position:absolute;inset:0;width:100%;height:100%}
 #loadscr .ls-t{position:absolute;left:calc(max(env(safe-area-inset-left),0px) + 22px);top:calc(max(env(safe-area-inset-top),0px) + 16px);right:22px;font:800 clamp(20px,6vh,38px)/1.05 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase;white-space:nowrap;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8)}
 #loadscr .ls-t::after{content:"";display:block;width:56px;height:3px;background:#d93a3a;margin-top:8px}
 #loadscr .ls-t small{display:block;font-size:.34em;font-weight:700;letter-spacing:.34em;color:#c4ccd4;margin-top:6px}
@@ -35,11 +35,20 @@ function build() {
   if (L.el || typeof document === 'undefined') return;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'loadscr'; el.className = 'out';
-  el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div><div class="ls-net"><div><div style="font-size:40px">\u26A0\uFE0F</div><h2>CHECK YOUR NETWORK AND RESTART</h2><div>The game is loading very slowly (bad connection). Nothing can hurt you while you wait.</div><button type="button" class="rs">RESTART</button><button type="button" class="kw">KEEP WAITING</button></div></div>';
+  el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><img class="ls-hero" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div><div class="ls-net"><div><div style="font-size:40px">\u26A0\uFE0F</div><h2>CHECK YOUR NETWORK AND RESTART</h2><div>The game is loading very slowly (bad connection). Nothing can hurt you while you wait.</div><button type="button" class="rs">RESTART</button><button type="button" class="kw">KEEP WAITING</button></div></div>';
   document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip'); L.net = el.querySelector('.ls-net');
   const rs = el.querySelector('.ls-net .rs'), kw = el.querySelector('.ls-net .kw');
   rs.onclick = () => location.reload(); rs.ontouchend = (e) => { e.preventDefault(); location.reload(); };
   const keep = (e) => { if (e) e.preventDefault(); L.netAt = performance.now(); L.net.classList.remove('on'); }; kw.onclick = keep; kw.ontouchend = keep;
+}
+/* v301: the wallpaper's skydiver is the character you picked: the old civilian is painted out of the picture and your own skydive portrait is placed where he was (same cover-fit maths as the wallpaper) */
+function heroPlace() {
+  const h = L.el && L.el.querySelector('.ls-hero'); if (!h) return;
+  let k = 8; try { k = +(localStorage.getItem('ph_skin') || localStorage.getItem('ph_char') || 8); } catch (e) {}
+  if (!(k >= 4 && k <= 8)) k = 8;
+  const src = 'img/fall' + k + '.png'; if (h.getAttribute('src') !== src) h.setAttribute('src', src);
+  const W = innerWidth, H = innerHeight, sc = Math.max(W / 1000, H / 450), ox = (W - 1000 * sc) / 2, oy = (H - 450 * sc) / 2;
+  h.style.width = (160 * sc) + 'px'; h.style.left = (ox + (435 - 80) * sc) + 'px'; h.style.top = (oy + 428 * sc) + 'px';
 }
 function frame() {
   L.raf = 0; if (!L.shown) return;
@@ -62,7 +71,7 @@ export const loadScreen = {
   show(title, label) {
     if (typeof document === 'undefined') return; build(); if (!L.el) return;
     if (!L.shown) { L.shown = true; L.wantHide = false; L.t0 = performance.now(); L.netAt = 0; L.slowT = 0; if (L.net) L.net.classList.remove('on'); L.pct = 0; L.tipT = 0; L.done = Math.min(L.done, L.total); }
-    L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; L.el.classList.remove('out');
+    L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; heroPlace(); L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
   say(label) { if (L.msg && label) L.msg.textContent = label; },

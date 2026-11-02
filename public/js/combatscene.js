@@ -156,18 +156,18 @@ export class CombatScene {
     if (this.plane && this.planeProps) for (const pv of this.planeProps) { pv.rotation.z += dt * 38; pv.visible = d.ph !== 'plane'; }   // v211: the propeller blades are not drawn while you stand inside the cabin
     if (d.ph === 'plane') {
       this.placeDrop(d.t); if (g) g.visible = true; const w = this.plane && this.plane.children[0]; if (w && w.userData.scan) { w.userData.scan.visible = false; w.userData.cabin.visible = true; }
-      const ml = Math.hypot(inp.mx, inp.mz), sd = w && w.userData.seat;
+      const ml = Math.hypot(inp.mx, inp.mz), sd = w && w.userData.seat, rampOpen = Math.max(0, Math.min(1, (d.t - 6) / 1.8));   // v301: the cargo ramp swings down over 1.8 s after the 6 s countdown
       if (!d.stand && ml > 0.25 && d.t > 0.6) { d.stand = true; d.lu = -1.1; d.lv = -1.0; R.toast && R.toast('WALK to the back door, then tap JUMP', 3.5); }   // get up and walk
       if (d.stand && w) {   // walking in the cabin: the plane's own frame (u along the fuselage, v across), the body keeps the floor
         const ca = Math.cos(d.a), sa = Math.sin(d.a), spd = 3.4, du = (inp.mx * d.hd[0] + inp.mz * d.hd[1]) * spd * dt / 1.25, dv = (inp.mx * ca - inp.mz * sa) * spd * dt / 1.25;
-        d.lu = Math.max(-6.9, Math.min(5.4, d.lu + du)); d.lv = Math.max(-1.0, Math.min(1.0, d.lv + dv));
-        this.plane.updateMatrixWorld(true); const v = w.localToWorld(new THREE.Vector3(d.lv, -0.49, d.lu)); b.x = v.x; b.y = v.y; b.z = v.z; b.grounded = true; this.dropPose = 0;
+        d.lu = Math.max(rampOpen >= 1 ? -10.6 : -7.9, Math.min(5.4, d.lu + du)); d.lv = Math.max(-1.0, Math.min(1.0, d.lv + dv));
+        this.plane.updateMatrixWorld(true); const v = w.localToWorld(new THREE.Vector3(d.lv, -0.49 - Math.max(0, -8.3 - d.lu) * 0.2, d.lu)); b.x = v.x; b.y = v.y; b.z = v.z; b.grounded = true; this.dropPose = 0;
         b.vx = ml > 0.1 ? inp.mx * spd : 0; b.vz = ml > 0.1 ? inp.mz * spd : 0; if (ml > 0.1) b.yaw = Math.atan2(inp.mx, inp.mz);
       } else if (sd) { b.grounded = false; this.dropPose = 3; this.plane.updateMatrixWorld(true); const v = sd.getWorldPosition(new THREE.Vector3()), so = ((this.R.jangTeam ? this.R.jangTeam.si : 0) - 1.5) * 0.6; b.x = v.x + d.hd[0] * so; b.y = v.y - 0.3; b.z = v.z + d.hd[1] * so; b.yaw = d.a + Math.PI / 2; b.vx = b.vz = 0; }   // sitting on the left bench, facing the aisle
-      const DOOR_T = 6, open = d.t >= DOOR_T; if (w && w.userData.door) w.userData.door.visible = !open;   // v182: the back door opens by itself after 6 s - nobody can dive before that
+      const DOOR_T = 6, open = d.t >= DOOR_T; if (w && w.userData.door) w.userData.door.visible = rampOpen < 0.05; if (w && w.userData.ramp) { const e = rampOpen * rampOpen * (3 - 2 * rampOpen); w.userData.ramp.rotation.x = Math.PI / 2 + (-0.2 - Math.PI / 2) * e; }   // v182: the back door opens by itself after 6 s - nobody can dive before that
       { if (!this.doorEl) { const e = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;top:max(44px,7vh);transform:translateX(-50%);z-index:31;pointer-events:none;font:800 14px/1.2 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.45);border-radius:10px;padding:5px 12px;text-shadow:0 1px 2px #000;white-space:nowrap'; document.body.appendChild(e); this.doorEl = e; }
         const t = open ? (d.stand ? 'DOOR OPEN  -  GO TO THE BACK AND DIVE' : 'DOOR OPEN  -  WALK TO THE BACK DOOR, THEN DIVE') : 'DOOR OPENS IN ' + Math.ceil(DOOR_T - d.t); if (this.doorEl.textContent !== t) this.doorEl.textContent = t; this.doorEl.style.display = 'block'; }
-      const dist = d.v * d.t, atDoor = d.stand && d.lu < -5.4 && open;
+      const dist = d.v * d.t, atDoor = d.stand && d.lu < -8.0 && rampOpen >= 1;
       { const jb = document.getElementById('a-jump'); if (jb) jb.classList.toggle('ready', !!atDoor); } if (this.jumpReq) { inp.jumpPressed = true; this.jumpReq = false; } if (this.jumpBtn) { this.jumpBtn.style.display = 'flex'; this.jumpBtn.style.borderColor = atDoor ? '#6dff8a' : '#fffd'; this.jumpBtn.style.background = atDoor ? 'rgba(30,140,60,.75)' : 'rgba(20,24,20,.62)'; }
       if (inp.jumpPressed && dist > 40 && !atDoor) { d.hint = (d.hint || 0) + 1; R.toast && R.toast(d.stand ? 'Go to the back door and dive' : 'Walk to the back door, then DIVE', 2.5); }
       if ((inp.jumpPressed && dist > 40 && atDoor) || dist > d.L - 20) {   // out of the plane
@@ -247,7 +247,7 @@ export class CombatScene {
       const seg = (p, q, r, mat) => { const d = q.clone().sub(p), l = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 5), mat); m.position.copy(p).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); return m; };
       for (const sx of [-1, 1]) { g.add(seg(new V(sx * 0.24, 1.62, 0), new V(sx * 0.2, 1.05, 0.05), 0.035, hm)); const sb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.3), hm); sb.position.set(sx * 0.21, 1.4, 0); sb.rotation.z = sx * 0.06; g.add(sb); const lg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), hm); lg.position.set(sx * 0.16, 0.62, 0.02); g.add(lg); }
       const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.32), hm); belt.position.set(0, 0.98, 0); g.add(belt); const chest = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.31), hm); chest.position.set(0, 1.46, 0); g.add(chest);
-      const pack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: '#3f5d34', roughness: 0.9 })); pack.position.set(0, 1.25, -0.28); g.add(pack);   // the empty pack on the back
+      /* v301: no procedural pack any more - the character's own GLB backpack is what you see under the canopy */
       return g;
   }
   chuteVis(on, b, dt) {
@@ -398,7 +398,7 @@ export class CombatScene {
     const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !this.sim || !this.shared) return; const bx = b.x - CMB.x, bz = b.z - CMB.z, list = [];
     for (const w of Object.keys(cb.owned)) if (cb.owned[w]) list.push([w, isGunK(w) ? { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 } : 0]);
     for (let i = 0; i < Math.min(3, cb.nades | 0); i++) list.push(['grenade', 0]); for (const k of ITEM_K) for (let i = 0; i < Math.min(2, (cb.inv && cb.inv[k]) | 0); i++) list.push([k, 0]);
-    list.forEach(([k, am], i) => { const a = i * 1.1, it = this.sim.dropLoot(k, bx + Math.cos(a) * 0.8, bz + Math.sin(a) * 0.8, true); if (am) it.am = am; });
+    list.forEach(([k, am], i) => { const a = i * 1.1, it = this.sim.dropLoot(k, bx + Math.cos(a) * 0.8, bz + Math.sin(a) * 0.8, true); this.dropY(it, b); if (am) it.am = am; });
   }
   onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
     if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; { const g = this.mates.get(m.id); if (g && g.has) { g.fire = 0.45; const r = Number.isFinite(m.r) && m.r ? m.r : g.r, fx = Math.sin(r), fz = Math.cos(r), y0 = g.y + 1.35; this.tracer(g.x + fx * 0.8, y0, g.z + fz * 0.8, g.x + fx * 45, y0 - 0.5, g.z + fz * 45); this.R.particles && this.R.particles.emit(g.x + fx * 0.9, y0, g.z + fz * 0.9, 4, { color: '#ffd978', speed: 1.5, up: 0.4, life: 0.1, size: 0.18 }); } }   // v251: you SEE his muzzle flash and tracer
@@ -600,10 +600,11 @@ export class CombatScene {
     this.dropGun(held, true);
     it.alive = false; if (this.shared) { if (it.id > 0) this.R.jangTeam.net.send({ t: 'ctake', id: it.id }); } else { if (it.spot >= 0) this.sim.used.delete(it.spot); this.sim.events.push({ k: 'lootgone', id: it.id }); } this.pickup(it, true); this.promptIt = null; return true;
   }
+  dropY(it, b) { if (b.y > cmbH(it.x, it.z) + 0.35) it.y = b.y; }   // v301: an item dropped on a floor / roof / stairs lies THERE for everybody (the server and the other phones used to put it on the ground under the building)
   dropGun(w, silent) {
     const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !cb.owned[w]) return false;
     const am = { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 }, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), x = b.x - CMB.x + fx * 1.2, z = b.z - CMB.z + fz * 1.2;
-    const it = this.sim.dropLoot(w, x, z); it.am = am; cb.owned[w] = false; delete cb.mag[w]; delete cb.ammo[w];
+    const it = this.sim.dropLoot(w, x, z); this.dropY(it, b); it.am = am; cb.owned[w] = false; delete cb.mag[w]; delete cb.ammo[w];
     if (R.weapon === w) { const left = this.guns()[0]; R.equip(left || (cb.owned.bat ? 'bat' : 'fist')); }
     if (!silent) { R.toast && R.toast('DROPPED ' + LOOT_NAME[w]); A.sfx.click && A.sfx.click(); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.syncLoot(); if (this.inv) this.inv.render(); return true;
@@ -612,7 +613,7 @@ export class CombatScene {
     const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !this.sim || this.dropping || this.down) return false;
     const n = k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; if (n <= 0) return false;
     if (k === 'grenade') { cb.nades = n - 1; if (R.weapon === 'grenade' && cb.nades <= 0) R.equip(this.guns()[0] || 'fist'); } else { cb.inv[k] = n - 1; if (k === 'vest' && cb.inv.vest <= 0) cb.vestHp = 0; if (k === 'helmet' && cb.inv.helmet <= 0) cb.helmHp = 0; if (k === 'scope' && cb.inv.scope <= 0 && R.telescope) { try { R.telescope = false; } catch (e) { /* noop */ } } }
-    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), it = this.sim.dropLoot(k, b.x - CMB.x + fx * 1.2, b.z - CMB.z + fz * 1.2);
+    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), it = this.sim.dropLoot(k, b.x - CMB.x + fx * 1.2, b.z - CMB.z + fz * 1.2); this.dropY(it, b);
     R.toast && R.toast('DROPPED ' + (LOOT_NAME[k] || String(k).toUpperCase())); A.sfx.click && A.sfx.click(); void it;
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this._sk = ''; this.syncLoot(); this.updateHud && this.updateHud(); if (this.inv) this.inv.render(); return true;
   }

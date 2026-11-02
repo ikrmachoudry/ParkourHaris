@@ -196,6 +196,7 @@ const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 
 // the river bridge on the road to the farm
 export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
+export const onDeck = (x, z) => x > BRIDGE.xb && x < BRIDGE.xa && Math.abs(z - BRIDGE.z) < BRIDGE.w / 2 - 0.15;   // v301: inside the deck footprint (map-local): a jeep drives ON the bridge, not under it
 padRect(BRIDGE.xa - 4, BRIDGE.z - 5, BRIDGE.xa + 6, BRIDGE.z + 5, BRIDGE.y); padRect(BRIDGE.xb - 6, BRIDGE.z - 5, BRIDGE.xb + 4, BRIDGE.z + 5, BRIDGE.y);
 
 // ---------------------------------------------------------------- roads (polylines: [x, z] points; w = width; dirt = a track)
@@ -322,7 +323,9 @@ function build() {
   };
   for (const b of BUILDINGS) furn(b);
   // the bridge: a solid deck with rails, pylons in the river
-  { const z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, y = BRIDGE.y; box(BRIDGE.xb, z0, BRIDGE.xa, z1, y - 0.5, y, 'deck'); box(BRIDGE.xb, z0, BRIDGE.xa, z0 + 0.25, y, y + 1.1, 'rail'); box(BRIDGE.xb, z1 - 0.25, BRIDGE.xa, z1, y, y + 1.1, 'rail'); }
+  { const z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, y = BRIDGE.y; box(BRIDGE.xb, z0, BRIDGE.xa, z1, y - 0.5, y, 'deck'); box(BRIDGE.xb, z0, BRIDGE.xa, z0 + 0.25, y, y + 1.1, 'rail'); box(BRIDGE.xb, z1 - 0.25, BRIDGE.xa, z1, y, y + 1.1, 'rail');
+    /* v301: the PYLONS in the river are solid now (a jeep or a bullet no longer drives through the visible concrete), the gaps between them stay open (9 m centres, 1.6 x 2 m) */
+    for (let x = BRIDGE.xb + 2; x < BRIDGE.xa; x += 9) addS({ x0: x - 0.8, z0: BRIDGE.z - 1.0, x1: x + 0.8, z1: BRIDGE.z + 1.0, y0: -3.2, y1: y - 0.9, k: 'prop' }); }
   // outdoor props: containers, sandbags, barrels, crates, stacks of pipes
   const outside = [];
   const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: (k === 'sandbag' || (k === 'ruin' && h <= 1.3)) ? 1 : 0 }); outside.push(it); return it; };
@@ -481,6 +484,11 @@ export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = M
 // v254 VAULT (PUBG): only the low broken walls / sandbag rows can be climbed over. From (x,z) [map-local] heading (dx,dz) look up to 1.3 m ahead for such a piece; it must be crossed
 // across its thin side (not along it), be between 0.35 and 1.4 m above the ground you stand on, and there must be free ground behind it. Returns where you land, or null.
 export function vaultSpot(L, x, z, dx, dz, feetY) {   // v271: works at EVERY point of a fence / low wall: the side you stand on decides the way over (not the sign of your stick), angled approaches are fine, uphill / downhill ground is allowed, and you land just behind it (not off the edge)
+  { /* v301: CLIMB onto the bridge from the river bank / reeds: the deck edge or its rail ahead and 0.25 - 2 m above your feet, JUMP = the same vault animation up onto the deck */
+    const lc = Math.hypot(dx, dz); if (lc > 0.01 && L.bridge && !onDeck(x, z)) { const Br = L.bridge, ux = dx / lc, uz = dz / lc;
+      for (let d = 0.3; d <= 1.4; d += 0.1) { const px = x + ux * d, pz = z + uz * d; if (px < Br.xb + 0.3 || px > Br.xa - 0.3 || Math.abs(pz - Br.z) > Br.w / 2 + 0.3 || Math.abs(pz - Br.z) < Br.w / 2 - 0.4) continue;
+        const hgt = Br.y - feetY; if (hgt < -0.4 || hgt > 2.0) break; const sd = z < Br.z ? 1 : -1; if (uz * sd < 0.2) break;
+        const tz = Br.z - sd * (Br.w / 2 - 1.3); return { tx: px, tz, top: Br.y, dx: 0, dz: sd, climb: true }; } } }
   const l = Math.hypot(dx, dz); if (l < 0.01) return null; dx /= l; dz /= l; const B = L.B;
   for (let d = 0.2; d <= 1.5; d += 0.1) {
     const px = x + dx * d, pz = z + dz * d, a = L.bucket.get(Math.floor(px / B) * 4099 + Math.floor(pz / B)); if (!a) continue;

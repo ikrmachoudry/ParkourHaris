@@ -313,7 +313,9 @@ wss.on('connection', (ws, req) => {
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
       case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': {
         if (!room || !room.chost || room.phase !== 'race') return;
-        const t = Date.now(); if (t - (p.lastC || 0) < 25) return; p.lastC = t;
+        const t = Date.now();
+        if (m.t === 'cdrop') { if (t - (p.dropW || 0) > 1000) { p.dropW = t; p.dropN = 0; } if (++p.dropN > 40) return; }   // v301: a dead player's whole kit is 8-20 drops in ONE tick: the 25 ms gap below threw all but the first away, so other players never saw the gold box's items
+        else { if (t - (p.lastC || 0) < 25) return; p.lastC = t; }
         const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m) })[m.t](); break;
       }
       case 'cpv': case 'cpk': {   // v246: PvP (relay only, checked): a shot at a player of the OTHER team / the kill credit for the shooter
