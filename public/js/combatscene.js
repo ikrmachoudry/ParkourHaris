@@ -629,10 +629,16 @@ export class CombatScene {
     this.dropGun(held, true);
     it.alive = false; if (this.shared) { if (it.id > 0) this.R.jangTeam.net.send({ t: 'ctake', id: it.id }); } else { if (it.spot >= 0) this.sim.used.delete(it.spot); this.sim.events.push({ k: 'lootgone', id: it.id }); } this.pickup(it, true); this.promptIt = null; return true;
   }
+  dropSpot(b, far = true) {   // v327: a dropped item lands 3+ m away (outside the 1.8 m auto pick-up ring), on a free spot with floor under it, so you do not pick the same thing up again at once
+    const ox = b.x - CMB.x, oz = b.z - CMB.z, L = layout(), hi = b.y > cmbH(ox, oz) + 0.35;
+    if (far) for (const dist of [3.4, 3.0, 2.6, 2.2]) for (const da of [0, 0.5, -0.5, 1.0, -1.0, 3.14]) { const x = ox + Math.sin(b.yaw + da) * dist, z = oz + Math.cos(b.yaw + da) * dist;
+      if (hitsSolid(L, x, z, 0.25, b.y)) continue; if (hi && supportY(L, x, z, 0.1, b.y + 0.3) < b.y - 0.4) continue; return { x, z }; }
+    return { x: ox + Math.sin(b.yaw) * 1.2, z: oz + Math.cos(b.yaw) * 1.2 };
+  }
   dropY(it, b) { if (b.y > cmbH(it.x, it.z) + 0.35) it.y = b.y; }   // v301: an item dropped on a floor / roof / stairs lies THERE for everybody (the server and the other phones used to put it on the ground under the building)
   dropGun(w, silent) {
     const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !cb.owned[w]) return false;
-    const am = { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 }, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), x = b.x - CMB.x + fx * 1.2, z = b.z - CMB.z + fz * 1.2;
+    const am = { mag: cb.mag[w] | 0, res: cb.ammo[w] | 0 }, dp = this.dropSpot(b, !silent), x = dp.x, z = dp.z;
     const it = this.sim.dropLoot(w, x, z); this.dropY(it, b); it.am = am; cb.owned[w] = false; delete cb.mag[w]; delete cb.ammo[w];
     if (R.weapon === w) { const left = this.guns()[0]; R.equip(left || (cb.owned.bat ? 'bat' : 'fist')); }
     if (!silent) { R.toast && R.toast('DROPPED ' + LOOT_NAME[w]); A.sfx.click && A.sfx.click(); }
@@ -642,7 +648,7 @@ export class CombatScene {
     const R = this.R, cb = R.wallet && R.wallet.cb, b = R.me.body; if (!cb || !this.sim || this.dropping || this.down) return false;
     const n = k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; if (n <= 0) return false;
     if (k === 'grenade') { cb.nades = n - 1; if (R.weapon === 'grenade' && cb.nades <= 0) R.equip(this.guns()[0] || 'fist'); } else { cb.inv[k] = n - 1; if (k === 'vest' && cb.inv.vest <= 0) cb.vestHp = 0; if (k === 'helmet' && cb.inv.helmet <= 0) cb.helmHp = 0; if (k === 'scope' && cb.inv.scope <= 0 && R.telescope) { try { R.telescope = false; } catch (e) { /* noop */ } } }
-    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), it = this.sim.dropLoot(k, b.x - CMB.x + fx * 1.2, b.z - CMB.z + fz * 1.2); this.dropY(it, b);
+    const dp = this.dropSpot(b), it = this.sim.dropLoot(k, dp.x, dp.z); this.dropY(it, b);
     R.toast && R.toast('DROPPED ' + (LOOT_NAME[k] || String(k).toUpperCase())); A.sfx.click && A.sfx.click(); void it;
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this._sk = ''; this.syncLoot(); this.updateHud && this.updateHud(); if (this.inv) this.inv.render(); return true;
   }

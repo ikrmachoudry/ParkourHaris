@@ -540,14 +540,14 @@ export function vaultSpot(L, x, z, dx, dz, feetY) {   // v271: works at EVERY po
         const hgt = Br.y - feetY; if (hgt < -0.4 || hgt > 2.0) break; const sd = z < Br.z ? 1 : -1; if (uz * sd < 0.2) break;
         const tz = Br.z - sd * (Br.w / 2 - 1.3); return { tx: px, tz, top: Br.y, dx: 0, dz: sd, climb: true }; } } }
   const l = Math.hypot(dx, dz); if (l < 0.01) return null; dx /= l; dz /= l; const B = L.B;
-  for (let d = 0.2; d <= 1.5; d += 0.1) {
+  for (let d = 0.2; d <= 1.6; d += 0.1) {
     const px = x + dx * d, pz = z + dz * d, a = L.bucket.get(Math.floor(px / B) * 4099 + Math.floor(pz / B)); if (!a) continue;
     for (const s of a) {
       if (!s.vault || px < s.x0 - 0.25 || px > s.x1 + 0.25 || pz < s.z0 - 0.25 || pz > s.z1 + 0.25) continue;
       const hgt = s.y1 - feetY; if (hgt < 0.2 || hgt > 1.7) continue;
       const thinX = s.x1 - s.x0 < s.z1 - s.z0, nx = thinX ? (x < (s.x0 + s.x1) / 2 ? 1 : -1) : 0, nz = thinX ? 0 : (z < (s.z0 + s.z1) / 2 ? 1 : -1), dot = dx * nx + dz * nz; if (dot < 0.2) continue;
       const far = thinX ? (nx > 0 ? s.x1 : s.x0) : (nz > 0 ? s.z1 : s.z0);
-      if (s.drop) { const tx = thinX ? far + nx * 0.6 : px, tz = thinX ? pz : far + nz * 0.6; return { tx, tz, top: s.y1, dx: nx, dz: nz, drop: true }; }   // v325: over a roof parapet: vault the edge and fall
+      if (s.drop) { for (const off of [0.9, 1.4, 2.0]) { const tx = thinX ? far + nx * off : px, tz = thinX ? pz : far + nz * off; if (hitsSolid(L, tx, tz, 0.3, feetY)) continue; return { tx, tz, top: s.y1, dx: nx, dz: nz, drop: true }; } continue; }   // v327: back-to-back parapets: land past the second one   // v325: over a roof parapet: vault the edge and fall
       for (const off of [0.65, 0.95, 1.4]) { const tx = thinX ? far + nx * off : (x + (px - x)), tz = thinX ? pz : far + nz * off; if (hitsSolid(L, tx, tz, 0.35, cmbH(tx, tz))) continue; if (Math.abs(cmbH(tx, tz) - feetY) > 1.8) continue; return { tx, tz, top: s.y1, dx: nx, dz: nz }; }
     }
   }
@@ -631,7 +631,7 @@ export class CombatSim {
   // the nearest item within reach that take() refused (for the "E - swap" prompt)
   near(px, pz, py) { let best = null, bd = 2.2 * 2.2; for (const it of this.loot) { if (!it.alive || (it.nt && it.nt > this.t)) continue; if (it.y !== undefined && py !== undefined && Math.abs(py - it.y) > 1.7) continue; const d = (it.x - px) ** 2 + (it.z - pz) ** 2; if (d < bd) { bd = d; best = it; } } return best; }
   // the player drops something: it lies on the ground (it cannot be picked up again for 1.5 s) and never respawns
-  dropLoot(k, x, z, gold) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: (this._id = (this._id || 0) + 1), gold: gold ? 1 : 0 }; if (gold) it.exp = this.t + 150; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
+  dropLoot(k, x, z, gold) { const it = { k, x, z, spot: -1, alive: true, nt: this.t + 2.5, id: (this._id = (this._id || 0) + 1), gold: gold ? 1 : 0 }; if (gold) it.exp = this.t + 150; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
   // smoke clouds block the bots' sight
   /* v313 MOLOTOV: a fire patch burns the ground for 8 s; bots standing in it lose health every half second */
   addFire(x, z, r = 3.4, t = 8, by) { (this.fires || (this.fires = [])).push({ x, z, r, t, by, tk: 0.5 }); }

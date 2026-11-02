@@ -509,7 +509,7 @@ class Race {
         const ml = Math.hypot(inp.mx, inp.mz), dx = ml > 0.2 ? inp.mx : Math.sin(b.yaw), dz = ml > 0.2 ? inp.mz : Math.cos(b.yaw), ox = b.x - CMB.x, oz = b.z - CMB.z, hgt = b.y;
         if (inp.jumpPressed || (OPT.tips !== false && (this._vt = (this._vt || 0) - dt) < 0)) { const sp = vaultSpot(cmbLayout(), ox, oz, dx, dz, hgt);
           if (sp && inp.jumpPressed) { const y1 = sp.drop ? b.y : (sp.climb ? sp.top : cmbHt(sp.tx, sp.tz)) + 0.02; this.vlt = { drop: sp.drop, t: 0, dur: 1.25, x0: b.x, z0: b.z, y0: b.y, tx: CMB.x + sp.tx, tz: CMB.z + sp.tz, y1, h: Math.max(0.1, sp.top + 0.3 - (b.y + y1) / 2), yaw: Math.atan2(sp.dx || dx, sp.dz || dz), dx: sp.dx, dz: sp.dz }; this.crouch = false; inp.jumpPressed = false; }
-          else if (sp && !inp.jumpPressed) { this._vt = 6; this.toast && this.toast(sp.climb ? 'Press JUMP to climb onto the bridge' : 'Press JUMP to climb over the broken wall'); }
+          else if (sp && !inp.jumpPressed) { this._vt = 6; this.toast && this.toast(sp.climb ? 'Press JUMP to climb onto the bridge' : 'Press JUMP to vault over the wall'); }
           else if (!inp.jumpPressed) this._vt = 0.3; }
       }
     } else this.vlt = null;
