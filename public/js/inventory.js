@@ -10,7 +10,7 @@ const ITEMS = [
   { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: '9', col: '#cfd6dc' },
   { k: 'molotov', icon: '🔥', name: 'MOLOTOV', info: 'throw: fire on the ground for 8 s', key: 'N', col: '#ff9a3c' },
   { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: '', col: '#8dff6b' },
-  { k: 'sscope', icon: '🎯', name: 'SNIPER SCOPE', info: 'Kar98 uses it by itself', key: '', col: '#7fe0ff' },
+  { k: 'sscope', icon: '🎯', name: 'TELESCOPE', info: 'Kar98 uses it by itself', key: '', col: '#7fe0ff' },
   { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: '', col: '#9ad0ff' },
   { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: '', col: '#b0b8c0' },
   { k: 'scope', icon: '🔭', name: 'BINOCULARS', info: 'tap to look far, again to put away', key: '0', col: '#b48cff' },
