@@ -1379,3 +1379,6 @@ body.set-open #vc { display: none !important; }
 .xh-col button { width: 34px; height: 34px; border-radius: 0; border: 2px solid rgba(255,255,255,.25); cursor: pointer; padding: 0; }
 .xh-col button.on { border-color: #fff; box-shadow: 0 0 0 2px #d93a3a; }
 #xh-size { width: 180px; }
+
+/* v380: team mic + speaker stay on screen in the plane, while falling and gliding (above the drop / dive buttons) */
+body.vc-on.jang-mode.in-race #vc { display: block; z-index: 60; }

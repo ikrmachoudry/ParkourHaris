@@ -2321,6 +2321,8 @@ vcTap($('vc-mic'), async () => {
 vcTap($('vc-spk'), () => { if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
 vcTap($('vc-msg'), () => { if (voice) { voice.resumeAudio(); voiceUI(); } });
 vcTap($('vc-list'), (e) => { const r = e.target.closest && e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } });
+window.phVoiceUI = () => { try { voiceUI(); } catch (e) { /* voice not ready */ } };   // v380: the combat scene re-checks the team mic / speaker buttons when the plane ride, the fall and the landing start
+setInterval(() => { if (document.body.classList.contains('in-race') && document.body.classList.contains('jang-mode')) window.phVoiceUI(); }, 1000);   // v380: and once a second during a Jang match: the buttons are there in the plane and while falling too
 for (const ev of ['touchstart', 'pointerdown', 'mousedown']) vcEl.addEventListener(ev, (e) => e.stopPropagation());   // taps on the voice buttons never turn the camera or fire
 for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { if (voice && voice._needTap) { voice.resumeAudio(); voiceUI(); } }, { capture: true, passive: true });   // any tap after the browser blocked the sound starts it
 document.addEventListener('visibilitychange', () => { if (voice) voice.visibility(document.hidden); });   // v216: the mic stays ON (button too) when you switch apps; it is only paused while the page is hidden
