@@ -310,12 +310,12 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -5.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 9.5, dir: -1, tr: 0.38 }, roofStair: { x0: 2.3 }, tank: { x: 11.6, z: -8.3 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -8.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 9.5, dir: -1, tr: 0.38 }, roofStair: { x0: 0.3 }, tank: { x: 11.6, z: -8.3 },
     inner: [
-      { f: 0, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-6.4, 1.8], [0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 3.4, gaps: [[-4.8, 2.4]] },
+      { f: 0, ax: 'z', pos: -6, a: -3.2, b: 9.8, gaps: [[0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 3.4, gaps: [[-4.8, 2.4]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
       // v264 UPSTAIRS = the family floor from the video: a big HALL in the west, the lobby with the two flights in the middle, a long AISLE along the south (the new stair from the door beside the garage arrives in it), a bedroom and HARIS'S GAME ROOM in the east
-      { f: 1, ax: 'z', pos: -6, a: -9.8, b: 9.8, gaps: [[-2, 2.4], [6.6, 3.0]] }, { f: 1, ax: 'x', pos: 3.4, a: -6, b: 13.8, gaps: [[0, 2.4], [9, 2.4]] },
+      { f: 1, ax: 'z', pos: -6, a: -7.5, b: 9.8, gaps: [[-2, 2.4], [6.6, 3.0]] }, { f: 1, ax: 'x', pos: 3.4, a: -6, b: 13.8, gaps: [[0, 2.4], [9, 2.4]] },
       { f: 1, ax: 'z', pos: 6.8, a: -9.8, b: 3.4, gaps: [[-6.4, 1.8]] }, { f: 1, ax: 'x', pos: -3.2, a: 6.8, b: 13.8 }] });
   /* v268: Haris's brother's home built on to the east side of the villa: an open GARAGE below (empty, the Mehran comes later), rooms above; and the CIVIC DA GARAGE moves on to the right of it */
   { const fy0 = Math.round(rawH(pick[0], pick[1]) * 10) / 10; padRect(pick[0] - 24, pick[1] + 6, pick[0] + 43, pick[1] + 32, fy0); /* v270: a flat, plain yard in front of the villa and the two new houses (no ditches, no bumps) */ const hx2 = pick[0] + 14 + 4.5, h0 = mk('apart', hx2, pick[1], 9, 20, 'S', { fy: fy0, fh: 3.4, c: '#b5683a', doors: [{ s: 'S', o: 1.4, w: 4.0, h: 2.8 }, { s: 'N', o: 0, w: 2.0, h: 2.5 }], stair: { x0: -3.6, z0: -20 / 2 + TH / 2 + 0.45, dir: 1 } }); const bb = BUILDINGS[BUILDINGS.length - 1]; bb.home = true; bb.noLoot = true; bb.fur = null;
@@ -363,13 +363,13 @@ function build() {
     else if (f === 'clinic') {
       const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
       P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [3.2, 4.6]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
-      P(0, -10, -6.4, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
+      P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
       P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
       for (const [x, z] of [[-10.6, 5.4], [-7.4, 5.4], [-10.6, 8.4], [-7.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
       P(0, 10, -4.8, 1.1, 2.4, 0.95, '#dfe7ea', 'table'); P(0, 12.8, -8.4, 0.6, 3.4, 1.6, '#9fb4bf', 'shelf'); P(0, 8.2, -8.6, 2.6, 0.7, 1.0, '#b8c6cc', 'counter');   // operation theatre: the table, instrument shelves
       for (const x of [8.2, 11.6]) P(0, x, 1.6, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // second ward (v264: the new stair from the garage-side door fills its south half)
       P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the lobby: a sofa each side and a table
-      P(1, -9.8, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -7.0, -9.0, 0.7, 1.2, 1.9, '#6a4a30', 'wardrobe'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
+      P(1, -9.8, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -11.4, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
       P(1, 10.6, -8.3, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 13.2, -5.4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // the bedroom (north east)
       P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 1.2, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
