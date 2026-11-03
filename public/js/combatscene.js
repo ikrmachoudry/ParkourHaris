@@ -75,7 +75,7 @@ export class CombatScene {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
-    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); this.setBotDiff(); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }
@@ -471,7 +471,7 @@ export class CombatScene {
   update(dt) {
     this.hitUpd(dt);
     const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam) this.stepMates(dt); this.t += dt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
-    const P = { x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
+    const P = { mv: Math.hypot(b.vx || 0, b.vz || 0), stn: R.prone ? 2 : R.crouch ? 1 : 0, x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));
       if (cx !== ox || cz !== oz) { b.x = CMB.x + cx; b.z = CMB.z + cz; b.vx = b.vz = 0; if (this.drop) { this.drop.vx = 0; this.drop.vz = 0; } }
@@ -514,7 +514,7 @@ export class CombatScene {
         a.acc = (a.acc || 0) + dt; const skip = d2 > BOT_MID2 && (fr + bi) % 3 !== 0; if (skip && a.g.visible) continue;   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
-        if (s.alive) { a.g.visible = true; a.m.update(adt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen, crouch: false, vy: 0, stun: 0 }); }
+        if (s.alive) { a.g.visible = true; a.m.update(adt, { seated: false, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen && !(s.thr > 0), crouch: s.stn === 1, prone: s.stn === 2, nade: s.thr > 0 ? Math.min(0.999, s.thr) : 0, nadeToss: 2, vy: 0, stun: 0 }); }
         else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.m.update(adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < 6; }
       } }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
@@ -534,8 +534,12 @@ export class CombatScene {
     } else if (e.k === 'kill') {
       if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
+    } else if (e.k === 'nade') {   // v331: a bot throws a frag: it flies in an arc and lands where the sim says; the damage comes with the 'nbang' event
+      const x0 = CMB.x + e.x, z0 = CMB.z + e.z, y0 = cmbH(e.x, e.z) + 1.4, tx = CMB.x + e.lx, tz = CMB.z + e.lz, ty = cmbH(e.lx, e.lz) + 0.07, dx = tx - x0, dz = tz - z0, d = Math.hypot(dx, dz), T = Math.max(0.5, Math.min(1.5, 0.45 + d * 0.03)), vy = (ty - y0 + 0.5 * 18 * T * T) / T;
+      if (R.spawnNade && Math.hypot(x0 - R.me.body.x, z0 - R.me.body.z) < 130) { const n = R.spawnNade(x0, y0, z0, dx / T, vy, dz / T, false); if (n) n.aim = true; A.sfx.swing && A.sfx.swing(false); }
+    } else if (e.k === 'nbang') { if ((!this.shared || e.tp === (R.jangTeam && R.jangTeam.myId)) && this.hp > 0 && this.deadT <= 0 && !this.dropping) { this.lastHit = { who: 'BOT GRENADE', w: 'grenade', d: 0, at: performance.now() }; this.hurt(e.dmg, CMB.x + e.x, CMB.z + e.z); }
     } else if (e.k === 'airplane') this.onAirplane(e); else if (e.k === 'airland') this.onAirland(e);
-    else if (e.k === 'bothit') { if (this.shared && performance.now() - (this.shotAt || 0) < 450) this.hitX(false); const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
+    else if (e.k === 'bothit') { if (this.shared && performance.now() - (this.shotAt || 0) < 450) { this.hitX(!!e.h); if (e.h) R.toast && R.toast('HEADSHOT', 0.8); } const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
   }
   /* v318 PUBG kill feed + hit marker: top-right feed lines ("YOU > AK-47 > BOT 3"), a white X on the crosshair when your bullet hits and a red one on a kill; the death screen says who killed you, with what and from how far */
   wName(w) { return ({ ak: 'AK-47', ak49: 'AK-49', sniper: 'KAR98', smg: 'SMG', pistol: 'PISTOL', shotgun: 'SHOTGUN', bat: 'BAT', fist: 'FIST', grenade: 'GRENADE', molotov: 'MOLOTOV', car: 'VEHICLE' })[w] || String(w || 'GUN').toUpperCase(); }
@@ -543,6 +547,7 @@ export class CombatScene {
     let f = this.feedEl; if (!f) { f = this.feedEl = document.createElement('div'); f.style.cssText = 'position:fixed;right:84px;top:max(58px,8vh);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font:800 13px/1.15 system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000'; document.body.appendChild(f); }
     const e = document.createElement('div'); e.style.cssText = 'background:rgba(0,0,0,.5);border-radius:6px;padding:3px 9px;border-left:3px solid ' + (hot ? '#ffd23f' : '#ff5a4a'); e.innerHTML = '<span style="color:' + (hot ? '#ffd23f' : '#fff') + '"></span> <span style="color:#bbb;font-weight:600"></span> <span></span>';
     const sp = e.querySelectorAll('span'); sp[0].textContent = a; sp[1].textContent = '\u25B8 ' + wn + ' \u25B8'; sp[2].textContent = b; f.appendChild(e); while (f.children.length > 4) f.firstChild.remove(); setTimeout(() => e.remove(), 6000); }
+  setBotDiff() { const d = OPT.diff || 'medium', T = this.R.jangTeam; if (this.shared) { if (T && T.net) T.net.send({ t: 'cdiff', d }); } else if (this.sim && this.sim.setDiff) this.sim.setDiff(d); }   // v331: BOT DIFFICULTY (solo: the sim; shared match: the room host's choice goes to the server)
   hitX(kill) {
     let m = this.hitXEl; if (!m) { m = this.hitXEl = document.createElement('div'); m.style.cssText = 'position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;z-index:29;pointer-events:none;opacity:0;transition:opacity .12s;background:linear-gradient(45deg,transparent 46%,currentColor 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,currentColor 46% 54%,transparent 54%);filter:drop-shadow(0 0 2px #000)'; document.body.appendChild(m); }
     m.style.color = kill ? '#ff3b30' : '#fff'; m.style.opacity = 1; clearTimeout(this._hxT); this._hxT = setTimeout(() => { m.style.opacity = 0; }, kill ? 260 : 130); }
@@ -712,7 +717,7 @@ export class CombatScene {
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
     if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
-    if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill'); break; } } }   // solo: the hit is known at once
+    if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill' || !!q.h); if (q.h) this.R.toast && this.R.toast('HEADSHOT', 0.8); break; } } }   // solo: the hit is known at once
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }

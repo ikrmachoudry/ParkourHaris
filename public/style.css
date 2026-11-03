@@ -1265,3 +1265,11 @@ body.jang-mode #wanted { display: none !important; }   /* v251: no police stars 
 
 /* v272: while moving the buttons, the MOVE pad is shown and can be grabbed like the others */
 body.btn-edit.touch #joy, body.btn-edit #joy { display: block !important; pointer-events: auto; }
+
+/* v331: BOT DIFFICULTY switch (easy / medium / hard) */
+.dsel { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 4px 0; }
+.dsel span { grid-column: 1 / -1; font: 800 12px system-ui, sans-serif; letter-spacing: .6px; color: #fff; opacity: .85; }
+.dsel button { padding: 10px 4px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font: 800 13px system-ui, sans-serif; cursor: pointer; }
+.dsel button.on { background: #ff9500; border-color: #ff9500; color: #2a1600; }
+.dsel button[data-d="hard"].on { background: #ff453a; border-color: #ff453a; color: #fff; }
+body.in-race:not(.jang-mode) .dsel { display: none; }

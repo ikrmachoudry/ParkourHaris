@@ -583,18 +583,21 @@ export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 're
 export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
-const BOT = { pistol: { cd: 0.55, dmg: 9, acc: 0.5 }, ak: { cd: 0.17, dmg: 6, acc: 0.42 } };
+const BOT = { pistol: { cd: 0.55, dmg: 14, acc: 0.5 }, ak: { cd: 0.17, dmg: 11, acc: 0.42 } };   // v331: a bot hit is 11 (AK) / 14 (pistol) hp, like a PUBG bullet through a vest
+/* v331 BOT DIFFICULTY: only the SHOTS TO KILL and the SIZE of the hit zone change; every level behaves the same (hides, crouches, goes prone, throws grenades). R = body hit radius (m), bm = damage the body armor lets through, hm = the same for a headshot (head hit = 2.3x). AK (54 hp a hit): easy 2 hits, medium 3 hits (2 headshots), hard 4 hits (2 headshots) */
+export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.42, bm: 0.75, hm: 0.75 }, hard: { R: 0.32, bm: 0.55, hm: 0.6 } };
+const STH = [1.8, 1.25, 0.6];   // standing / crouching / prone: how tall the hit box is
 export class CombatSim {
   constructor(seed = 1, nBots = 8) {
     this.L = layout(); this.R = seeded(seed >>> 0 || 1); this.t = 0; this.events = []; this.kills = 0; this.deaths = 0; this.nBots = nBots;
-    this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i));
+    this.diff = 'medium'; this.nades = []; this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i));
     this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot(); this.L.spots.forEach((sp, k) => { if (sp.force) { this.used.add(k); this.loot.push({ k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); } });
     this.Z = makeZone(seed >>> 0 || 1); this.airN = 0; this.airSent = false;   // v251: the bots follow the blue circle, the airdrop plane flies on a schedule
   }
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
   nearSpawn(b) { const c = this.L.spawns.filter((s) => Math.hypot(s.x - b.x, s.z - b.z) < 170 && Math.hypot(s.x - b.x, s.z - b.z) > 30); return c.length ? this.pick(c) : this.pick(this.L.spawns); }
   spawnPoint(avoid) { const L = this.L; let best = null, bd = -1; for (let i = 0; i < 6; i++) { const p = this.pick(L.spawns); const d = avoid ? Math.hypot(p.x - avoid.x, p.z - avoid.z) : 99; if (d > bd) { bd = d; best = p; } } return best; }
-  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0, y: null, cl: null, bld: null, stk: 0, unst: 0, mvT: 0, mvD: 0, rsT: 0 }; }
+  newBot(i) { const p = this.spawnPoint(null), w = this.R() < 0.45 ? 'pistol' : 'ak'; return { id: i, x: p.x, z: p.z, yaw: this.R() * 6.28, hp: 100, alive: true, respawn: 0, weapon: w, path: null, pi: 0, think: 0, cool: 1, react: 0, seen: false, speed: 0, walk: false, strafe: 1, strafeT: 0, flash: 0, dieT: 0, alert: 0, y: null, cl: null, bld: null, stk: 0, unst: 0, mvT: 0, mvD: 0, rsT: 0, stn: 0, stT: 0, gr: 1 + (this.R() < 0.6 ? 1 : 0), nadeCd: 6 + this.R() * 10, hurtT: 0, hide: 0, peek: 0, coolHide: 0, cov: null, lk: null, pendN: null, thr: 0 }; }
   /* v302: a bot comes back like in PUBG: never in front of anybody. A random point INSIDE the safe circle (a different one every time, away from the last few), at least 70 m from every living player and out of every player's line of sight; if no such place exists yet it waits a second and tries again (after ~15 s it takes the best one) */
   respawnPoint(PL, zn, b) {
     const L = this.L, rec = this._rs || (this._rs = []), live = PL.filter((q) => q.alive); let best = null, bs = -1e9;
@@ -640,18 +643,21 @@ export class CombatSim {
   addSmoke(x, z, r = 6.5, t = 15) { (this.smokes || (this.smokes = [])).push({ x, z, r, t }); }
   smoked(ax, az, bx, bz) { if (!this.smokes) return false; for (const s of this.smokes) { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1; let u = ((s.x - ax) * dx + (s.z - az) * dz) / l2; u = Math.max(0, Math.min(1, u)); if ((ax + dx * u - s.x) ** 2 + (az + dz * u - s.z) ** 2 < s.r * s.r) return true; } return false; }
   // a bullet from (ox,oz) along (fx,fz): the nearest bot it reaches before a wall.  returns the distance or -1
+  setDiff(d) { if (DIFFS[d]) this.diff = d; }
   shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
-    const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yAbs); let best = null, bd = Math.min(range, wall);
-    for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > 0.65 + (slack || 0)) continue; if (bal && !ballOK(bal, a, b.y != null ? b.y : onDeck(b.x, b.z) ? BRIDGE.y : cmbH(b.x, b.z))) continue; best = b; bd = a; }
-    if (best) this.hurt(best, dmg * 34, ox, oz, by); return best ? bd : (wall < range ? wall : -1);
+    const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yAbs); let best = null, bd = Math.min(range, wall), bhead = false; const DF = DIFFS[this.diff] || DIFFS.medium;
+    for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > DF.R + (slack || 0)) continue;
+      let head = false; if (bal) { const gy = b.y != null ? b.y : onDeck(b.x, b.z) ? BRIDGE.y : cmbH(b.x, b.z), H = STH[b.stn | 0], rel = bal.y + bal.sl * a - bal.k * a * a - gy; if (rel < -0.1 || rel > H + 0.1) continue; head = rel >= H - 0.3 && pr < DF.R * 0.8 + (slack || 0); }   /* v331: the bullet must pass through the bot (feet to head, lower when he crouches or lies down); the top 30 cm is the head */
+      best = b; bd = a; bhead = head; }
+    if (best) { best.lastHead = bhead; this.hurt(best, dmg * 34 * (bhead ? 2.3 * DF.hm : DF.bm), ox, oz, by); } return best ? bd : (wall < range ? wall : -1);
   }
-  melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg, x, z, by); n++; } return n; }
+  melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg * (DIFFS[this.diff] || DIFFS.medium).bm, x, z, by); n++; } return n; }
   blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, dmg * Math.max(0.35, 1.1 - 0.65 * d / r) * 28, x, z, by); } }
   hurt(b, d, fromX, fromZ, by) {
-    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by });
+    if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (d > 0.5) { b.hurtT = 2.5; if (fromX !== 0 || fromZ !== 0) b.lk = { x: fromX, z: fromZ, t: this.t }; } const hd = b.lastHead ? 1 : 0; b.lastHead = false; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by, h: hd });
       const gk = [b.weapon, 'ammo', this.pick(['ammo', 'med', 'inject', 'pills', 'grenade', 'smoke'])]; gk.forEach((k, i) => { const a = i * 2.1 + 0.5, ox = Math.cos(a) * 0.7, oz = Math.sin(a) * 0.7, ok = !hitsSolid(this.L, b.x + ox, b.z + oz, 0.2); this.addLootAt(k, b.x + (ok ? ox : 0), b.z + (ok ? oz : 0), { gold: 1, life: 150, am: k === 'ak' ? { mag: 30, res: 60 } : k === 'pistol' ? { mag: 12, res: 24 } : 0 }); }); }   // v251: a dead bot leaves a GOLD box with its gun + ammo (+ one more thing) for whoever shot it
    
-    else this.events.push({ k: 'bothit', id: b.id, x: b.x, z: b.z });
+    else this.events.push({ k: 'bothit', id: b.id, x: b.x, z: b.z, h: hd });
   }
   // move a circle through the walls (slides along them)
   step(o, dx, dz, r = 0.45) {
@@ -664,6 +670,7 @@ export class CombatSim {
   upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
+    for (let i = this.nades.length - 1; i >= 0; i--) { const n = this.nades[i]; n.t -= dt; if (n.t <= 0) { this.nades.splice(i, 1); this.nadeBang(n, PL); } }
     if (this.smokes) { for (const sm of this.smokes) sm.t -= dt; this.smokes = this.smokes.filter((sm) => sm.t > 0); }
     if (this.fires) { for (const f of this.fires) { f.t -= dt; f.tk -= dt; if (f.tk <= 0) { f.tk += 0.5; for (const b of this.bots) if (b.alive && (b.x - f.x) ** 2 + (b.z - f.z) ** 2 < (f.r + 0.4) ** 2) this.hurt(b, 7, f.x, f.z, f.by); } } this.fires = this.fires.filter((f) => f.t > 0); }
     const zn = this.Z ? zoneAt(this.Z, this.t) : null; this._zn = zn;
@@ -694,12 +701,27 @@ export class CombatSim {
       if (sees && b.alert <= 0) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da > 1.9 && d > 10) sees = false; }
       if (sees && !b.seen) { b.seen = true; b.react = 0.55 + this.R() * 0.4; } else if (!sees && b.seen) { b.seen = false; b.alert = Math.max(b.alert, 6); b.path = null; }
       let mx = 0, mz = 0, sp = 0;
+      if (b.coolHide > 0) b.coolHide -= dt; if (b.hurtT > 0) b.hurtT -= dt; if (b.nadeCd > 0) b.nadeCd -= dt; if (sees) b.lk = { x: P.x, z: P.z, t: this.t };
+      if (b.pendN) { b.pendN.t -= dt; if (b.pendN.t <= 0) { this.throwNade(b, b.pendN); b.pendN = null; } }
+      /* v331 PUBG bots: they throw a frag at where you are (or where you hid), then dive behind cover, crouch / lie down, patch up, and peek out again */
+      if (b.gr > 0 && !b.pendN && b.nadeCd <= 0 && !b.cl && b.hide <= 0) { const tg = sees ? P : (b.lk && this.t - b.lk.t < 9 ? b.lk : null); if (tg) { const td = Math.hypot(tg.x - b.x, tg.z - b.z); if (td > 9 && td < 30 && (sees ? (P.mv || 0) < 2 || td > 14 : true) && this.R() < dt * (sees ? 0.2 : 0.5)) { b.gr--; b.nadeCd = 14 + this.R() * 10; b.pendN = { t: 0.9, x: tg.x, z: tg.z }; } } }
+      if (b.pendN) { const want = Math.atan2(b.pendN.x - b.x, b.pendN.z - b.z); b.yaw += Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)) * Math.min(1, dt * 8); b.thr = 1 - b.pendN.t / 0.9; b.walk = false; }
+      else if (b.hide > 0 && !b.cl) {   // behind cover: run to it, duck (prone when badly hurt), bandage, then peek
+        b.hide -= dt; b.run = (b.run || 0) - dt; const cv = b.cov, dc = cv ? Math.hypot(cv.x - b.x, cv.z - b.z) : 0;
+        if (cv && dc > 0.8 && b.run > 0) { mx = (cv.x - b.x) / dc; mz = (cv.z - b.z) / dc; sp = 4.2; b.stn = 0; b.walk = false; const want = Math.atan2(mx, mz); b.yaw += Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)) * Math.min(1, dt * 8); }
+        else { b.stn = b.hp < 45 ? 2 : 1; if (b.hp < 60) b.hp = Math.min(60, b.hp + 4 * dt); const lk = b.lk; if (lk) { const want = Math.atan2(lk.x - b.x, lk.z - b.z); b.yaw += Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)) * Math.min(1, dt * 5); } }
+        if (b.hide <= 0) { b.peek = 1.5 + this.R() * 1.5; b.stn = 1; b.cov = null; b.react = Math.max(b.react, 0.3); }
+      } else
       if (sees) {   // fight: face the player, keep a distance, strafe, shoot
         const want = Math.atan2(dx, dz); let da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 7);
         b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = 1 + this.R() * 1.6; b.strafe = this.R() < 0.5 ? -1 : 1; }
         const ux = dx / d, uz = dz / d; let f = d > 26 ? 1 : d < 12 ? -0.7 : 0.15; mx = ux * f - uz * b.strafe * 0.8; mz = uz * f + ux * b.strafe * 0.8; sp = 3.3; b.walk = false;
-        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); const acc = Math.max(0.06, W.acc - d / 160); if (!shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y)) { b.cool = 0.25; b.seen = false; b.alert = Math.max(b.alert, 4); continue; } const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
+        if ((b.hurtT > 0 || b.hp < 50) && b.coolHide <= 0 && b.y == null && b.peek <= 0 && this.R() < dt * 3) this.startHide(b, P);
+        if (b.peek > 0) { b.peek -= dt; mx = mz = 0; sp = 0; b.stn = 1; if (b.peek <= 0 && (b.hurtT > 0 || this.R() < 0.4)) this.startHide(b, P); }
+        else { b.stT -= dt; if (b.stT <= 0) { b.stT = 1.5 + this.R() * 2.5; const rr = this.R(); b.stn = d > 28 && rr < 0.3 ? 2 : rr < 0.6 ? 1 : 0; } if (b.stn === 1) sp = 1.8; else if (b.stn === 2) { sp = 0; mx = mz = 0; } }
+        if (b.react > 0) b.react -= dt; else { b.cool -= dt; if (b.cool <= 0) { const W = BOT[b.weapon]; b.cool = W.cd * (0.85 + this.R() * 0.5); let acc = W.acc - d / 160; acc *= (b.stn === 2 ? 1.3 : b.stn === 1 ? 1.15 : 1) * (sp > 0.5 ? 0.75 : 1) * ((P.mv || 0) > 4.5 ? 0.55 : (P.mv || 0) > 2 ? 0.75 : 1) * (P.stn === 2 ? 0.7 : P.stn === 1 ? 0.85 : 1); acc = Math.max(0.05, Math.min(0.8, acc)); if (!shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y)) { b.cool = 0.25; b.seen = false; b.alert = Math.max(b.alert, 4); continue; } const hit = this.R() < acc; this.events.push({ k: 'shot', id: b.id, x: b.x, z: b.z, tx: P.x, tz: P.z, tp: P.id, hit, dmg: hit ? W.dmg * (0.8 + this.R() * 0.5) : 0, w: b.weapon }); } }
       } else {   // roam: follow a path to somewhere far, or (when alerted) go to where the player is
+        b.stn = 0;
         b.think -= dt;
         if (!b.path || b.pi >= b.path.length || b.think <= 0) {
           b.think = 5 + this.R() * 5; let tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b);
@@ -731,6 +753,15 @@ export class CombatSim {
       } else { b.speed = 0; b.mvT = 0; b.mvD = 0; }
     }
   }
+  startHide(b, P) {   // v331: find a spot 4-13 m away that the player cannot see (and that he can walk to in a straight line) and run there
+    const L = this.L; let best = null, bd = 1e9; for (let k = 0; k < 14; k++) { const a = this.R() * 6.283, r = 4 + this.R() * 9, x = b.x + Math.cos(a) * r, z = b.z + Math.sin(a) * r; if (hitsSolid(L, x, z, 0.55) || cmbH(x, z) < -0.3 || los(L, x, z, P.x, P.z) || !los(L, b.x, b.z, x, z)) continue; if (r < bd) { bd = r; best = { x, z }; } }
+    b.coolHide = best ? 8 : 3; if (!best) return false; b.cov = best; b.hide = 3 + this.R() * 3.5 + (b.hp < 40 ? 3 : 0); b.run = 3.2; b.peek = 0; return true; }
+  throwNade(b, pn) {   // v331: the frag lands near where you were / are (it stops at a wall in the way) and goes off 2.6 s after it leaves his hand
+    const L = this.L; const tx = pn.x + (this.R() - 0.5) * 3.6, tz = pn.z + (this.R() - 0.5) * 3.6, dx = tx - b.x, dz = tz - b.z, td = Math.hypot(dx, dz) || 1, ux = dx / td, uz = dz / td; let dd = Math.min(td, 30); const w = rayWalls(L, b.x, b.z, ux, uz, dd, 2.2, undefined); if (w < dd) dd = Math.max(1.5, w - 0.7);
+    let lx = b.x + ux * dd, lz = b.z + uz * dd; for (let k = 0; k < 6 && hitsSolid(L, lx, lz, 0.25); k++) { dd -= 0.8; lx = b.x + ux * dd; lz = b.z + uz * dd; }
+    b.thr = 0; this.nades.push({ x: lx, z: lz, t: 2.6 }); this.events.push({ k: 'nade', id: b.id, x: b.x, z: b.z, lx, lz }); }
+  nadeBang(n, PL) {
+    const r = 6.5; for (const q of PL) { if (!q.alive) continue; const d = Math.hypot(q.x - n.x, q.z - n.z); if (d >= r) continue; if (q.y !== undefined && Math.abs(q.y - cmbH(n.x, n.z)) > 3) continue; if (d > 1.5 && !los(this.L, n.x, n.z, q.x, q.z)) continue; this.events.push({ k: 'nbang', x: n.x, z: n.z, tp: q.id, dmg: Math.round(8 + 80 * (1 - d / r) * (1 - d / r * 0.3)) }); } }
   drain() { const e = this.events; this.events = []; return e; }
 }
 // v269: the CIVIC DA GARAGE shutter: open = the solid is pushed far below the ground (nothing hits it, cars drive through); closed = it fills the doorway again

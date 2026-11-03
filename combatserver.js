@@ -4,19 +4,21 @@
 import { CombatSim, CMB, LOOT_KINDS } from './public/js/combat.js';
 const q2 = (v) => Math.round(v * 100) / 100;
 export class CombatHost {
-  constructor(seed, bcast, sendTo) { this.sim = new CombatSim(seed | 0, 8); this.bcast = bcast; this.sendTo = sendTo; this.tk = 0; this.cid = new Map(); }
-  botsMsg() { return { t: 'cb', st: q2(this.sim.t), b: this.sim.bots.map((b) => [q2(b.x), q2(b.z), q2(b.yaw), Math.max(0, b.hp | 0), b.alive ? 1 : 0, +(b.speed || 0).toFixed(1), b.walk ? 1 : 0, b.weapon === 'ak' ? 1 : 0, b.y == null ? null : q2(b.y)]) }; }
+  constructor(seed, bcast, sendTo, diff) { this.sim = new CombatSim(seed | 0, 8); this.sim.setDiff(diff); this.bcast = bcast; this.sendTo = sendTo; this.tk = 0; this.cid = new Map(); }
+  botsMsg() { return { t: 'cb', st: q2(this.sim.t), b: this.sim.bots.map((b) => [q2(b.x), q2(b.z), q2(b.yaw), Math.max(0, b.hp | 0), b.alive ? 1 : 0, +(b.speed || 0).toFixed(1), b.walk ? 1 : 0, b.weapon === 'ak' ? 1 : 0, b.y == null ? null : q2(b.y), b.stn | 0, +(b.thr || 0).toFixed(2)]) }; }
   lootItem(it) { return [it.id, it.k, q2(it.x), q2(it.z), it.spot, it.am && typeof it.am === 'object' ? [it.am.mag | 0, it.am.res | 0] : 0, it.alive ? 1 : 0, it.gold | 0, it.y === undefined ? null : q2(it.y)]; }
   init(id) { this.sendTo(id, { ...this.botsMsg(), t: 'cinit', l: this.sim.loot.filter((it) => it.alive).map((it) => this.lootItem(it)) }); }
   tick(dt, players) {   // players: [{id, x, z, al}] in world coordinates
-    const PL = players.map((p) => ({ id: p.id, x: p.x - CMB.x, y: p.y, z: p.z - CMB.z, hp: p.al ? 100 : 0, alive: !!p.al }));
+    const PL = players.map((p) => ({ id: p.id, x: p.x - CMB.x, y: p.y, z: p.z - CMB.z, hp: p.al ? 100 : 0, alive: !!p.al, mv: p.mv, stn: p.stn }));
     this.sim.tick(dt, PL.length ? PL : [{ id: 0, x: 9999, z: 9999, hp: 0, alive: false }]);
     const ev = this.sim.drain(), out = [];
     for (const e of ev) {
       if (e.k === 'lootnew') { const it = this.sim.loot.find((l) => l.id === e.id); if (it) { const o = { k: 'lootnew', i: this.lootItem(it) }; if (this.cid.has(e.id)) { o.cid = this.cid.get(e.id); this.cid.delete(e.id); } out.push(o); } }
       else if (e.k === 'shot') out.push({ k: 'shot', id: e.id, x: q2(e.x), z: q2(e.z), tx: q2(e.tx), tz: q2(e.tz), tp: e.tp, hit: e.hit ? 1 : 0, dmg: q2(e.dmg), w: e.w });
-      else if (e.k === 'kill') out.push({ k: 'kill', id: e.id, x: q2(e.x), z: q2(e.z), w: e.w, by: e.by });
-      else if (e.k === 'bothit') out.push({ k: 'bothit', id: e.id, x: q2(e.x), z: q2(e.z) });
+      else if (e.k === 'kill') out.push({ k: 'kill', id: e.id, x: q2(e.x), z: q2(e.z), w: e.w, by: e.by, h: e.h ? 1 : 0 });
+      else if (e.k === 'bothit') out.push({ k: 'bothit', id: e.id, x: q2(e.x), z: q2(e.z), h: e.h ? 1 : 0 });
+      else if (e.k === 'nade') out.push({ k: 'nade', id: e.id, x: q2(e.x), z: q2(e.z), lx: q2(e.lx), lz: q2(e.lz) });
+      else if (e.k === 'nbang') out.push({ k: 'nbang', x: q2(e.x), z: q2(e.z), tp: e.tp, dmg: e.dmg });
       else if (e.k === 'lootgone') out.push({ k: 'lootgone', id: e.id });
       else if (e.k === 'airplane') out.push({ k: 'airplane', n: e.n, x: q2(e.x), z: q2(e.z), hd: [q2(e.hd[0]), q2(e.hd[1])] });
       else if (e.k === 'airland') out.push({ k: 'airland', n: e.n, x: q2(e.x), z: q2(e.z) });
