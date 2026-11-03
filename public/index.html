@@ -34,7 +34,7 @@
     <div class="dev" id="b-dev" role="button" tabindex="0"><img src="img/haris.jpg" alt="Haris"><b>HARIS</b><small>GAME DEVELOPER</small><u>ABOUT &rsaquo;</u></div>
     <div class="logo">
       <div class="logo-main">PUNJABI GTA</div>
-      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v359</span></div>
+      <div class="logo-by">MADE BY <b>HARIS</b> <span class="ver">v360</span></div>
     </div>
     <div class="menu">
       <div id="home-pick"><button class="btn big green" id="b-go-gta"><em>OPEN WORLD</em><b>PUNJABI GTA</b><small>City, cars, missions</small></button><button class="btn big orange" id="b-go-jang"><em>BATTLE ROYALE</em><b>JANG</b><small>Drop, loot, shoot, survive</small></button></div>
@@ -47,7 +47,7 @@
         <button class="btn purple" id="b-settings">&#9881; SETTINGS</button>
       </div>
     </div>
-    <div class="verbadge">VERSION v359</div>
+    <div class="verbadge">VERSION v360</div>
     <div class="made">&copy; HARIS &bull; Punjabi GTA</div>
   </section>
 
@@ -105,7 +105,7 @@
     <div class="lobby-top">
       <h2 class="lobby-title">MAIN LOBBY</h2>
       <div class="code-box"><span>ROOM</span><b id="lobby-code" style="font-size:22px;letter-spacing:4px">----</b><span class="note" style="margin:0">Friends: MULTIPLAYER &rarr; type this name &rarr; JOIN ROOM</span><button class="btn small blue hidden" id="b-copy">COPY INVITE LINK</button></div>
-      <button class="btn grey small" id="b-leave">LEAVE</button>
+      <button class="btn grey small" id="b-lobby-set">&#9881; SETTINGS</button><button class="btn grey small" id="b-leave">LEAVE</button>
     </div>
     <div class="lobby-bottom">
       <div class="lobby-block"><h3>Players <em id="lobby-count">1/3</em></h3><div id="lobby-players" class="slots"></div><div id="lobby-teams" style="display:none"></div><div id="lobby-tbar" style="display:none"><input id="lobby-tname" class="name-in" type="text" maxlength="12" placeholder="TEAM NAME" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:58%;box-sizing:border-box;font-size:16px"><button class="btn small green" id="b-tcreate">CREATE TEAM</button></div></div>
@@ -206,54 +206,78 @@
     </div>
   </section>
 
-  <div id="lay-bar" class="hidden"><b>DRAG A BUTTON  -  TAP IT TO SELECT, THEN SIZE</b><span><button id="lay-m">-</button><button id="lay-p">+</button><button id="lay-r">RESET</button><button id="lay-d">DONE &amp; LOCK</button></span></div>
-  <section id="pset" class="hidden">
-    <div class="panel">
-      <h2>Settings</h2>
-      <div class="vols"><label>CAMERA SPEED - TURN <input type="range" class="sens-x" min="30" max="200" step="5" value="100"></label><label>CAMERA SPEED - UP / DOWN <input type="range" class="sens-y" min="20" max="200" step="5" value="60"></label></div>
-      <div id="quick2" aria-label="Game switches">
-        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
-        <div class="dsel" aria-label="Bot difficulty"><span>BOT DIFFICULTY</span><button data-d="easy">EASY</button><button data-d="medium">MEDIUM</button><button data-d="hard">HARD</button></div>
-        <button class="qrow" data-k="autoAim"><i class="qi" style="--c:#30d158">&#9678;</i><span>Auto Aim<small>A light pull toward people near the circle</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="tips"><i class="qi" style="--c:#ffd60a">&#10067;</i><span>Instructions<small>Show how-to tips (parachute, items...)</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="punjabi"><i class="qi" style="--c:#af52de">&#127908;</i><span>Punjabi Commentary<small>Voice lines when you change weapon or fight</small></span><b class="sw"></b></button>
-      </div>
-      <div class="sethead">TIME OF DAY</div>
-      <div id="tsel"><button data-t="morning">Morning</button><button data-t="noon">Noon</button><button data-t="afternoon">Afternoon</button><button data-t="night">Night</button><button data-t="auto">Auto</button></div>
-      <div class="sethead">WEATHER</div>
-      <div class="wsel"><button data-w="auto">Auto</button><button data-w="clear">Clear</button><button data-w="cloudy">Cloudy</button><button data-w="rain">Rainy</button></div>
-      <div class="sethead">DISTANCE HAZE</div>
-      <div id="hsel"><button data-h="clear">Clear</button><button data-h="normal">Normal</button></div>
-      <button class="btn" id="pset-lay">MOVE &amp; RESIZE BUTTONS</button>
-      <button class="btn grey" id="pset-back">BACK</button>
-    </div>
-  </section>
+  <div id="lay-bar" class="hidden"><b>DRAG A BUTTON  -  TAP IT TO SELECT, THEN SIZE</b><span><button id="lay-m">SIZE -</button><button id="lay-p">SIZE +</button><button id="lay-om">FADE -</button><button id="lay-op">FADE +</button><button id="lay-r">RESET</button><button id="lay-d">SAVE</button></span></div>
+  <section id="pset" class="hidden"></section>
 
   <!-- ============ SETTINGS ============ -->
-  <section id="s-settings" class="screen panel-screen hidden">
-    <div class="panel">
-      <h2>Settings</h2>
-      <div class="vols">
-        <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
-        <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
+  <section id="s-settings" class="screen hidden">
+    <div class="ps-wrap">
+      <nav class="ps-side" aria-label="Settings tabs">
+        <h2>SETTINGS</h2>
+        <button class="ps-tab on" data-pg="basic">BASIC</button>
+        <button class="ps-tab" data-pg="gfx">GRAPHICS</button>
+        <button class="ps-tab" data-pg="audio">AUDIO</button>
+        <button class="ps-tab" data-pg="sens">SENSITIVITY</button>
+        <button class="ps-tab" data-pg="ctrl">CONTROLS</button>
+        <button class="ps-tab" data-pg="pick">PICK UP</button>
+      </nav>
+      <div class="ps-main">
+        <div class="ps-top"><span id="ps-title">BASIC</span><button id="b-settings-close" aria-label="Close settings">&#10005;</button></div>
+        <div class="ps-pages">
+          <div class="ps-pg on" data-pg="basic">
+            <div class="ps-row dsel" aria-label="Bot difficulty"><span>BOT DIFFICULTY<small>How hard the bots fight (the room HOST decides in multiplayer)</small></span><div class="seg"><button data-d="easy">EASY</button><button data-d="medium">MEDIUM</button><button data-d="hard">HARD</button></div></div>
+            <div id="quick" aria-label="Game switches">
+              <button class="qrow" data-k="tips"><span>Instructions<small>Show how-to tips while you play</small></span><b class="sw"></b></button>
+            </div>
+            <div class="ps-head ps-gta">PUNJABI GTA ONLY</div>
+            <div id="quick2" class="ps-gta">
+              <button class="qrow" data-k="wanted"><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button><button class="qrow" data-k="highJump"><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button><button class="qrow" data-k="invincible"><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button><button class="qrow" data-k="ammo"><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
+            </div>
+          </div>
+          <div class="ps-pg" data-pg="gfx">
+            <div class="ps-row"><span>GRAPHICS QUALITY<small>LOW = smoother on slow phones (fewer effects, shorter view)</small></span><div class="seg" id="set-gfx"><button data-q="auto">AUTO</button><button data-q="low">LOW</button></div></div>
+            <div class="ps-head">TIME OF DAY</div>
+            <div id="tsel" class="seg wide"><button data-t="morning">Morning</button><button data-t="noon">Noon</button><button data-t="afternoon">Afternoon</button><button data-t="night">Night</button><button data-t="auto">Auto</button></div>
+            <div class="ps-head">WEATHER</div>
+            <div class="wsel seg wide"><button data-w="auto">Auto</button><button data-w="clear">Clear</button><button data-w="cloudy">Cloudy</button><button data-w="rain">Rainy</button></div>
+            <div class="ps-head">DISTANCE HAZE</div>
+            <div id="hsel" class="seg wide"><button data-h="clear">Clear</button><button data-h="normal">Normal</button></div>
+          </div>
+          <div class="ps-pg" data-pg="audio">
+            <div class="ps-row"><span>MUSIC<small>Background music volume</small></span><input type="range" class="vol-m" min="0" max="100" step="1" value="100"></div>
+            <div class="ps-row"><span>SOUND EFFECTS<small>Guns, steps, cars, explosions</small></span><input type="range" class="vol-s" min="0" max="100" step="1" value="100"></div>
+            <button class="qrow" id="set-mm"><span>Mute Music<small>Turns off ONLY the background music (effects and team voice stay on)</small></span><b class="sw"></b></button>
+            <button class="qrow" id="set-snd"><span>All Sound<small>Master switch for every sound</small></span><b class="sw"></b></button>
+            <button class="qrow" data-k="punjabi"><span>Punjabi Commentary<small>Voice lines when you change weapon or fight</small></span><b class="sw"></b></button>
+          </div>
+          <div class="ps-pg" data-pg="sens">
+            <div class="ps-row"><span>CAMERA SPEED - TURN<small>Left / right look speed</small></span><input type="range" class="sens-x" min="30" max="200" step="5" value="100"></div>
+            <div class="ps-row"><span>CAMERA SPEED - UP / DOWN<small>Look up / down speed</small></span><input type="range" class="sens-y" min="20" max="200" step="5" value="60"></div>
+          </div>
+          <div class="ps-pg" data-pg="ctrl">
+            <div class="ps-touch">
+              <div class="ps-row"><span>BUTTON LAYOUT<small>Drag, resize and fade the action buttons, joystick, bag and voice buttons. Works inside a match.</small></span><button class="ps-btn" id="set-cust">CUSTOMIZE</button></div>
+              <p class="ps-note" id="set-cust-note">Start a match to customize. You can also open it from the gear button during a match: Settings &gt; Controls &gt; Customize.</p>
+            </div>
+            <div id="quick4"><button class="qrow" data-k="autoAim"><span>Auto Aim<small>A light pull toward people near the circle</small></span><b class="sw"></b></button></div>
+            <div class="ps-pc">
+              <div class="ps-head">KEYBOARD AND MOUSE</div>
+              <ul class="ps-keys"><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li><li><kbd>SPACE</kbd> jump &nbsp; <kbd>SHIFT</kbd> sprint / dive</li><li><kbd>C</kbd> crouch &nbsp; <kbd>Z</kbd> prone &nbsp; <kbd>R</kbd> reload</li><li><kbd>Q</kbd><kbd>E</kbd> peek left / right &nbsp; <kbd>F</kbd> pick up</li><li><kbd>MOUSE</kbd> look and fire &nbsp; <kbd>RIGHT CLICK</kbd> aim</li><li><kbd>B</kbd> backpack &nbsp; <kbd>M</kbd> map &nbsp; <kbd>T</kbd> team mic &nbsp; <kbd>L</kbd> speaker &nbsp; <kbd>ESC</kbd> menu</li></ul>
+            </div>
+          </div>
+          <div class="ps-pg" data-pg="pick">
+            <p class="ps-note">Items you walk over are picked up by themselves when ON. When OFF they stay on the ground and you take them from the BACKPACK button.</p>
+            <div id="quick5">
+              <button class="qrow" data-pk="gun"><span>Weapons<small>Guns</small></span><b class="sw"></b></button>
+              <button class="qrow" data-pk="ammo"><span>Ammo<small>Bullets and shells</small></span><b class="sw"></b></button>
+              <button class="qrow" data-pk="med"><span>Medicine and boosts<small>First aid, pills, adrenaline</small></span><b class="sw"></b></button>
+              <button class="qrow" data-pk="armor"><span>Armor and helmets<small>Body armor, helmet</small></span><b class="sw"></b></button>
+              <button class="qrow" data-pk="throw"><span>Throwables<small>Grenades, smoke, molotov</small></span><b class="sw"></b></button>
+              <button class="qrow" data-pk="gear"><span>Scopes and binoculars<small>Telescope, binoculars</small></span><b class="sw"></b></button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="vols"><label>CAMERA SPEED - TURN <input type="range" class="sens-x" min="30" max="200" step="5" value="100"></label><label>CAMERA SPEED - UP / DOWN <input type="range" class="sens-y" min="20" max="200" step="5" value="60"></label></div>
-      <div id="quick" aria-label="Game switches">
-        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
-        <div class="dsel" aria-label="Bot difficulty"><span>BOT DIFFICULTY</span><button data-d="easy">EASY</button><button data-d="medium">MEDIUM</button><button data-d="hard">HARD</button></div>
-        <button class="qrow" data-k="autoAim"><i class="qi" style="--c:#30d158">&#9678;</i><span>Auto Aim<small>A light pull toward people near the circle</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="tips"><i class="qi" style="--c:#ffd60a">&#10067;</i><span>Instructions<small>Show how-to tips (parachute, items...)</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="punjabi"><i class="qi" style="--c:#af52de">&#127908;</i><span>Punjabi Commentary<small>Voice lines when you change weapon or fight</small></span><b class="sw"></b></button>
-      </div>
-      <div class="sethead">WEATHER</div>
-<div class="wsel"><button data-w="auto">Auto</button><button data-w="clear">Clear</button><button data-w="cloudy">Cloudy</button><button data-w="rain">Rainy</button></div>
-      <div class="row end"><button class="btn purple" id="b-sound">SOUND: ON</button><button class="btn green" id="b-settings-close">DONE</button></div>
     </div>
   </section>
 
@@ -347,21 +371,7 @@
         <button class="btn grey" id="p-gfx">GFX: AUTO</button>
         <button class="btn green" id="p-help">&#10067; CONTROLS</button>
       </div>
-<div id="quick3" aria-label="Game switches">
-        <button class="qrow" data-k="wanted"><i class="qi" style="--c:#ff9500">&#9733;</i><span>Wanted Status<small>Police chase you after crimes</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="highJump"><i class="qi" style="--c:#34c759">&#8679;</i><span>High Jump<small>Jump about three times higher</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="invincible"><i class="qi" style="--c:#0a84ff">&#128737;</i><span>Invincible<small>No damage, cannot be arrested</small></span><b class="sw"></b></button>
-        <div class="dsel" aria-label="Bot difficulty"><span>BOT DIFFICULTY</span><button data-d="easy">EASY</button><button data-d="medium">MEDIUM</button><button data-d="hard">HARD</button></div>
-        <button class="qrow" data-k="autoAim"><i class="qi" style="--c:#30d158">&#9678;</i><span>Auto Aim<small>A light pull toward people near the circle</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="tips"><i class="qi" style="--c:#ffd60a">&#10067;</i><span>Instructions<small>Show how-to tips (parachute, items...)</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="ammo"><i class="qi" style="--c:#ff453a">&#8734;</i><span>Unlimited Ammo<small>Guns never run out</small></span><b class="sw"></b></button>
-        <button class="qrow" data-k="punjabi"><i class="qi" style="--c:#af52de">&#127908;</i><span>Punjabi Commentary<small>Voice lines when you change weapon or fight</small></span><b class="sw"></b></button>
-      </div>
-      <button class="btn purple" id="p-settings">&#9881; SETTINGS</button>
-      <div class="vols">
-        <label>MUSIC <input type="range" class="vol-m" min="0" max="100" step="1" value="100"></label>
-        <label>SOUND EFFECTS <input type="range" class="vol-s" min="0" max="100" step="1" value="100"></label>
-      </div>
+<button class="btn purple" id="p-settings">&#9881; SETTINGS</button>
       <ul class="help pkeys">
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run &bull; <kbd>SPACE</kbd> jump &bull; <kbd>SHIFT</kbd> dive</li>
         <li><kbd>MOUSE</kbd> camera &bull; <kbd>ESC</kbd> menu &bull; <kbd>M</kbd> mute</li>

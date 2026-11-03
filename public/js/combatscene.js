@@ -495,7 +495,7 @@ export class CombatScene {
       this.time -= this.rdt || dt; this.stepDown(dt);
       // the ammo / health / weapons on the ground
       if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
-      if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
+      if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
@@ -623,6 +623,11 @@ export class CombatScene {
   }
   guns() { const cb = this.R.wallet && this.R.wallet.cb; return cb ? Object.keys(cb.owned).filter((w) => cb.owned[w] && isGunK(w)) : []; }
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
+  autoOk(it) {   // v360 SETTINGS > PICK UP: a category switched OFF is not picked up by walking over it (take it from the BACKPACK button)
+    const pk = (OPT && OPT.pk) || null; if (!pk) return true; const k = it.k;
+    const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope') ? 'gear' : '';
+    return !g || pk[g] === undefined || !!pk[g];
+  }
   canTake(it) {
     const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
     if (isGunK(k)) return !!cb.owned[k] || this.guns().length < 2;   // a full pair of hands: press F to swap

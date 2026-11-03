@@ -2536,7 +2536,42 @@ window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'K
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
 
-function toggleSound() { app.muted = !app.muted; A.setMuted(app.muted); $('b-sound').textContent = 'SOUND: ' + (app.muted ? 'OFF' : 'ON'); syncPause(); }
+function toggleSound() { app.muted = !app.muted; A.setMuted(app.muted); const bs = $('b-sound'); if (bs) bs.textContent = 'SOUND: ' + (app.muted ? 'OFF' : 'ON'); syncPause(); try { document.querySelectorAll('#set-snd').forEach((r) => r.classList.toggle('on', !app.muted)); } catch (e) { /* noop */ } }
+
+
+// ------------------------------------------------------------------ v360 SETTINGS (PUBG Mobile style): left tabs, one page of rows. Opened from the title, the lobby and the in-match menu (gear > SETTINGS)
+let setFrom = '';
+const PK_DEF = { gun: 1, ammo: 1, med: 1, armor: 1, throw: 1, gear: 1 };
+OPT.pk = Object.assign({}, PK_DEF, OPT.pk || {});
+function setTab(pg) {
+  const nm = { basic: 'BASIC', gfx: 'GRAPHICS', audio: 'AUDIO', sens: 'SENSITIVITY', ctrl: 'CONTROLS', pick: 'PICK UP' };
+  document.querySelectorAll('#s-settings .ps-tab').forEach((b) => b.classList.toggle('on', b.dataset.pg === pg));
+  document.querySelectorAll('#s-settings .ps-pg').forEach((p) => p.classList.toggle('on', p.dataset.pg === pg));
+  $('ps-title').textContent = nm[pg] || '';
+  const pp = document.querySelector('#s-settings .ps-pages'); if (pp) pp.scrollTop = 0;
+}
+function paintSettings() {
+  document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k]));
+  document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => r.classList.toggle('on', !!OPT.pk[r.dataset.pk]));
+  $('set-mm').classList.toggle('on', A.isMusicMuted()); $('set-snd').classList.toggle('on', !app.muted);
+  document.querySelectorAll('#set-gfx button').forEach((b) => b.classList.toggle('on', (b.dataset.q === 'low') === !!Q.low));
+  const inMatch = !!race && !race.over, b = $('set-cust'); b.disabled = !inMatch; $('set-cust-note').style.display = inMatch ? 'none' : 'block';
+}
+function openSettings(from, tab) {
+  setFrom = from || 'title'; paintSettings(); setTab(tab || 'basic');
+  const s = $('s-settings'); s.classList.remove('hidden'); s.classList.add('active'); document.body.classList.add('set-open');
+}
+function closeSettings() {
+  const s = $('s-settings'); s.classList.remove('active'); s.classList.add('hidden'); document.body.classList.remove('set-open');
+  if (setFrom === 'pause' && race && race.menuOpen) $('pause').classList.remove('hidden');
+  setFrom = '';
+}
+document.querySelectorAll('#s-settings .ps-tab').forEach((b) => { b.onclick = () => { A.sfx.click(); setTab(b.dataset.pg); }; });
+$('set-mm').onclick = () => { A.initAudio(); A.sfx.click(); A.setMusicMuted(!A.isMusicMuted()); };
+window.addEventListener('ph-musicmute', () => { const r = $('set-mm'); if (r) r.classList.toggle('on', A.isMusicMuted()); });
+$('set-snd').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); paintSettings(); };
+document.querySelectorAll('#set-gfx button').forEach((b) => { b.onclick = () => { Q.low = b.dataset.q === 'low'; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); paintSettings(); }; });
+document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => { r.onclick = () => { A.sfx.click(); OPT.pk[r.dataset.pk] = OPT.pk[r.dataset.pk] ? 0 : 1; saveOpts(); paintSettings(); }; });
 
 // ------------------------------------------------------------------ in-game menu
 function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? 'LOW' : 'AUTO'); }
@@ -2562,17 +2597,17 @@ function closePause() {
   if (!race || !race.menuOpen) return;
   if (race.paused) { race.t0 += performance.now() - race.pauseAt; race.paused = false; }
   race.menuOpen = false;
-  $('pause').classList.add('hidden'); $('pset').classList.add('hidden');
+  $('pause').classList.add('hidden'); $('pset').classList.add('hidden'); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); document.body.classList.remove('set-open'); setFrom = '';
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
-$('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
+$('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
-$('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); $('pset').classList.remove('hidden'); };
+$('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); openSettings('pause'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
 const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup', 'joy'];   /* v272: the MOVE pad (joystick) can be moved and resized too */
 let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') || {}; } catch (e) { LAY = {}; }
-const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); } else { el.style.translate = ''; el.style.scale = ''; } } };
+const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); el.style.opacity = v.o != null && v.o < 1 ? String(v.o) : ''; } else { el.style.translate = ''; el.style.scale = ''; el.style.opacity = ''; } } };
 const laySave = () => { try { localStorage.setItem('ph_layout', JSON.stringify(LAY)); } catch (e) { /* ignore */ } };
 window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply);
 { let sel = null, drag = null; const bar = () => $('lay-bar'), on = () => document.body.classList.contains('btn-edit'); document.body.appendChild($('lay-bar'));   // v247: the DONE bar sat under the game canvas (it was inside a lower layer) so it could not be clicked: it now lives directly in the page
@@ -2584,14 +2619,14 @@ window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply
   const end = (e) => { if (drag && e.pointerId === drag.id) { drag = null; laySave(); } }; window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', end, true);
   const size = (d) => { if (!sel) { gtoast('Tap a button first'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.s = Math.max(0.6, Math.min(1.7, (v.s || 1) + d)); layApply(); laySave(); };
   const hit = (el, fn) => { let t0 = 0; const run = (e) => { e.preventDefault(); e.stopPropagation(); const n = performance.now(); if (n - t0 < 350) return; t0 = n; fn(); }; el.addEventListener('pointerdown', run); el.addEventListener('click', run); el.addEventListener('touchend', run, { passive: false }); };   // v247: answers on the press itself (the game's look / joystick handlers swallowed the later click)
-  hit($('lay-m'), () => size(-0.1)); hit($('lay-p'), () => size(0.1));
+  const opac = (d) => { if (!sel) { gtoast('Tap a button first'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.o = Math.max(0.2, Math.min(1, (v.o == null ? 1 : v.o) + d)); layApply(); laySave(); };
+  hit($('lay-m'), () => size(-0.1)); hit($('lay-p'), () => size(0.1)); hit($('lay-om'), () => opac(-0.1)); hit($('lay-op'), () => opac(0.1));
   hit($('lay-r'), () => { LAY = {}; laySave(); layApply(); mark(null); });
-  const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; $('pset').classList.remove('hidden'); };
+  const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; openSettings('pause', 'ctrl'); };
   hit($('lay-d'), stop);
-  $('pset-lay').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('pset').classList.add('hidden'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
+  $('set-cust').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); document.body.classList.remove('set-open'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
    bar().classList.remove('hidden'); };
 }
-$('pset-back').onclick = () => { A.sfx.back(); $('pset').classList.add('hidden'); $('pause').classList.remove('hidden'); };
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 // touch: act on touchend itself (preventDefault also stops the synthesized click, so it cannot fire twice), so RESUME and the gear always answer a finger
 $('p-resume').addEventListener('touchend', (e) => { e.preventDefault(); A.sfx.click(); closePause(); }, { passive: false });
@@ -2670,11 +2705,10 @@ async function boot() {
   $('p-help').onclick = () => { A.sfx.click(); openHelp(!!(race && race.jang)); };
   { const so = () => { A.initAudio(); A.sfx.click(); $('s-about').classList.remove('hidden'); $('s-about').classList.add('active'); }; $('b-dev').onclick = so; $('b-dev').addEventListener('touchend', (e) => { e.preventDefault(); so(); }); $('b-about-close').onclick = () => { A.sfx.back(); $('s-about').classList.remove('active'); $('s-about').classList.add('hidden'); }; }
   $('b-help-close').onclick = () => { A.sfx.back(); document.body.classList.remove('helpjang'); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
-  $('b-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
   A.setCommentary(OPT.punjabi !== false);
-  document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick3 .qrow').forEach((row) => {
+  document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick4 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
+    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
   setInterval(() => document.body.classList.toggle('guest-room', !!(app.room && app.room.hostId !== app.myId)), 500);   // v331: only the room HOST sees the bot difficulty switch
   { const paintD = () => document.querySelectorAll('.dsel button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); paintD();   // v331: BOT DIFFICULTY
@@ -2688,8 +2722,9 @@ async function boot() {
   { const paintW = () => document.querySelectorAll('.wsel button').forEach((b) => b.classList.toggle('on', b.dataset.w === (OPT.weather || 'auto')));
     document.querySelectorAll('.wsel button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.weather = b.dataset.w; saveOpts(); paintW(); }; });
     paintW(); }
-  $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); $('s-settings').classList.remove('hidden'); $('s-settings').classList.add('active'); };
-  $('b-settings-close').onclick = () => { A.sfx.back(); $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); };
+  $('b-settings').onclick = () => { A.initAudio(); A.sfx.click(); openSettings('title'); };
+  $('b-lobby-set').onclick = () => { A.initAudio(); A.sfx.click(); openSettings('lobby'); };
+  $('b-settings-close').onclick = () => { A.sfx.back(); closeSettings(); };
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits
   { const V = A.getVolumes(), sl = (cls, v) => document.querySelectorAll(cls).forEach((e) => { e.value = Math.round(v * 100); });
     sl('.vol-m', V.music); sl('.vol-s', V.sfx);
@@ -2747,7 +2782,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
 }
 boot().catch((e) => { console.error(e); const p = document.querySelector('#loader p'); if (p) p.textContent = 'Error: ' + e.message; });
 // v202: every BACK / LEAVE / DONE button of the project sits in the SAME place (top-left corner of its page) and looks the same
-for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-levels-back, #b-cmb-back, #b-mp-back, #b-leave, #pset-back, #b-about-close, #b-settings-close, #b-help-close')) {
+for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-levels-back, #b-cmb-back, #b-mp-back, #b-leave, #b-about-close, #b-help-close')) {
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
