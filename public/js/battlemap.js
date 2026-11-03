@@ -144,7 +144,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   }
   // the bridge
   { const y = BRIDGE.y, z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, xa = BRIDGE.xb, xb = BRIDGE.xa;
-    B.box('conc', xa, y - 0.9, z0, xb, y, z1, '#9a9a94', 0.02); B.box('trim', xa, y + 0.0, z0 + 0.35, xb, y + 0.05, z1 - 0.35, '#444448', 0);
+    B.box('conc', xa, y - 0.9, z0, xb, y - 0.05, z1, '#9a9a94', 0.02); B.box('trim', xa, y - 0.05, z0 + 0.35, xb, y, z1 - 0.35, '#444448', 0);   /* v350: the asphalt top is FLUSH with the deck height the cars drive on (it was 5 cm above: wheels sank into it) */
     for (const zz of [z0, z1 - 0.25]) { B.box('conc', xa, y, zz, xb, y + 1.1, zz + 0.25, '#b8b6ad', 0.02); }
     for (let x = xa + 2; x < xb; x += 9) { B.box('conc', x - 0.8, -3.2, BRIDGE.z - 1.0, x + 0.8, y - 0.9, BRIDGE.z + 1.0, '#8c8a82', 0.02); }
     for (let x = xa + 1; x < xb; x += 3) for (const zz of [z0 + 0.1, z1 - 0.1]) B.box('trim', x - 0.08, y + 1.1, zz - 0.08, x + 0.08, y + 1.5, zz + 0.08, '#555', 0);

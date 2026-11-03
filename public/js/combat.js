@@ -249,7 +249,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
 const padRect = (x0, z0, x1, z1, y) => PADS.push({ x0, z0, x1, z1, y });
 
 // the river bridge on the road to the farm
-export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 6.6 }; })();
+export const BRIDGE = (() => { const z = 62, c = riverX(z), xa = c + 30, xb = c - 30; return { z, c, xa, xb, y: Math.round(Math.max(rawH(xa, z), rawH(xb, z)) * 10) / 10 + 0.4, w: 8.4 }; })();
 /* v313 BULLET DROP + height: a shot carries the line through the crosshair (y at the muzzle, slope per metre) and gravity k = g / (2 v^2): the bullet FALLS k*a^2 below it. It only hits a target when it arrives between his feet and head: aim up for far targets (Kar98 760 m/s drops ~0.7 m at 300 m) and a shot over a head misses. */
 export const BULLET_V = { pistol: 350, revolver: 400, smg: 400, shotgun: 400, ak: 715, ak49: 715, m4: 880, sniper: 760 };
 export const bulletK = (w) => 4.9 / ((BULLET_V[w] || 600) ** 2);
