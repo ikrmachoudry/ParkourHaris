@@ -1363,3 +1363,8 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 /* v367: layout editor: SAVE sits at the right side of the black bar, a little lower */
 #lay-bar { position: fixed; padding-right: 150px; min-height: 74px; }
 #lay-bar #lay-d { position: absolute; right: 14px; bottom: 10px; margin: 0; padding: 12px 26px; font-size: 14px; }
+
+/* v371: Settings: no team-voice mic / speaker buttons on top of the page; CUSTOMIZE has a light yellow background */
+body.set-open #vc { display: none !important; }
+#s-settings #set-cust, #s-settings #set-cust[disabled] { background: #ffe98a; color: #1a1a1a; }
+#s-settings #set-cust[disabled] { opacity: .9; }
