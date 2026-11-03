@@ -2433,6 +2433,7 @@ function renderLobby() {
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
   $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)'; { const lb = $('lobby-level-block'); if (lb) lb.style.display = m.combat ? 'none' : ''; }
+  { const ld = $('lobby-dsel'); if (ld) { ld.style.display = host && m.combat ? '' : 'none'; ld.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); } if (host && m.combat && app.net) app.net.send({ t: 'cdiff', d: OPT.diff || 'medium' }); }   // v333: the host picks the BOT DIFFICULTY in the team lobby
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
   $('lobby-hint').textContent = m.combat ? (host ? 'Make a team (name it) or tap JOIN on one. Every team needs 2 to 4 players; players without a team are placed by FILL. Host: press START.' : 'Make a team or tap JOIN on one. The host starts the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
   stage.setLobby(m.players);
@@ -2649,7 +2650,7 @@ async function boot() {
   });
   setInterval(() => document.body.classList.toggle('guest-room', !!(app.room && app.room.hostId !== app.myId)), 500);   // v331: only the room HOST sees the bot difficulty switch
   { const paintD = () => document.querySelectorAll('.dsel button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); paintD();   // v331: BOT DIFFICULTY
-    document.querySelectorAll('.dsel button').forEach((b) => { b.onclick = () => { if (app.room && app.room.hostId !== app.myId) { race && race.toast && race.toast('Only the HOST can change bot difficulty'); return; } A.initAudio(); A.sfx.click(); OPT.diff = b.dataset.d; saveOpts(); paintD(); const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.setBotDiff) cs.setBotDiff(); if (race && race.toast) race.toast('BOTS: ' + OPT.diff.toUpperCase()); }; }); }
+    document.querySelectorAll('.dsel button').forEach((b) => { b.onclick = () => { if (app.room && app.room.hostId !== app.myId) { race && race.toast && race.toast('Only the HOST can change bot difficulty'); return; } A.initAudio(); A.sfx.click(); OPT.diff = b.dataset.d; saveOpts(); paintD(); if (app.room && app.net) app.net.send({ t: 'cdiff', d: OPT.diff }); const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.setBotDiff) cs.setBotDiff(); if (race && race.toast) race.toast('BOTS: ' + OPT.diff.toUpperCase()); }; }); }
   { const HRS = { morning: 8, noon: 12, afternoon: 17, night: 23 };
     const paintT = () => { document.querySelectorAll('#tsel button').forEach((b) => b.classList.toggle('on', b.dataset.t === OPT.time)); document.querySelectorAll('#hsel button').forEach((b) => b.classList.toggle('on', b.dataset.h === (OPT.haze || (IS_TOUCH ? 'normal' : 'clear')))); };
     window.applyTime = () => { if (race && race.dn) race.dn.setHour(OPT.time in HRS ? HRS[OPT.time] : null); };
