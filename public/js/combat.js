@@ -507,7 +507,7 @@ function build() {
       const kind = R(), ang = R() < 0.5, c = CC[Math.floor(R() * 4)]; n++;
       /* v300: no more grey blocks / jersey barriers / slabs in random shades: PUBG-style BROKEN WALLS (one concrete colour, jagged tops), same number of random draws as before so the rest of the map does not move */
       const RC = '#b4b3ac', HT = [2.7, 2.6, 2.1, 1.2, 1.7, 0.8, 1.1, 2.3, 2.7, 1.5, 0.9, 2.0], o1 = Math.floor(Math.abs(x * 7.3 + z * 3.1)) % 12;
-      const run = (rx, rz, m, alongX, o0) => { for (let i = 0; i < m; i++) { const bx = alongX ? rx + i * 1.0 : rx, bz = alongX ? rz : rz + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; crate(bx, bz, alongX ? 1.0 : 0.32, alongX ? 0.32 : 1.0, h, RC, 'ruin'); } };
+      const run = (rx, rz, m, alongX, o0) => { for (let i = 0; i < m; i++) { const bx = alongX ? rx + i * 1.0 : rx, bz = alongX ? rz : rz + i * 1.0, h = HT[(o0 + i) % 12]; if (cmbH(bx, bz) < 0.2 || distRoad(bx, bz) < 3) continue; /* v372: the jagged BROKEN WALLS are removed from the map (nothing is placed; every random number is still drawn, so the rest of the map does not move) */ void h; void RC; } };
       if (kind < 0.45) { const m = 2 + Math.floor(R() * 3); run(x, z, 4 + m * 2, ang, o1); }
       else if (kind < 0.58) { const m = 6 + Math.floor(R() * 4), o0 = Math.floor(R() * 12); run(x, z, m, ang, o0); }
       else if (kind < 0.75) { run(x, z, 5, ang, o1); const a1 = R() < 0.6, a2 = R() < 0.35; if (a1) run(ang ? x : x + 0.34, ang ? z + 0.3 : z, 4, !ang, (o1 + 5) % 12);   /* v306: the cross wall starts INSIDE the first wall's end cell: a real corner, no gap */ if (a2) run(x + 0.2, z + 3.0, 3, ang, (o1 + 8) % 12); }
