@@ -2763,7 +2763,7 @@ window.__ph = { get voice() { return voice; }, onLobby: (m) => onLobby(m),  towe
       { const arm = rawDy <= -(RAD + 34) && Math.abs(rawDx) < 38 && !document.body.classList.contains('driving'); if (arm !== lockArm) { lockArm = arm; joy.classList.toggle('arm', arm); } }
     }
     const c = camId !== null ? find(e.touches, camId) : null;
-    if (c) { if (race && !race.over) race.look((c.clientX - lx) * 1.7, (c.clientY - ly) * 1.7); lx = c.clientX; ly = c.clientY; }
+    if (c) { if (race && !race.over) { const ddx = c.clientX - lx, ddy = c.clientY - ly; race.look(ddx * 1.7 * (1 + Math.min(1.1, Math.abs(ddx) / 22)), ddy * 1.7); }   /* v337: fast swipes accelerate sideways so ONE swipe turns the camera right round (360) */ lx = c.clientX; ly = c.clientY; }
   }, { passive: false });
   const end = (e) => {
     for (const t of e.changedTouches) {
