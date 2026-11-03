@@ -349,8 +349,9 @@ export class CombatScene {
       if (z.shrinking && (!wasShr || z.i !== wasI)) R.toast && R.toast('THE ZONE IS CLOSING - move into the blue circle', 3.5);
       else if (!z.shrinking && !z.last && z.left < 20.2 && z.left > 19.6 && !this._zw20) { this._zw20 = true; R.toast && R.toast('The zone starts closing in 20 s', 2.5); } else if (z.left > 21) this._zw20 = false;
     }
-    const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r; this.outZone = out && !this.dropping;
-    if (this.outZone && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
+    const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r, inAir = this.dropping || (this.drop && this.drop.ph === 'plane'); this.outZone = out && !inAir;   /* v375: no zone damage / hurt sound / red HUD while you are in the plane or still dropping */
+    if (inAir) { this.zt = 0; this.grace = 3; } else if (this.grace > 0) { this.grace -= dt; this.zt = 0; }   // v375: 3 s of grace after you land (landing outside the circle no longer grunts on the first frame)
+    if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
   }
   // ---------------------------------------------------------------- v251 the red BOMBING circle: twice per match, 115 s each, anywhere on the island (independent of the blue circle); bombs fall from the sky
   stepBomb(dt) {
@@ -570,6 +571,7 @@ export class CombatScene {
     for (let i = a.length - 1; i >= 0; i--) { const h = a[i]; h.t -= dt; if (h.t <= 0) { h.e.remove(); a.splice(i, 1); continue; } const dx = h.x - b.x, dz = h.z - b.z; h.e.style.transform = 'rotate(' + Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz) + 'rad)'; h.e.style.opacity = Math.min(1, h.t / 0.8); } }
   hurt(d, sx, sz) {
     if (this.gate) return;   // v296: nothing (and no hurt sound) while the loading screen is up
+    if (this.dropping && this.drop && this.drop.ph === 'plane') return;   // v375: nothing can hurt you in the plane
     if (this.safeUntil && this.t < this.safeUntil) return;   // v251: 4 s of protection after you respawn
     if (this.down && sx !== undefined && d > 0) this.hitMark(sx, sz);
     if (this.down) { this.downT -= d * 0.5; if (this.vig) this.vig.style.opacity = 0.7; if (this.downT <= 0) this.die(); return; }   // v244: already down: more hits make you bleed out faster

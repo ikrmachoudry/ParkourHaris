@@ -1233,6 +1233,7 @@ class Race {
   // the announcer says the name of the weapon each time it changes (first look at the start is silent)
   weaponVoice() {
     const k = this.weapon || 'fist'; if (this._wv === undefined) { this._wv = k; return; } if (k === this._wv) return; this._wv = k;
+    if (loadScreen.visible || (this.jang && this.mission && this.mission.cs && (this.mission.cs.gate || this.mission.cs.dropping))) return;   /* v375: a weapon swap made by the game itself while loading / in the plane (the match resets you to your fists) must not shout 'FIST' = the stray punch sound at start */
     if (this.over || this.finished) return; try { A.voice.weapon(k); } catch { /* noop */ }
   }
   cycleWeapon() { if (this.over || this.drive || !this.wallet) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
@@ -1752,6 +1753,7 @@ class Race {
   // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
   punch() {
     if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
+    if (loadScreen.visible) return false;   // v375: a tap through the loading screen must not throw a punch (and its shout)
     if (this.meta.city && isGun(this.weapon)) return this.fire();
     if (this.meta.city && this.weapon === 'grenade') return this.throwNade();
     const b = this.me.body, fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
