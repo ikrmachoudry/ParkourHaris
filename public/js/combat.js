@@ -310,7 +310,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
-  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -8.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 9.5, dir: -1, tr: 0.38 }, roofStair: { x0: 0.3 }, tank: { x: 11.6, z: -8.3 },
+  mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -8.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 8.0, dir: -1, tr: 0.32 }, roofStair: { x0: 0.3 }, tank: { x: 11.6, z: -8.3 },
     inner: [
       { f: 0, ax: 'z', pos: -6, a: -3.2, b: 9.8, gaps: [[0, 1.8], [6.4, 1.8]] }, { f: 0, ax: 'z', pos: 6, a: -9.8, b: 3.4, gaps: [[-4.8, 2.4]] },
       { f: 0, ax: 'x', pos: -3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 3.2, a: -13.8, b: -6 }, { f: 0, ax: 'x', pos: 0, a: 6, b: 13.8 },
@@ -367,7 +367,7 @@ function build() {
       P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
       for (const [x, z] of [[-10.6, 5.4], [-7.4, 5.4], [-10.6, 8.4], [-7.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
       P(0, 10, -4.8, 1.1, 2.4, 0.95, '#dfe7ea', 'table'); P(0, 12.8, -8.4, 0.6, 3.4, 1.6, '#9fb4bf', 'shelf'); P(0, 8.2, -8.6, 2.6, 0.7, 1.0, '#b8c6cc', 'counter');   // operation theatre: the table, instrument shelves
-      for (const x of [8.2, 11.6]) P(0, x, 1.6, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // second ward (v264: the new stair from the garage-side door fills its south half)
+      /* v351: the second ward beds are gone: the stair is open from the ward */   // second ward (v264: the new stair from the garage-side door fills its south half)
       P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the lobby: a sofa each side and a table
       P(1, -9.8, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -11.4, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
       P(1, 10.6, -8.3, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 13.2, -5.4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // the bedroom (north east)

@@ -830,7 +830,7 @@ export class World {
   }
   // horizontal push-out of a vertical cylinder from solids and disc sides
   resolveHorizontal(b) {
-    const R = P.R, H = P.H;
+    const R = b.rad || P.R, H = b.hgt || P.H;   /* v351: a thrown grenade has its own tiny size (it was a 1.8 m tall person and could not pass a window) */
     for (const s of this.sl(b.x, b.z)) {
       if (!s.active) continue;
       if (s.y1 <= b.y + P.STEP || s.y0 >= b.y + H) continue;

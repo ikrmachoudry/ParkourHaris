@@ -17,6 +17,7 @@ import { propModel, hasProp, propDim } from './props.js';
 import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
 import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
+import { Glass } from './glass.js';
 import { LOBBY } from './gta.js';
 import { showVictory } from './victory.js';
 import { OPT } from './opts.js';
@@ -79,7 +80,8 @@ export class CombatScene {
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); this.setBotDiff(); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
-    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); }
+    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; } }
+    if (this.glass) this.glass.reset();   /* v351: every window whole again */
     if (!this.zipG) this.buildZip();   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
@@ -297,9 +299,12 @@ export class CombatScene {
     this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
   tracer(x0, y0, z0, x1, y1, z1) {
+    if (this.glass) this.glass.seg(x0 - CMB.x, y0, z0 - CMB.z, x1 - CMB.x, y1, z1 - CMB.z);   // v351: a bullet shatters every window it crosses
     let q = this.tr.find((t) => !t.visible); if (!q) { if (this.tr.length > 14) return; q = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1), new THREE.MeshBasicMaterial({ color: '#ffd978', transparent: true, opacity: 0.9 })); this.group.add(q); this.tr.push(q); }
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dx, dy, dz) || 1; q.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); q.scale.set(1, 1, l); q.lookAt(x1, y1, z1); q.visible = true; q.userData.t = 0.07;
   }
+  glassShot(x0, y0, z0, x1, y1, z1) { if (this.glass) this.glass.seg(x0 - CMB.x, y0, z0 - CMB.z, x1 - CMB.x, y1, z1 - CMB.z); }   // my own bullets (called from main.js)
+  glassBlast(x, y, z, r) { if (this.glass) this.glass.blast(x - CMB.x, y, z - CMB.z, r); }
   // ---------------------------------------------------------------- per frame
   // ---------------------------------------------------------------- v235 team: my teammates (ghost soldiers) in the plane, in the air and on the ground
   sendMate(dt) {
@@ -360,7 +365,7 @@ export class CombatScene {
     const b = R.me.body;
     for (const q of this.bombs) { if (!q.on) continue; q.t -= dt; const wx = CMB.x + q.x, wz = CMB.z + q.z, gy = cmbH(q.x, q.z), f = Math.max(0, q.t / 1.7); q.m.position.set(wx, gy + 0.3 + f * f * 130, wz); q.m.rotation.x = Math.PI / 2 * 0 + 1.2;
       if (q.t <= 0) { q.on = false; q.m.visible = false; const d = Math.hypot(b.x - wx, b.z - wz), dc = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
-        R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
+        if (this.glass) this.glass.blast(q.x, gy + 1.2, q.z, 9); R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
         if (dc < 140) { A.sfx.boom && A.sfx.boom(Math.max(0.12, 1 - dc / 140)); if (R.shake !== undefined && dc < 40) R.shake = Math.max(R.shake, 0.5 * (1 - dc / 40)); }
         if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down) this.hurt(Math.round(48 * (1 - d / 9)) + 6); } }
   }
@@ -496,7 +501,7 @@ export class CombatScene {
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
     }
-    this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position);
+    this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position); if (this.glass) this.glass.update(dt);
     for (const [key, sm] of this.dsm) {   // the green smoke over dead players' boxes: gone when the last item is taken; drawn within 260 m
       for (const id of sm.ids) if (!this.loot.has(id)) sm.ids.delete(id);
       if (!sm.ids.size) { this.group.remove(sm.g); this.dsm.delete(key); continue; }
@@ -541,7 +546,7 @@ export class CombatScene {
     } else if (e.k === 'nade') {   // v331: a bot throws a frag: it flies in an arc and lands where the sim says; the damage comes with the 'nbang' event
       const x0 = CMB.x + e.x, z0 = CMB.z + e.z, y0 = cmbH(e.x, e.z) + 1.4, tx = CMB.x + e.lx, tz = CMB.z + e.lz, ty = cmbH(e.lx, e.lz) + 0.07, dx = tx - x0, dz = tz - z0, d = Math.hypot(dx, dz), T = Math.max(0.5, Math.min(1.5, 0.45 + d * 0.03)), vy = (ty - y0 + 0.5 * 18 * T * T) / T;
       if (R.spawnNade && Math.hypot(x0 - R.me.body.x, z0 - R.me.body.z) < 130) { const n = R.spawnNade(x0, y0, z0, dx / T, vy, dz / T, false); if (n) n.aim = true; A.sfx.swing && A.sfx.swing(false); }
-    } else if (e.k === 'nbang') { if ((!this.shared || e.tp === (R.jangTeam && R.jangTeam.myId)) && this.hp > 0 && this.deadT <= 0 && !this.dropping) { this.lastHit = { who: 'BOT GRENADE', w: 'grenade', d: 0, at: performance.now() }; this.hurt(e.dmg, CMB.x + e.x, CMB.z + e.z); }
+    } else if (e.k === 'nbang') { if (this.glass) this.glass.blast(e.x, cmbH(e.x, e.z) + 1.2, e.z, 6.5); if ((!this.shared || e.tp === (R.jangTeam && R.jangTeam.myId)) && this.hp > 0 && this.deadT <= 0 && !this.dropping) { this.lastHit = { who: 'BOT GRENADE', w: 'grenade', d: 0, at: performance.now() }; this.hurt(e.dmg, CMB.x + e.x, CMB.z + e.z); }
     } else if (e.k === 'airplane') this.onAirplane(e); else if (e.k === 'airland') this.onAirland(e);
     else if (e.k === 'bothit') { if (this.shared && performance.now() - (this.shotAt || 0) < 450) { this.hitX(!!e.h); if (e.h) R.toast && R.toast('HEADSHOT', 0.8); } const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 60) A.voice.grunt(Math.max(0.12, 0.8 - dd / 75)); R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 6, { color: '#ff5a4a', speed: 3, up: 2, life: 0.35, size: 0.2 }); }
   }

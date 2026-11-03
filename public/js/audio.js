@@ -154,6 +154,7 @@ export const sfx = {
   // AK-47: the clip is one single shot; a lone shot (or the first of a burst) rings out with its tail, shots inside a burst use the short clip so they do not smear together
   akShot(pan = 0, vol = 1) { const n = performance.now(), gap = n - (sfx._akAt || 0); sfx._akAt = n; if (play(gap > 320 ? 'u_ak2' : 'u_ak1', 0.85 * vol, rnd(0.97, 1.05), 0, pan, 0, 0.25)) return; if (gun('ak', 'abody', 1.0 * vol, 0.64, 0.5, 560, 0.85, 0.45)) return; sfx.shot(); },
   glass(v = 1) { if (!play('glass', 0.9 * v, rnd(0.9, 1.15))) noise(0.2, 0.3 * v, 'highpass', 3000, 6000); },
+  glassBreak(v = 1) { play('glass', 1.0 * v, rnd(0.85, 1.1)); play('glass', 0.55 * v, rnd(1.3, 1.6), 0.07, 0, 5200); noise(0.35, 0.18 * v, 'highpass', 4500, 9000, 0.05); for (let i = 0; i < 6; i++) tone('sine', rnd(3200, 7800), rnd(2600, 6000), rnd(0.05, 0.1), 0.05 * v, 0.1 + i * rnd(0.04, 0.09)); },   // v351: a window shatters: the crash + a pitched copy + a hiss of falling shards + little tinkles
   metal(v = 1) { if (!play(Math.random() < 0.5 ? 'metal1' : 'metal2', 0.8 * v, rnd(0.9, 1.15))) noise(0.1, 0.3 * v, 'bandpass', 2000, 900); },
   hiss(v = 1) { noise(0.7, 0.22 * v, 'highpass', 3500, 2200, 0, 0.7); play('metal1', 0.4 * v, 0.7); },
   thud(v = 1) { if (!play('u_thud', Math.min(1, 0.9 * v), rnd(0.92, 1.05), 0, 0, 0, 0.15)) sfx.land(24); },

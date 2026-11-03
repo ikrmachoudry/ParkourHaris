@@ -1419,7 +1419,7 @@ class Race {
   }
   // one flying grenade (mine = I threw it; the others are simulated the same way from the 'gr' message, so everybody sees it fly, bounce and blow up)
   spawnNade(x, y, z, vx, vy, vz, mine) {
-    const m = this.nadeVisual(), n = { m, x, y, z, vx, vy, vz, t: WEAPONS.grenade.fuse, py: y, noSnap: 0, grounded: false, ground: null, spin: 9, mine };
+    const m = this.nadeVisual(), n = { m, x, y, z, vx, vy, vz, t: WEAPONS.grenade.fuse, py: y, noSnap: 0, grounded: false, ground: null, spin: 9, mine, rad: 0.08, hgt: 0.16 };
     m.position.set(x, y, z); this.scene.add(m); (this.nades || (this.nades = [])).push(n); return n;
   }
   onGrenade(m) {   // another player winds up (k 0) or lets go (k 1)
@@ -1521,6 +1521,7 @@ class Race {
     this.particles.emit(x, y + 0.4, z, 46, { color: '#ffb347', speed: 9, up: 5, life: 0.7, size: 0.9, gravity: 6, spread: 1.2 }); this.particles.emit(x, y + 0.3, z, 30, { color: '#3a3a3a', speed: 5, up: 4, life: 1.3, size: 1.2, gravity: -1, spread: 1 }); this.particles.emit(x, y + 0.2, z, 22, { color: '#c9b79c', speed: 11, up: 2, life: 0.5, size: 0.25, gravity: 12, spread: 1.5 });
     if (this.fxP) this.fxP.emit(x, y + 0.6, z, 16, { color: '#ffe08a', speed: 5, up: 3, life: 0.35, size: 1.1, spread: 0.8 });
     A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
+    { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassBlast) cs.glassBlast(x, y, z, R); }   /* v351: JANG: the blast shatters nearby windows */
     if (mine) this.nadeDamage(x, z, R, W);
     if (mine && this.copGhosts && this.multi) for (const h of this.copGhosts.near(x, z, R)) this.hitGhostCop(h, h.k === 'c' ? 8 * (1 - h.d / (R + 2)) : W.dmg * (1 - 0.55 * h.d / R), false, true);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
@@ -1696,6 +1697,7 @@ class Race {
     let ey = sy; if (aimP) { const ah = Math.max(1, Math.hypot(aimP.x - sx, aimP.z - sz)); ey = sy + (aimP.y - sy) / ah * hd; } ey = Math.max(this.world && this.world.terrain ? this.world.terrain(ex, ez) + 0.05 : 0.05, Math.min(sy + 40, ey));
     const tl = Math.max(0.5, Math.hypot(ex - sx, ey - sy, ez - sz)), q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
+    { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassShot) cs.glassShot(sx, sy, sz, ex, ey, ez); }   /* v351: JANG: my bullet shatters the windows it crosses */
     this.particles.emit(sx, sy, sz, 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: 0.3 }); if (this.mflash && mz) { const f = this.mflash; f.sp.position.set(sx, sy, sz); const k = w === 'sniper' ? 0.7 : w === 'pistol' ? 0.38 : 0.55; f.sp.scale.setScalar(k * (0.8 + Math.random() * 0.4)); f.sp.material.rotation = Math.random() * 6; f.sp.visible = true; f.t = 0.06; } { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
     wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
     if (this.jangTeam && this.jangTeam.net) this.jangTeam.net.send({ t: 'jf', x: +ox.toFixed(1), z: +oz.toFixed(1), w: wcls(w) === 'ak' ? 1 : wcls(w) === 'sniper' ? 2 : 0, r: +this.me.body.yaw.toFixed(3) });   // v241: the others hear my shot
