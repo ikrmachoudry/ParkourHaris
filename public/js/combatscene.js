@@ -10,7 +10,7 @@ import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
-import { CombatSim, CMB, COMBAT_MS, botCount, layout, cmbH, supportY, hitsSolid, ballOK } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, ballOK } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim } from './props.js';
@@ -77,7 +77,7 @@ export class CombatScene {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
-    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, botCount(OPT.diff || 'medium')); if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, botCount(OPT.diff || 'medium', !!R.isTouch)); if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; } }
@@ -103,7 +103,7 @@ export class CombatScene {
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
-    if (this.edgeEl) this.edgeEl.style.display = 'none';
+    if (this.edgeEl) this.edgeEl.style.display = 'none'; if (this.glideEl) this.glideEl.style.display = 'none';
     if (this.hitRing) { this.hitRing.remove(); this.hitRing = null; this.hitArr = []; }
     if (this.chuteBadge) { this.chuteBadge.remove(); this.chuteBadge = null; } this.ownChute = false;
     this.gate = false;
@@ -197,15 +197,31 @@ export class CombatScene {
     if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
     this.chuteVis(d.ph === 'chute', b, dt);
   }
-  /* v377: the paraglider is back as a CHOICE: fall off a tower / roof (more than ~6 m above the ground, falling) and tap JUMP in the air to open the flag wing; if you do not, the fall still hurts as before (v357). Returns true on the frame it opens. */
+  glideUI(show) {   // v379: the parafoil icon: a big tap button on a phone, a small "press JUMP" box (with the icon) on a laptop
+    if (!this.glideEl) {
+      const e = document.createElement('button'); e.id = 'c-glide'; const touch = !!this.R.isTouch;
+      const svg = '<svg viewBox="0 0 64 64" width="' + (touch ? 46 : 26) + '" height="' + (touch ? 46 : 26) + '" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 27C8 9 24 4 32 4s24 5 27 23c-3-5-8-6-12-3-3-4-9-4-15-4s-12 0-15 4c-4-3-9-2-12 3z" fill="#fff"/><path d="M6 28 30 50M16 25 31 50M32 22V50M48 25 33 50M58 28 34 50"/><circle cx="32" cy="53" r="2.6" fill="#fff"/><path d="M32 56v4M29 60l3-3 3 3"/></svg>';
+      e.innerHTML = svg + (touch ? '<b>PARAGLIDE</b>' : '<b>PRESS JUMP (SPACE)<br>TO DEPLOY PARAGLIDER</b>');
+      e.style.cssText = touch ? 'position:fixed;right:27vw;bottom:calc(16vh + 4px);z-index:46;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:92px;height:92px;border-radius:50%;border:3px solid #6dff8a;background:rgba(20,70,35,.78);color:#fff;font:800 10px system-ui,sans-serif;touch-action:none;cursor:pointer;animation:glidePulse 0.9s ease-in-out infinite'
+        : 'position:fixed;left:50%;top:max(120px,18vh);transform:translateX(-50%);z-index:46;display:none;flex-direction:row;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;border:2px solid #6dff8a;background:rgba(20,70,35,.78);color:#fff;font:800 12px/1.25 system-ui,sans-serif;text-align:left;pointer-events:none';
+      if (touch) { const dn = (ev) => { ev.preventDefault(); ev.stopPropagation(); this.jumpReq = true; }; e.addEventListener('pointerdown', dn); e.addEventListener('contextmenu', (ev) => ev.preventDefault()); }
+      if (!document.getElementById('glide-css')) { const s = document.createElement('style'); s.id = 'glide-css'; s.textContent = '@keyframes glidePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}'; document.head.appendChild(s); }
+      document.body.appendChild(e); this.glideEl = e;
+      if (window.phApplyLayout) setTimeout(window.phApplyLayout, 0);
+    }
+    const sh = show ? (this.R.isTouch ? 'flex' : 'flex') : 'none'; if (this.glideEl.style.display !== sh) this.glideEl.style.display = sh;
+  }
+  /* v377: the paraglider is back as a CHOICE: fall off a TOWER (more than ~6 m above the ground, falling; roofs do not count) and tap the PARAGLIDE icon (phone) / press JUMP (laptop) in the air to open the flag wing; if you do not, the fall still hurts as before (v357). Returns true on the frame it opens. */
   glideCheck(b, inp, dt) {
-    if (this._gtoast > 0) this._gtoast -= dt;
-    if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR) { this._gt = 0; return false; }
+    const off = () => { this._gt = 0; if (this.glideEl && this.glideEl.style.display !== 'none') this.glideUI(false); return false; };
+    if (b.grounded && this.on) { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z; let on = false; for (const t of layout().towers || []) if (Math.abs(ox0 - t.x) < TW.O + 1.5 && Math.abs(oz0 - t.z) < TW.O + 1.5 && b.y > t.gy + 5) { on = true; break; } this._onTower = on; }   // v379: the paraglider is for the TOWERS only (PUBG): remember whether the last place you stood was up a tower
+    if (!this._onTower) return off();
+    if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR) return off();
     const ox = b.x - CMB.x, oz = b.z - CMB.z, gy = Math.max(cmbH(ox, oz), supportY(layout(), ox, oz, 0.3, b.y)), h = b.y - gy;
-    if (b.vy > -4 || h < 6) { this._gt = 0; return false; }
+    if (b.vy > -4 || h < 6) return off();
     this._gt = (this._gt || 0) + dt;
-    if (!inp.jumpPressed && !this.jumpReq) { if (this._gt > 0.25 && !(this._gtoast > 0)) { this._gtoast = 6; this.R.toast && this.R.toast('Tap JUMP in the air to open the PARAGLIDER (or you take fall damage)', 2.5); } return false; }
-    inp.jumpPressed = false; this.jumpReq = false; const sp0 = Math.hypot(b.vx || 0, b.vz || 0);
+    if (!inp.jumpPressed && !this.jumpReq) { if (this._gt > 0.2) this.glideUI(true); return false; }
+    inp.jumpPressed = false; this.jumpReq = false; this.glideUI(false); const sp0 = Math.hypot(b.vx || 0, b.vz || 0);
     this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 };
     this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); this.R.camInit = false; this.R.toast && this.R.toast('PARAGLIDER OPEN - steer with the stick, DIVE = faster, PULL UP = brakes', 3.5); return true;
   }
@@ -276,7 +292,7 @@ export class CombatScene {
     d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
     if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else o.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { this.diveHint = false; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { this.diveHint = false; if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
     if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
@@ -514,6 +530,7 @@ export class CombatScene {
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
       else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
+      else if (this.shared && !this.over && !this.dropping && this.sim.ready && this.t > 30 && this.R.jangTeam && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down && this.mates.size && [...this.mates.values()].every((g) => g.tm === this.R.jangTeam.tm)) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v379: a room with ONE team only (friends vs the bots): every bot dead = MISSION PASSED. With rival teams in the room the last team standing wins (bots do not count: nobody has to hunt the last bot)
     }
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position); if (this.glass) this.glass.update(dt);
     for (const [key, sm] of this.dsm) {   // the green smoke over dead players' boxes: gone when the last item is taken; drawn within 260 m
@@ -570,7 +587,7 @@ export class CombatScene {
     let f = this.feedEl; if (!f) { f = this.feedEl = document.createElement('div'); f.style.cssText = 'position:fixed;right:84px;top:max(58px,8vh);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font:800 13px/1.15 system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000'; document.body.appendChild(f); }
     const e = document.createElement('div'); e.style.cssText = 'background:rgba(0,0,0,.5);border-radius:6px;padding:3px 9px;border-left:3px solid ' + (hot ? '#ffd23f' : '#ff5a4a'); e.innerHTML = '<span style="color:' + (hot ? '#ffd23f' : '#fff') + '"></span> <span style="color:#bbb;font-weight:600"></span> <span></span>';
     const sp = e.querySelectorAll('span'); sp[0].textContent = a; sp[1].textContent = '\u25B8 ' + wn + ' \u25B8'; sp[2].textContent = b; f.appendChild(e); while (f.children.length > 4) f.firstChild.remove(); setTimeout(() => e.remove(), 6000); }
-  setBotDiff() { const d = OPT.diff || 'medium', T = this.R.jangTeam; if (this.shared) { if (T && T.net) T.net.send({ t: 'cdiff', d }); } else if (this.sim && this.sim.setDiff) this.sim.setDiff(d); }   // v331: BOT DIFFICULTY (solo: the sim; shared match: the room host's choice goes to the server)
+  setBotDiff() { const d = OPT.diff || 'medium', T = this.R.jangTeam; if (this.shared) { if (T && T.net) T.net.send({ t: 'cdiff', d, n: botCount(d, !!this.R.isTouch) }); } else if (this.sim && this.sim.setDiff) this.sim.setDiff(d); }   // v331: BOT DIFFICULTY (solo: the sim; shared match: the room host's choice goes to the server)
   hitX(kill) {
     let m = this.hitXEl; if (!m) { m = this.hitXEl = document.createElement('div'); m.style.cssText = 'position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;z-index:29;pointer-events:none;opacity:0;transition:opacity .12s;background:linear-gradient(45deg,transparent 46%,currentColor 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,currentColor 46% 54%,transparent 54%);filter:drop-shadow(0 0 2px #000)'; document.body.appendChild(m); }
     m.style.color = kill ? '#ff3b30' : '#fff'; m.style.opacity = 1; clearTimeout(this._hxT); this._hxT = setTimeout(() => { m.style.opacity = 0; }, kill ? 260 : 130); }

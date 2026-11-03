@@ -201,7 +201,7 @@ function startRound(room) {
   room.busyIds = [];
   room.seed = 1 + Math.floor(Math.random() * 1e9);
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
-  room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff) : null;   // v245: the shared Jang match: the server runs the bots + loot
+  room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN) : null;   // v245: the shared Jang match: the server runs the bots + loot
   if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
   bcast(room, goMsg(room, meta));
   clearTimers(room);
@@ -329,7 +329,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastJr || 0) < 500) return; p.lastJr = t;
         send(q.ws, { t: 'jr', from: p.id }); break;
       }
-      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; if (room.chost) room.chost.sim.setDiff(m.d); } break; }   // v331: the room host's BOT DIFFICULTY
+      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); for (const q of room.players.values()) room.chost.init(q.id); } } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
       case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': {
         if (!room || !room.chost || room.phase !== 'race') return;

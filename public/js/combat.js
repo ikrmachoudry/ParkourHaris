@@ -411,8 +411,8 @@ function build() {
       for (const [x, z] of [[-10.6, 5.4], [-7.4, 5.4], [-10.6, 8.4], [-7.4, 8.4]]) P(0, x, z, 2.1, 1.0, 0.6, '#f2f5f7', 'bed');   // ward
       P(0, 10, -4.8, 1.1, 2.4, 0.95, '#dfe7ea', 'table'); P(0, 12.8, -8.4, 0.6, 3.4, 1.6, '#9fb4bf', 'shelf'); P(0, 8.2, -8.6, 2.6, 0.7, 1.0, '#b8c6cc', 'counter');   // operation theatre: the table, instrument shelves
       /* v351: the second ward beds are gone: the stair is open from the ward */   // second ward (v264: the new stair from the garage-side door fills its south half)
-      P(1, 0, -2, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the lobby: a sofa each side and a table
-      P(1, -9.8, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -11.4, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
+      /* v379: the two big tables on the Sada Ghar second floor are gone (lobby + hall) */ P(1, -3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, 3.6, -4, 2.6, 0.9, 0.85, '#5a6a7a', 'bench');   // the lobby: a sofa each side and a table
+      P(1, -12.9, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -11.4, -8.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -9.8, 4.0, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -13.1, 7.6, 0.5, 2.4, 1.8, '#7a5638', 'shelf');   // the big HALL (west end)
       P(1, 10.6, -8.3, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 13.2, -5.4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // the bedroom (north east)
       P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 1.2, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
@@ -659,8 +659,9 @@ export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
 const BOT = { pistol: { cd: 0.55, dmg: 14, acc: 0.5 }, ak: { cd: 0.17, dmg: 11, acc: 0.42 } };   // v331: a bot hit is 11 (AK) / 14 (pistol) hp, like a PUBG bullet through a vest
 /* v331 BOT DIFFICULTY: only the SHOTS TO KILL and the SIZE of the hit zone change; every level behaves the same (hides, crouches, goes prone, throws grenades). R = body hit radius (m), bm = damage the body armor lets through, hm = the same for a headshot (head hit = 2.3x). AK (54 hp a hit): easy 2 hits, medium 3 hits (2 headshots), hard 4 hits (2 headshots) */
-export const BOTS_BY_DIFF = { easy: 5, medium: 8, hard: 12 };   // v378: how many bots a match has (solo and multiplayer)
-export const botCount = (d) => BOTS_BY_DIFF[d] || BOTS_BY_DIFF.medium;
+export const BOTS_BY_DIFF = { easy: 12, medium: 22, hard: 32 };   // v378: how many bots a match has (solo and multiplayer)
+export const BOTS_PHONE = { easy: 12, medium: 16, hard: 20 };   // v379: phones run fewer bots on the bigger levels (32 bots cost ~2.5x the CPU of 12)
+export const botCount = (d, phone) => (phone ? BOTS_PHONE : BOTS_BY_DIFF)[d] || BOTS_BY_DIFF.medium;
 export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.42, bm: 0.75, hm: 0.75 }, hard: { R: 0.32, bm: 0.55, hm: 0.6 } };
 const STH = [1.8, 1.25, 0.6];   // standing / crouching / prone: how tall the hit box is
 export class CombatSim {
