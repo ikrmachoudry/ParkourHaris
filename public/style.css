@@ -1345,3 +1345,9 @@ body.touch #c-pick { left: auto; right: max(10px, env(safe-area-inset-right)); b
 body.touch #act-pad #a-crouch.on svg.pubg [stroke], body.touch #act-pad #a-prone.on svg.pubg [stroke] { stroke: #ffd23f; }
 body.touch #act-pad #a-crouch.on svg.pubg g, body.touch #act-pad #a-prone.on svg.pubg g { fill: #ffd23f; }
 body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-prone.on svg.pubg g[stroke] { fill: none; }
+
+/* v365: start-up screen: all black, the HG logo in the middle, the progress bar below it */
+#loader { background: #000 !important; gap: 22px; }
+#loader::after { display: none; }
+#loader .ld-logo { display: block; width: min(52vh, 64vw); height: auto; border-radius: 15%; box-shadow: 0 0 40px rgba(0,0,0,.8); z-index: 1; }
+#loader .bar { width: min(52vh, 64vw); margin-top: 0; }
