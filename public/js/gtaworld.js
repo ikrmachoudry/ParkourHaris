@@ -269,7 +269,7 @@ export function buildGta(world, th, info, seed) {
     world.addSolid(b.x + b.w * 0.25 - 0.8, H, b.z + b.d * 0.2 - 0.5, b.x + b.w * 0.25 + 0.8, H + 1, b.z + b.d * 0.2 + 0.5, { name: 'prop' });   // AC unit
   }
   info.gta = { buildings: B, roads };
-  { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building', slide: !!q.slide }); }   // the BATTLE map's walls, trees and crates live in the world's spatial grid (collision also exists without graphics)
+  { const L = cmbLayout(); for (const q of L.solids) world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building', slide: !!q.slide, sd: q.sd }); }   // the BATTLE map's walls, trees and crates live in the world's spatial grid (collision also exists without graphics)
   if (world.headless) return;
 
   // ---- ground

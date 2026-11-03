@@ -534,7 +534,7 @@ class Race {
     if (this.meta.city) { this.updatePunch(dt, b); this.updateWeapon(dt, b); this.updateJack(dt, b); this.updateSell(dt); this.updateShops(dt, b); }
     if (!this.meta.city) this.updatePowerups(dt, b);
     if (!this.drive) { this.softCollide(b); this.softCars(b, canMove); }
-    if (this.jang && b.grounded && b.ground && b.ground.slide && !this.drive) { const g = b.ground, ax = (b.x - (g.x0 + g.x1) / 2) / (g.x1 - g.x0), az = (b.z - (g.z0 + g.z1) / 2) / (g.z1 - g.z0); if (Math.abs(ax) > Math.abs(az)) b.x += Math.sign(ax || 1) * 6 * dt; else b.z += Math.sign(az || 1) * 6 * dt; if (!this._slT || performance.now() - this._slT > 4000) { this._slT = performance.now(); this.toast && this.toast('The roof is too steep - you slide off'); } }   // v336: a pitched roof (the ceiling plate under it) is not a floor: you slide off it
+    if (this.jang && b.grounded && b.ground && b.ground.slide && !this.drive) { const g = b.ground, ax = (b.x - (g.x0 + g.x1) / 2) / (g.x1 - g.x0), az = (b.z - (g.z0 + g.z1) / 2) / (g.z1 - g.z0); if (g.sd && (g.sd[0] || g.sd[1])) { b.x += g.sd[0] * 6 * dt; b.z += g.sd[1] * 6 * dt; } else if (g.sd) { if (g.x1 - g.x0 < g.z1 - g.z0) b.x += (b.x >= (g.x0 + g.x1) / 2 ? 1 : -1) * 6 * dt; else b.z += (b.z >= (g.z0 + g.z1) / 2 ? 1 : -1) * 6 * dt; } else if (Math.abs(ax) > Math.abs(az)) b.x += Math.sign(ax || 1) * 6 * dt; else b.z += Math.sign(az || 1) * 6 * dt; if (!this._slT || performance.now() - this._slT > 4000) { this._slT = performance.now(); this.toast && this.toast('The roof is too steep - you slide off'); } }   // v336: a pitched roof (the ceiling plate under it) is not a floor: you slide off it
     this.checkpoints(b);
     if (!this.finished && lt >= 0 && b.z < this.info.finishZ && b.y > this.info.finishY - 3 && Math.abs(b.x) < 16) this.onLocalFinish();
 
@@ -2029,7 +2029,7 @@ class Race {
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // the match: the camera never goes through a wall, floor or roof (it swings in behind the player instead)
         const L = cmbLayout(), lx = ox - CMB.x, lz = oz - CMB.z, Bk = L.B, seen = new Set(), n = Math.ceil(Math.hypot(dx, dz) / 4) + 1, M = 0.42;
         for (let k = 0; k <= n; k++) { const px = lx + dx * k / n, pz = lz + dz * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
-          for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
+          for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a0 = L.bucket.get(key), a1 = L.cbucket && L.cbucket.get(key); if (!a0 && !a1) continue; const a = a0 && a1 ? a0.concat(a1) : a0 || a1;
             for (const s of a) { if (!(CAMK.has(s.k) || (s.k === 'step' && this.twK > 0.3) || (s.k === 'prop' && s.y1 - s.y0 > 1.2))) continue;
               for (const MM of [M, 0.22]) {   // v325: thin margin 0.22 (> the near-plane corner reach, was 0.1 = the wall got clipped = see-through) // a player standing closer to the wall than the margin starts INSIDE the fat box: use a thin one then, so the camera still stops at the wall
                 let t0 = 0, t1 = tmax, hit = true;
@@ -2751,7 +2751,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { P, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

@@ -217,7 +217,19 @@ function buildSolids(o) {
     o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 }; wall(H.x1 - 0.05, H.z0, H.x1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');   // v324: railing round the stair opening on the roof
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }
   } else
-    { wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof'); if (o.roof && o.roof !== 'flat') out[out.length - 1].slide = 1; }   // v336: under a gable / pent roof this slab is only the CEILING plate: nobody can stand on it (he slides off, PUBG style)
+    { wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof'); if (o.roof && o.roof !== 'flat') out[out.length - 1].slide = 1; }
+  if (o.roof === 'gable' || o.roof === 'lowgable') {   // v358: the shingles are SOLID (PUBG): the pitched roof is a stack of thin sloped bands (every band is a step of <= 0.3 m that is walkable and slides you downhill), so nobody sinks into the roof, and shots / the camera cannot go through it
+    const ax = o.w >= o.d, ov = o.roof === 'gable' ? 0.55 : 0.3, perp = (ax ? o.d : o.w) / 2 + ov, along = (ax ? o.w : o.d) / 2 + ov, rh = o.roof === 'gable' ? Math.min(o.w, o.d) * 0.33 : Math.min(o.w, o.d) * 0.12 + 0.6;
+    const nb = Math.max(2, Math.ceil(rh / 0.3)), wb = perp / nb, y00 = top + SL;
+    for (let i = 0; i < nb; i++) {
+      const za = i * wb, zb = (i + 1) * wb, hgt = rh * (1 - (za + zb) / 2 / perp) - 0.06; if (hgt < 0.12) continue;
+      for (const sg of i === 0 ? [0] : [-1, 1]) {
+        const lo = sg < 0 ? -zb : sg > 0 ? za : -zb, hi = sg < 0 ? -za : zb;
+        const q = ax ? { x0: o.x - along, x1: o.x + along, z0: o.z + lo, z1: o.z + hi } : { x0: o.x + lo, x1: o.x + hi, z0: o.z - along, z1: o.z + along };
+        out.push({ ...q, y0: fy + y00, y1: fy + y00 + hgt, k: 'roof', slide: 1, sd: sg === 0 ? [0, 0] : ax ? [0, sg] : [sg, 0], shingle: 1 });
+      }
+    }
+  }   // v336: under a gable / pent roof this slab is only the CEILING plate: nobody can stand on it (he slides off, PUBG style)
   if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
   o.openings = openings; o.top = top; o.hole = hole; o.hole2 = hole2 || null;
   return out;
@@ -364,6 +376,10 @@ function build() {
   const addS = (s) => { solids.push(s); for (let i = Math.floor((s.x0 - 1) / B); i <= Math.floor((s.x1 + 1) / B); i++) for (let j = Math.floor((s.z0 - 1) / B); j <= Math.floor((s.z1 + 1) / B); j++) { const k = i * 4099 + j; let a = bucket.get(k); if (!a) bucket.set(k, a = []); a.push(s); } return s; };
   const box = (x0, z0, x1, z1, y0, y1, k) => addS({ x0, z0, x1, z1, y0, y1, k });
   for (const b of BUILDINGS) for (const s of b.solids) addS(s);
+  /* v358 CAMERA PANES: every window opening gets an invisible sheet that only the third-person CAMERA collides with (the player / bullets / grenades still pass the opening as before). Standing at a wall with your back to a window used to put the camera THROUGH the window = you saw the inside of the room (PUBG: the camera never leaves the outside through a window) */
+  const cbucket = new Map();
+  for (const b of BUILDINGS) for (const op of b.openings || []) { if (op.k !== 'win') continue; const [aX, sg] = SIDES[op.s], fx = sg * (aX ? b.d / 2 : b.w / 2), T2 = TH / 2 + 0.05, s = aX ? { x0: b.x + op.c - op.hw - 0.05, x1: b.x + op.c + op.hw + 0.05, z0: b.z + fx - T2, z1: b.z + fx + T2 } : { x0: b.x + fx - T2, x1: b.x + fx + T2, z0: b.z + op.c - op.hw - 0.05, z1: b.z + op.c + op.hw + 0.05 }; s.y0 = b.fy + op.y0 - 0.05; s.y1 = b.fy + op.y1 + 0.05; s.k = 'wall'; s.pane = 1;
+    for (let i = Math.floor((s.x0 - 1) / B); i <= Math.floor((s.x1 + 1) / B); i++) for (let j = Math.floor((s.z0 - 1) / B); j <= Math.floor((s.z1 + 1) / B); j++) { const k = i * 4099 + j; let a = cbucket.get(k); if (!a) cbucket.set(k, a = []); a.push(s); } }
   // furniture inside the rooms (bigger things are solid cover; the loot spots keep away from all of it)
   const furn = (b) => {
     const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
@@ -525,7 +541,7 @@ function build() {
   let nav = null;
   const L = {
     headFix,
-    zip, solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
+    zip, solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, cbucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
       /* v302: a fence is thinner than a cell: the cell CENTRES either side were 'free' and A* drew paths straight through the fence, so bots ran into it for ever. Every cell the fence touches is blocked now (gates are real gaps in the fence, they stay open) */
