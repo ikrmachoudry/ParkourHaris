@@ -384,6 +384,12 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex(t.flag), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // v300: the spinning parachute pack + ring on the roof are gone (you walk off the ledge and free-fall, the parachute opens by itself)
     B.box('conc', X + TW.O - 0.1, py - 0.62, Z - 0.85, X + TW.O + 2.2, py - 0.3, Z + 0.85, '#a5a59f', 0.02); B.box('trim', X + TW.O + 2.0, py - 0.3, Z - 0.85, X + TW.O + 2.2, py - 0.24, Z + 0.85, '#ffd60a', 0);   // v300: the small LEDGE platform (yellow edge)
+    // v369: the DOOR is painted so it can be found from anywhere round the tower: yellow / black hazard stripes down both sides and across the top (the door is on the south side)
+    { const sy = '#ffcc00', sk = '#1c1c1c'; for (let k = 0; k < 6; k++) { const ya = gy + k * 0.5, yb = Math.min(gy + 2.9, ya + 0.5), c = k % 2 ? sk : sy; B.box('trim', X - 1.97, ya, Z + 3.75, X - 1.45, yb, Z + 4.5, c, 0); B.box('trim', X + 1.45, ya, Z + 3.75, X + 1.97, yb, Z + 4.5, c, 0); }
+      for (let k = 0; k < 8; k++) { const xa = X - 1.97 + k * 0.49, c = k % 2 ? sk : sy; B.box('trim', xa, gy + 2.9, Z + 3.75, xa + 0.49, gy + 3.45, Z + 4.55, c, 0); } }
+    // v369: the tallest tower (the military hill) carries the HARIS GAMES logo, wrapped on the wall just under the roof, facing south
+    if (t.n > TW.n) { const tx = new THREE.TextureLoader().load('img/logo-hg.jpg'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; const lh = 8.4, d2r = Math.PI / 180, lg = new THREE.CylinderGeometry(O + 0.12, O + 0.12, lh, 40, 1, true, -70 * d2r, 110 * d2r); lg.translate(X, py - 3.6 - lh / 2, Z);
+      const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: tx, toneMapped: false })); lm.name = 'hg-logo'; group.add(lm); }
     // v357: the 'JUMP HERE' parachute sign is gone: there is no parachute on the towers any more, a fall hurts by its height
     const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
   } else generic(p); }
