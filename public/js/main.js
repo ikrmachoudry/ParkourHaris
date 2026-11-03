@@ -534,6 +534,7 @@ class Race {
     if (this.meta.city) { this.updatePunch(dt, b); this.updateWeapon(dt, b); this.updateJack(dt, b); this.updateSell(dt); this.updateShops(dt, b); }
     if (!this.meta.city) this.updatePowerups(dt, b);
     if (!this.drive) { this.softCollide(b); this.softCars(b, canMove); }
+    if (this.jang && b.grounded && b.ground && b.ground.slide && !this.drive) { const g = b.ground, ax = (b.x - (g.x0 + g.x1) / 2) / (g.x1 - g.x0), az = (b.z - (g.z0 + g.z1) / 2) / (g.z1 - g.z0); if (Math.abs(ax) > Math.abs(az)) b.x += Math.sign(ax || 1) * 6 * dt; else b.z += Math.sign(az || 1) * 6 * dt; if (!this._slT || performance.now() - this._slT > 4000) { this._slT = performance.now(); this.toast && this.toast('The roof is too steep - you slide off'); } }   // v336: a pitched roof (the ceiling plate under it) is not a floor: you slide off it
     this.checkpoints(b);
     if (!this.finished && lt >= 0 && b.z < this.info.finishZ && b.y > this.info.finishY - 3 && Math.abs(b.x) < 16) this.onLocalFinish();
 

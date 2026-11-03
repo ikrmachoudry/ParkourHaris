@@ -177,7 +177,7 @@ function buildSolids(o) {
     o.roofHole = { x0: H.x0, x1: H.x1, z0: H.z0, z1: H.z1 }; wall(H.x1 - 0.05, H.z0, H.x1 + 0.05, H.z1, top + SL, top + SL + 1.0, 'wall');   // v324: railing round the stair opening on the roof
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }
   } else
-    wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof');
+    { wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof'); if (o.roof && o.roof !== 'flat') out[out.length - 1].slide = 1; }   // v336: under a gable / pent roof this slab is only the CEILING plate: nobody can stand on it (he slides off, PUBG style)
   if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
   o.openings = openings; o.top = top; o.hole = hole; o.hole2 = hole2 || null;
   return out;
@@ -477,8 +477,14 @@ function build() {
   // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
   /* v329: ZIP LINE from the end of the 'us' tower ledge down to the Sada Ghar (clinic) roof */
   let zip = null; { const tw = towers[3], cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (tw && cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL, ax = tw.x + TW.O + 2.0, az = tw.z, ay = tw.py - 0.3, bx = cl.x + 3.5, bz = cl.z + 4.5, H = 2.1; zip = { ax, az, ay, ah: ay + H, bx, bz, by: yr, bh: yr + H, H, len: Math.hypot(bx - ax, bz - az) }; } }
+  /* v336 HEADROOM RULE (PUBG): nothing you can stand on may have a ceiling lower than 2.05 m above it. A prop / crate under a roof or a floor slab becomes a column up to the TOP of that slab (flush with it), so nobody can jump on furniture and sit between the two layers (the shelf top and the ceiling) */
+  let headFix = 0; { const lids = solids.filter((q) => (q.k === 'roof' || q.k === 'floor') && q.y1 - q.y0 < 1.2);
+    for (const q of solids) { if (q.k !== 'prop' && q.k !== 'crate') continue; if (q.y1 - q.y0 > 4) continue; let top = null;
+      for (const l of lids) { if (l.y0 < q.y1 - 0.05 || l.y0 > q.y1 + 2.05) continue; if (Math.min(l.x1, q.x1) - Math.max(l.x0, q.x0) < 0.05 || Math.min(l.z1, q.z1) - Math.max(l.z0, q.z0) < 0.05) continue; if (top === null || l.y1 > top) top = l.y1; }
+      if (top !== null) { q.y1 = top; q.cap = 1; headFix++; } } }
   let nav = null;
   const L = {
+    headFix,
     zip, solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
