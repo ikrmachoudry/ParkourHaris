@@ -197,6 +197,18 @@ export class CombatScene {
     if (b.y <= gy2 + 0.05) { b.y = gy2 + 0.05; b.vy = 0; b.vx = d.vx * 0.3; b.vz = d.vz * 0.3; b.grounded = true; this.endDrop(true); return; }
     this.chuteVis(d.ph === 'chute', b, dt);
   }
+  /* v377: the paraglider is back as a CHOICE: fall off a tower / roof (more than ~6 m above the ground, falling) and tap JUMP in the air to open the flag wing; if you do not, the fall still hurts as before (v357). Returns true on the frame it opens. */
+  glideCheck(b, inp, dt) {
+    if (this._gtoast > 0) this._gtoast -= dt;
+    if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR) { this._gt = 0; return false; }
+    const ox = b.x - CMB.x, oz = b.z - CMB.z, gy = Math.max(cmbH(ox, oz), supportY(layout(), ox, oz, 0.3, b.y)), h = b.y - gy;
+    if (b.vy > -4 || h < 6) { this._gt = 0; return false; }
+    this._gt = (this._gt || 0) + dt;
+    if (!inp.jumpPressed && !this.jumpReq) { if (this._gt > 0.25 && !(this._gtoast > 0)) { this._gtoast = 6; this.R.toast && this.R.toast('Tap JUMP in the air to open the PARAGLIDER (or you take fall damage)', 2.5); } return false; }
+    inp.jumpPressed = false; this.jumpReq = false; const sp0 = Math.hypot(b.vx || 0, b.vz || 0);
+    this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 };
+    this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); this.R.camInit = false; this.R.toast && this.R.toast('PARAGLIDER OPEN - steer with the stick, DIVE = faster, PULL UP = brakes', 3.5); return true;
+  }
   /* v257: the TOWER PARAGLIDER (a ram-air wing): it opens at once, flies forward all the time, the stick turns it, DIVE = speed bar (fast, steep), PULL UP = brakes (slow, shallow). Trim 13 m/s forward at 2 m/s down = glide ratio 6.5: a 43 m tower reaches ~280 m */
   stepGlide(dt, inp, b) {
     const d = this.drop, Lm = layout(), dv = (this.diveHold && this.diveHold.dive ? 1 : 0) - (this.diveHold && this.diveHold.up ? 1 : 0), ml = Math.hypot(inp.mx, inp.mz);

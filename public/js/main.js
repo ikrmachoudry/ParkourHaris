@@ -516,6 +516,7 @@ class Race {
     if (this.drive) { this.updateDrive(dt, canMove); b.events.length = 0; }
     else if (this.zipR) { b.events.length = 0; this.rideZip(dt, inp, b); }
     else if (hanging) { b.events.length = 0; this.mission.cs.stepDrop(dt, inp, b); }
+    else if (this.jang && this.mission && this.mission.cs && this.mission.cs.glideCheck(b, inp, dt)) { b.events.length = 0; this.mission.cs.stepDrop(dt, inp, b); }   // v377: falling off a tower / roof: JUMP opens the flag PARAGLIDER
     else if (!this.vlt) {
     for (let i = 0; i < steps; i++) {
       stepBody(w, b, sdt, inp);
