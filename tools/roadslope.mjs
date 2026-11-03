@@ -1,0 +1,7 @@
+import { ROADS, cmbH, cmbG } from '../public/js/combat.js';
+globalThis.window = globalThis;
+ROADS.forEach((r, ri) => { let worst = 0, wp = null, gap = 0, gp = null;
+  for (let i = 0; i + 1 < r.pts.length; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], L = Math.hypot(bx - ax, bz - az); for (let d = 0; d < L; d += 3) { const x = ax + (bx - ax) * d / L, z = az + (bz - az) * d / L, x2 = ax + (bx - ax) * Math.min(L, d + 3) / L, z2 = az + (bz - az) * Math.min(L, d + 3) / L; const s = Math.abs(cmbH(x2, z2) - cmbH(x, z)) / 3; if (s > worst) { worst = s; wp = [Math.round(x), Math.round(z), +cmbH(x, z).toFixed(1)]; } const g = cmbG(x, z) - cmbH(x, z); if (Math.abs(g) > Math.abs(gap)) { gap = g; gp = [Math.round(x), Math.round(z)]; } } }
+  console.log('road', ri, 'w', r.w, r.dirt ? 'dirt' : 'asphalt', 'max slope', worst.toFixed(2), wp, 'max mesh-physics gap', gap.toFixed(2), gp); });
+console.log('--- road 0 profile (d, x, z, h, slope)');
+{ const r = ROADS[0]; let acc = 0; for (let i = 0; i + 1 < r.pts.length; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], L = Math.hypot(bx - ax, bz - az); for (let d = 0; d < L; d += 6) { const x = ax + (bx - ax) * d / L, z = az + (bz - az) * d / L, x2 = ax + (bx - ax) * Math.min(L, d + 3) / L, z2 = az + (bz - az) * Math.min(L, d + 3) / L; if (i >= 6) console.log(Math.round(acc + d), Math.round(x), Math.round(z), cmbH(x, z).toFixed(1), (Math.abs(cmbH(x2, z2) - cmbH(x, z)) / 3).toFixed(2)); } acc += L; } }
