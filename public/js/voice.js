@@ -76,7 +76,8 @@ export class Voice {
     this.actx(); try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch (e) { /* ignore */ }   // v381: set BEFORE the mic opens so iPhone uses its voice-processing (echo cancelling) route
     let st = null, e1 = null;
     for (const c of [{ echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: { ideal: 1 } }, { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // v381: voice processing (echo cancel) requested first   // the second try: a plain mic, in case the phone refuses the fancy settings
-      try { st = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: c, video: false }), new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { name: 'Timeout' })), 15000))]); break; } catch (e) { e1 = e; if (e && e.name === 'NotAllowedError') break; }
+      try { st = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: c, video: false }), new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { name: 'Timeout' })), 15000))]); break; } catch (e) { e1 = e; if (e && (e.name === 'NotAllowedError' || e.name === 'Timeout')) break; }   // v382: after a timeout do NOT ask again (Android showed a second, stacked request)
+
     }
     if (!st) { this.want = false; this.mic = false; this.err = e1 && (e1.name === 'NotAllowedError' || e1.name === 'SecurityError') ? 'Mic is blocked. Browser menu > Site settings > Microphone > Allow, then reload' : e1 && e1.name === 'Timeout' ? 'The phone did not answer the mic request. Tap the mic again' : e1 && e1.name === 'NotFoundError' ? 'No microphone found on this device' : 'Could not open the mic (' + ((e1 && e1.name) || 'error') + ')'; this.changed(); return false; }
     all.add(st);
@@ -85,9 +86,10 @@ export class Voice {
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = st; this.mic = true;
     const t = st.getAudioTracks()[0]; t.enabled = !document.hidden;
-    t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) this.reopenSoon(); this.changed(); };
+    const now0 = performance.now(); this._opens = (this._opens || []).filter((x) => now0 - x < 20000); this._opens.push(now0);
+    t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) { if ((this._opens || []).length >= 5) { this.want = false; this.mic = false; this.err = 'The phone keeps closing the mic (another app may be using it). Tap the mic to try again'; this.releaseMic(); } else this.reopenSoon(); } this.changed(); };   // v382: stop the open/close loop (it made the Android mic indicator blink)
     for (const o of this.peers.values()) this.setTrack(o, t);
-    try { if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) throw 0; const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
+    this.selfAn = null; try { if (/iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) throw 0; const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
     this.changed(); return true;
   }
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
@@ -115,7 +117,9 @@ export class Voice {
         o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if (x.type === 'inbound-rtp' && x.kind === 'audio' && x.audioLevel > l) l = x.audioLevel; });
           if (this.muted.has(id) || !this.spk) l = 0; if (l > 0.02) this.level.set(id, performance.now()); }).catch(() => {}).finally(() => { o.busy = false; });
         const on = now - (this.level.get(id) || -1e9) < 700; if (on !== this.speaking.has(id)) { on ? this.speaking.add(id) : this.speaking.delete(id); ch = true; } } }
-    if (this.mic) chk(this.me, this.selfAn);
+    if (this.mic && !this.selfAn && (!this._sl || now - this._sl > 600)) { this._sl = now;   // v382 phones: own loudness from the connection stats, no WebAudio on the mic
+      for (const o of this.peers.values()) { if (o.pc.connectionState !== 'connected') continue; o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if ((x.type === 'media-source' && x.kind === 'audio') && x.audioLevel > l) l = x.audioLevel; }); if (l > 0.02) this.level.set(this.me, performance.now()); }).catch(() => {}); break; } }
+    if (this.mic) { if (this.selfAn) chk(this.me, this.selfAn); else { const on = now - (this.level.get(this.me) || -1e9) < 700; if (on !== this.speaking.has(this.me)) { on ? this.speaking.add(this.me) : this.speaking.delete(this.me); ch = true; } } }
     if (ch) this.changed(true);
   }
   changed(speakOnly) { if (this.onChange) this.onChange(speakOnly); }
