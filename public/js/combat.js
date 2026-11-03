@@ -114,14 +114,15 @@ function buildSolids(o) {
   /* v343 STAIRS (building-code numbers: flight flush against its wall, a banister on every OPEN side, a guard round the opening in the floor above). 'rail' solids are body-only blockers (bullets / camera ignore them). o.flights / o.guards tell battlemap.js what to draw. */
   const RT = 0.08, RH = 1.2, GH = 1.1; o.flights = []; o.guards = [];
   const flightRail = (ax, a0, tr, n, dir, l0, sw, yb, stp, flushLo, flushHi) => {   // steps run along ax from a0 (dir > 0: step i = a0 + i*tr, dir < 0: a0 - (i+1)*tr), lane l0..l0+sw, tread i top = yb + (i+1)*stp
-    const sd = [!flushLo, !flushHi]; o.flights.push({ ax, a0, tr, n, dir, l0, sw, yb, stp, sd });
-    for (let i = 0; i < n; i++) { const pa = dir > 0 ? a0 + i * tr : a0 - (i + 1) * tr, yt = yb + (i + 1) * stp;
+    const sd = [!flushLo, !flushHi], op = Math.min(n - 1, Math.ceil(1.0 / tr)); o.flights.push({ ax, a0, tr, n, dir, l0, sw, yb, stp, sd, op });   /* v374: the top ~1 m of every flight has NO side banister (you step off the flight sideways onto the floor: the rail used to run to the last tread and trapped you in the doorway) */
+    for (let i = 0; i < n - op; i++) { const pa = dir > 0 ? a0 + i * tr : a0 - (i + 1) * tr, yt = yb + (i + 1) * stp;
       for (let s = 0; s < 2; s++) { if (!sd[s]) continue; const la = s ? l0 + sw - RT : l0; if (ax === 'x') wall(pa, la, pa + tr, la + RT, yt - stp - 0.05, yt + RH, 'rail'); else wall(la, pa, la + RT, pa + tr, yt - stp - 0.05, yt + RH, 'rail'); const q = out[out.length - 1]; q.vault = 1; q.drop = 1; } }   // v347: JUMP vaults over a banister (the landing is the floor beside / below the flight: a high drop hurts)
   };
   const guard = (x0, z0, x1, z1, y) => { wall(x0, z0, x1, z1, y, y + GH, 'rail'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; o.guards.push({ x0, z0, x1, z1, y }); };
-  const holeGuard = (h, ax, dir, flushLo, flushHi, y) => {   // the opening in the floor: guarded at the low end (the foot of the flight, a 3 m drop) and along every side that is not a wall
-    if (ax === 'x') { if (dir > 0) guard(h.x0 - RT, h.z0, h.x0, h.z1, y); else guard(h.x1, h.z0, h.x1 + RT, h.z1, y); if (!flushLo) guard(h.x0 - RT, h.z0 - RT, h.x1 + RT, h.z0, y); if (!flushHi) guard(h.x0 - RT, h.z1, h.x1 + RT, h.z1 + RT, y); }
-    else { if (dir > 0) guard(h.x0, h.z0 - RT, h.x1, h.z0, y); else guard(h.x0, h.z1, h.x1, h.z1 + RT, y); if (!flushLo) guard(h.x0 - RT, h.z0 - RT, h.x0, h.z1 + RT, y); if (!flushHi) guard(h.x1, h.z0 - RT, h.x1 + RT, h.z1 + RT, y); }
+  const holeGuard = (h, ax, dir, flushLo, flushHi, y, tr = 0.5) => {   // the opening in the floor: guarded at the low end (the foot of the flight, a 3 m drop) and along every side that is not a wall; v374: the side guards stop ~1 m short of the arrival end (open top, same length as flightRail's op)
+    const op = Math.ceil(1.0 / tr) * tr;
+    if (ax === 'x') { const xa = dir < 0 ? h.x0 + op : h.x0 - RT, xb = dir > 0 ? h.x1 - op : h.x1 + RT; if (dir > 0) guard(h.x0 - RT, h.z0, h.x0, h.z1, y); else guard(h.x1, h.z0, h.x1 + RT, h.z1, y); if (!flushLo) guard(xa, h.z0 - RT, xb, h.z0, y); if (!flushHi) guard(xa, h.z1, xb, h.z1 + RT, y); }
+    else { const za = dir < 0 ? h.z0 + op : h.z0 - RT, zb = dir > 0 ? h.z1 - op : h.z1 + RT; if (dir > 0) guard(h.x0, h.z0 - RT, h.x1, h.z0, y); else guard(h.x0, h.z1, h.x1, h.z1 + RT, y); if (!flushLo) guard(h.x0 - RT, za, h.x0, zb, y); if (!flushHi) guard(h.x1, za, h.x1 + RT, zb, y); }
   };
   for (const s of ['N', 'S', 'W', 'E']) {
     const [alongX, sg] = SIDES[s], len = alongX ? o.w : o.d, fixed = sg * (alongX ? hz : hx), cols = [];
@@ -195,7 +196,7 @@ function buildSolids(o) {
     for (let f = 1; f < nfl; f++) {
       const yb = f * (fh + SL) - SL, yt = f * (fh + SL), X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz; let zc = Z0;
       for (const h of holes) { if (h.z0 - zc > 0.02) wall(X0, zc, X1, h.z0, yb, yt, 'floor'); wall(X0, h.z0, h.x0, h.z1, yb, yt, 'floor'); wall(h.x1, h.z0, X1, h.z1, yb, yt, 'floor'); zc = h.z1; }
-      if (f === 1) { const st1 = o.stairs; holeGuard(hole, 'x', st1.dir, st1.z0 < 0, st1.z0 > 0, yt); if (hole2) { const t2 = o.stairs2; holeGuard(hole2, t2.ax === 'z' ? 'z' : 'x', t2.dir, false, false, yt); } }
+      if (f === 1) { const st1 = o.stairs; holeGuard(hole, 'x', st1.dir, st1.z0 < 0, st1.z0 > 0, yt, st1.tread); if (hole2) { const t2 = o.stairs2; holeGuard(hole2, t2.ax === 'z' ? 'z' : 'x', t2.dir, false, false, yt, t2.tread); } }
       if (Z1 - zc > 0.02) wall(X0, zc, X1, Z1, yb, yt, 'floor');
     }
   }
@@ -209,7 +210,7 @@ function buildSolids(o) {
     flightRail('x', st.x0, tread, n, 1, st.z0, sw, rise, step, true, false);
     const h0 = st.x0, h1 = st.x0 + (n - 1) * tread, X0 = -hx - 0.3, X1 = hx + 0.3, Z0 = -hz - 0.3, Z1 = hz + 0.3;
     wall(X0, Z0, X1, st.z0, top, top + SL, 'roof'); wall(X0, st.z0 + sw, X1, Z1, top, top + SL, 'roof'); wall(X0, st.z0, h0, st.z0 + sw, top, top + SL, 'roof'); wall(h1, st.z0, X1, st.z0 + sw, top, top + SL, 'roof');
-    o.roofHole = { x0: h0, x1: h1, z0: st.z0, z1: st.z0 + sw }; holeGuard(o.roofHole, 'x', 1, true, false, top + SL);
+    o.roofHole = { x0: h0, x1: h1, z0: st.z0, z1: st.z0 + sw }; holeGuard(o.roofHole, 'x', 1, true, false, top + SL, 0.3);
     for (const [a0, b0, c0, d0] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, -2.2], [hx - 0.3, 2.2, hx, hz]]) { wall(a0, b0, c0, d0, top + SL, top + SL + 1.1, 'wall'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; }   // v247: a 4.4 m gap in the east parapet = jump down from the roof (PUBG: roofs have edges you can drop over)
     if (o.tank) { const t = o.tank; wall(t.x - 1.2, t.z - 1.2, t.x + 1.2, t.z + 1.2, top + SL, top + SL + 2.4, 'prop'); }
   } else if (o.roofZ) {   // v317: roof terrace reached by the second straight flight: slab with a hole over it, a parapet with a 4.4 m jump-down gap in the east side
