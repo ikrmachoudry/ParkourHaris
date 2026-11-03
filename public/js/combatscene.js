@@ -103,6 +103,7 @@ export class CombatScene {
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
+    if (this.edgeEl) this.edgeEl.style.display = 'none';
     if (this.hitRing) { this.hitRing.remove(); this.hitRing = null; this.hitArr = []; }
     if (this.chuteBadge) { this.chuteBadge.remove(); this.chuteBadge = null; } this.ownChute = false;
     this.gate = false;
@@ -356,8 +357,8 @@ export class CombatScene {
     const R = this.R, Z = this.Z; if (!Z) return; const bz = bombAt(Z, this.t), THR = THREE;
     if (R.minimap) R.minimap.bomb = bz;
     if (!bz) { if (this.bw) this.bw.visible = false; this._bk = -1; this._bmsg = 0; return; }
-    if (!this.bw) { const m = new THR.Mesh(new THR.CylinderGeometry(1, 1, 120, 40, 1, true), new THR.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.22, side: THR.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.bw = m; this.bombs = []; for (let i = 0; i < 6; i++) { const q = new THR.Mesh(new THR.SphereGeometry(0.3, 8, 6), new THR.MeshBasicMaterial({ color: 0x23262b })); q.scale.set(0.7, 0.7, 1.7); q.visible = false; q.frustumCulled = false; this.group.add(q); this.bombs.push({ m: q, on: false, x: 0, z: 0, t: 0 }); } }
-    this.bw.visible = true; this.bw.position.set(CMB.x + bz.x, 30, CMB.z + bz.z); this.bw.scale.set(bz.r, 1, bz.r); this.bw.material.opacity = bz.warn ? 0.1 + 0.08 * Math.sin(this.t * 6) : 0.2 + 0.05 * Math.sin(this.t * 3);
+    if (!this.bw) { const m = new THR.Mesh(new THR.CylinderGeometry(1, 1, 70, 40, 1, true), new THR.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.45, alphaMap: (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 64; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 64, 0, 0); gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, '#9a9a9a'); gr.addColorStop(0.6, '#000'); g.fillStyle = gr; g.fillRect(0, 0, 4, 64); return new THR.CanvasTexture(c); })(), side: THR.DoubleSide, depthWrite: false, fog: false }));   /* v354: the red circle is a LOW wall that fades out with height (it was a 120 m solid cylinder whose top rim hung in the sky) */ m.frustumCulled = false; this.group.add(m); this.bw = m; this.bombs = []; for (let i = 0; i < 6; i++) { const q = new THR.Mesh(new THR.SphereGeometry(0.3, 8, 6), new THR.MeshBasicMaterial({ color: 0x23262b })); q.scale.set(0.7, 0.7, 1.7); q.visible = false; q.frustumCulled = false; this.group.add(q); this.bombs.push({ m: q, on: false, x: 0, z: 0, t: 0 }); } }
+    this.bw.visible = true; this.bw.position.set(CMB.x + bz.x, 35, CMB.z + bz.z); this.bw.scale.set(bz.r, 1, bz.r); this.bw.material.opacity = bz.warn ? 0.1 + 0.08 * Math.sin(this.t * 6) : 0.2 + 0.05 * Math.sin(this.t * 3);
     if (!this.dropping) { const m = Math.max(0, Math.ceil(bz.warn ? bz.tl : 0)); if (bz.warn && !this._bmsg) { this._bmsg = 1; R.toast && R.toast('BOMBING ZONE (RED CIRCLE) in ' + m + ' s - stay out of it!', 4); A.sfx.click && A.sfx.click(); } else if (!bz.warn && this._bmsg !== 2) { this._bmsg = 2; R.toast && R.toast('AIR RAID! bombs are falling in the red circle for ' + Math.round(bz.left) + ' s - GET OUT', 4); } }
     if (bz.warn) return;
     const k = Math.floor((this.t - bz.t0) / 0.8);   // one bomb every 0.8 s: the same spot on every phone
@@ -477,8 +478,11 @@ export class CombatScene {
   }
   update(dt) {
     this.hitUpd(dt);
-    const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam) this.stepMates(dt); this.t += dt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
+    const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam) this.stepMates(dt); const nwT = performance.now(), rdt = Math.min(30, Math.max(dt, this._tw ? (nwT - this._tw) / 1000 : dt)); this._tw = nwT; this.rdt = rdt;   /* v354: the match clock follows the real clock (a frame stall or a hidden tab used to make the clock run slow) */ this.t += rdt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { mv: Math.hypot(b.vx || 0, b.vz || 0), stn: R.prone ? 2 : R.crouch ? 1 : 0, x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
+    { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z, ed = CMB.half - 8 - Math.max(Math.abs(ox0), Math.abs(oz0));   /* v354 MAP EDGE (PUBG): near the edge of the island a red warning tells you to turn back (the cliff wall + the invisible limit stay) */
+      if (!this.edgeEl) { const e = this.edgeEl = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;top:max(92px,calc(env(safe-area-inset-top) + 86px));transform:translateX(-50%);z-index:30;pointer-events:none;font:800 12px system-ui;letter-spacing:1.5px;color:#fff;background:rgba(200,30,30,.78);padding:4px 12px;border-radius:10px;border:1px solid #ff8a8a;display:none'; document.body.appendChild(e); }
+      const sh = ed < 30 && !this.dropping && this.hp > 0; if (sh) { this.edgeEl.textContent = 'MAP EDGE  ' + Math.max(0, Math.round(ed)) + ' m  -  TURN BACK'; if (this.edgeEl.style.display !== 'block') this.edgeEl.style.display = 'block'; } else if (this.edgeEl.style.display !== 'none') this.edgeEl.style.display = 'none'; }
     { const lim = CMB.half - 8;   // never leave the island, never fall under it (v207): pushed back inside / put back on the ground
       const ox = b.x - CMB.x, oz = b.z - CMB.z, cx = Math.max(-lim, Math.min(lim, ox)), cz = Math.max(-lim, Math.min(lim, oz));
       if (cx !== ox || cz !== oz) { b.x = CMB.x + cx; b.z = CMB.z + cz; b.vx = b.vz = 0; if (this.drop) { this.drop.vx = 0; this.drop.vz = 0; } }
@@ -492,7 +496,7 @@ export class CombatScene {
       if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { { const sp0 = Math.hypot(b.vx || 0, b.vz || 0); void sp0; this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 }; } this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); R.toast && R.toast('PARAFOIL OPEN - steer with the stick / WASD', 3); }
     }
     if (run) {
-      this.time -= dt; this.stepDown(dt);
+      this.time -= this.rdt || dt; this.stepDown(dt);
       // the ammo / health / weapons on the ground
       if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;

@@ -2036,16 +2036,16 @@ class Race {
                 for (const [o, d, lo, hi] of [[lx, dx, s.x0 - MM, s.x1 + MM], [lz, dz, s.z0 - MM, s.z1 + MM], [oy, dy, s.y0 - MM, s.y1 + MM]]) {
                   if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
                   let p = (lo - o) / d, q = (hi - o) / d; if (p > q) { const w2 = p; p = q; q = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); if (t0 > t1) { hit = false; break; } }
-                if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } if (hit && MM < 0.3) { tmax = Math.min(tmax, 0.1); break; } } } } } } }
+                if (hit && t0 > 0) { if (t0 < tmax) tmax = t0; break; } if (hit && MM < 0.3) { tmax = Math.min(tmax, 0.02); break; }   /* v354: hugging a wall: the camera goes ON the head (it used to stop 10 % of the way along the line INTO the wall = you saw the inside of the building) */ } } } } } }
       for (let i = 1; i <= 8; i++) { const t = i / 8 * tmax; if (oy + dy * t < T(ox + dx * t, oz + dz * t) + 0.35) { tmax = Math.max(0.05, (i - 1) / 8 * tmax); break; } }
-      this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.06, 1);
+      this.camK = this.camK === undefined ? 1 : this.camK; const want = clamp(tmax, 0.02, 1);
       const tws = this.twK > 0.3, wantC = tws ? Math.max(want, 0.38) : want;   // v236 tower shaft: the camera never snaps all the way into the head (it flickered in and out of first person on every step slab above) and moves in smoothly
       this.camK = wantC < this.camK ? (tws ? this.camK + (wantC - this.camK) * Math.min(1, dt * 14) : wantC) : this.camK + (wantC - this.camK) * Math.min(1, dt * (tws ? 5 : 3));   // snap in, ease out
       if (this.camK < 1) { cam.set(ox + dx * this.camK, oy + dy * this.camK, oz + dz * this.camK); }
       if (!inHome && !this.drive) for (const q of this.info.track.boxes || []) { if (cam.y > q.h + 0.1) continue; if (cam.x > q.x0 - 0.1 && cam.x < q.x1 + 0.1 && cam.z > q.z0 - 0.1 && cam.z < q.z1 + 0.1) { this.camK = 0.08; cam.set(ox + dx * 0.08, oy + dy * 0.08, oz + dz * 0.08); break; } }   // v228 last safety net (GTA): a camera still inside a wall box goes back on the player
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // last safety net: a camera that still ended up inside a wall / floor / roof slab is put back on the player
         const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
-        if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { const kf = this.twK > 0.3 ? 0.38 : 0.06; this.camK = kf; cam.set(ox + dx * kf, oy + dy * kf, oz + dz * kf); break; } } } }
+        if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { const kf = this.twK > 0.3 ? 0.38 : 0.02; this.camK = kf; cam.set(ox + dx * kf, oy + dy * kf, oz + dz * kf); break; } } } }
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
       { const cs = this.mission && this.mission.cs, g = this.me && this.me.model && this.me.model.group;   // v214 (PUBG): squeezed against a wall / in a stair shaft the camera ends up almost inside the head: hide the body then (first-person view) instead of staring into it
         if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); const hT = this.twK > 0.3 ? 0.5 : 0.7, sT = this.twK > 0.3 ? 1.0 : 0.95; if (g.visible && dd < hT) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > sT) { g.visible = true; this._bodyHid = false; } }
