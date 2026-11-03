@@ -51,7 +51,9 @@ export function showVictory(m, myTm, onDone) {
     + '#victory .vn{position:absolute;transform:translate(-50%,0);font:800 clamp(11px,2vw,15px) system-ui;background:rgba(0,0,0,.55);padding:3px 9px;border-radius:12px;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,255,255,.25)}'
     + '#victory .vb{position:absolute;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:12px;justify-content:center}'
     + '#victory button{font:800 15px system-ui;padding:12px 22px;border-radius:12px;border:0;cursor:pointer;color:#fff;background:#d93a3a;letter-spacing:1px}'
-    + '#victory button.s{background:#2d6cdf}'
+    + '#victory button.s{background:#2d6cdf}#victory button.sh{background:#1fa463}'
+    + '#victory .vc{position:absolute;left:0;right:0;bottom:max(2px,env(safe-area-inset-bottom));text-align:center;font:800 11px system-ui;letter-spacing:3px;opacity:.6;pointer-events:none}'
+    + '#victory .vb{bottom:max(24px,calc(env(safe-area-inset-bottom) + 14px))!important}'
     + '#victory .vp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(96vw,860px);max-height:78vh;overflow:auto;background:rgba(10,12,18,.94);border:1px solid #ffd23f;border-radius:14px;padding:10px;display:none}'
     + '#victory .vp.on{display:block}'
     + '#victory table{border-collapse:collapse;width:100%;font:600 clamp(11px,1.9vw,14px) system-ui}'
@@ -60,7 +62,7 @@ export function showVictory(m, myTm, onDone) {
     + '#victory tr.w td{background:rgba(255,210,63,.08)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ffd23f}#victory td i{opacity:.4}'
     + '</style><div class="vh"><h1>' + esc(String(wt.n).toUpperCase()) + ' WINS!</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
-    + '<div class="vb"><button class="s">SHOW STATS</button><button class="c">CONTINUE</button></div>';
+    + '<div class="vb"><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
   document.body.appendChild(el);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -103,6 +105,14 @@ export function showVictory(m, myTm, onDone) {
 
   const panel = el.querySelector('.vp'), sb = el.querySelector('.s');
   sb.onclick = () => { audio.play().catch(() => {}); panel.classList.toggle('on'); sb.textContent = panel.classList.contains('on') ? 'HIDE STATS' : 'SHOW STATS'; };
+  const shb = el.querySelector('.sh');
+  shb.onclick = async () => {
+    const url = location.origin + location.pathname, txt = String(wt.n) + ' won with ' + wt.k + ' kills in JANG by Haris Games! Play with me:';
+    try { if (navigator.share) { await navigator.share({ title: 'JANG - Haris Games', text: txt, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    const full = txt + ' ' + url; let ok = false;
+    try { await navigator.clipboard.writeText(full); ok = true; } catch (e) { const ta = document.createElement('textarea'); ta.value = full; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) { /* noop */ } ta.remove(); }
+    shb.textContent = ok ? 'LINK COPIED!' : url; setTimeout(() => { shb.textContent = 'SHARE'; }, 2500);
+  };
   el.querySelector('.c').onclick = () => { closeVictory(); if (onDone) onDone(); };
   el.addEventListener('pointerdown', () => { if (audio.paused) audio.play().catch(() => {}); }, { once: true });
   return st;
