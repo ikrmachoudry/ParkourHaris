@@ -40,7 +40,7 @@ export function closeVictory() {
 
 // m = { win: team index, teams: [{tm,k,d,n}], rows: [{name,tm,ch,sk,k,d,bots,ply,dby}] }; myTm = my team index (highlight); onDone = called when the page is closed
 export function showVictory(m, myTm, onDone) {
-  closeVictory();
+  closeVictory(); A.blockMenuMusic(true);
   const teams = m.teams || [], wt = teams.find((t) => t.tm === m.win) || teams[0] || { n: 'TEAM', tm: 0, k: 0 };
   const rows = (m.rows || []).map((r) => ({ ...r, bots: r.bots || {}, ply: r.ply || {}, dby: r.dby || {}, me: false })).sort((a, b) => b.k - a.k || a.d - b.d);
   const wrows = rows.filter((r) => r.tm === wt.tm), title = String((wrows.length === 1 && wrows[0].name) || wt.n || 'PLAYER');   // v345: a lone winner (solo, or a team of one) is announced by his own NAME
@@ -48,20 +48,20 @@ export function showVictory(m, myTm, onDone) {
   el.innerHTML = '<style>#victory{position:fixed;inset:0;z-index:200;background:#07090d;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}'
     + '#victory canvas{position:absolute;inset:0;width:100%;height:100%}'
     + '#victory .vh{position:absolute;left:0;right:0;top:max(10px,env(safe-area-inset-top));text-align:center;pointer-events:none}'
-    + '#victory .vh h1{margin:0;font:900 clamp(26px,6vw,54px)/1.05 system-ui;letter-spacing:2px;color:#ffd23f;text-shadow:0 3px 0 #a15b00,0 0 26px rgba(255,190,40,.7)}'
+    + '#victory .vh h1{margin:0;font:900 clamp(26px,6vw,54px)/1.05 system-ui;letter-spacing:6px;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.8)}#victory .vh h1:after{content:"";display:block;width:84px;height:4px;background:#d93a3a;margin:10px auto 0}'
     + '#victory .vh p{margin:6px 0 0;font:700 clamp(12px,2.4vw,18px) system-ui;opacity:.85;letter-spacing:1px}'
-    + '#victory .vn{position:absolute;transform:translate(-50%,0);font:800 clamp(11px,2vw,15px) system-ui;background:rgba(0,0,0,.55);padding:3px 9px;border-radius:12px;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,255,255,.25)}'
+    + '#victory .vn{position:absolute;transform:translate(-50%,0);font:800 clamp(11px,2vw,15px) system-ui;background:rgba(0,0,0,.55);padding:3px 9px;border-radius:0;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,255,255,.25);border-left:3px solid #d93a3a;letter-spacing:1px}'
     + '#victory .vb{position:absolute;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:12px;justify-content:center}'
-    + '#victory button{font:800 15px system-ui;padding:12px 22px;border-radius:12px;border:0;cursor:pointer;color:#fff;background:#d93a3a;letter-spacing:1px}'
-    + '#victory button.s{background:#2d6cdf}#victory button.mm{background:#444}#victory button.sh{background:#1fa463}'
+    + '#victory button{font:800 13px system-ui;padding:13px 24px;border-radius:0;border:1px solid rgba(255,255,255,.22);border-left:4px solid #d93a3a;cursor:pointer;color:#fff;background:rgba(8,10,14,.82);letter-spacing:3px;text-transform:uppercase}#victory button:hover{background:rgba(40,16,16,.9)}'
+    + '#victory button.c{background:#d93a3a;border-color:#d93a3a;border-left-color:#fff}'
     + '#victory .vc{position:absolute;left:0;right:0;bottom:max(2px,env(safe-area-inset-bottom));text-align:center;font:800 11px system-ui;letter-spacing:3px;opacity:.6;pointer-events:none}'
     + '#victory .vb{bottom:max(24px,calc(env(safe-area-inset-bottom) + 14px))!important}'
-    + '#victory .vp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(96vw,860px);max-height:78vh;overflow:auto;background:rgba(10,12,18,.94);border:1px solid #ffd23f;border-radius:14px;padding:10px;display:none}'
+    + '#victory .vp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(96vw,860px);max-height:78vh;overflow:auto;background:rgba(10,12,18,.94);border:1px solid rgba(255,255,255,.22);border-top:3px solid #d93a3a;border-radius:0;padding:10px;display:none}'
     + '#victory .vp.on{display:block}'
     + '#victory table{border-collapse:collapse;width:100%;font:600 clamp(11px,1.9vw,14px) system-ui}'
-    + '#victory th{position:sticky;top:0;background:#1b2130;color:#ffd23f;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
+    + '#victory th{position:sticky;top:0;background:#14171e;color:#fff;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
     + '#victory td{padding:6px;border-top:1px solid rgba(255,255,255,.1);vertical-align:top}'
-    + '#victory tr.w td{background:rgba(255,210,63,.08)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ffd23f}#victory td i{opacity:.4}'
+    + '#victory tr.w td{background:rgba(217,58,58,.14)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ff6a5a}#victory td i{opacity:.4}'
     + '</style><div class="vh"><h1>' + (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!') + '</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
     + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
@@ -76,8 +76,8 @@ export function showVictory(m, myTm, onDone) {
   const rim = new THREE.PointLight('#ff5a3a', 25, 14); rim.position.set(-4, 2.5, -3); scene.add(rim);
   const rim2 = new THREE.PointLight('#3a8aff', 25, 14); rim2.position.set(4, 2.5, -3); scene.add(rim2);
   const stage = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.8, 0.3, 56), new THREE.MeshStandardMaterial({ color: '#1a1f2a', roughness: 0.5, metalness: 0.4 })); stage.position.y = -0.16; scene.add(stage);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.4, 64), new THREE.MeshBasicMaterial({ color: '#ffd23f', side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.006; scene.add(ring);
-  const lights = []; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffd23f' : '#ff4d4d' })); b.position.set(Math.cos(a) * 4.5, 0.02, Math.sin(a) * 4.5); scene.add(b); lights.push(b); }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.4, 64), new THREE.MeshBasicMaterial({ color: '#d93a3a', side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.006; scene.add(ring);
+  const lights = [];   // v359: the cartoon light bulbs round the stage are gone (real lamp models later)
 
   // the winners: a half circle facing the camera, every one a different dance
   const win = rows.filter((r) => r.tm === wt.tm), n = win.length, order = DANCES.map((_, i) => i).sort(() => Math.random() - 0.5);
@@ -116,7 +116,7 @@ export function showVictory(m, myTm, onDone) {
     shb.textContent = ok ? 'LINK COPIED!' : url; setTimeout(() => { shb.textContent = 'SHARE'; }, 2500);
   };
   { const mb = el.querySelector('.mm'), upd = () => { mb.textContent = A.isMusicMuted() ? 'MUSIC: OFF' : 'MUTE MUSIC'; audio.muted = A.isMusicMuted(); }; mb.onclick = () => { A.setMusicMuted(!A.isMusicMuted()); upd(); audio.play().catch(() => { /* noop */ }); }; upd(); }
-  el.querySelector('.c').onclick = () => { closeVictory(); if (onDone) onDone(); };
+  el.querySelector('.c').onclick = () => { closeVictory(); A.blockMenuMusic(false); if (onDone) onDone(); try { A.startMusic(99); } catch (e) { /* noop */ } };
   el.addEventListener('pointerdown', () => { if (audio.paused) audio.play().catch(() => {}); }, { once: true });
   return st;
 }

@@ -230,7 +230,10 @@ function menuStop() {
   const s = menuSrc, g = menuG; menuSrc = null; menuG = null;
   try { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.15); s.stop(ctx.currentTime + 0.8); } catch (e) { /* noop */ }
 }
+let menuBlock = false;
+export function blockMenuMusic(b) { menuBlock = !!b; if (b) stopMusic(); }   // v359: the victory page keeps the menu song OFF until CONTINUE is pressed
 export function startMusic(levelIdx) {
+  if (menuBlock && levelIdx === 99) return;
   if (levelIdx === 99 && ctx) { // the main menu / lobby: a real (CC0) track instead of the synth loop
     if (menuWant) return;
     stopMusic(); menuWant = true;
