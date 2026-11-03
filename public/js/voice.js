@@ -3,6 +3,7 @@
 // A phone only pays for it while a mic is open or a teammate talks (Opus ~24 kbps per voice), the 3D drawing is not touched.
 const STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
 
+const PHONE = typeof navigator !== 'undefined' && (/iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 export class Voice {
   constructor(net) {
     this.net = net; this.me = 0; this.peers = new Map(); this.names = new Map(); this.mic = false; this.spk = true; this.stream = null;
@@ -27,7 +28,7 @@ export class Voice {
     pc.onicecandidate = (e) => { if (e.candidate) this.sig(id, 'i', e.candidate.toJSON ? e.candidate.toJSON() : e.candidate); };
     pc.ontrack = (e) => {
       const st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
-      if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; }
+      if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; o.audio.style.display = 'none'; try { document.body.appendChild(o.audio); } catch { /* ignore */ } }   // v384: in the page, so the laptop's echo canceller can hear what is being played
       o.audio.srcObject = st; o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id);   // v381: iPhone Safari ignores .volume, only .muted silences it
       const p = o.audio.play(); if (p && p.catch) p.catch(() => { this._needTap = true; this.changed(); });
     };
@@ -42,7 +43,7 @@ export class Voice {
   setTrack(o, t) { try { for (const sn of o.pc.getSenders()) sn.replaceTrack(t).catch(() => {}); } catch { /* ignore */ } }
   rebind(o) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t && t.readyState === 'live') this.setTrack(o, t); }   // after every negotiation: put the mic on the line again
   connect(id) { if (this.peers.has(id)) return; this.peers.set(id, this.mk(id)); }
-  drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; } this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
+  drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; try { o.audio.remove(); } catch { /* ignore */ } } this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
   sig(to, k, d) { this.net.send({ t: 'vc', to, k, d }); }
   // ---- messages from the other players (relayed by the server)
   async onSignal(m) {
@@ -75,7 +76,7 @@ export class Voice {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.want = false; this.err = 'Voice needs a secure (https) page'; this.changed(); return false; }
     this.actx(); try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch (e) { /* ignore */ }   // v381: set BEFORE the mic opens so iPhone uses its voice-processing (echo cancelling) route
     let st = null, e1 = null;
-    for (const c of [{ echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: { ideal: 1 } }, { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // v381: voice processing (echo cancel) requested first   // the second try: a plain mic, in case the phone refuses the fancy settings
+    for (const c of [{ echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, advanced: [{ googEchoCancellation: true }, { googExperimentalEchoCancellation: true }, { googHighpassFilter: true }] }, { echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: { ideal: 1 } }, { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // v381: voice processing (echo cancel) requested first   // the second try: a plain mic, in case the phone refuses the fancy settings
       try { st = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: c, video: false }), new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { name: 'Timeout' })), 15000))]); break; } catch (e) { e1 = e; if (e && (e.name === 'NotAllowedError' || e.name === 'Timeout')) break; }   // v382: after a timeout do NOT ask again (Android showed a second, stacked request)
 
     }
@@ -120,6 +121,9 @@ export class Voice {
     if (this.mic && !this.selfAn && (!this._sl || now - this._sl > 600)) { this._sl = now;   // v382 phones: own loudness from the connection stats, no WebAudio on the mic
       for (const o of this.peers.values()) { if (o.pc.connectionState !== 'connected') continue; o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if ((x.type === 'media-source' && x.kind === 'audio') && x.audioLevel > l) l = x.audioLevel; }); if (l > 0.02) this.level.set(this.me, performance.now()); }).catch(() => {}); break; } }
     if (this.mic) { if (this.selfAn) chk(this.me, this.selfAn); else { const on = now - (this.level.get(this.me) || -1e9) < 700; if (on !== this.speaking.has(this.me)) { on ? this.speaking.add(this.me) : this.speaking.delete(this.me); ch = true; } } }
+    if (this.mic && this.stream && !PHONE) {   // v384 laptop: while a teammate is talking through the speakers, the mic is paused (half-duplex) so their voice cannot come back as an echo
+      const t = this.stream.getAudioTracks()[0]; let far = false; if (this.spk) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
+      if (t) { if (far) this._gateT = now; const gated = far || (this._gateT && now - this._gateT < 400); const en = !gated; if (t.enabled !== en) t.enabled = en; } }
     if (ch) this.changed(true);
   }
   changed(speakOnly) { if (this.onChange) this.onChange(speakOnly); }
