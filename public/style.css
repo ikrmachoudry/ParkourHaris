@@ -1273,3 +1273,4 @@ body.btn-edit.touch #joy, body.btn-edit #joy { display: block !important; pointe
 .dsel button.on { background: #ff9500; border-color: #ff9500; color: #2a1600; }
 .dsel button[data-d="hard"].on { background: #ff453a; border-color: #ff453a; color: #fff; }
 body.in-race:not(.jang-mode) .dsel { display: none; }
+body.guest-room .dsel { display: none !important; }

@@ -761,7 +761,7 @@ export class CombatSim {
     let lx = b.x + ux * dd, lz = b.z + uz * dd; for (let k = 0; k < 6 && hitsSolid(L, lx, lz, 0.25); k++) { dd -= 0.8; lx = b.x + ux * dd; lz = b.z + uz * dd; }
     b.thr = 0; this.nades.push({ x: lx, z: lz, t: 2.6 }); this.events.push({ k: 'nade', id: b.id, x: b.x, z: b.z, lx, lz }); }
   nadeBang(n, PL) {
-    const r = 6.5; for (const q of PL) { if (!q.alive) continue; const d = Math.hypot(q.x - n.x, q.z - n.z); if (d >= r) continue; if (q.y !== undefined && Math.abs(q.y - cmbH(n.x, n.z)) > 3) continue; if (d > 1.5 && !los(this.L, n.x, n.z, q.x, q.z)) continue; this.events.push({ k: 'nbang', x: n.x, z: n.z, tp: q.id, dmg: Math.round(8 + 80 * (1 - d / r) * (1 - d / r * 0.3)) }); } }
+    const r = 6.5; for (const q of PL) { if (!q.alive) continue; const d = Math.hypot(q.x - n.x, q.z - n.z); if (d >= r) continue; if (q.y !== undefined && Math.abs(q.y - cmbH(n.x, n.z)) > 3) continue; if (d > 1.5 && !los(this.L, n.x, n.z, q.x, q.z)) continue; this.events.push({ k: 'nbang', x: n.x, z: n.z, tp: q.id, dmg: Math.round(5 + 50 * (1 - d / r) * (1 - d / r * 0.3)) }); } }
   drain() { const e = this.events; this.events = []; return e; }
 }
 // v269: the CIVIC DA GARAGE shutter: open = the solid is pushed far below the ground (nothing hits it, cars drive through); closed = it fills the doorway again
