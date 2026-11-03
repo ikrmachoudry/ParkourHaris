@@ -2004,7 +2004,7 @@ class Race {
     const inPlane = (() => { const cs0 = this.mission && this.mission.cs; return !!(cs0 && cs0.dropping && cs0.drop && cs0.drop.ph === 'plane'); })();   // v222: inside the plane (34 m/s) the camera pivot is welded to the player: a smoothed pivot lagged by a metre or so and the lag changed with every frame time = the shaking
     const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
     this.camTarget.x += (tx - this.camTarget.x) * f; this.camTarget.z += (tz - this.camTarget.z) * f;
-    this.camTarget.y += (ty - this.camTarget.y) * (inPlane ? 1 : 1 - Math.exp(-(this.twK > 0.3 ? 22 : 7) * dt));   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
+    this.camTarget.y += (ty - this.camTarget.y) * (inPlane ? 1 : 1 - Math.exp(-(this.twK > 0.3 || this._onSt ? 22 : 7) * dt));   /* v356: also on ordinary stairs the pivot keeps up with the climb */   // on the stairs the pivot keeps up with the climb (a lagging pivot put the camera into the steps)
     this.camera.position.set(this.camTarget.x + Math.sin(this.camYaw) * cp * dist, this.camTarget.y + sp * dist + (fpScope ? 0 : 0.4), this.camTarget.z + Math.cos(this.camYaw) * cp * dist);
     { const cs = this.mission && this.mission.cs, dr = cs && cs.dropping && cs.drop;   // inside the plane the camera stays INSIDE the fuselage tube (radius 2, in the cabin's OWN frame - it is turned 53 degrees against the plane group)
       const w = dr && dr.ph === 'plane' && cs.plane && cs.plane.children[0]; if (w && w.userData.cabin) { w.updateMatrixWorld(true); const c = this.camera.position, L = w.worldToLocal(c.clone()), ly = L.y - 0.57, r = Math.hypot(L.x, ly), k = r > 1.6 ? 1.6 / r : 1; L.x = clamp(L.x * k, -1.2, 1.2); L.y = 0.57 + Math.min(1.3, ly * k); L.z = clamp(L.z, -7.3, 6.0); c.copy(w.localToWorld(L)); } }   // keep the camera in the aisle, below the ceiling lights
@@ -2056,7 +2056,11 @@ class Race {
     {
       if (this.me && this.me.model) this.me.model.group.rotation.z = this.leanV * 0.06; }
     if (fpScope) { const cc = this.camera.position; this.camera.lookAt(cc.x - Math.sin(this.camYaw) * cp * 20, cc.y - sp * 20, cc.z - Math.cos(this.camYaw) * cp * 20); }   // v314: first-person scope: look ALONG the view (the old look-at-the-pivot pointed at the sky from 5 cm away = a solid blue scope)
-    else this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
+    else { /* v356 STAIR CAMERA: when a wall / ceiling pulls the camera in close to the head (stairwells!) the old "look at the pivot" from a few centimetres away swung up to the sky and every little step moved it. Near the head the view now simply looks ALONG the aim direction (yaw + pitch), blended in as the camera gets closer */
+      const cc = this.camera.position, tx0 = this.camTarget.x - cc.x, ty0 = this.camTarget.y + 0.2 - cc.y, tz0 = this.camTarget.z - cc.z, dl = Math.hypot(tx0, ty0, tz0) || 1, bx = -Math.sin(this.camYaw) * cp, by = -sp, bz = -Math.cos(this.camYaw) * cp;
+      const w = clamp(Math.max((1 - (this.camK === undefined ? 1 : this.camK)) * 3, dl < 1.6 ? 1 - (dl - 0.6) / 1.0 : 0), 0, 1);
+      if (w <= 0.001) this.camera.lookAt(this.camTarget.x, this.camTarget.y + 0.2, this.camTarget.z);
+      else { let vx = tx0 / dl * (1 - w) + bx * w, vy = ty0 / dl * (1 - w) + by * w, vz = tz0 / dl * (1 - w) + bz * w; const vl = Math.hypot(vx, vy, vz) || 1; this.camera.lookAt(cc.x + vx / vl * 10, cc.y + vy / vl * 10, cc.z + vz / vl * 10); } }
   }
   updateLights() {
     if (this.dn && this._tOpt !== OPT.time) { this._tOpt = OPT.time; if (window.applyTime) window.applyTime(); }
