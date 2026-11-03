@@ -173,13 +173,16 @@ function prepTeams(room, ws) {
   room.teams = room.teams || []; const players = [...room.players.values()];
   if (players.length > 1) {
     const loose = players.filter((q) => q.team == null).sort(() => Math.random() - 0.5);
-    for (const q of loose) {
-      let t = room.teams.filter((x) => x.fill && x.ids.size < TEAM_MAX).sort((a, b) => a.ids.size - b.ids.size)[0];
-      if (!t && room.teams.length < COMBAT_TEAMS) { t = { id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: q.id, fill: false, ids: new Set() }; room.teams.push(t); }
-      if (!t) t = room.teams.filter((x) => x.ids.size < TEAM_MAX).sort((a, b) => a.ids.size - b.ids.size)[0];
-      if (!t) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; }
-      t.ids.add(q.id); q.team = t.id;
+    const put = (t, q) => { t.ids.add(q.id); q.team = t.id; };
+    /* v381: loose players are GROUPED (3 players with no team = ONE team of 3, not three teams of 1 that then fail the "2 to 4" rule): 1) teams with fewer than 2 are topped up, 2) FILL teams take the rest up to 4, 3) the others form new teams of 2-4 (dealt evenly), 4) a last single player joins the smallest team with a free seat */
+    for (const t of room.teams) while (t.ids.size < 2 && loose.length) put(t, loose.shift());
+    for (const t of room.teams.filter((x) => x.fill)) while (t.ids.size < TEAM_MAX && loose.length) put(t, loose.shift());
+    if (loose.length) {
+      const free = COMBAT_TEAMS - room.teams.length, k = Math.min(Math.ceil(loose.length / TEAM_MAX), Math.floor(loose.length / 2), free);
+      if (k >= 1) { const ts = []; for (let i = 0; i < k; i++) { const t = { id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: loose[i].id, fill: false, ids: new Set() }; room.teams.push(t); ts.push(t); } loose.forEach((q, i) => put(ts[i % k], q)); }
+      else for (const q of loose) { const t = room.teams.filter((x) => x.ids.size < TEAM_MAX).sort((u, v) => u.ids.size - v.ids.size)[0]; if (!t) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; } put(t, q); }
     }
+    if (room.teams.some((t) => t.ids.size > TEAM_MAX)) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; }
     const small = room.teams.find((t) => t.ids.size < 2);
     if (small) { send(ws, { t: 'err', msg: `Team ${small.name} has only 1 player. Every team needs 2 to 4 players (or the player can leave the team).` }); return false; }
     bcast(room, lobbyMsg(room));

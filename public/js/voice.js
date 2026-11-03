@@ -28,7 +28,7 @@ export class Voice {
     pc.ontrack = (e) => {
       const st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; }
-      o.audio.srcObject = st; o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0;
+      o.audio.srcObject = st; o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id);   // v381: iPhone Safari ignores .volume, only .muted silences it
       const p = o.audio.play(); if (p && p.catch) p.catch(() => { this._needTap = true; this.changed(); });
     };
     pc.onnegotiationneeded = async () => {
@@ -71,15 +71,17 @@ export class Voice {
     return (this._opening = this.openMic().finally(() => { this._opening = null; }));
   }
   async openMic() {
+    const ep = this.epoch = this.epoch || 0, all = this.allStreams || (this.allStreams = new Set());   // v381: every stream ever opened is remembered so closing the mic really stops ALL of them
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.want = false; this.err = 'Voice needs a secure (https) page'; this.changed(); return false; }
-    this.actx();
+    this.actx(); try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch (e) { /* ignore */ }   // v381: set BEFORE the mic opens so iPhone uses its voice-processing (echo cancelling) route
     let st = null, e1 = null;
-    for (const c of [{ echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // the second try: a plain mic, in case the phone refuses the fancy settings
+    for (const c of [{ echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true }, channelCount: { ideal: 1 } }, { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, true]) {   // v381: voice processing (echo cancel) requested first   // the second try: a plain mic, in case the phone refuses the fancy settings
       try { st = await Promise.race([navigator.mediaDevices.getUserMedia({ audio: c, video: false }), new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { name: 'Timeout' })), 15000))]); break; } catch (e) { e1 = e; if (e && e.name === 'NotAllowedError') break; }
     }
     if (!st) { this.want = false; this.mic = false; this.err = e1 && (e1.name === 'NotAllowedError' || e1.name === 'SecurityError') ? 'Mic is blocked. Browser menu > Site settings > Microphone > Allow, then reload' : e1 && e1.name === 'Timeout' ? 'The phone did not answer the mic request. Tap the mic again' : e1 && e1.name === 'NotFoundError' ? 'No microphone found on this device' : 'Could not open the mic (' + ((e1 && e1.name) || 'error') + ')'; this.changed(); return false; }
+    all.add(st);
     try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch (e) { /* ignore */ }   // v239 iPhone: keep the game sounds on the loudspeaker while the mic is open
-    if (!this.want) { for (const t of st.getTracks()) t.stop(); return false; }   // the player tapped it off again while the phone was asking
+    if (!this.want || this.epoch !== ep) { for (const t of st.getTracks()) t.stop(); all.delete(st); return false; }   // v381: the player closed the mic while the phone was still opening it (epoch changed): drop it at once   // the player tapped it off again while the phone was asking
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = st; this.mic = true;
     const t = st.getAudioTracks()[0]; t.enabled = !document.hidden;
@@ -91,10 +93,17 @@ export class Voice {
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
   // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it
   visibility(hidden) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t) t.enabled = !hidden; if (!hidden && this.want) this.reopenSoon(); }
-  releaseMic() { for (const o of this.peers.values()) this.setTrack(o, null); if (this.stream) { for (const t of this.stream.getTracks()) t.stop(); this.stream = null; } this.selfAn = null; this.speaking.delete(this.me); }
-  setSpk(on) { this.spk = on; for (const [id, o] of this.peers) if (o.audio) o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; this.changed(); }
+  releaseMic() {   // v381: close the mic for REAL (iPhone kept sending): the sender lines are emptied, every stream ever opened is stopped, pending re-opens are cancelled, and the phone's audio session goes back to normal playback
+    this.epoch = (this.epoch || 0) + 1; clearTimeout(this._ro);
+    for (const o of this.peers.values()) { this.setTrack(o, null); try { for (const sn of o.pc.getSenders()) if (sn.track) { sn.track.enabled = false; sn.track.stop(); } } catch { /* ignore */ } }
+    if (this.stream) { for (const t of this.stream.getTracks()) { t.onended = null; t.enabled = false; t.stop(); } this.stream = null; }
+    if (this.allStreams) { for (const st of this.allStreams) for (const t of st.getTracks()) { t.onended = null; t.enabled = false; t.stop(); } this.allStreams.clear(); }
+    this.selfAn = null; this.speaking.delete(this.me);
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* ignore */ }
+  }
+  setSpk(on) { this.spk = on; for (const [id, o] of this.peers) if (o.audio) { o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !on || this.muted.has(id); } this.changed(); }   // v381: .muted as well (iPhone ignores .volume)
   setVol(v) { this.vol = Math.max(0, Math.min(1, v)); this.setSpk(this.spk); }
-  toggleMute(id) { if (this.muted.has(id)) this.muted.delete(id); else this.muted.add(id); const o = this.peers.get(id); if (o && o.audio) o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; this.changed(); }
+  toggleMute(id) { if (this.muted.has(id)) this.muted.delete(id); else this.muted.add(id); const o = this.peers.get(id); if (o && o.audio) { o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id); } this.changed(); }
   resumeAudio() { this._needTap = false; for (const o of this.peers.values()) if (o.audio && o.audio.paused && o.audio.srcObject) o.audio.play().catch(() => {}); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); }
   // ---- who is talking (8 times a second, only reads a tiny buffer)
   lvl(an) { if (!an) return 0; const b = this.buf || (this.buf = new Uint8Array(128)); an.getByteTimeDomainData(b); let m = 0; for (let i = 0; i < b.length; i += 2) { const v = Math.abs(b[i] - 128); if (v > m) m = v; } return m; }
