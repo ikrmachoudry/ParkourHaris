@@ -86,13 +86,13 @@ function buildSolids(o) {
   const wall = (x0, z0, x1, z1, y0, y1, k = 'wall') => out.push({ x0: o.x + x0, z0: o.z + z0, x1: o.x + x1, z1: o.z + z1, y0: fy + y0, y1: fy + y1, k });
   const W = o.win || {};
   /* v343 STAIRS (building-code numbers: flight flush against its wall, a banister on every OPEN side, a guard round the opening in the floor above). 'rail' solids are body-only blockers (bullets / camera ignore them). o.flights / o.guards tell battlemap.js what to draw. */
-  const RT = 0.08, RH = 1.5, GH = 1.1; o.flights = []; o.guards = [];
+  const RT = 0.08, RH = 1.2, GH = 1.1; o.flights = []; o.guards = [];
   const flightRail = (ax, a0, tr, n, dir, l0, sw, yb, stp, flushLo, flushHi) => {   // steps run along ax from a0 (dir > 0: step i = a0 + i*tr, dir < 0: a0 - (i+1)*tr), lane l0..l0+sw, tread i top = yb + (i+1)*stp
     const sd = [!flushLo, !flushHi]; o.flights.push({ ax, a0, tr, n, dir, l0, sw, yb, stp, sd });
     for (let i = 0; i < n; i++) { const pa = dir > 0 ? a0 + i * tr : a0 - (i + 1) * tr, yt = yb + (i + 1) * stp;
-      for (let s = 0; s < 2; s++) { if (!sd[s]) continue; const la = s ? l0 + sw - RT : l0; if (ax === 'x') wall(pa, la, pa + tr, la + RT, yt - stp - 0.05, yt + RH, 'rail'); else wall(la, pa, la + RT, pa + tr, yt - stp - 0.05, yt + RH, 'rail'); } }
+      for (let s = 0; s < 2; s++) { if (!sd[s]) continue; const la = s ? l0 + sw - RT : l0; if (ax === 'x') wall(pa, la, pa + tr, la + RT, yt - stp - 0.05, yt + RH, 'rail'); else wall(la, pa, la + RT, pa + tr, yt - stp - 0.05, yt + RH, 'rail'); const q = out[out.length - 1]; q.vault = 1; q.drop = 1; } }   // v347: JUMP vaults over a banister (the landing is the floor beside / below the flight: a high drop hurts)
   };
-  const guard = (x0, z0, x1, z1, y) => { wall(x0, z0, x1, z1, y, y + GH, 'rail'); o.guards.push({ x0, z0, x1, z1, y }); };
+  const guard = (x0, z0, x1, z1, y) => { wall(x0, z0, x1, z1, y, y + GH, 'rail'); out[out.length - 1].vault = 1; out[out.length - 1].drop = 1; o.guards.push({ x0, z0, x1, z1, y }); };
   const holeGuard = (h, ax, dir, flushLo, flushHi, y) => {   // the opening in the floor: guarded at the low end (the foot of the flight, a 3 m drop) and along every side that is not a wall
     if (ax === 'x') { if (dir > 0) guard(h.x0 - RT, h.z0, h.x0, h.z1, y); else guard(h.x1, h.z0, h.x1 + RT, h.z1, y); if (!flushLo) guard(h.x0 - RT, h.z0 - RT, h.x1 + RT, h.z0, y); if (!flushHi) guard(h.x0 - RT, h.z1, h.x1 + RT, h.z1 + RT, y); }
     else { if (dir > 0) guard(h.x0, h.z0 - RT, h.x1, h.z0, y); else guard(h.x0, h.z1, h.x1, h.z1 + RT, y); if (!flushLo) guard(h.x0 - RT, h.z0 - RT, h.x0, h.z1 + RT, y); if (!flushHi) guard(h.x1, h.z0 - RT, h.x1 + RT, h.z1 + RT, y); }
