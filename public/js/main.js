@@ -2653,6 +2653,19 @@ $('p-full').onclick = () => {
     } catch { /* not supported */ }
   });
 }
+// v366: landscape only. Android / Chrome: the first touch goes fullscreen and locks the screen to landscape (even with auto-rotate off). iPhone Safari cannot lock or force rotation (Apple does not allow it), so in portrait a full-screen "turn your phone sideways" cover blocks everything and the match is paused until the phone is landscape.
+{
+  const d = document, isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const lockLand = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch { /* ignore */ } };
+  const portrait = () => IS_TOUCH && innerHeight > innerWidth;
+  if (IS_TOUCH) {
+    const pb = d.createElement('div'); pb.id = 'portrait-block'; pb.innerHTML = '<div><svg viewBox="0 0 64 64" width="96" height="96" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="22" y="6" width="20" height="36" rx="3"/><path d="M14 52a22 22 0 0 0 36 0M50 52l-1-8M50 52l-8-1"/></svg><b>TURN YOUR PHONE SIDEWAYS</b><span>This game only plays in landscape.' + (isIOS ? ' Swipe down from the top-right corner and switch OFF the Portrait Orientation Lock.' : ' Turn ON Auto-rotate in your quick settings.') + '</span></div>'; d.body.appendChild(pb);
+    const react = () => { if (portrait()) { if (race && !race.menuOpen && !race.over) { try { openPause(); } catch { /* ignore */ } } } else lockLand(); };
+    addEventListener('resize', react); addEventListener('orientationchange', react);
+    if (!isIOS) { const first = () => { const el = d.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen; try { if (req && !d.fullscreenElement && !d.webkitFullscreenElement) { const r = req.call(el, { navigationUI: 'hide' }); if (r && r.then) r.then(lockLand).catch(lockLand); else lockLand(); } else lockLand(); } catch { lockLand(); } }; d.addEventListener('pointerup', first, { once: true, capture: true }); }
+    lockLand();
+  }
+}
 { const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
   const open = () => { if (race && !race.over) { keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };

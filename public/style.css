@@ -1345,3 +1345,10 @@ body.touch #c-pick { left: auto; right: max(10px, env(safe-area-inset-right)); b
 body.touch #act-pad #a-crouch.on svg.pubg [stroke], body.touch #act-pad #a-prone.on svg.pubg [stroke] { stroke: #ffd23f; }
 body.touch #act-pad #a-crouch.on svg.pubg g, body.touch #act-pad #a-prone.on svg.pubg g { fill: #ffd23f; }
 body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-prone.on svg.pubg g[stroke] { fill: none; }
+
+/* v366: portrait cover (phones only): nothing can be used until the phone is sideways */
+#portrait-block { display: none; }
+@media (orientation: portrait) { body.touch #portrait-block { display: grid; position: fixed; inset: 0; z-index: 9999; place-content: center; justify-items: center; text-align: center; background: #000; color: #fff; padding: 24px; gap: 14px; touch-action: none; } }
+#portrait-block b { font: 800 22px system-ui, sans-serif; letter-spacing: 3px; }
+#portrait-block span { font: 600 15px/1.45 system-ui, sans-serif; color: #cfd8e6; max-width: 320px; }
+#portrait-block > div { display: flex; flex-direction: column; align-items: center; gap: 14px; }
