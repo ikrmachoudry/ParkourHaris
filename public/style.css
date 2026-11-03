@@ -1359,3 +1359,7 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 #loader .bar { width: min(52vh, 64vw); margin-top: 0; }
 /* v363: choose-player page: MUTE MUSIC sits in the top right corner */
 #mm-btn.tr { left: auto; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); transform: none; }
+
+/* v367: layout editor: SAVE sits at the right side of the black bar, a little lower */
+#lay-bar { position: fixed; padding-right: 150px; min-height: 74px; }
+#lay-bar #lay-d { position: absolute; right: 14px; bottom: 10px; margin: 0; padding: 12px 26px; font-size: 14px; }

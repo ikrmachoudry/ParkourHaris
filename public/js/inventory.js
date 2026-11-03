@@ -31,7 +31,7 @@ export class Inventory {
   }
   bag() {   // the round bag button next to the map buttons
     if (this.btn) return;
-    const b = document.createElement('button'); b.id = 'c-bag'; b.type = 'button'; b.setAttribute('aria-label', 'Backpack'); b.innerHTML = BAG_ICON;
+    const b = document.createElement('button'); b.id = 'c-bag'; b.type = 'button'; b.setAttribute('aria-label', 'Backpack'); b.innerHTML = '🎒';
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(); }); document.body.appendChild(b); this.btn = b;
   }
   showBag(on) { this.bag(); this.btn.style.display = on ? 'flex' : 'none'; if (!on) this.toggle(false); }
