@@ -113,17 +113,17 @@ export class Voice {
   poll() {
     if (document.hidden) return; let ch = false; const now = performance.now();
     const chk = (id, an) => { const l = this.lvl(an); if (l > 5) this.level.set(id, now); const on = now - (this.level.get(id) || -1e9) < 350; if (on !== this.speaking.has(id)) { on ? this.speaking.add(id) : this.speaking.delete(id); ch = true; } };
-    if (!this._sw || now - this._sw > 600) { this._sw = now;   // a teammate's loudness comes from the connection's own stats 3-4 times a second (no extra audio processing on the phone)
+    if (!this._sw || now - this._sw > 300) { this._sw = now;   // a teammate's loudness comes from the connection's own stats 3-4 times a second (no extra audio processing on the phone)
       for (const [id, o] of this.peers) { if (o.busy || o.pc.connectionState !== 'connected') continue; o.busy = true;
         o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if (x.type === 'inbound-rtp' && x.kind === 'audio' && x.audioLevel > l) l = x.audioLevel; });
           if (this.muted.has(id) || !this.spk) l = 0; if (l > 0.02) this.level.set(id, performance.now()); }).catch(() => {}).finally(() => { o.busy = false; });
-        const on = now - (this.level.get(id) || -1e9) < 700; if (on !== this.speaking.has(id)) { on ? this.speaking.add(id) : this.speaking.delete(id); ch = true; } } }
+        const on = now - (this.level.get(id) || -1e9) < 450; if (on !== this.speaking.has(id)) { on ? this.speaking.add(id) : this.speaking.delete(id); ch = true; } } }
     if (this.mic && !this.selfAn && (!this._sl || now - this._sl > 600)) { this._sl = now;   // v382 phones: own loudness from the connection stats, no WebAudio on the mic
       for (const o of this.peers.values()) { if (o.pc.connectionState !== 'connected') continue; o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if ((x.type === 'media-source' && x.kind === 'audio') && x.audioLevel > l) l = x.audioLevel; }); if (l > 0.02) this.level.set(this.me, performance.now()); }).catch(() => {}); break; } }
     if (this.mic) { if (this.selfAn) chk(this.me, this.selfAn); else { const on = now - (this.level.get(this.me) || -1e9) < 700; if (on !== this.speaking.has(this.me)) { on ? this.speaking.add(this.me) : this.speaking.delete(this.me); ch = true; } } }
-    if (this.mic && this.stream && !PHONE) {   // v384 laptop: while a teammate is talking through the speakers, the mic is paused (half-duplex) so their voice cannot come back as an echo
+    if (this.mic && this.stream) {   // v384/v385 ALL devices: while a teammate is talking through the speakers, the mic is paused (half-duplex) so their voice cannot come back as an echo
       const t = this.stream.getAudioTracks()[0]; let far = false; if (this.spk) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
-      if (t) { if (far) this._gateT = now; const gated = far || (this._gateT && now - this._gateT < 400); const en = !gated; if (t.enabled !== en) t.enabled = en; } }
+      if (t) { if (far) this._gateT = now; const gated = far || (this._gateT && now - this._gateT < 500); const en = !gated; if (t.enabled !== en) t.enabled = en; } }
     if (ch) this.changed(true);
   }
   changed(speakOnly) { if (this.onChange) this.onChange(speakOnly); }
