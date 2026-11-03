@@ -633,7 +633,7 @@ export class CombatScene {
   buildZip() {   // v329: code-made placeholder (two posts, a steel cable, a handle) until the real zip line GLB arrives
     const Z = layout().zip; if (!Z) return; const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: 0x2b2f33 }), cab = new THREE.MeshLambertMaterial({ color: 0xc9ced3 });
     const A = new THREE.Vector3(CMB.x + Z.ax, Z.ah, CMB.z + Z.az), B = new THREE.Vector3(CMB.x + Z.bx, Z.bh, CMB.z + Z.bz), d = B.clone().sub(A), len = d.length();
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, len, 6), cab); c.position.copy(A).addScaledVector(d, 0.5); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); g.add(c);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 6), cab); c.position.copy(A).addScaledVector(d, 0.5); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); g.add(c);
     const post = (x, y0, z, h) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, h, 0.16), mat); m.position.set(CMB.x + x, y0 + h / 2, CMB.z + z); g.add(m); };
     post(Z.ax, Z.ay, Z.az, Z.H + 0.05); post(Z.bx, Z.by, Z.bz, Z.H + 0.05);
     const h = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), mat); h.position.copy(A).add(new THREE.Vector3(0, -0.05, 0)); g.add(h); this.zipHandle = h; this.zipA = A; this.zipB = B;

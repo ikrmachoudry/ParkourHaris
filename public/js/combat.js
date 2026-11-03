@@ -3,7 +3,7 @@
 // so they can be unit tested in node, the server builds the same collision, and battlemap.js (client only) turns the data into graphics.
 export const TW = { ST: 0.3, n: 144, a: 2.65, K: 1.3, S2: 3.85, O: 4.4, per: 24, door: 0.34, open: 195 * Math.PI / 180, ledge: Math.PI / 2, lhw: 0.24 };   // v222: ROUND towers with a true spiral stair (24 steps a turn, 4 turns). K = core radius, S2 = inner wall radius, O = outer radius, door = half angle of the door gap, open = where the roof opening starts (angle from the door, going up)   // the three parachute towers: 96 steps x 0.3 m = 29 m
 // v237: shooting windows in the tower wall: one a turn, alternating east / west, 0.9 m above the step you stand on, 1.3 m high, so you can look out, peek and shoot (and be shot)
-export const towerWins = (gy) => { const o = [], dph = 2 * Math.PI / TW.per; for (let t = 0; t * TW.per + 18 < TW.n; t++) { const ph = t % 2 ? 1.5 * Math.PI : 0.5 * Math.PI, i = t * TW.per + Math.round(ph / dph), fy = gy + (i + 1) * TW.ST; o.push({ ph, hw: 0.12, y0: fy + 0.9, y1: fy + 2.2 }); } return o; };
+export const towerWins = (gy, nSt = TW.n) => { const o = [], dph = 2 * Math.PI / TW.per; for (let t = 0; t * TW.per + 18 < nSt; t++) { const ph = t % 2 ? 1.5 * Math.PI : 0.5 * Math.PI, i = t * TW.per + Math.round(ph / dph), fy = gy + (i + 1) * TW.ST; o.push({ ph, hw: 0.12, y0: fy + 0.9, y1: fy + 2.2 }); } return o; };
 export const CMB = { x: 1500, z: 1500, half: 300 };   // map centre (the server accepts positions up to 2000) and half size: 600 x 600 m
 export const COMBAT_MS = 900000;                        // a match lasts 15 minutes
 export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.abs(z - CMB.z) < CMB.half + 14;
@@ -390,12 +390,12 @@ function build() {
   // v237: broken walls (a high piece and a lower broken piece) round the base: walls you can jump over to get across or take cover
   for (const [x, z, r] of [[132, -150, 0], [205, -135, 0], [146, -104, 1], [200, -168, 1], [168, -176, 0], [128, -124, 1]]) { crate(x, z, r ? 0.45 : 3.4, r ? 3.4 : 0.45, 1.15, '#9a978f', 'sandbag'); crate(x + (r ? 0 : 3.6), z + (r ? 3.6 : 0), r ? 0.45 : 2.2, r ? 2.2 : 0.45, 0.75, '#9a978f', 'sandbag'); }
   // three concrete towers: closed shaft, a door at the bottom, a spiral staircase inside, a flat roof with a parachute and a flag
-  const tower = (x, z, flag) => {
-    const y0 = Math.round(rawH(x, z) * 10) / 10; padRect(x - 7, z - 7, x + 7, z + 7, y0);
-    const gy = y0, ST = TW.ST, n = TW.n, H2 = n * ST, py = gy + H2, a = TW.a, K = TW.K, S2 = TW.S2, O = TW.O, dph = 2 * Math.PI / TW.per;   // phi = the angle round the shaft: 0 = the door side (south), growing to the east, north, west...
+  const tower = (x, z, flag, nSt = TW.n, yFix) => {
+    const y0 = yFix !== undefined ? yFix : Math.round(rawH(x, z) * 10) / 10; padRect(x - 7, z - 7, x + 7, z + 7, y0);
+    const gy = y0, ST = TW.ST, n = nSt, H2 = n * ST, py = gy + H2, a = TW.a, K = TW.K, S2 = TW.S2, O = TW.O, dph = 2 * Math.PI / TW.per;   // phi = the angle round the shaft: 0 = the door side (south), growing to the east, north, west...
     const W = (x0, z0, x1, z1, ya, yb, k = 'prop') => addS({ x0: x + x0, z0: z + z0, x1: x + x1, z1: z + z1, y0: ya, y1: yb, k });
     // the round wall: a ring of small cells (the collision is boxes, the drawing in battlemap.js is a real cylinder)
-    { const wins = towerWins(gy), rc = S2 + 0.3, cell = 0.3, nn = 60; for (let q = 0; q < nn; q++) { const f = q * 2 * Math.PI / nn, cx = Math.sin(f) * rc, cz = Math.cos(f) * rc, door = cz > 0 && Math.abs(cx) < 1.45; const yb = door ? gy + 2.9 : gy - 1, fa = Math.atan2(cx, cz), ws = wins.filter((w) => { let d = (fa - w.ph) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) < w.hw + 0.05; });   // cells in front of a window are split: wall below the sill, wall above the lintel
+    { const wins = towerWins(gy, n), rc = S2 + 0.3, cell = 0.3, nn = 60; for (let q = 0; q < nn; q++) { const f = q * 2 * Math.PI / nn, cx = Math.sin(f) * rc, cz = Math.cos(f) * rc, door = cz > 0 && Math.abs(cx) < 1.45; const yb = door ? gy + 2.9 : gy - 1, fa = Math.atan2(cx, cz), ws = wins.filter((w) => { let d = (fa - w.ph) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d) < w.hw + 0.05; });   // cells in front of a window are split: wall below the sill, wall above the lintel
       let cur = yb; for (const w of ws) { if (w.y0 > cur) W(cx - cell, cz - cell, cx + cell, cz + cell, cur, w.y0); cur = w.y1; } { let dl = (fa - TW.ledge) % (2 * Math.PI); if (dl > Math.PI) dl -= 2 * Math.PI; if (dl < -Math.PI) dl += 2 * Math.PI; W(cx - cell, cz - cell, cx + cell, cz + cell, cur, Math.abs(dl) < TW.lhw + 0.04 ? py - 0.3 : py + 1.2); } } }   // the door is on the south side, 2.9 m high; v251: a LEDGE on the east side of the roof: no parapet there, you walk off the edge
     W(O - 0.1, -0.85, O + 2.2, 0.85, py - 0.62, py - 0.3, 'floor');   /* v300: a small LEDGE platform sticking out of the roof wall: walk out on it and step off the end */
     W(-0.95, -0.95, 0.95, 0.95, gy - 1, py - 0.3); W(-K, -0.5, K, 0.5, gy - 1, py - 0.3); W(-0.5, -K, 0.5, K, gy - 1, py - 0.3);   // the round core in the middle: the stairs wind round it, nobody can fall into a well
@@ -416,7 +416,7 @@ function build() {
     if (free(x, z)) return [x, z];
     for (let r = 10; r <= 160; r += 10) for (let k = 0; k < 16; k++) { const px = Math.round(x + Math.cos(k * Math.PI / 8) * r), pz = Math.round(z + Math.sin(k * Math.PI / 8) * r); if (free(px, pz)) return [px, pz]; }
     return [x, z]; };
-  const towers = [tower(...towerSpot(116, -186), 'pk'), tower(...towerSpot(212, -128), 'us'), tower(...towerSpot(0, -120), 'ps')];
+  const towers = [tower(...towerSpot(116, -186), 'pk'), tower(...towerSpot(212, -128), 'us'), tower(...towerSpot(0, -120), 'ps'), tower(128, -110, 'pk', 240, BASE_Y)];   // v335: the 4th tower: the TALLEST (240 steps = 72 m, ten turns) on the military hill; the zip line starts from its roof ledge
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
@@ -476,7 +476,7 @@ function build() {
   const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
   // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
   /* v329: ZIP LINE from the end of the 'us' tower ledge down to the Sada Ghar (clinic) roof */
-  let zip = null; { const tw = towers[1], cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (tw && cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL, ax = tw.x + TW.O + 2.0, az = tw.z, ay = tw.py - 0.3, bx = cl.x + 3.5, bz = cl.z + 4.5, H = 2.1; zip = { ax, az, ay, ah: ay + H, bx, bz, by: yr, bh: yr + H, H, len: Math.hypot(bx - ax, bz - az) }; } }
+  let zip = null; { const tw = towers[3], cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (tw && cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL, ax = tw.x + TW.O + 2.0, az = tw.z, ay = tw.py - 0.3, bx = cl.x + 3.5, bz = cl.z + 4.5, H = 2.1; zip = { ax, az, ay, ah: ay + H, bx, bz, by: yr, bh: yr + H, H, len: Math.hypot(bx - ax, bz - az) }; } }
   let nav = null;
   const L = {
     zip, solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, B,

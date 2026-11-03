@@ -342,14 +342,14 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const t = L.towers.find((q) => Math.abs(q.x - p.x) < 0.1 && Math.abs(q.z - p.z) < 0.1), py = t.py, gy = p.y, X = p.x, Z = p.z, wc = '#a5a59f';
     const O = TW.O, S2 = TW.S2, K = TW.K;
     // v222: a ROUND tower - a real cylinder wall with a door, a round core, and a true spiral stair (wedge-shaped steps, no corners, no landings)
-    const NS = TW.n, DPH = 2 * Math.PI / TW.per, ST = TW.ST, DOOR = TW.door;
+    const NS = t.n, DPH = 2 * Math.PI / TW.per, ST = TW.ST, DOOR = TW.door;
     const sector = (r0, r1, ph0, ph1, y0, h, seg = 6) => {   // a ring slice (r0..r1, angle ph0..ph1 measured from the door side), as a solid
       const sh = new THREE.Shape(), a0 = ph0 - Math.PI / 2, a1 = ph1 - Math.PI / 2, full = ph1 - ph0 >= Math.PI * 2 - 1e-6;
       if (r0 <= 0.001) { sh.absarc(0, 0, r1, 0, Math.PI * 2, false); } else if (full) { sh.absarc(0, 0, r1, 0, Math.PI * 2, false); const hole = new THREE.Path(); hole.absarc(0, 0, r0, 0, Math.PI * 2, true); sh.holes.push(hole); }
       else { sh.moveTo(r1 * Math.cos(a0), r1 * Math.sin(a0)); sh.absarc(0, 0, r1, a0, a1, false); sh.lineTo(r0 * Math.cos(a1), r0 * Math.sin(a1)); sh.absarc(0, 0, r0, a1, a0, true); sh.closePath(); }
       const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false, curveSegments: seg }); g.rotateX(-Math.PI / 2); g.translate(X, y0, Z); return g; };
     B.add('wall', sector(S2, O, DOOR, Math.PI * 2 - DOOR, gy - 1, 3.9, 56), wc, 0.04);   // the wall below the door lintel: open at the door
-    { let cur = gy + 2.9; for (const w of towerWins(gy)) { B.add('wall', sector(S2, O, 0, Math.PI * 2, cur, w.y0 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, w.ph + w.hw, w.ph - w.hw + Math.PI * 2, w.y0, w.y1 - w.y0, 56), wc, 0.04); cur = w.y1; }   // v237: the wall with the shooting windows cut out
+    { let cur = gy + 2.9; for (const w of towerWins(gy, NS)) { B.add('wall', sector(S2, O, 0, Math.PI * 2, cur, w.y0 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, w.ph + w.hw, w.ph - w.hw + Math.PI * 2, w.y0, w.y1 - w.y0, 56), wc, 0.04); cur = w.y1; }   // v237: the wall with the shooting windows cut out
       B.add('wall', sector(S2, O, TW.ledge + TW.lhw, TW.ledge - TW.lhw + Math.PI * 2, cur, py + 1.2 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, TW.ledge - TW.lhw, TW.ledge + TW.lhw, cur, py - 0.3 - cur, 12), wc, 0.04);   // v251: the roof wall has a gap = the LEDGE to jump from
       B.add('wall', sector(O - 0.9, O + 0.02, TW.ledge - TW.lhw, TW.ledge + TW.lhw, py - 0.3, 0.34, 8), '#ffcc00', 0.03); B.add('wall', sector(O - 0.45, O + 0.03, TW.ledge - TW.lhw, TW.ledge + TW.lhw, py - 0.3, 0.345, 8), '#1c1c1c', 0.03); }   // yellow + black hazard edge
     B.add('wall', sector(0, K, 0, Math.PI * 2, gy - 1, py - 0.3 - (gy - 1), 28), wc, 0.04);   // the round core

@@ -1194,7 +1194,7 @@ class Race {
   startZip() {   // v329: F at the end of the tower ledge: hang on the cable and slide down to the Sada Ghar roof
     const cs = this.mission && this.mission.cs, Z = cmbLayout().zip; if (!Z || this.zipR || this.drive || this.over || !cs || cs.down || cs.dropping) return false;
     const b = this.me.body; this.crouch = false; this.prone = false; this.vlt = null; this.syncAct && this.syncAct();
-    this.zipR = { t: 0, dur: Math.max(3, Z.len / 11), Z }; b.vx = b.vz = b.vy = 0; this.toast && this.toast('Press JUMP to let go', 2); return true; }
+    this.zipR = { t: 0, dur: Math.max(3, Z.len / 16), Z }; b.vx = b.vz = b.vy = 0; this.toast && this.toast('Press JUMP to let go', 2); return true; }
   rideZip(dt, inp, b) {
     const R = this.zipR, Z = R.Z; R.t += dt; const k = Math.min(1, R.t / R.dur), e = k * k * (3 - 2 * k);
     const cx = Z.ax + (Z.bx - Z.ax) * e, cz = Z.az + (Z.bz - Z.az) * e, cy = Z.ah + (Z.bh - Z.ah) * e;
