@@ -34,6 +34,7 @@ function embank(x, z, h) {
   const B = BR; if (!B) return h; const dz = Math.abs(z - B.z); if (dz > 14 || x < B.xb - 60 || x > B.xa + 60) return h;
   const s = x > B.c ? x - (B.xa + 6) : (B.xb - 4) - x; if (s < 0) return h;
   const ramp = B.y - 0.12 * s; if (ramp <= h) return h;
+  for (const q of PADS) if (x >= q.x0 && x <= q.x1 && z >= q.z0 && z <= q.z1) return h;   // v368: a flat building site is never raised by the bridge embankment (the shop beside the bridge had the ground 0.75 m up inside its walls)
   return h + (ramp - h) * (1 - smooth(6, 14, dz)); }
 export function cmbH(x, z) { return embank(x, z, cmbH0(x, z)); }
 // v355 ROAD BED: a road is cut / filled so that its cross-section is LEVEL (the hillside used to slope across it: one edge sank into the ground and the other floated) and its grade follows the smoothed hill along the centre line; it blends into the hillside over 6 m
@@ -83,7 +84,7 @@ export function cmbG(x, z) {
 }
 
 // ---------------------------------------------------------------- buildings
-const SL = 0.3, BASE = -0.6, TH = 0.4;   // floor slab thickness, how far walls reach below the floor, wall thickness
+const SL = 0.3, BASE = -1.2, TH = 0.4;   /* v368: walls reach 1.2 m below the floor (was 0.6): on a slope the ground beside a wall can sit lower than the floor, and a floating house showed daylight under it */   // floor slab thickness, how far walls reach below the floor, wall thickness
 const WALLS = ['#e6d9bd', '#d8c7a0', '#cfd8d4', '#e0b9a2', '#d9d3c4', '#c9b79a', '#bfcfd6', '#e8d9a8'];
 const ROOFS = ['#9b4b36', '#7a3f2e', '#5d5f66', '#8c5a3a', '#6b4a3a'];
 const KIND = {
@@ -279,7 +280,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   }
   if (ov.stair2) o.stair2 = ov.stair2; if (ov.inner) o.inner = ov.inner; if (ov.roofStair) o.roofStair = ov.roofStair; if (ov.tank) o.tank = ov.tank; if (ov.bay) o.bay = ov.bay;
   o.solids = buildSolids(o);
-  PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy });
+  PADS.push({ x0: x - w / 2 - 2.6, x1: x + w / 2 + 2.6, z0: z - d / 2 - 2.6, z1: z + d / 2 + 2.6, y: fy, bld: 1 });
   BUILDINGS.push(o); return o;
 }
 // extra pads (the base compound square, bridge ends)
@@ -477,6 +478,16 @@ function build() {
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
   for (const [x, z] of [[140, 205], [140, 224], [121, 214]]) round(x, z, 5, 8, '#c9ccd0', 'tank'); round(222, 196, 1.6, 26, '#9a6a5a', 'chimney');
+  /* v368 HILL CLIPPING: the DRAWN ground is a triangle mesh (5 m cells on phones, 4 / 3 m on a laptop) and a cell next to a house mixes in vertices from OUTSIDE the flat building site, so on a slope the ground beside a wall ended up up to 0.9 m too low (floating house) or 0.75 m too high (ground inside the wall and the doorway). Every flat site now grows by up to 3 m on each side (never into a neighbouring site: half the free gap) so the mesh cells touching the walls are fully flat. */
+  for (const p of PADS) { if (!p.bld) continue;
+    const grow = (side) => { let g = 3.0; for (const q of PADS) { if (q === p) continue;
+        if (side === 'x1' && q.z0 < p.z1 && q.z1 > p.z0 && q.x0 >= p.x1 - 0.01) g = Math.min(g, (q.x0 - p.x1) / 2 - 0.1);
+        else if (side === 'x0' && q.z0 < p.z1 && q.z1 > p.z0 && q.x1 <= p.x0 + 0.01) g = Math.min(g, (p.x0 - q.x1) / 2 - 0.1);
+        else if (side === 'z1' && q.x0 < p.x1 && q.x1 > p.x0 && q.z0 >= p.z1 - 0.01) g = Math.min(g, (q.z0 - p.z1) / 2 - 0.1);
+        else if (side === 'z0' && q.x0 < p.x1 && q.x1 > p.x0 && q.z1 <= p.z0 + 0.01) g = Math.min(g, (p.z0 - q.z1) / 2 - 0.1); }
+      return Math.max(0, g); };
+    p.gx1 = grow('x1'); p.gx0 = grow('x0'); p.gz1 = grow('z1'); p.gz0 = grow('z0'); }
+  for (const p of PADS) if (p.bld) { p.x1 += p.gx1; p.x0 -= p.gx0; p.z1 += p.gz1; p.z0 -= p.gz0; p.bld = 0; }
   // ---- forests: jittered grid, density from noise, kept off roads, buildings and the river
   const CELL = 6; let treeN = 0;
   for (let gx = -H + 14; gx < H - 14; gx += CELL) for (let gz = -H + 14; gz < H - 14; gz += CELL) {
@@ -487,7 +498,7 @@ function build() {
     const gy = cmbH(x, z); if (gy < -0.2) continue;
     const pine = gy > 11 || f > 0.56 ? R() < 0.82 : R() < 0.3, s = (pine ? 1.5 : 1.3) + R() * 1.0;
     const rr = R() * 6.28; if (treeN++ & 1) continue;   // v291: half the trees (every second one is skipped AFTER its random numbers are drawn, so nothing else on the map moves)
-    trees.push({ x, z, s, pine, y: gy, r: rr }); addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
+    const tsl = Math.hypot(cmbH(x + 0.6, z) - cmbH(x - 0.6, z), cmbH(x, z + 0.6) - cmbH(x, z - 0.6)) / 1.2; trees.push({ x, z, s, pine, y: gy - Math.min(0.55, tsl * 0.5), r: rr });   /* v368: on a steep slope the trunk is sunk so its downhill side does not float */ addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)
   { const CC = ['#9d9d98', '#a8a8a2', '#8f8f8b', '#b2b1aa'];
