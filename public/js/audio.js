@@ -2,7 +2,7 @@
 let ctx = null, master = null, sfxG = null, musG = null, noiseBuf = null;
 let sfxVol = 1, musVol = 1, revIn = null;
 try { const v = JSON.parse(localStorage.getItem('pgta_vol') || 'null'); if (v) { sfxVol = Math.max(0, Math.min(1, +v.s)); musVol = Math.max(0, Math.min(1, +v.m)); if (!isFinite(sfxVol)) sfxVol = 1; if (!isFinite(musVol)) musVol = 1; } } catch (e) { /* defaults */ }
-const MUS = 0.14, SFX = 0.7;   // v321: the music is a bit quieter (was 0.22)
+const MUS = 0.07, SFX = 0.7;   // v348: the welcome / menu music at HALF of what it was (0.14, before that 0.22)
 let muted = false, musicOn = true, timer = null, musicState = null;
 
 export function initAudio() {
