@@ -1352,3 +1352,10 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 #portrait-block b { font: 800 22px system-ui, sans-serif; letter-spacing: 3px; }
 #portrait-block span { font: 600 15px/1.45 system-ui, sans-serif; color: #cfd8e6; max-width: 320px; }
 #portrait-block > div { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+/* v365: start-up screen: all black, the HG logo in the middle, the progress bar below it */
+#loader { background: #000 !important; gap: 22px; }
+#loader::after { display: none; }
+#loader .ld-logo { display: block; width: min(52vh, 64vw); height: auto; border-radius: 15%; box-shadow: 0 0 40px rgba(0,0,0,.8); z-index: 1; }
+#loader .bar { width: min(52vh, 64vw); margin-top: 0; }
+/* v363: choose-player page: MUTE MUSIC sits in the top right corner */
+#mm-btn.tr { left: auto; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); transform: none; }

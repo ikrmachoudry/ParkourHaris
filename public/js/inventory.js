@@ -31,7 +31,7 @@ export class Inventory {
   }
   bag() {   // the round bag button next to the map buttons
     if (this.btn) return;
-    const b = document.createElement('button'); b.id = 'c-bag'; b.type = 'button'; b.setAttribute('aria-label', 'Backpack'); b.innerHTML = '🎒';
+    const b = document.createElement('button'); b.id = 'c-bag'; b.type = 'button'; b.setAttribute('aria-label', 'Backpack'); b.innerHTML = BAG_ICON;
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(); }); document.body.appendChild(b); this.btn = b;
   }
   showBag(on) { this.bag(); this.btn.style.display = on ? 'flex' : 'none'; if (!on) this.toggle(false); }
@@ -61,3 +61,5 @@ export class Inventory {
 
 // v361: closing on pointerdown let the finger-up CLICK fall onto the gear button right under the close button and open Settings: swallow taps for a moment after closing
 function swallowTap() { const t0 = performance.now(), f = (e) => { if (performance.now() - t0 > 500) { off(); return; } e.stopImmediatePropagation(); e.preventDefault(); }, evs = ['click'], off = () => evs.forEach((n) => window.removeEventListener(n, f, true)); evs.forEach((n) => window.addEventListener(n, f, true)); setTimeout(off, 520); }
+
+const BAG_ICON = '<svg viewBox="0 0 32 32" fill="#fff"><path d="M12.2 5.6a3.8 3.8 0 0 1 7.6 0v.6c3.4.9 5.6 3.8 5.6 7.4v11.2a3.2 3.2 0 0 1-3.2 3.2H9.8a3.2 3.2 0 0 1-3.2-3.2V13.6c0-3.6 2.2-6.5 5.6-7.4z"/><path d="M13.8 5.8a2.2 2.2 0 0 1 4.4 0v.4h-4.4z" fill="#222" opacity=".55"/><rect x="10.4" y="17.6" width="11.2" height="7.2" rx="1.8" fill="#222" opacity=".45"/><rect x="13.6" y="13" width="4.8" height="2.2" rx="1" fill="#222" opacity=".45"/></svg>';
