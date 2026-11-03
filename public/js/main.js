@@ -2744,6 +2744,11 @@ async function boot() {
     for (const [c, k] of [['.sens-x', 'sx'], ['.sens-y', 'sy']]) document.querySelectorAll(c).forEach((e) => { e.value = Math.round((OPT[k] || (k === 'sx' ? 1 : 0.6)) * 100); e.oninput = () => { OPT[k] = e.value / 100; saveOpts(); document.querySelectorAll(c).forEach((q) => { q.value = e.value; }); }; });   // v237: camera speed (turn / up-down) for every player, laptop and phone
     document.querySelectorAll('.vol-m').forEach((e) => { e.oninput = () => { A.initAudio(); A.setMusicVolume(e.value / 100); sl('.vol-m', e.value / 100); }; });
     document.querySelectorAll('.vol-s').forEach((e) => { e.oninput = () => { A.initAudio(); A.setSfxVolume(e.value / 100); sl('.vol-s', e.value / 100); }; e.onchange = () => A.sfx.shot(0, 0.5); }); }
+  // v373: CROSSHAIR size + color (Settings > Controls): CSS variables read by #xhair and the preview
+  { const applyXh = () => { const r = document.documentElement.style, sz = Math.max(50, Math.min(200, +OPT.xhSize || 100)); r.setProperty('--xhs', String(sz / 100)); r.setProperty('--xcu', /^#[0-9a-f]{6}$/i.test(OPT.xhColor || '') ? OPT.xhColor : '#ffffff'); document.querySelectorAll('#xh-col button').forEach((b) => b.classList.toggle('on', b.dataset.c === OPT.xhColor)); const sl = document.getElementById('xh-size'); if (sl) sl.value = sz; };
+    window.phApplyXh = applyXh; applyXh();
+    const sl = document.getElementById('xh-size'); if (sl) sl.oninput = () => { OPT.xhSize = +sl.value; saveOpts(); applyXh(); };
+    document.querySelectorAll('#xh-col button').forEach((b) => { b.onclick = () => { A.sfx.click(); OPT.xhColor = b.dataset.c; saveOpts(); applyXh(); }; }); }
   // music on the title page: start loading at once; browsers only let sound play after the first tap / key, so unlock on it
   A.initAudio(); A.startMusic(99);
   { const un = () => { A.initAudio(); if (!app.screen || app.screen === 'title' || app.screen === 'profile') A.startMusic(99); for (const ev of ['pointerdown', 'keydown', 'touchend']) window.removeEventListener(ev, un, true); }; for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, un, true); }

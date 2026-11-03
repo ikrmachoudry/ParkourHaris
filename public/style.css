@@ -642,7 +642,7 @@ body.big-map #bigmap-x, body.big-map #bigmap-zoom button { cursor: pointer !impo
 .m-card #m-role button.on { background: linear-gradient(#34c759, #1f9d45); color: #fff; border-color: #9af0b4; }
 
 /* aim circle: always shown while a gun is held (bright green, red when a target is under it) + the auto-aim button */
-#xhair { position: fixed; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; z-index: 3; pointer-events: none; display: none; --xc: #ffffff; transition: width .12s, height .12s, margin .12s; }
+#xhair { position: fixed; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; z-index: 3; pointer-events: none; display: none; --xc: var(--xcu, #ffffff); transform: scale(var(--xhs, 1)); transition: width .12s, height .12s, margin .12s; }
 /* v269: PUBG crosshair: four short arms (a gap in the middle) round a centre dot, no ring */
 #xhair::before { content: ''; position: absolute; inset: 0; background:
   linear-gradient(var(--xc), var(--xc)) 50% 0 / 2px 8px no-repeat, linear-gradient(var(--xc), var(--xc)) 50% 100% / 2px 8px no-repeat,
@@ -1368,3 +1368,14 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 body.set-open #vc { display: none !important; }
 #s-settings #set-cust, #s-settings #set-cust[disabled] { background: #ffe98a; color: #1a1a1a; }
 #s-settings #set-cust[disabled] { opacity: .9; }
+
+/* v373: crosshair settings: preview box + color swatches + size */
+#xh-prev { position: relative; width: 96px; height: 96px; background: #1a1d22; border: 1px solid rgba(255,255,255,.2); --xc: var(--xcu, #ffffff); }
+#xh-prev::before { content: ''; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; transform: scale(var(--xhs, 1)); background:
+  linear-gradient(var(--xc), var(--xc)) 50% 0 / 2px 8px no-repeat, linear-gradient(var(--xc), var(--xc)) 50% 100% / 2px 8px no-repeat,
+  linear-gradient(var(--xc), var(--xc)) 0 50% / 8px 2px no-repeat, linear-gradient(var(--xc), var(--xc)) 100% 50% / 8px 2px no-repeat; filter: drop-shadow(0 0 1px rgba(0,0,0,.9)); }
+#xh-prev u { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: var(--xc); box-shadow: 0 0 0 1px rgba(0,0,0,.7); transform: scale(var(--xhs, 1)); }
+.xh-col { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 260px; }
+.xh-col button { width: 34px; height: 34px; border-radius: 0; border: 2px solid rgba(255,255,255,.25); cursor: pointer; padding: 0; }
+.xh-col button.on { border-color: #fff; box-shadow: 0 0 0 2px #d93a3a; }
+#xh-size { width: 180px; }
