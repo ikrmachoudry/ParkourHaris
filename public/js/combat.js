@@ -659,6 +659,8 @@ export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
 const BOT = { pistol: { cd: 0.55, dmg: 14, acc: 0.5 }, ak: { cd: 0.17, dmg: 11, acc: 0.42 } };   // v331: a bot hit is 11 (AK) / 14 (pistol) hp, like a PUBG bullet through a vest
 /* v331 BOT DIFFICULTY: only the SHOTS TO KILL and the SIZE of the hit zone change; every level behaves the same (hides, crouches, goes prone, throws grenades). R = body hit radius (m), bm = damage the body armor lets through, hm = the same for a headshot (head hit = 2.3x). AK (54 hp a hit): easy 2 hits, medium 3 hits (2 headshots), hard 4 hits (2 headshots) */
+export const BOTS_BY_DIFF = { easy: 5, medium: 8, hard: 12 };   // v378: how many bots a match has (solo and multiplayer)
+export const botCount = (d) => BOTS_BY_DIFF[d] || BOTS_BY_DIFF.medium;
 export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.42, bm: 0.75, hm: 0.75 }, hard: { R: 0.32, bm: 0.55, hm: 0.6 } };
 const STH = [1.8, 1.25, 0.6];   // standing / crouching / prone: how tall the hit box is
 export class CombatSim {
@@ -761,7 +763,7 @@ export class CombatSim {
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     for (const b of this.bots) {
-      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
+      if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0 && !this.noRespawn) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));

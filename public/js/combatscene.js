@@ -10,7 +10,7 @@ import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
-import { CombatSim, CMB, COMBAT_MS, layout, cmbH, supportY, hitsSolid, ballOK } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, botCount, layout, cmbH, supportY, hitsSolid, ballOK } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim } from './props.js';
@@ -68,7 +68,7 @@ export class CombatScene {
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
-    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
+    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.sim && this.sim.bots ? '  \u2022  BOTS ' + this.sim.bots.filter((q) => q.alive).length : '') + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
     this.hud.querySelector('.ch-s').textContent = 'KILLS ' + this.kills + '   •   DEATHS ' + this.deaths;
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
   }
@@ -77,7 +77,7 @@ export class CombatScene {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
-    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); this.setBotDiff(); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, botCount(OPT.diff || 'medium')); if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; } }
@@ -513,6 +513,7 @@ export class CombatScene {
       for (const e of sim.drain()) this.event(e, b);
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
+      else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
     }
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position); if (this.glass) this.glass.update(dt);
     for (const [key, sm] of this.dsm) {   // the green smoke over dead players' boxes: gone when the last item is taken; drawn within 260 m
@@ -739,7 +740,7 @@ export class CombatScene {
   }
   finish(msg, why) {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
-    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div>' + (this.shared ? '<div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div>' : '') + '</div>';
+    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || (why === 'win' ? 'MISSION PASSED' : 'MATCH OVER')) + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div>' + (this.shared ? '<div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div>' : '') + '</div>';
     // v338: the victory page: the shared match waits for the server's verdict (team scores), a solo match shows it at once
     const T = R.jangTeam; this.timeUp = !msg; this.resSent = false;
     if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }

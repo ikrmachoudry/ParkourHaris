@@ -8,7 +8,8 @@ export class NetSim extends CombatSim {
   }
   hello() { this.net.send({ t: 'chello' }); this.helloT = 0; }
   // ---- from the server
-  onInit(m) { this.applyBots(m.b, true); this.loot = []; for (const a of m.l || []) this.addLoot(a); this.ready = true; }
+  onInit(m) { while (this.bots.length < (m.b || []).length) { this.bots.push(this.newBot(this.bots.length)); this.tgt.push(null); } if ((m.b || []).length) { this.bots.length = m.b.length; this.tgt.length = m.b.length; }   // v378: the server decides how many bots (by difficulty)
+    this.applyBots(m.b, true); this.loot = []; for (const a of m.l || []) this.addLoot(a); this.ready = true; }
   addLoot(a) { const [id, k, x, z, spot, am, al, gold, yy] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, y: yy === null || yy === undefined ? undefined : yy, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
   applyBots(arr, snap) {
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;

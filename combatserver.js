@@ -1,10 +1,10 @@
 // v245: the SHARED MATCH of Jang (PUBG style): when 2 or more real players are in a combat room, the SERVER runs the bots and the loot, so everybody fights the same
 // bots and picks up the same guns. The phones only show what the server says (positions 10x a second) and ask it for things (shoot, take, drop).
 // Solo Jang is not touched: it keeps running its own CombatSim on the phone.
-import { CombatSim, CMB, LOOT_KINDS } from './public/js/combat.js';
+import { CombatSim, CMB, LOOT_KINDS, botCount } from './public/js/combat.js';
 const q2 = (v) => Math.round(v * 100) / 100;
 export class CombatHost {
-  constructor(seed, bcast, sendTo, diff) { this.sim = new CombatSim(seed | 0, 8); this.sim.setDiff(diff); this.bcast = bcast; this.sendTo = sendTo; this.tk = 0; this.cid = new Map(); }
+  constructor(seed, bcast, sendTo, diff) { this.sim = new CombatSim(seed | 0, botCount(diff)); this.sim.noRespawn = true; this.sim.setDiff(diff);   /* v378: easy 5 / medium 8 / hard 12 bots, and a dead bot stays dead (PUBG) */ this.bcast = bcast; this.sendTo = sendTo; this.tk = 0; this.cid = new Map(); }
   botsMsg() { return { t: 'cb', st: q2(this.sim.t), b: this.sim.bots.map((b) => [q2(b.x), q2(b.z), q2(b.yaw), Math.max(0, b.hp | 0), b.alive ? 1 : 0, +(b.speed || 0).toFixed(1), b.walk ? 1 : 0, b.weapon === 'ak' ? 1 : 0, b.y == null ? null : q2(b.y), b.stn | 0, +(b.thr || 0).toFixed(2)]) }; }
   lootItem(it) { return [it.id, it.k, q2(it.x), q2(it.z), it.spot, it.am && typeof it.am === 'object' ? [it.am.mag | 0, it.am.res | 0] : 0, it.alive ? 1 : 0, it.gold | 0, it.y === undefined ? null : q2(it.y)]; }
   init(id) { this.sendTo(id, { ...this.botsMsg(), t: 'cinit', l: this.sim.loot.filter((it) => it.alive).map((it) => this.lootItem(it)) }); }
