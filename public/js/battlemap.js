@@ -176,6 +176,18 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       else if (s.k === 'roof') { if (b.roof === 'flat') B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8d8b84', 0.02); else B.box('conc', s.x0 + 0.3, s.y1 - 0.06, s.z0 + 0.3, s.x1 - 0.3, s.y1, s.z1 - 0.3, '#cfc6b2', 0.02); }   /* v318: pitched roofs showed a thick concrete slab UNDER the real roof = two layers; the slab stays for collision, only a thin ceiling plate inside the walls is drawn */
     }
     if (b.stairModel) { const M = b.stairModel, dm = propDim('stairs'); if (dm) for (let f = 0; f < M.n; f++) place('stairs', b.x + M.cx, fy + f * M.R, b.z + M.cz, dm.x, dm.y * M.sy, dm.z, Math.PI / 2); }   // v326: the user's stair model, one per storey (turned 90 degrees: the flights run north-south)
+    /* v343: banisters. Every straight flight gets a post on each tread-pair and a SLOPED handrail + a mid bar on its open sides; every opening in an upper floor gets a guard rail (the same boxes are 'rail' solids in combat.js, so what you see is what stops you) */
+    { const iron = '#2a2a2e', oak = '#8a6a48', V = THREE.Vector3, up = new V(0, 0, 1);
+      const bar = (x0, y0, z0, x1, y1, z1, t, col, mat) => { const d = new V(x1 - x0, y1 - y0, z1 - z0), L = d.length(); if (L < 0.02) return; const g = new THREE.BoxGeometry(t, t, L); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); B.add(mat, g, col, 0); };
+      for (const F of b.flights || []) for (let sd = 0; sd < 2; sd++) { if (!F.sd[sd]) continue;
+        const lat = sd ? F.l0 + F.sw - 0.04 : F.l0 + 0.04, P = (i) => { const pa = F.dir > 0 ? F.a0 + i * F.tr : F.a0 - (i + 1) * F.tr; return pa + F.tr / 2; }, Y = (i) => fy + F.yb + (i + 1) * F.stp, pt = (a, y) => F.ax === 'x' ? [b.x + a, y, b.z + lat] : [b.x + lat, y, b.z + a];
+        for (let i = 0; i < F.n; i += (i === F.n - 2 ? 1 : 2)) { const [px, py, pz] = pt(P(i), Y(i)); B.box('metal', px - 0.025, py, pz - 0.025, px + 0.025, py + 0.95, pz + 0.025, iron, 0); }
+        const e0 = P(0) - F.dir * F.tr * 0.5, e1 = P(F.n - 1) + F.dir * F.tr * 0.3;
+        for (const [h, t, col, mat] of [[0.95, 0.07, oak, 'wood'], [0.5, 0.03, iron, 'metal']]) { const yA = Y(0) - F.stp * 0.5 + h, yB = Y(F.n - 1) + h, k = (e0 - P(0)) / (P(F.n - 1) - P(0) || 1), k1 = (e1 - P(0)) / (P(F.n - 1) - P(0) || 1);
+          const ya = Y(0) + (Y(F.n - 1) - Y(0)) * k + h, yb = Y(0) + (Y(F.n - 1) - Y(0)) * k1 + h; const A = pt(e0, ya), Bp = pt(e1, yb); bar(A[0], A[1], A[2], Bp[0], Bp[1], Bp[2], t, col, mat); } }
+      for (const g of b.guards || []) { const w = g.x1 - g.x0, d = g.z1 - g.z0, L = Math.max(w, d), m = Math.max(2, Math.round(L / 1.2) + 1);
+        for (let i = 0; i < m; i++) { const t = i / (m - 1), px = w >= d ? g.x0 + w * t : (g.x0 + g.x1) / 2, pz = w >= d ? (g.z0 + g.z1) / 2 : g.z0 + d * t; B.box('metal', px - 0.03, fy + g.y, pz - 0.03, px + 0.03, fy + g.y + 1.0, pz + 0.03, iron, 0); }
+        B.box('wood', g.x0 - 0.01, fy + g.y + 0.98, g.z0 - 0.01, g.x1 + 0.01, fy + g.y + 1.06, g.z1 + 0.01, oak, 0); B.box('metal', g.x0, fy + g.y + 0.5, g.z0, g.x1, fy + g.y + 0.54, g.z1, iron, 0); } }
     // the floor inside
     B.box('conc', b.x - hx + 0.1, fy + 0.01, b.z - hz + 0.1, b.x + hx - 0.1, fy + 0.07, b.z + hz - 0.1, b.kind === 'warehouse' || b.kind === 'hangar' ? '#8a8a86' : b.kind === 'shack' || b.kind === 'cabin' || b.kind === 'house' ? '#a8896a' : '#b0aaa0', 0.03);
     // frames round doors and windows
