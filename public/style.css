@@ -1382,3 +1382,8 @@ body.set-open #vc { display: none !important; }
 
 /* v380: team mic + speaker stay on screen in the plane, while falling and gliding (above the drop / dive buttons) */
 body.vc-on.jang-mode.in-race #vc { display: block; z-index: 60; }
+
+/* v386 push to talk label + held mic */
+#vc-mode { margin-top: 5px; font: 800 9px/1.2 system-ui, sans-serif; letter-spacing: .04em; color: #fff; background: rgba(20,24,30,.62); border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 3px 7px; cursor: pointer; white-space: nowrap; width: max-content; }
+#vc-mode.ptt { border-color: #ffd23f; color: #ffd23f; }
+#vc-mic.held { background: rgba(255,170,30,.85); border-color: #ffe08a; box-shadow: 0 0 0 4px rgba(255,210,63,.8); }

@@ -2291,7 +2291,7 @@ function leaveToTitle() {
 
 // ---- team voice chat (v215): GTA rooms first. Mic is OFF until the player taps it. Buttons sit under the minimap, same place on every screen size.
 let voice = null;
-const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
+const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-mode"></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
 const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
 $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
 // who is on my voice channel: GTA = everybody in the room; JANG team room = the room IS the team (rooms never see each other). If players ever carry a team number, only the same team is connected.
@@ -2303,7 +2303,7 @@ function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn() || (document.body.classList.contains('in-lobby') && !!app.room);   // v284: in the lobby the buttons are there even before a friend joins
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
-  $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold Y') : 'OPEN MIC · tap to change'; $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
@@ -2312,7 +2312,12 @@ function voiceUI(speakOnly) {
 }
 // act on touchend itself (like the game's other buttons): a finger always answers, the synthesized click is dropped so it cannot fire twice
 const vcTap = (el, fn) => { let lt = 0; el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); lt = Date.now(); fn(e); }, { passive: false }); el.addEventListener('click', (e) => { e.stopPropagation(); if (Date.now() - lt < 700) return; fn(e); }); };
+// v386 PUSH TO TALK (PUBG style): the mic line is open ONLY while Y (laptop) or the mic button (phone) is held; tap the grey label to switch to open mic and back
+vcTap($('vc-mode'), () => { if (!voice) return; A.sfx.click(); voice.setPtt(!voice.ptt); voiceUI(); });
+{ const mic = $('vc-mic'); const down = (e) => { if (!voice || !voice.ptt) return; e.preventDefault(); e.stopPropagation(); if (!voice.want) { mic.classList.add('wait'); voice.setMic(true).then(() => { mic.classList.remove('wait'); voiceUI(); }); } voice.setHeld(true); voiceUI(); }; const up = () => { if (voice && voice.held) { voice.setHeld(false); voiceUI(); } };
+  mic.addEventListener('touchstart', down, { passive: false }); mic.addEventListener('mousedown', down); window.addEventListener('touchend', up); window.addEventListener('touchcancel', up); window.addEventListener('mouseup', up); window.addEventListener('blur', up); }
 vcTap($('vc-mic'), async () => {
+  if (voice && voice.ptt) return;   // in push-to-talk the mic button is a hold button (handled above); T arms / disarms the mic
   if (!voice) return; A.sfx.click(); voice.resumeAudio(); if (voice._tapBusy) return; voice._tapBusy = true; setTimeout(() => { voice._tapBusy = false; }, 350);
   const want = !voice.want; $('vc-mic').classList.toggle('wait', want);   // pulses while the phone asks for the microphone
   const ok = await voice.setMic(want); $('vc-mic').classList.remove('wait'); voiceUI();
@@ -2520,6 +2525,8 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
+  if (voiceOn() && voice && voice.ptt && e.code === 'KeyY') { if (!voice.want) voice.setMic(true).then(() => voiceUI()); voice.setHeld(true); voiceUI(); keys.delete(e.code); return; }   // v386: hold Y to talk (push to talk)
+  if (voiceOn() && voice && voice.ptt && e.code === 'KeyT') { A.sfx.click(); voice.resumeAudio(); voice.setMic(!voice.want).then((ok) => { voiceUI(); if (!ok && voice.err) gtoast(voice.err); }); keys.delete(e.code); return; }
   if (voiceOn() && !e.repeat && (e.code === 'KeyT' || e.code === 'KeyL')) { $(e.code === 'KeyT' ? 'vc-mic' : 'vc-spk').click(); keys.delete(e.code); return; }   // v236: T = talk (mic on/off), L = loud speaker (hear teammates on/off); V is the weapon swap again
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
@@ -2537,7 +2544,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
 });
-window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyH') A.hornStop(); });
+window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyY' && voice && voice.held) { voice.setHeld(false); voiceUI(); } if (e.code === 'KeyH') A.hornStop(); });
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
 

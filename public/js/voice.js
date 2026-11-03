@@ -9,6 +9,8 @@ export class Voice {
     this.net = net; this.me = 0; this.peers = new Map(); this.names = new Map(); this.mic = false; this.spk = true; this.stream = null;
     this.ice = STUN; this.iceLoaded = false; this.ctx = null; this.ana = null; this.level = new Map(); this.speaking = new Set(); this.timer = 0;
     this.want = false; this.vol = 1; this.muted = new Set(); this.onChange = null; this.holdMode = false; this.err = '';
+    let sv = null; try { sv = localStorage.getItem('ph_ptt'); } catch { /* ignore */ }
+    this.ptt = sv === null ? !PHONE : sv === '1'; this.held = false;   // v386 (PUBG style): LAPTOP default = PUSH TO TALK (the mic only transmits while the talk key is held, so speakers can never feed back); phones default to open mic
   }
   // ---- room membership: call with everybody in the room (including me) whenever the lobby changes
   setRoom(myId, players, on) {
@@ -86,16 +88,20 @@ export class Voice {
     if (!this.want || this.epoch !== ep) { for (const t of st.getTracks()) t.stop(); all.delete(st); return false; }   // v381: the player closed the mic while the phone was still opening it (epoch changed): drop it at once   // the player tapped it off again while the phone was asking
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = st; this.mic = true;
-    const t = st.getAudioTracks()[0]; t.enabled = !document.hidden;
+    const t = st.getAudioTracks()[0]; t.enabled = !document.hidden && (this.ptt ? this.held : true);
     const now0 = performance.now(); this._opens = (this._opens || []).filter((x) => now0 - x < 20000); this._opens.push(now0);
     t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) { if ((this._opens || []).length >= 5) { this.want = false; this.mic = false; this.err = 'The phone keeps closing the mic (another app may be using it). Tap the mic to try again'; this.releaseMic(); } else this.reopenSoon(); } this.changed(); };   // v382: stop the open/close loop (it made the Android mic indicator blink)
     for (const o of this.peers.values()) this.setTrack(o, t);
     this.selfAn = null; try { if (/iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) throw 0; const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
     this.changed(); return true;
   }
+  // v386: ONE place decides if the mic line carries sound: not in the background, and (push-to-talk) only while the talk key / button is held, and (open mic) not while a teammate is talking
+  applyEn(far) { const t = this.stream && this.stream.getAudioTracks()[0]; if (!t) return; const en = !document.hidden && (this.ptt ? this.held : !far); if (t.enabled !== en) t.enabled = en; }
+  setPtt(on) { this.ptt = !!on; this.held = false; try { localStorage.setItem('ph_ptt', on ? '1' : '0'); } catch { /* ignore */ } this.applyEn(false); this.changed(); }
+  setHeld(h) { if (this.held === !!h) return; this.held = !!h; this.applyEn(false); this.changed(true); }
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
   // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it
-  visibility(hidden) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t) t.enabled = !hidden; if (!hidden && this.want) this.reopenSoon(); }
+  visibility(hidden) { if (hidden) this.held = false; this.applyEn(false); if (!hidden && this.want) this.reopenSoon(); }
   releaseMic() {   // v381: close the mic for REAL (iPhone kept sending): the sender lines are emptied, every stream ever opened is stopped, pending re-opens are cancelled, and the phone's audio session goes back to normal playback
     this.epoch = (this.epoch || 0) + 1; clearTimeout(this._ro);
     for (const o of this.peers.values()) { this.setTrack(o, null); try { for (const sn of o.pc.getSenders()) if (sn.track) { sn.track.enabled = false; sn.track.stop(); } } catch { /* ignore */ } }
@@ -121,9 +127,9 @@ export class Voice {
     if (this.mic && !this.selfAn && (!this._sl || now - this._sl > 600)) { this._sl = now;   // v382 phones: own loudness from the connection stats, no WebAudio on the mic
       for (const o of this.peers.values()) { if (o.pc.connectionState !== 'connected') continue; o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if ((x.type === 'media-source' && x.kind === 'audio') && x.audioLevel > l) l = x.audioLevel; }); if (l > 0.02) this.level.set(this.me, performance.now()); }).catch(() => {}); break; } }
     if (this.mic) { if (this.selfAn) chk(this.me, this.selfAn); else { const on = now - (this.level.get(this.me) || -1e9) < 700; if (on !== this.speaking.has(this.me)) { on ? this.speaking.add(this.me) : this.speaking.delete(this.me); ch = true; } } }
-    if (this.mic && this.stream) {   // v384/v385 ALL devices: while a teammate is talking through the speakers, the mic is paused (half-duplex) so their voice cannot come back as an echo
-      const t = this.stream.getAudioTracks()[0]; let far = false; if (this.spk) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
-      if (t) { if (far) this._gateT = now; const gated = far || (this._gateT && now - this._gateT < 500); const en = !gated; if (t.enabled !== en) t.enabled = en; } }
+    if (this.mic && this.stream) {   // v384/v385: open mic - paused while a teammate is talking through the speakers (half-duplex); push-to-talk needs no pause
+      let far = false; if (this.spk && !this.ptt) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
+      if (far) this._gateT = now; this.applyEn(far || (!!this._gateT && now - this._gateT < 500)); }
     if (ch) this.changed(true);
   }
   changed(speakOnly) { if (this.onChange) this.onChange(speakOnly); }
