@@ -178,7 +178,14 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   for (const b of L.buildings) {
     const wm = WALLMAT[b.kind] || 'wall', fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
     const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' ? '#f2efe6' : '#3a3530';
-    for (const s of b.solids) {
+    /* v376: Z-FIGHT FIX. Wall / floor / roof boxes overlap at corners, T-joints and where a floor slab sliver sits inside a wall: two same-facing coplanar faces = flickery white patches on walls and floors. For every such pair one face is drawn 6 mm inside its box (collision is untouched): a floor slab yields to the wall, otherwise the later box yields. */
+    const ZF = new Map(); { const T = b.solids.filter((q) => q.k === 'wall' || q.k === 'floor' || q.k === 'roof'), ov = (a0, a1, c0, c1) => Math.min(a1, c1) - Math.max(a0, c0);
+      for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) { const a = T[i], c = T[j];
+        for (const [lo, hi, o1, o2] of [['x0', 'x1', ['y0', 'y1'], ['z0', 'z1']], ['y0', 'y1', ['x0', 'x1'], ['z0', 'z1']], ['z0', 'z1', ['x0', 'x1'], ['y0', 'y1']]]) {
+          if (ov(a[o1[0]], a[o1[1]], c[o1[0]], c[o1[1]]) < 0.02 || ov(a[o2[0]], a[o2[1]], c[o2[0]], c[o2[1]]) < 0.02) continue;
+          for (const f of [lo, hi]) if (Math.abs(a[f] - c[f]) < 0.002) { const y = a.k === 'floor' && c.k !== 'floor' ? a : c; let m = ZF.get(y); if (!m) ZF.set(y, m = {}); m[f] = f === lo ? 0.006 : -0.006; } } } }
+    const zf = (q) => { const m = ZF.get(q); return m ? { k: q.k, nd: q.nd, x0: q.x0 + (m.x0 || 0), x1: q.x1 + (m.x1 || 0), y0: q.y0 + (m.y0 || 0), y1: q.y1 + (m.y1 || 0), z0: q.z0 + (m.z0 || 0), z1: q.z1 + (m.z1 || 0) } : q; };
+    for (const s0 of b.solids) { const s = zf(s0);
       if (s.k === 'wall') B.box(wm, s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, wallC, 0.04);
       else if (s.k === 'floor') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8c6b48', 0.05);
       else if (s.k === 'step' && s.nd) { /* v326: drawn by the stairs.glb model below */ }
