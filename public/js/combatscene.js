@@ -731,12 +731,13 @@ export class CombatScene {
     if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }
     else { this.showWin({ win: 0, teams: [{ tm: 0, k: this.kills, d: this.deaths, n: String((T && T.teamName) || 'YOUR TEAM') }], rows: [{ id: 0, name: R.me.name || 'YOU', tm: 0, ch: R.me.char | 0, sk: R.me.skin === undefined ? R.me.char | 0 : R.me.skin | 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby }] }); }
   }
+  leaveAfterWin() { this.sendRes(); const R = this.R; setTimeout(() => { if (R.onCombatDone) R.onCombatDone(); }, 350); }   // v361: CONTINUE goes straight to the menu (it used to leave a broken empty scene on screen for ~8 s)
   sendRes() { if (this.resSent) return; this.resSent = true; clearTimeout(this.resT); const R = this.R; if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round }); }
   stRec(kind, w) { const o = this.st[kind], n = this.wName(w); o[n] = (o[n] || 0) + 1; }
   recDeath() { const now = performance.now(), lh = this.lastHit, pv = this.lastBy && now - (this.lastByAt || 0) < 9000; this.stRec('dby', pv ? (this.lastByW || 'gun') : lh && now - lh.at < 6000 ? lh.w : 'zone'); }
   onWin() { if (!this.over) this.finish('', 'win'); }   // the server: only one team is left
-  onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); showVictory(m, this.R.jangTeam && this.R.jangTeam.tm, () => this.sendRes()); }
-  showWin(m) { showVictory(m, 0, () => this.sendRes()); }
+  onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); showVictory(m, this.R.jangTeam && this.R.jangTeam.tm, () => this.leaveAfterWin()); }
+  showWin(m) { showVictory(m, 0, () => this.leaveAfterWin()); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
     if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;

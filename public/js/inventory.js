@@ -36,7 +36,7 @@ export class Inventory {
   }
   showBag(on) { this.bag(); this.btn.style.display = on ? 'flex' : 'none'; if (!on) this.toggle(false); }
   toggle(force) {
-    this.build(); const open = force === undefined ? !this.open : !!force; if (open && (!this.cs.active || this.cs.dropping)) return; const was = this.open; this.open = open; this.el.style.display = open ? 'flex' : 'none'; if (was && !open) document.dispatchEvent(new Event('inv-closed'));
+    this.build(); const open = force === undefined ? !this.open : !!force; if (open && (!this.cs.active || this.cs.dropping)) return; const was = this.open; this.open = open; this.el.style.display = open ? 'flex' : 'none'; if (was && !open) { document.dispatchEvent(new Event('inv-closed')); swallowTap(); }
     if (open) { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* ignore */ } this.render(); this.cs.R.fireHeld = false; }
   }
   render() {
@@ -58,3 +58,6 @@ export class Inventory {
     this.el.querySelector('.iv-cap').textContent = used + ' items';
   }
 }
+
+// v361: closing on pointerdown let the finger-up CLICK fall onto the gear button right under the close button and open Settings: swallow taps for a moment after closing
+function swallowTap() { const t0 = performance.now(), f = (e) => { if (performance.now() - t0 > 500) { off(); return; } e.stopImmediatePropagation(); e.preventDefault(); }, evs = ['click'], off = () => evs.forEach((n) => window.removeEventListener(n, f, true)); evs.forEach((n) => window.addEventListener(n, f, true)); setTimeout(off, 520); }
