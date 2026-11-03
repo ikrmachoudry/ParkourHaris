@@ -406,7 +406,7 @@ function build() {
       for (let rr = 0; rr < 5; rr++) { const r = K + 0.35 + rr * 0.4, arc = r * dph, m = Math.max(1, Math.ceil(arc / 0.45));
         for (let j = 0; j < m; j++) { const ph = i * dph + (j + 0.5) / m * dph, sn = Math.abs(Math.sin(ph)), cs = Math.abs(Math.cos(ph)), hr = 0.2, ht = arc / m / 2, hx = sn * hr + cs * ht + 0.01, hz = cs * hr + sn * ht + 0.01, px = Math.sin(ph) * r, pz = Math.cos(ph) * r; W(px - hx, pz - hz, px + hx, pz + hz, top - 0.5, top, 'step'); solids[solids.length - 1].fine = 1; } } }   // v329: 'fine': the next step (0.3 m up) is exactly the body's wall threshold: it must never count as a wall
     props.push({ x, z, y: gy, w: 2 * O, d: 2 * O, h: H2, c: '#a5a59f', k: 'tower', flag });
-    return { x, z, gy, py, n, step: ST, flag, a };
+    return { x, z, gy, py, n, step: ST, flag, a, isT: 1 };
   };
   /* v300: the Pakistani-flag tower and the 'us' tower were built INTO the military hill: the base ground (14 m higher) buried the 'us' tower and walled off the door of the flag tower, so nobody could reach their stairs. Each tower now takes the nearest FLAT, free spot (no building ground, no road, no steep slope) to where it used to stand. */
   const towerSpot = (x, z) => {
@@ -670,10 +670,11 @@ export class CombatSim {
     const L = this.L, gy = o.y == null ? undefined : o.y; let nx = o.x + dx; if (!hitsSolid(L, nx, o.z, r, gy)) o.x = nx; let nz = o.z + dz; if (!hitsSolid(L, o.x, nz, r, gy)) o.z = nz;   // v285: a bot upstairs (o.y) collides with the walls of ITS floor
   }
   // v285: bots follow you UP THE STAIRS into rooms and villas: the foot, the line and the top landing of a building's main flight
-  stairInfo(B) { const st = B.stairs; if (!st) return null;
+  stairInfo(B) { if (B.isT) { const n = B.n, ang = n * 2 * Math.PI / TW.per, r = 2.45, f = { x: B.x, z: B.z + TW.S2 + 1.9 }, e = 0.35; return { fy: B.gy, rise: B.py - B.gy, sp: B, foot: f, top: { x: B.x + Math.sin(e) * r, z: B.z + Math.cos(e) * r }, len: Math.max(8, ang * r / 1.45), r, ang }; }   /* v340: the tower's spiral: bots climb it too (one turn = 24 steps) */
+    const st = B.stairs; if (!st) return null;
     if (st.ax === 'U') { const xa = B.x + st.x0 + st.cw / 2, xb = B.x + st.xb0 + st.cw / 2, zE = B.z + st.zE - 0.2, zM = B.z + st.zS0 + 0.1, len = Math.abs(zE - zM) * 2 + (xb - xa); return { fy: B.fy, rise: st.rise, xb: xa, zb: zE, mx: xa, mz: zM, mx2: xb, xt: xb, zt: zE, foot: { x: xa, z: zE + 1.3 }, top: { x: xb, z: zE + 0.5 }, len, U: 1 }; }
     const zc = B.z + st.z0 + st.sw / 2, d = st.dir > 0 ? 1 : -1, xb = B.x + st.x0 + d * 0.25, xt = B.x + st.x0 + d * ((st.n - 1) * st.tread + 0.7), fz = zc + st.sw / 2 + 0.9; return { fy: B.fy, rise: st.rise, xb, zb: zc, xt, zt: zc, foot: { x: xb, z: fz }, top: { x: xt, z: fz }, len: Math.abs(xt - xb) }; }
-  upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
+  upBld(P) { if (P.y === undefined || !(P.y > cmbH(P.x, P.z) + 2.4)) return null; for (const T of this.L.towers) if (Math.hypot(P.x - T.x, P.z - T.z) < TW.O + 2.6 && P.y > T.gy + 2.4 && P.y < T.py + 3) return T; for (const B of this.L.buildings) if ((B.fl | 0) > 1 && B.stairs && Math.abs(P.x - B.x) < B.w / 2 + 0.5 && Math.abs(P.z - B.z) < B.d / 2 + 0.5 && P.y < B.fy + 2 * B.fh + 1.5) return B; return null; }
   tick(dt, PA) {   // PA = { x, z, hp, alive } of the player (map-local) - v245: or a LIST of players (the shared match on the server): every bot fights the nearest one
     this.t += dt; const L = this.L, PL = Array.isArray(PA) ? PA : [PA], P0 = PL[0];
     for (let i = this.nades.length - 1; i >= 0; i--) { const n = this.nades[i]; n.t -= dt; if (n.t <= 0) { this.nades.splice(i, 1); this.nadeBang(n, PL); } }
@@ -696,6 +697,7 @@ export class CombatSim {
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
+          if (si.sp) { const ph = t * si.ang, c = Math.cos(ph), sn = Math.sin(ph); b.x = si.sp.x + sn * si.r; b.z = si.sp.z + c * si.r; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(c, -sn) + (b.cl.dir > 0 ? 0 : Math.PI); b.speed = 3.2; b.walk = false; } else
           if (si.U) { const u = t * 2; if (u < 1) { b.x = si.xb; b.z = si.zb + (si.mz - si.zb) * u; } else { b.x = si.xb + (si.xt - si.xb) * Math.min(1, (u - 1) * 6); b.z = si.mz + (si.zt - si.mz) * Math.max(0, (u - 1.1) / 0.9); } b.y = si.fy + si.rise * t; b.yaw = u < 1 ? Math.PI : 0; if (b.cl.dir < 0) b.yaw += Math.PI; } else { b.x = si.xb + (si.xt - si.xb) * t; b.z = si.zb + (si.zt - si.zb) * t; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(si.xt - si.xb, si.zt - si.zb) + (b.cl.dir > 0 ? 0 : Math.PI); } b.speed = 2.3; b.walk = false;
           if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.top.x; b.z = si.top.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
         continue;
