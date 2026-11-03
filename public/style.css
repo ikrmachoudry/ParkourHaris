@@ -1340,3 +1340,8 @@ body.set-open #mm-btn, body.set-open #b-home-back { display: none !important; }
 #s-settings kbd { color: #fff !important; background: rgba(255,255,255,.1) !important; }
 /* v361: phones: the F SWAP / zip prompt is a small chip on the right edge (PUBG style pick-up list), not a big button over the middle of the view */
 body.touch #c-pick { left: auto; right: max(10px, env(safe-area-inset-right)); bottom: 46%; transform: none; padding: 6px 10px; font-size: 11px; border-radius: 0; border-width: 1px; border-right: 3px solid #d93a3a; background: rgba(10,12,18,.62); max-width: 30vw; text-align: right; letter-spacing: 1px; }
+
+/* v362: soldier silhouette icons for jump / crouch / prone: limbs are strokes, so the ON state tints them too */
+body.touch #act-pad #a-crouch.on svg.pubg [stroke], body.touch #act-pad #a-prone.on svg.pubg [stroke] { stroke: #ffd23f; }
+body.touch #act-pad #a-crouch.on svg.pubg g, body.touch #act-pad #a-prone.on svg.pubg g { fill: #ffd23f; }
+body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-prone.on svg.pubg g[stroke] { fill: none; }
