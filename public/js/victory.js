@@ -42,6 +42,7 @@ export function showVictory(m, myTm, onDone) {
   closeVictory();
   const teams = m.teams || [], wt = teams.find((t) => t.tm === m.win) || teams[0] || { n: 'TEAM', tm: 0, k: 0 };
   const rows = (m.rows || []).map((r) => ({ ...r, bots: r.bots || {}, ply: r.ply || {}, dby: r.dby || {}, me: false })).sort((a, b) => b.k - a.k || a.d - b.d);
+  const wrows = rows.filter((r) => r.tm === wt.tm), title = String((wrows.length === 1 && wrows[0].name) || wt.n || 'PLAYER');   // v345: a lone winner (solo, or a team of one) is announced by his own NAME
   const el = document.createElement('div'); el.id = 'victory';
   el.innerHTML = '<style>#victory{position:fixed;inset:0;z-index:200;background:#07090d;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}'
     + '#victory canvas{position:absolute;inset:0;width:100%;height:100%}'
@@ -60,7 +61,7 @@ export function showVictory(m, myTm, onDone) {
     + '#victory th{position:sticky;top:0;background:#1b2130;color:#ffd23f;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
     + '#victory td{padding:6px;border-top:1px solid rgba(255,255,255,.1);vertical-align:top}'
     + '#victory tr.w td{background:rgba(255,210,63,.08)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ffd23f}#victory td i{opacity:.4}'
-    + '</style><div class="vh"><h1>' + esc(String(wt.n).toUpperCase()) + ' WINS!</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
+    + '</style><div class="vh"><h1>' + esc(title.toUpperCase()) + ' WINS!</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
     + '<div class="vb"><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
   document.body.appendChild(el);
@@ -107,7 +108,7 @@ export function showVictory(m, myTm, onDone) {
   sb.onclick = () => { audio.play().catch(() => {}); panel.classList.toggle('on'); sb.textContent = panel.classList.contains('on') ? 'HIDE STATS' : 'SHOW STATS'; };
   const shb = el.querySelector('.sh');
   shb.onclick = async () => {
-    const url = location.origin + location.pathname, txt = String(wt.n) + ' won with ' + wt.k + ' kills in JANG by Haris Games! Play with me:';
+    const url = location.origin + location.pathname, txt = title + ' won with ' + wt.k + ' kills in JANG by Haris Games! Play with me:';
     try { if (navigator.share) { await navigator.share({ title: 'JANG - Haris Games', text: txt, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     const full = txt + ' ' + url; let ok = false;
     try { await navigator.clipboard.writeText(full); ok = true; } catch (e) { const ta = document.createElement('textarea'); ta.value = full; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) { /* noop */ } ta.remove(); }

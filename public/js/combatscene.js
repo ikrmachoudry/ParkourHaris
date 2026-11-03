@@ -715,7 +715,7 @@ export class CombatScene {
   }
   finish(msg, why) {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
-    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div><div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div></div>';
+    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div>' + (this.shared ? '<div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div>' : '') + '</div>';
     // v338: the victory page: the shared match waits for the server's verdict (team scores), a solo match shows it at once
     const T = R.jangTeam; this.timeUp = !msg; this.resSent = false;
     if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }
