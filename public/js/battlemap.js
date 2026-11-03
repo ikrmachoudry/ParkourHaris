@@ -185,7 +185,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         const e0 = P(0) - F.dir * F.tr * 0.5, e1 = P(F.n - 1) + F.dir * F.tr * 0.3;
         for (const [h, t, col, mat] of [[0.95, 0.07, oak, 'wood'], [0.5, 0.03, iron, 'metal']]) { const yA = Y(0) - F.stp * 0.5 + h, yB = Y(F.n - 1) + h, k = (e0 - P(0)) / (P(F.n - 1) - P(0) || 1), k1 = (e1 - P(0)) / (P(F.n - 1) - P(0) || 1);
           const ya = Y(0) + (Y(F.n - 1) - Y(0)) * k + h, yb = Y(0) + (Y(F.n - 1) - Y(0)) * k1 + h; const A = pt(e0, ya), Bp = pt(e1, yb); bar(A[0], A[1], A[2], Bp[0], Bp[1], Bp[2], t, col, mat); } }
-      for (const g of b.guards || []) { const w = g.x1 - g.x0, d = g.z1 - g.z0, L = Math.max(w, d), m = Math.max(2, Math.round(L / 1.2) + 1);
+      for (const g0 of b.guards || []) { const g = { x0: b.x + g0.x0, x1: b.x + g0.x1, z0: b.z + g0.z0, z1: b.z + g0.z1, y: g0.y }; const w = g.x1 - g.x0, d = g.z1 - g.z0, L = Math.max(w, d), m = Math.max(2, Math.round(L / 1.2) + 1);
         for (let i = 0; i < m; i++) { const t = i / (m - 1), px = w >= d ? g.x0 + w * t : (g.x0 + g.x1) / 2, pz = w >= d ? (g.z0 + g.z1) / 2 : g.z0 + d * t; B.box('metal', px - 0.03, fy + g.y, pz - 0.03, px + 0.03, fy + g.y + 1.0, pz + 0.03, iron, 0); }
         B.box('wood', g.x0 - 0.01, fy + g.y + 0.98, g.z0 - 0.01, g.x1 + 0.01, fy + g.y + 1.06, g.z1 + 0.01, oak, 0); B.box('metal', g.x0, fy + g.y + 0.5, g.z0, g.x1, fy + g.y + 0.54, g.z1, iron, 0); } }
     // the floor inside
