@@ -18,6 +18,7 @@ import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
 import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
 import { LOBBY } from './gta.js';
+import { showVictory } from './victory.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -40,7 +41,7 @@ const RM = (c, o) => { const id = 'R' + c + o; let m = _SH.get(id); if (!m) { m 
 export class CombatScene {
   constructor(race) {
     this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.mates = new Map(); this.loot = new Map(); this.dsm = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
-    this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
+    this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.st = { bots: {}, ply: {}, dby: {} }; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
     this.tmpV = new THREE.Vector3(); this.using = null; this.boostT = 0; this.promptIt = null; this.inv = new Inventory(this);
   }
   get active() { return this.on && !this.down && !this.over && !!this.sim && this.R.mission && this.R.mission.phase === 'run' && this.deadT <= 0; }
@@ -74,7 +75,7 @@ export class CombatScene {
   begin(m, seat) {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
- this.over = false; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
+ this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, 8); this.setBotDiff(); }   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
@@ -532,7 +533,7 @@ export class CombatScene {
       if (!e.hit && cd < 90 && A.sfx.whiz) { const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
       if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
-      if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
+      if (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId)) { this.kills++; this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
     } else if (e.k === 'nade') {   // v331: a bot throws a frag: it flies in an arc and lands where the sim says; the damage comes with the 'nbang' event
       const x0 = CMB.x + e.x, z0 = CMB.z + e.z, y0 = cmbH(e.x, e.z) + 1.4, tx = CMB.x + e.lx, tz = CMB.z + e.lz, ty = cmbH(e.lx, e.lz) + 0.07, dx = tx - x0, dz = tz - z0, d = Math.hypot(dx, dz), T = Math.max(0.5, Math.min(1.5, 0.45 + d * 0.03)), vy = (ty - y0 + 0.5 * 18 * T * T) / T;
@@ -570,16 +571,16 @@ export class CombatScene {
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
   }
-  die() { this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; { const lh = this.lastHit, pv = this.lastBy && performance.now() - (this.lastByAt || 0) < 6000, rec = lh && performance.now() - lh.at < 6000 ? 'KILLED BY ' + lh.who + '  \u2022  ' + this.wName(lh.w) + '  \u2022  ' + Math.round(lh.d) + ' m' : pv ? 'KILLED BY AN ENEMY PLAYER' : 'YOU WERE KILLED'; this.ov.textContent = rec + '  -  RESPAWNING...'; if (lh && rec.indexOf('BOT') > 0) this.feed(lh.who, this.wName(lh.w), 'YOU', false); } } }
+  die() { if (this.shared && !this.over && this.teamWiped()) { this.teamLost(); return; } this.recDeath(); this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; { const lh = this.lastHit, pv = this.lastBy && performance.now() - (this.lastByAt || 0) < 6000, rec = lh && performance.now() - lh.at < 6000 ? 'KILLED BY ' + lh.who + '  \u2022  ' + this.wName(lh.w) + '  \u2022  ' + Math.round(lh.d) + ' m' : pv ? 'KILLED BY AN ENEMY PLAYER' : 'YOU WERE KILLED'; this.ov.textContent = rec + '  -  RESPAWNING...'; if (lh && rec.indexOf('BOT') > 0) this.feed(lh.who, this.wName(lh.w), 'YOU', false); } } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
   // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
   teamWiped() { const T = this.R.jangTeam; if (!T || !this.shared || this.dropping) return false; const now = performance.now(); let seen = 0; for (const [, g] of this.mates) { if (g.tm !== T.tm || !g.has || now - g.at > 3000) continue; seen++; if (g.al !== 0 && g.ph !== 7) return false; } return seen > 0; }
   teamLost() {
     if (this.over) return; const T = this.R.jangTeam, nm = String((T && T.teamName) || 'YOUR TEAM').toUpperCase();
-    this.ejectCar();
+    this.recDeath(); this.ejectCar();
     this.hp = 0; this.down = false; this.reviving = null; this.deaths++; try { this.dropAll(); } catch (e) { /* noop */ } A.voice.death(1); this.R.fireHeld = false; this.R.aiming = false;
-    this.R.toast && this.R.toast('TEAM ' + nm + ' LOST', 6); this.finish('TEAM ' + nm + ' LOST');
+    this.R.toast && this.R.toast('TEAM ' + nm + ' LOST', 6); this.finish('TEAM ' + nm + ' LOST', 'out');
   }
   // v292: knocked down or killed inside a car / jeep / Civic: you are thrown out beside it (the others see you lying there, and the car coasts to a stop) - before this you stayed seated, hidden inside the car
   ejectCar() { const R = this.R, c = R.drive; if (!c) return; const pax = R.paxMode, sp = Math.abs(c.st.speed || 0); try { R.toggleCar(true); } catch (e) { console.warn(e); } if (!pax && sp > 1 && R.rolling && !R.rolling.includes(c)) { c.st.driver = -1; c.st.parked = false; R.rolling.push(c); } if (R.drive === c) { R.drive = null; R.paxMode = false; document.body.classList.remove('driving'); } }
@@ -709,11 +710,20 @@ export class CombatScene {
     this.useBar.style.display = 'block'; this.useBar.firstChild.textContent = 'USING ' + U.name + '  ' + Math.round(f * 100) + '%'; this.useBar.lastChild.style.width = (f * 100) + '%';
     if (u.t >= u.dur) { cb.inv[u.k] = Math.max(0, (cb.inv[u.k] | 0) - 1); if (U.boost) { this.boostT = U.boost; R.toast && R.toast(U.name + ' - SPEED BOOST!'); } else R.toast && R.toast(U.name + '  +' + U.hp + ' HEALTH'); A.sfx.pickup && A.sfx.pickup(); this.using = null; this.updateHud(); if (this.inv) this.inv.render(); }
   }
-  finish(msg) {
+  finish(msg, why) {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
-    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  •  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div><div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div></div>';
-    if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round });
+    this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || 'MATCH OVER') + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div><div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div></div>';
+    // v338: the victory page: the shared match waits for the server's verdict (team scores), a solo match shows it at once
+    const T = R.jangTeam; this.timeUp = !msg; this.resSent = false;
+    if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }
+    else { this.showWin({ win: 0, teams: [{ tm: 0, k: this.kills, d: this.deaths, n: String((T && T.teamName) || 'YOUR TEAM') }], rows: [{ id: 0, name: R.me.name || 'YOU', tm: 0, ch: R.me.char | 0, sk: R.me.skin === undefined ? R.me.char | 0 : R.me.skin | 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby }] }); }
   }
+  sendRes() { if (this.resSent) return; this.resSent = true; clearTimeout(this.resT); const R = this.R; if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round }); }
+  stRec(kind, w) { const o = this.st[kind], n = this.wName(w); o[n] = (o[n] || 0) + 1; }
+  recDeath() { const now = performance.now(), lh = this.lastHit, pv = this.lastBy && now - (this.lastByAt || 0) < 9000; this.stRec('dby', pv ? (this.lastByW || 'gun') : lh && now - lh.at < 6000 ? lh.w : 'zone'); }
+  onWin() { if (!this.over) this.finish('', 'win'); }   // the server: only one team is left
+  onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); showVictory(m, this.R.jangTeam && this.R.jangTeam.tm, () => this.sendRes()); }
+  showWin(m) { showVictory(m, 0, () => this.sendRes()); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
     if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
@@ -721,12 +731,12 @@ export class CombatScene {
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
-      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(60, dmg * 22).toFixed(1) }); return hd; }
+      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(60, dmg * 22).toFixed(1), w: String(w || '').slice(0, 11) }); return hd; }
     }
     return d;
   }
-  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(60, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
-  onKillCredit() { this.kills++; this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
+  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(60, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
+  onKillCredit() { this.kills++; this.stRec('ply', this.myW); this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
 }

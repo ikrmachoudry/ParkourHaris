@@ -80,6 +80,7 @@ export class HeroActor {
       if (Math.abs(this.ang) > 0.004 || Math.abs(this.roll || 0) > 0.004 || stunned) { g.rotation.x = this.ang; g.rotation.y = this.roll || 0; this.hadLie = true; this.liftY = 0.26 * Math.min(1, Math.abs(this.ang) / 1.4); g.position.y = this.liftY; }   // lying flat: lifted a hand's width so the body rests ON the road, not in it
       else if (this.hadLie) { g.rotation.x = 0; g.rotation.y = 0; g.position.y = 0; this.liftY = 0; this.ang = 0; this.roll = 0; this.hadLie = false; } }
     if (st.vault) name = 'vault'; if (st.revive && !st.vault) name = 'revive';   // v254: climbing over a broken wall
+    if (st.dance) name = st.dance;   // v338: the victory page: Mixamo dance clips (glbactor CLIP_FOR dance0..4)
     this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax' || name === 'paxGun';
   }
   dispose() {

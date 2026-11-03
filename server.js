@@ -78,6 +78,25 @@ function bcast(room, o, exceptId) {
 const cleanName = (n) => String(n || 'Player').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 14) || 'Player';
 const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi);
 
+// v338: Jang victory page: the winning team = the last team standing, or (time up) the team with the most kills
+function buildRes(room, rd) {
+  if (room.cresDone === rd) return; room.cresDone = rd; clearTimeout(room.cresT);
+  const rows = [...room.players.values()].filter((q) => q.cs && q.cs.rd === rd).map((q) => ({ id: q.id, ...q.cs }));
+  if (!rows.length) return;
+  const T = {}; for (const r of rows) { const t = T[r.tm] = T[r.tm] || { tm: r.tm, k: 0, d: 0, out: 1 }; t.k += r.k; t.d += r.d; if (!r.out) t.out = 0; }
+  const teams = Object.values(T).sort((a, b) => (a.out - b.out) || (b.k - a.k) || (a.d - b.d));   // alive teams first, then most kills, then fewest deaths
+  rows.sort((a, b) => b.k - a.k || a.d - b.d);
+  bcast(room, { t: 'cres', rd, win: teams[0].tm, rows, teams: teams.map((t) => ({ tm: t.tm, k: t.k, d: t.d, n: String(((room.teams || [])[t.tm] || {}).name || ('TEAM ' + (t.tm + 1))).slice(0, 24) })) });
+}
+function evalWin(room, rd, timeUp) {
+  if (room.cresDone === rd) return;
+  const inM = [...room.players.values()].filter((q) => q.jtm !== undefined || (q.cs && q.cs.rd === rd));
+  const alive = new Set(), all = new Set(); for (const q of inM) { const t = q.cs && q.cs.rd === rd ? q.cs.tm : q.jtm & 3; all.add(t); if (!(q.cs && q.cs.rd === rd && q.cs.out)) alive.add(t); }
+  if (all.size >= 2 && alive.size <= 1) { if (room.cwinRd !== rd) { room.cwinRd = rd; bcast(room, { t: 'cwin', rd }); clearTimeout(room.cresT); room.cresT = setTimeout(() => buildRes(room, rd), 2500); } }
+  if (inM.every((q) => q.cs && q.cs.rd === rd && q.cs.fin)) buildRes(room, rd);
+  else if (timeUp && room.cresRd !== rd) { room.cresRd = rd; clearTimeout(room.cresT); room.cresT = setTimeout(() => buildRes(room, rd), 3000); }
+}
+
 // room names typed by players ("room IKRMA", "Pakistan", "usa 1") -> one canonical key, so everybody who types the same name lands in the SAME room
 function roomKey(n) { let t = String(n || '').toUpperCase().replace(/[^\p{L}\p{N} ]/gu, ' ').trim().replace(/^ROOM\s+/, ''); return t.replace(/\s+/g, '').slice(0, 14); }
 function genCode() {
@@ -319,11 +338,17 @@ wss.on('connection', (ws, req) => {
         else { if (t - (p.lastC || 0) < 25) return; p.lastC = t; }
         const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m), cfire: () => h.fire(p, m) })[m.t](); break;
       }
+      case 'cstat': {   // v338: Jang: every player reports his own end-of-match stats; the server picks the winning team and sends the victory page data to everybody
+        if (!room || !room.combat || room.phase !== 'race') return;
+        const clean = (o) => { const r = {}; if (o && typeof o === 'object') for (const k of Object.keys(o).slice(0, 14)) if (k.length < 14 && num(o[k], 0, 999)) r[k] = o[k] | 0; return r; };
+        p.cs = { rd: m.rd | 0, name: String(p.name || '').slice(0, 24), tm: p.jtm & 3, ch: p.char | 0, sk: (p.skin | 0) & 15, k: num(m.k, 0, 999) ? m.k | 0 : 0, d: num(m.d, 0, 999) ? m.d | 0 : 0, bots: clean(m.bots), ply: clean(m.ply), dby: clean(m.dby), out: m.out ? 1 : 0, fin: m.fin ? 1 : 0 };
+        evalWin(room, p.cs.rd, !!m.tu); break;
+      }
       case 'cpv': case 'cpk': {   // v246: PvP (relay only, checked): a shot at a player of the OTHER team / the kill credit for the shooter
         if (!room || !room.combat || room.phase !== 'race') return;
         const q = room.players.get(m.to); if (!q || q === p || !q.ws) return;
         const t = Date.now(); if (t - (p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] || 0) < (m.t === 'cpv' ? 40 : 800)) return; p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] = t;
-        if (m.t === 'cpv') { if (!num(m.d, 0, 60) || p.jtm === q.jtm || !q.jal || !p.jal || !Number.isFinite(p.jx) || !Number.isFinite(q.jx) || Math.hypot(p.jx - q.jx, p.jz - q.jz) > 320) return; send(q.ws, { t: 'cpv', from: p.id, d: m.d }); }
+        if (m.t === 'cpv') { if (!num(m.d, 0, 60) || p.jtm === q.jtm || !q.jal || !p.jal || !Number.isFinite(p.jx) || !Number.isFinite(q.jx) || Math.hypot(p.jx - q.jx, p.jz - q.jz) > 320) return; send(q.ws, { t: 'cpv', from: p.id, d: m.d, w: typeof m.w === 'string' && m.w.length < 12 ? m.w : '' }); }
         else send(q.ws, { t: 'cpk' });
         break;
       }

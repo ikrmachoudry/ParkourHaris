@@ -406,7 +406,7 @@ class Race {
     const idx = players.findIndex((p) => p.id === localId);
     this.slot = Math.max(0, idx);
     const me = players[this.slot] || { name: 'Player', char: 0 };
-    this.me = { body: newBody(), model: makeActor(me.char, me.zom, me.skin), name: me.name, char: me.char };
+    this.me = { body: newBody(), model: makeActor(me.char, me.zom, me.skin), name: me.name, char: me.char, skin: me.skin };
     scene.add(this.me.model.group); this.me.model.group.rotation.order = 'YXZ';
     this.me.tag = null; if (!NO_TEXT) { this.me.tag = makeNameTag(me.name, CHARACTERS[me.char].color); this.me.tag.position.set(0, this.me.model.height + 0.7, 0); this.me.model.group.add(this.me.tag); }
     players.forEach((p, i) => { if (p.id !== localId) this.remotes.set(p.id, new Remote(p, scene)); });
@@ -2306,6 +2306,8 @@ async function ensureNet() {
   net.on('cb', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.applyBots) { cs.sim.applyBots(m.b); if (m.st !== undefined) { cs.sim.srvT = m.st; cs.sim.srvAt = performance.now(); } } });
   net.on('ce', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.shared && cs.sim && cs.sim.onEvents) cs.sim.onEvents(m.e); });
   net.on('cpv', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.hurtPv) cs.hurtPv(m); });
+  net.on('cres', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onRes) cs.onRes(m); });
+  net.on('cwin', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onWin) cs.onWin(); });
   net.on('cpk', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onKillCredit) cs.onKillCredit(); });
   net.on('jr', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onRevive) cs.onRevive(m); });
   net.on('jf', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMateShot) cs.onMateShot(m); });
