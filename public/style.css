@@ -1351,3 +1351,5 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 #loader::after { display: none; }
 #loader .ld-logo { display: block; width: min(52vh, 64vw); height: auto; border-radius: 15%; box-shadow: 0 0 40px rgba(0,0,0,.8); z-index: 1; }
 #loader .bar { width: min(52vh, 64vw); margin-top: 0; }
+/* v363: choose-player page: MUTE MUSIC sits in the top right corner */
+#mm-btn.tr { left: auto; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); transform: none; }
