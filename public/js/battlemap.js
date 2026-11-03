@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, setMeshStep, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, towerWins, CMB, cmbH, cmbG, setMeshStep, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -118,7 +118,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       for (let i = 0; i < N; i++) {
         const p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(N - 1, i + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl; const nx = -tz, nz = tx;
         if (i) acc += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
-        for (let s = 0; s < 2; s++) { const sg = s ? 1 : -1, x = p[0] + nx * sg * w / 2, z = p[1] + nz * sg * w / 2, o = (i * 2 + s); pos[o * 3] = x; pos[o * 3 + 1] = cmbH(x, z) + y; pos[o * 3 + 2] = z; const cc = colFn(s, i); col[o * 3] = cc[0]; col[o * 3 + 1] = cc[1]; col[o * 3 + 2] = cc[2]; uv[o * 2] = s * w / uvLen; uv[o * 2 + 1] = acc / uvLen; }
+        for (let s = 0; s < 2; s++) { const sg = s ? 1 : -1, x = p[0] + nx * sg * w / 2, z = p[1] + nz * sg * w / 2, o = (i * 2 + s); pos[o * 3] = x; pos[o * 3 + 1] = Math.max(cmbG(x, z), cmbG(x + 0.25, z), cmbG(x - 0.25, z), cmbG(x, z + 0.25), cmbG(x, z - 0.25)) + y;   /* v355: the road follows the DRAWN terrain mesh (the grid you walk on) and never dips under it */ pos[o * 3 + 2] = z; const cc = colFn(s, i); col[o * 3] = cc[0]; col[o * 3 + 1] = cc[1]; col[o * 3 + 2] = cc[2]; uv[o * 2] = s * w / uvLen; uv[o * 2 + 1] = acc / uvLen; }
         if (i < N - 1) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
       }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
@@ -131,16 +131,25 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const paintM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     const rg = [], dg = [], pg = [];
     for (const r of ROADS) {
-      const pts = sample(spline(r.pts), 3);
-      if (r.dirt) { dg.push(ribbon(pts, r.w + 0.8, 0.06, () => [0.7, 0.62, 0.5], 4)); for (const off of [-1.1, 1.1]) { const sh = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; return [p[0] - tz / l * off, p[1] + tx / l * off]; }); dg.push(ribbon(sh, 0.6, 0.075, () => [0.46, 0.4, 0.33], 6)); } }
+      const pts = sample(spline(r.pts), 1);   /* v355: a station every 1 m (was 3 m) so the ribbon can follow the terrain mesh closely */
+      if (r.dirt) { dg.push(ribbon(pts, r.w + 0.8, 0.03, () => [0.7, 0.62, 0.5], 4)); for (const off of [-1.1, 1.1]) { const sh = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; return [p[0] - tz / l * off, p[1] + tx / l * off]; }); dg.push(ribbon(sh, 0.6, 0.05, () => [0.46, 0.4, 0.33], 6)); } }
       else {
-        rg.push(ribbon(pts, r.w, 0.06, () => [1, 1, 1], 3.2));
-        for (const sgn of [-1, 1]) { const sh = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; return [p[0] - tz / l * sgn * (r.w / 2 - 0.35), p[1] + tx / l * sgn * (r.w / 2 - 0.35)]; }); pg.push(ribbon(sh, 0.16, 0.075, () => [0.9, 0.9, 0.85], 4)); }
-        for (let i = 0; i + 4 < pts.length; i += 6) pg.push(ribbon(pts.slice(i, i + 3), 0.18, 0.08, () => [0.95, 0.85, 0.35], 4));   // the dashed centre line
+        rg.push(ribbon(pts, r.w, 0.03, () => [1, 1, 1], 3.2));
+        for (const sgn of [-1, 1]) { const sh = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; return [p[0] - tz / l * sgn * (r.w / 2 - 0.35), p[1] + tx / l * sgn * (r.w / 2 - 0.35)]; }); pg.push(ribbon(sh, 0.16, 0.05, () => [0.9, 0.9, 0.85], 4)); }
+        for (let i = 0; i + 8 < pts.length; i += 18) pg.push(ribbon(pts.slice(i, i + 7), 0.18, 0.06, () => [0.95, 0.85, 0.35], 4));   // the dashed centre line
       }
     }
     const add = (gs, mat) => { if (!gs.length) return; const m = new THREE.Mesh(mergeGeometries(gs), mat); m.receiveShadow = true; group.add(m); };
     add(rg, asphalt); add(dg, dirtM); add(pg, paintM);
+    /* v355: the road up the military hill is named on the asphalt in Urdu (PAHARI SARAK = hill road): painted in each lane, readable when you drive / walk UP it (and the other way for the lane going down); three pairs on the climb */
+    { const sp = sample(spline(ROADS[0].pts), 3), arc = [0]; for (let i = 1; i < sp.length; i++) arc.push(arc[i - 1] + Math.hypot(sp[i][0] - sp[i - 1][0], sp[i][1] - sp[i - 1][1]));
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g2 = cv.getContext('2d'); g2.fillStyle = '#f2efe2'; g2.font = 'bold 150px "Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Segoe UI","Tahoma","Arial",sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; try { g2.direction = 'rtl'; } catch (e) { /* noop */ } g2.strokeStyle = '#f2efe2'; g2.lineWidth = 5; g2.lineJoin = 'round'; g2.strokeText('\u067E\u06C1\u0627\u0691\u06CC \u0633\u0691\u06A9', 256, 130, 470); g2.fillText('\u067E\u06C1\u0627\u0691\u06CC \u0633\u0691\u06A9', 256, 130, 470);
+      const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4; const tm = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.95, metalness: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+      const gm = new THREE.PlaneGeometry(3.3, 2.5), up = new THREE.Vector3(0, 1, 0), mx = new THREE.Matrix4(), qq = new THREE.Quaternion();
+      for (const A of [305, 345, 382]) { let k = 1; while (k < arc.length - 2 && arc[k] < A) k++; const c = sp[k], a0 = sp[k - 1], b0 = sp[k + 1], tl = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]) || 1, tx = (b0[0] - a0[0]) / tl, tz = (b0[1] - a0[1]) / tl;
+        for (const dir of [1, -1]) { const fx = tx * dir, fz = tz * dir, rx = -fz, rz = fx;   // forward and right (x east, z south: right = (-fz, fx))
+          const cx = c[0] + rx * ROADS[0].w / 4, cz = c[1] + rz * ROADS[0].w / 4, sl = (cmbH(cx + fx, cz + fz) - cmbH(cx - fx, cz - fz)) / 2, f3 = new THREE.Vector3(fx, sl, fz).normalize(), r3 = new THREE.Vector3().crossVectors(f3, up).normalize(), n3 = new THREE.Vector3().crossVectors(r3, f3).normalize();
+          mx.makeBasis(r3, f3, n3); qq.setFromRotationMatrix(mx); const m = new THREE.Mesh(gm, tm); m.position.set(cx, cmbG(cx, cz) + 0.12, cz); m.quaternion.copy(qq); m.renderOrder = 3; group.add(m); } } }
   }
   // the bridge
   { const y = BRIDGE.y, z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, xa = BRIDGE.xb, xb = BRIDGE.xa;

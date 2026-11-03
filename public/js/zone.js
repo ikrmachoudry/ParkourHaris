@@ -1,6 +1,6 @@
 // v243: the SAFE ZONE of the Jang island (PUBG style): a circle that shrinks in steps; outside it you take damage that gets stronger every step.
 // Everything comes from the room seed + the match clock, so all players of a match see the same circle (nothing is sent over the network).
-import { CMB } from './combat.js';
+import { CMB, rawH, riverX } from './combat.js';
 // [wait before it shrinks (s), shrink time (s), radius at the end, damage per second outside]
 // v251: the first circle shows up only after 7 minutes, the end circle stays big enough to fight in (r 38) and the damage is HALF of before
 const STEPS = [[420, 100, 230, 0.75], [60, 70, 150, 1.5], [45, 60, 95, 2.5], [35, 50, 60, 4], [25, 45, 38, 6]];
@@ -11,8 +11,14 @@ export const airLand = (q) => q.t0 + AIR.back / AIR.v + AIR.alt / AIR.fall;
 export function makeZone(seed) {
   const R0 = CMB.half - 6;
   let s = (seed | 0) || 1; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const P = [{ x: 0, z: 0, r: R0 }];   // circle 0 = the whole island; every next circle lies INSIDE the one before
-  for (const [, , r] of STEPS) { const p = P[P.length - 1], a = rnd() * 6.2832, d = Math.sqrt(rnd()) * Math.max(0, p.r - r) * 0.9; P.push({ x: p.x + Math.cos(a) * d, z: p.z + Math.sin(a) * d, r }); }
+  /* v355 PUBG: the circles can end ANYWHERE on dry, playable ground (the hill, the east fields, the river banks), not always near the middle: the FIRST circle may sit well off-centre (it may even overlap the mountain rim a little), every next one is inside the one before, and the end circle must be on land (not in the river, not on the mountain rim, not too steep): up to 12 tries from the same seed, so every phone gets the same circles */
+  const okEnd = (q) => { const h = rawH(q.x, q.z); return h > 1.2 && h < 48 && Math.abs(q.x - riverX(q.z)) > 34 && Math.max(Math.abs(q.x), Math.abs(q.z)) < CMB.half - 70 && Math.abs(rawH(q.x + 12, q.z) - rawH(q.x - 12, q.z)) < 14 && Math.abs(rawH(q.x, q.z + 12) - rawH(q.x, q.z - 12)) < 14; };
+  let P = null;
+  for (let tr = 0; tr < 12; tr++) {
+    P = [{ x: 0, z: 0, r: R0 }];   // circle 0 = the whole island; every next circle lies INSIDE the one before
+    for (const [, , r] of STEPS) { const p = P[P.length - 1], a = rnd() * 6.2832, first = P.length === 1, d = Math.sqrt(rnd()) * Math.max(0, first ? p.r - r * 0.6 : p.r - r) * (first ? 1 : 0.9); P.push({ x: p.x + Math.cos(a) * d, z: p.z + Math.sin(a) * d, r }); }
+    if (okEnd(P[P.length - 1])) break;
+  }
   const T = []; let t = 0; for (const [w, sh, , dps] of STEPS) { T.push({ t0: t + w, t1: t + w + sh, dps }); t += w + sh; }
   const B = BOMB_T.map((t0) => { const r = BOMB_R, a = rnd() * 6.2832, d = Math.sqrt(rnd()) * (R0 - r - 20); return { t0, t1: t0 + BOMB_LEN, x: Math.cos(a) * d, z: Math.sin(a) * d, r }; });
   const AD = AIR_T.map((t0) => ({ t0, a: rnd() * 6.2832, k: rnd(), id: 0 }));   // the drop point itself is picked inside the blue circle of that moment (airPoint)
