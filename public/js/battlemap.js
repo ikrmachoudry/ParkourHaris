@@ -291,7 +291,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       B.box('metal', bx2 - w2 + 0.45, fy + b.fh + 1.55, zf2, bx2 - w2 + 1.5, fy + b.fh + 2.05, zf2 + 0.45, '#e9ecef', 0); B.box('trim', bx2 - w2 + 0.55, fy + b.fh + 1.65, zf2 + 0.45, bx2 - w2 + 1.4, fy + b.fh + 1.72, zf2 + 0.47, '#9aa0a6', 0);
       B.box('trim', bx2 - w2 - 4, fy + b.fh + 2.6, zf2 + 0.02, bx2 + w2, fy + b.fh + 2.63, zf2 + 0.05, dk, 0); B.box('trim', bx2 - w2 - 4, fy + b.fh + 2.3, zf2 + 0.02, bx2 + w2, fy + b.fh + 2.33, zf2 + 0.05, dk, 0);
       // the roof: a cream coping, brown raised end blocks and the white lattice parapet between them, round three sides
-      B.box('trim', bx2 - w2 - 0.12, top - 0.2, b.z - b.d / 2 - 0.12, bx2 + w2 + 0.12, top, zf2 + 0.12, cream2, 0);
+      { const X0 = bx2 - w2 - 0.12, X1 = bx2 + w2 + 0.12, Z0 = b.z - b.d / 2 - 0.12, Z1 = zf2 + 0.12, cw = 0.5;   /* v341: the coping is a RING round the edge: it was ONE slab over the whole roof and covered the stair opening (a white lid over the stairs) */
+        B.box('trim', X0, top - 0.2, Z0, X1, top, Z0 + cw, cream2, 0); B.box('trim', X0, top - 0.2, Z1 - cw, X1, top, Z1, cream2, 0); B.box('trim', X0, top - 0.2, Z0 + cw, X0 + cw, top, Z1 - cw, cream2, 0); B.box('trim', X1 - cw, top - 0.2, Z0 + cw, X1, top, Z1 - cw, cream2, 0); }
       for (const sx of [-1, 1]) { B.box('wall', bx2 + sx * (w2 - 0.7) - 0.7, top, zf2 - 1.2, bx2 + sx * (w2 - 0.7) + 0.7, top + 1.5, zf2 + 0.1, b.c, 0.02); B.box('trim', bx2 + sx * (w2 - 0.7) - 0.8, top + 1.5, zf2 - 1.3, bx2 + sx * (w2 - 0.7) + 0.8, top + 1.65, zf2 + 0.2, cream2, 0); }
       latPlane((w2 - 1.4) * 2, 1.0, bx2, top + 0.5, zf2 - 0.05, 0); for (const sx of [-1, 1]) { latPlane(b.d - 2, 1.0, bx2 + sx * w2, top + 0.5, b.z, Math.PI / 2); } latPlane(w2 * 2, 1.0, bx2, top + 0.5, b.z - b.d / 2, 0);
     }
