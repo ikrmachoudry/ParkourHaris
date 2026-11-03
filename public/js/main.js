@@ -594,7 +594,7 @@ class Race {
     let landed = false;
     for (const e of b.events) {
       if (e === 'jump') { this.particles.emit(b.x, b.y + 0.05, b.z, 5, { color: '#ffffff', speed: 1.5, up: 1, life: 0.35, size: 0.25, gravity: 2 }); }
-      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; { const cs = this.jang && this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && b.landSpeed > 13 && cs.hp > 0 && cs.deadT <= 0) { cs.hurt(Math.min(40, (b.landSpeed - 12) * 2.5)); this.toast && this.toast('HARD LANDING', 1.5); } } /* v247: a fall from a roof hurts (PUBG): about 20 from 7 m */ this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
+      else if (e === 'land') { A.sfx.land(b.landSpeed); landed = true; { const cs = this.jang && this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && b.landSpeed > 6 && cs.hp > 0 && cs.deadT <= 0) { const fh = b.landSpeed * b.landSpeed / (2 * P.G), dm = Math.round(Math.min(100, (fh - 3) * 7)); if (dm >= 3) { cs.hurt(dm); this.toast && this.toast('FELL ' + fh.toFixed(1) + ' m  -  ' + dm + ' DAMAGE', 2); } } } /* v247: a fall from a roof hurts (PUBG): about 20 from 7 m */ this.particles.emit(b.x, b.y + 0.05, b.z, Math.min(14, 5 + b.landSpeed * 0.4), { color: '#ffffff', speed: 2.4, up: 1.4, life: 0.45, size: 0.3, gravity: 3 }); }
       else if (e === 'bounce') { A.sfx.bounce(); landed = true; this.particles.emit(b.x, b.y + 0.1, b.z, 18, { rainbow: true, speed: 3, up: 2, life: 0.6, size: 0.3 }); }
       else if (e === 'dive') A.sfx.dive();
       else if (e === 'splash') {
@@ -2133,6 +2133,18 @@ function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
   app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby'); try { voiceUI(); } catch (e) { /* voice not ready yet */ }
+  try { musicBtn(name); } catch (e) { /* noop */ }
+}
+// v357: the MUTE MUSIC button (title, character select, lobby and the other menu pages; laptop + phone). It only stops the background music: sound effects, the team mic and the speaker are separate and never touched.
+function musicBtn(name) {
+  let b = document.getElementById('mm-btn');
+  if (!b) {
+    b = document.createElement('button'); b.id = 'mm-btn'; b.type = 'button';
+    const upd = () => { const m = A.isMusicMuted(); b.innerHTML = '<span aria-hidden="true">' + (m ? '\u{1F507}' : '\u{1F3B5}') + '</span> ' + (m ? 'MUSIC OFF' : 'MUTE MUSIC'); b.classList.toggle('off', m); b.setAttribute('aria-pressed', m ? 'true' : 'false'); };
+    b.onclick = () => { A.initAudio(); A.setMusicMuted(!A.isMusicMuted()); };
+    window.addEventListener('ph-musicmute', upd); upd(); document.body.appendChild(b);
+  }
+  b.style.display = ['title', 'profile', 'levels', 'cmb', 'mp', 'lobby', 'results'].includes(name) ? 'block' : 'none';
 }
 let toastTimer = 0;
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -2649,7 +2661,7 @@ async function boot() {
     ['a-reload', 'RELOAD', '<kbd>R</kbd>', 'Reloads by itself when the magazine is empty.'], ['a-fmode', 'FIRE MODE', '<kbd>B</kbd>', 'Single shots / burst / auto, if the gun has them.'], ['a-weapon', 'SWAP WEAPON', '<kbd>V</kbd> or the number slots 1 2 3', 'Tap a slot to take that gun out.', '🔄'], ['a-leanl', 'PEEK LEFT / RIGHT', '<kbd>Q</kbd> <kbd>E</kbd>', 'Look round a corner without stepping out (Q = left, E = right on a keyboard).'],
     ['x', 'TELESCOPE (Kar98)', 'Laptop: hold <kbd>RIGHT MOUSE</kbd> &bull; Phone: hold the AIM button', 'Hold the Kar98 and AIM to look through the scope. Zoom with the MOUSE WHEEL (laptop) or the + / &minus; buttons that appear on screen (phone). You need the SNIPER SCOPE item in your backpack: carry it and the Kar98 uses it by itself (no scope item = iron sights only). Let go of AIM to leave the scope.', '🎯'],
     ['x', 'BINOCULARS', 'Laptop: backpack &rarr; BINOCULARS or <kbd>0</kbd> &bull; Phone: backpack &rarr; BINOCULARS', 'Their own item (not the Kar98 scope): look far away through two round lenses. Tap it again (or <kbd>0</kbd>) to put it away. Zoom with the mouse wheel / the + / &minus; buttons. Open the backpack with the bag button (laptop <kbd>I</kbd>).', '🔭'],
-    ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>T</kbd> talk · <kbd>L</kbd> speaker', 'In a team room: T switches your mic on / off, L mutes / unmutes the speaker. Works in the team lobby too. On a phone use the mic and speaker buttons.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Parachute: take the pack on a tower roof, jump off, it opens by itself.', '🪂']];
+    ['c-bag', 'BACKPACK', 'The bag button', 'Pick up loot near you, choose what to take, use medicine, drop things.', '🎒'], ['vc-mic', 'VOICE CHAT', '<kbd>T</kbd> talk · <kbd>L</kbd> speaker', 'In a team room: T switches your mic on / off, L mutes / unmutes the speaker. Works in the team lobby too. On a phone use the mic and speaker buttons.', '🎙'], ['x', 'MAP, MENU', '<kbd>M</kbd> map &bull; <kbd>ESC</kbd> menu', 'Falls hurt: the higher you drop from (roof, tower, ledge), the more damage. Use stairs and ladders.', '🪂']];
   const openHelp = (jang) => {
     document.body.classList.toggle('helpjang', !!jang);
     if (jang) { const g = $('jang-help'); g.innerHTML = JHELP.map(([id, nm, key, ds, em]) => { const el = document.getElementById(id), sv = el && el.querySelector && el.querySelector('svg'); const ic = em || (sv ? sv.outerHTML : nm[0]); return '<div class="gr"><span class="gi">' + ic + '</span><div><b>' + nm + '</b><small>' + key + (ds ? '<br>' + ds : '') + '</small></div></div>'; }).join(''); }
@@ -2739,7 +2751,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { P, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

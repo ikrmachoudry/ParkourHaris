@@ -383,13 +383,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex(t.flag), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // v300: the spinning parachute pack + ring on the roof are gone (you walk off the ledge and free-fall, the parachute opens by itself)
     B.box('conc', X + TW.O - 0.1, py - 0.62, Z - 0.85, X + TW.O + 2.2, py - 0.3, Z + 0.85, '#a5a59f', 0.02); B.box('trim', X + TW.O + 2.0, py - 0.3, Z - 0.85, X + TW.O + 2.2, py - 0.24, Z + 0.85, '#ffd60a', 0);   // v300: the small LEDGE platform (yellow edge)
-    { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256; const g = cv.getContext('2d');   // v251: a small PARACHUTE picture on a sign at the ledge: "jump from here"
-      g.fillStyle = '#ffd60a'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#16161a'; g.fillRect(8, 8, 240, 240); g.fillStyle = '#ffd60a'; g.fillRect(14, 14, 228, 228);
-      for (let k = 0; k < 6; k++) { g.fillStyle = k % 2 ? '#f4f1e6' : '#e8442a'; g.beginPath(); g.moveTo(128, 120); g.arc(128, 120, 78, Math.PI + k * Math.PI / 6, Math.PI + (k + 1) * Math.PI / 6); g.closePath(); g.fill(); }
-      g.strokeStyle = '#222'; g.lineWidth = 2; for (let k = 0; k <= 6; k++) { const a = Math.PI + k * Math.PI / 6; g.beginPath(); g.moveTo(128 + Math.cos(a) * 78, 120 + Math.sin(a) * 78); g.lineTo(128, 172); g.stroke(); }
-      g.fillStyle = '#222'; g.fillRect(122, 172, 12, 18); g.beginPath(); g.arc(128, 168, 5, 0, 7); g.fill(); g.font = 'bold 30px sans-serif'; g.textAlign = 'center'; g.fillText('JUMP HERE', 128, 222);
-      const tx = new THREE.CanvasTexture(cv), sg = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: tx, side: THREE.DoubleSide })), r = S2 - 0.5; sg.position.set(X + Math.sin(TW.ledge) * r, py + 0.75, Z + Math.cos(TW.ledge) * r); sg.rotation.y = TW.ledge + Math.PI; group.add(sg);
-      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), new THREE.MeshBasicMaterial({ color: '#555' })); pole.position.set(sg.position.x, py + 0.25, sg.position.z); group.add(pole); }
+    // v357: the 'JUMP HERE' parachute sign is gone: there is no parachute on the towers any more, a fall hurts by its height
     const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
   } else generic(p); }
   // the base's fence: posts, two rails and a sloping barbed top; farm fences round the fields

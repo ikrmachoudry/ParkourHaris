@@ -490,11 +490,7 @@ export class CombatScene {
     { const f = !this.dropping && this.hp > 0; if (this._fight !== f) { this._fight = f; document.body.classList.toggle('jang-fight', f); } this.slotsTick(); }
     const run = M && M.phase === 'run' && !this.over;
     /* v300: the big PARAGLIDER TOWER instruction box is gone (it covered the screen) */
-    if (!this.dropping && P.alive && !R.drive) {   // the towers: take the parachute from the roof, jump off and it opens by itself
-      for (const t of layout().towers) if (!this.hasChute && Math.hypot(P.x - t.x, P.z - t.z) < 3.4 && Math.abs(b.y - t.py) < 2.5) { this.hasChute = true; this.ownChute = true; R.toast && R.toast('PARACHUTE PICKED UP - it stays with you: step off any high place and it opens (no fall damage)', 4); }
-      { let cb = this.chuteBadge; if (!cb) { cb = this.chuteBadge = document.createElement('div'); cb.style.cssText = 'position:fixed;left:50%;top:max(60px,calc(env(safe-area-inset-top) + 54px));transform:translateX(-50%);z-index:30;pointer-events:none;font:800 11px system-ui;letter-spacing:1px;color:#5ef0a0;background:rgba(0,0,0,.5);padding:2px 9px;border-radius:10px;border:1px solid #5ef0a0'; cb.textContent = 'PARACHUTE READY'; document.body.appendChild(cb); } cb.style.display = this.ownChute ? 'block' : 'none'; }
-      if (this.hasChute && !b.grounded && b.vy < -7 && b.y - cmbH(P.x, P.z) > 5) { { const sp0 = Math.hypot(b.vx || 0, b.vz || 0); void sp0; this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 }; } this.dropping = true; this.dropPose = 2; b.vy = Math.max(b.vy, -6); R.toast && R.toast('PARAFOIL OPEN - steer with the stick / WASD', 3); }
-    }
+    // v357: no parachute on the towers / roofs (PUBG): a fall from a height hurts by the height (main.js 'land')
     if (run) {
       this.time -= this.rdt || dt; this.stepDown(dt);
       // the ammo / health / weapons on the ground

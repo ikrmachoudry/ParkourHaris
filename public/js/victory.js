@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { makeHero, makeSkin, loadDance, preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
 import { av } from './assetver.js';
+import * as A from './audio.js';
 
 const DANCES = ['dance0', 'dance1', 'dance2', 'dance3', 'dance4'];
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -52,7 +53,7 @@ export function showVictory(m, myTm, onDone) {
     + '#victory .vn{position:absolute;transform:translate(-50%,0);font:800 clamp(11px,2vw,15px) system-ui;background:rgba(0,0,0,.55);padding:3px 9px;border-radius:12px;white-space:nowrap;pointer-events:none;border:1px solid rgba(255,255,255,.25)}'
     + '#victory .vb{position:absolute;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:12px;justify-content:center}'
     + '#victory button{font:800 15px system-ui;padding:12px 22px;border-radius:12px;border:0;cursor:pointer;color:#fff;background:#d93a3a;letter-spacing:1px}'
-    + '#victory button.s{background:#2d6cdf}#victory button.sh{background:#1fa463}'
+    + '#victory button.s{background:#2d6cdf}#victory button.mm{background:#444}#victory button.sh{background:#1fa463}'
     + '#victory .vc{position:absolute;left:0;right:0;bottom:max(2px,env(safe-area-inset-bottom));text-align:center;font:800 11px system-ui;letter-spacing:3px;opacity:.6;pointer-events:none}'
     + '#victory .vb{bottom:max(24px,calc(env(safe-area-inset-bottom) + 14px))!important}'
     + '#victory .vp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(96vw,860px);max-height:78vh;overflow:auto;background:rgba(10,12,18,.94);border:1px solid #ffd23f;border-radius:14px;padding:10px;display:none}'
@@ -61,9 +62,9 @@ export function showVictory(m, myTm, onDone) {
     + '#victory th{position:sticky;top:0;background:#1b2130;color:#ffd23f;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
     + '#victory td{padding:6px;border-top:1px solid rgba(255,255,255,.1);vertical-align:top}'
     + '#victory tr.w td{background:rgba(255,210,63,.08)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ffd23f}#victory td i{opacity:.4}'
-    + '</style><div class="vh"><h1>' + esc(title.toUpperCase()) + ' WINS!</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
+    + '</style><div class="vh"><h1>' + (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!') + '</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
-    + '<div class="vb"><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
+    + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
   document.body.appendChild(el);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -87,7 +88,7 @@ export function showVictory(m, myTm, onDone) {
     scene.add(c.group); const nl = document.createElement('div'); nl.className = 'vn'; nl.style.color = TCOL[r.tm & 3]; nl.textContent = r.name + '  •  ' + r.k; el.appendChild(nl);
     actors.push({ c, dance: DANCES[order[i % DANCES.length]], t: 0 }); labels.push(nl);
   });
-  const audio = new Audio(av(MUSIC)); audio.loop = true; audio.volume = 0.8; audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });
+  const audio = new Audio(av(MUSIC)); audio.loop = true; audio.volume = 0.8; audio.muted = A.isMusicMuted(); audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });
 
   const st = { el, scene, renderer, actors, audio, raf: 0, onResize: null };
   cur = st;
@@ -114,6 +115,7 @@ export function showVictory(m, myTm, onDone) {
     try { await navigator.clipboard.writeText(full); ok = true; } catch (e) { const ta = document.createElement('textarea'); ta.value = full; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) { /* noop */ } ta.remove(); }
     shb.textContent = ok ? 'LINK COPIED!' : url; setTimeout(() => { shb.textContent = 'SHARE'; }, 2500);
   };
+  { const mb = el.querySelector('.mm'), upd = () => { mb.textContent = A.isMusicMuted() ? 'MUSIC: OFF' : 'MUTE MUSIC'; audio.muted = A.isMusicMuted(); }; mb.onclick = () => { A.setMusicMuted(!A.isMusicMuted()); upd(); audio.play().catch(() => { /* noop */ }); }; upd(); }
   el.querySelector('.c').onclick = () => { closeVictory(); if (onDone) onDone(); };
   el.addEventListener('pointerdown', () => { if (audio.paused) audio.play().catch(() => {}); }, { once: true });
   return st;

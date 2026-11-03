@@ -1275,3 +1275,8 @@ body.btn-edit.touch #joy, body.btn-edit #joy { display: block !important; pointe
 body.in-race:not(.jang-mode) .dsel { display: none; }
 body.guest-room .dsel { display: none !important; }
 #lobby-dsel { margin-bottom: 10px; }
+
+/* v357: MUTE MUSIC button (menu pages): left edge, vertically centred so it never covers the cards / panels / voice buttons */
+#mm-btn { position: fixed; z-index: 70; left: max(10px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); display: none; font: 800 12px/1 system-ui, sans-serif; letter-spacing: 1px; color: #fff; background: rgba(20,24,30,.72); border: 2px solid rgba(255,255,255,.75); border-radius: 22px; padding: 11px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+#mm-btn.off { background: #b3261e; border-color: #ffb4a8; }
+body.touch #mm-btn { padding: 13px 14px; font-size: 13px; }

@@ -1,6 +1,8 @@
 // All sounds are synthesised with WebAudio (no files to download -> instant load, zero lag).
 let ctx = null, master = null, sfxG = null, musG = null, noiseBuf = null;
-let sfxVol = 1, musVol = 1, revIn = null;
+let sfxVol = 1, musVol = 1, revIn = null, musMuted = false, ducked = false;
+try { musMuted = localStorage.getItem('pgta_mm') === '1'; } catch (e) { /* private window */ }
+const musGainNow = () => (musMuted ? 0 : MUS * musVol * (ducked ? 0.36 : 1));   // v357: MUTE MUSIC (background music only: sound effects and the team voice never go through this gain)
 try { const v = JSON.parse(localStorage.getItem('pgta_vol') || 'null'); if (v) { sfxVol = Math.max(0, Math.min(1, +v.s)); musVol = Math.max(0, Math.min(1, +v.m)); if (!isFinite(sfxVol)) sfxVol = 1; if (!isFinite(musVol)) musVol = 1; } } catch (e) { /* defaults */ }
 const MUS = 0.07, SFX = 0.7;   // v348: the welcome / menu music at HALF of what it was (0.14, before that 0.22)
 let muted = false, musicOn = true, timer = null, musicState = null;
@@ -19,7 +21,7 @@ export function initAudio() {
   { // a brick-wall limiter in front of the speakers: a pile of loud sounds (several players firing automatic guns) used to add up past full scale and CRUSH everything, including my own shots
     const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -4; lim.knee.value = 3; lim.ratio.value = 14; lim.attack.value = 0.002; lim.release.value = 0.12; master.connect(lim); lim.connect(ctx.destination); }
   sfxG = ctx.createGain(); sfxG.gain.value = SFX * sfxVol; sfxG.connect(master);
-  musG = ctx.createGain(); musG.gain.value = MUS * musVol; musG.connect(master);
+  musG = ctx.createGain(); musG.gain.value = musGainNow(); musG.connect(master);
   { // a short room tail for the gunshots: decaying noise impulse
     const sr = ctx.sampleRate, n = Math.floor(sr * 0.7), ib = ctx.createBuffer(2, n, sr);
     for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.2); }
@@ -270,12 +272,13 @@ export function startMusic(levelIdx) {
   tick();
 }
 export function stopMusic() { if (timer) clearInterval(timer); timer = null; musicState = null; menuStop(); }
-let ducked = false;
 const saveVol = () => { try { localStorage.setItem('pgta_vol', JSON.stringify({ s: sfxVol, m: musVol })); } catch (e) { /* private window */ } };
-export function setMusicVolume(v) { musVol = Math.max(0, Math.min(1, v)); saveVol(); if (musG) musG.gain.setTargetAtTime(MUS * musVol * (ducked ? 0.36 : 1), ctx.currentTime, 0.05); }
+export function setMusicVolume(v) { musVol = Math.max(0, Math.min(1, v)); saveVol(); if (musG) musG.gain.setTargetAtTime(musGainNow(), ctx.currentTime, 0.05); }
 export function setSfxVolume(v) { sfxVol = Math.max(0, Math.min(1, v)); saveVol(); if (sfxG) sfxG.gain.setTargetAtTime(SFX * sfxVol, ctx.currentTime, 0.05); }
 export const getVolumes = () => ({ music: musVol, sfx: sfxVol });
-export function duckMusic(d) { ducked = !!d; if (musG) musG.gain.setTargetAtTime(MUS * musVol * (d ? 0.36 : 1), ctx.currentTime, 0.2); }
+export function duckMusic(d) { ducked = !!d; if (musG) musG.gain.setTargetAtTime(musGainNow(), ctx.currentTime, 0.2); }
+export const isMusicMuted = () => musMuted;
+export function setMusicMuted(m) { musMuted = !!m; try { localStorage.setItem('pgta_mm', musMuted ? '1' : '0'); } catch (e) { /* private window */ } if (musG && ctx) musG.gain.setTargetAtTime(musGainNow(), ctx.currentTime, 0.05); try { window.dispatchEvent(new Event('ph-musicmute')); } catch (e) { /* noop */ } }
 export const audioReady = () => !!ctx;
 
 // ---- the arcade race cars (not the city vehicles): the same real engine recording
