@@ -10,7 +10,7 @@ export class Voice {
     this.ice = STUN; this.iceLoaded = false; this.ctx = null; this.ana = null; this.level = new Map(); this.speaking = new Set(); this.timer = 0;
     this.want = false; this.vol = 1; this.muted = new Set(); this.onChange = null; this.holdMode = false; this.err = '';
     let sv = null; try { sv = localStorage.getItem('ph_ptt'); } catch { /* ignore */ }
-    this.ptt = sv === null ? !PHONE : sv === '1'; this.held = false;   // v386 (PUBG style): LAPTOP default = PUSH TO TALK (the mic only transmits while the talk key is held, so speakers can never feed back); phones default to open mic
+    this.ptt = sv === null ? true : sv === '1'; this.held = false;   // v386 (PUBG style): LAPTOP default = PUSH TO TALK (the mic only transmits while the talk key is held, so speakers can never feed back); phones default to open mic
   }
   // ---- room membership: call with everybody in the room (including me) whenever the lobby changes
   setRoom(myId, players, on) {

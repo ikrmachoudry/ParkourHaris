@@ -2328,7 +2328,7 @@ function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn() || (document.body.classList.contains('in-lobby') && !!app.room);   // v284: in the lobby the buttons are there even before a friend joins
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
-  $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold Y') : 'OPEN MIC · tap to change'; $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : 'OPEN MIC · tap to change'; $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
@@ -2550,8 +2550,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
-  if (voiceOn() && voice && voice.ptt && e.code === 'KeyY') { if (!voice.want) voice.setMic(true).then(() => voiceUI()); voice.setHeld(true); voiceUI(); keys.delete(e.code); return; }   // v386: hold Y to talk (push to talk)
-  if (voiceOn() && voice && voice.ptt && e.code === 'KeyT') { A.sfx.click(); voice.resumeAudio(); voice.setMic(!voice.want).then((ok) => { voiceUI(); if (!ok && voice.err) gtoast(voice.err); }); keys.delete(e.code); return; }
+  if (voiceOn() && voice && voice.ptt && e.code === 'KeyT') { if (e.repeat) { keys.delete(e.code); return; } if (!voice.want) voice.setMic(true).then(() => voiceUI()); voice.setHeld(true); voiceUI(); keys.delete(e.code); return; }   // v386: hold T to talk (push to talk)
   if (voiceOn() && !e.repeat && (e.code === 'KeyT' || e.code === 'KeyL')) { $(e.code === 'KeyT' ? 'vc-mic' : 'vc-spk').click(); keys.delete(e.code); return; }   // v236: T = talk (mic on/off), L = loud speaker (hear teammates on/off); V is the weapon swap again
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
@@ -2569,7 +2568,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
 });
-window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyY' && voice && voice.held) { voice.setHeld(false); voiceUI(); } if (e.code === 'KeyH') A.hornStop(); });
+window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyT' && voice && voice.held) { voice.setHeld(false); voiceUI(); } if (e.code === 'KeyH') A.hornStop(); });
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
 
