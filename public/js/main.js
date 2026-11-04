@@ -58,8 +58,19 @@ const MEDAL = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
 // ------------------------------------------------------------------ renderer
 const canvas = $('c');
 let renderer;
+// v390: BUDGET PHONES START ON LOW (they used to start on full settings and only slowly step down). Only Android phones with a weak GPU / little memory are detected; laptops and iPhones are never touched by this.
+const GPU_NAME = (() => { try { const c = document.createElement('canvas'), g = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!g) return ''; const e = g.getExtension('WEBGL_debug_renderer_info'), r = e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; const l = g.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); return r; } catch { return ''; } })();
+const AUTO_LOW = (() => { try {
+  if (localStorage.getItem('ph_low') !== null || !IS_TOUCH) return false;   // the player's own choice (menu GFX button) always wins; desktops are never auto-lowered
+  const ua = navigator.userAgent || ''; if (/iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return false;   // iPhone / iPad: never
+  if (localStorage.getItem('ph_auto') === '1') return true;   // an earlier session had to lower the graphics itself: start low straight away
+  if (!/Android/i.test(ua)) return false;
+  const weakGpu = /Mali-(T\d|400|450|G31|G51|G52|G57)|PowerVR|Adreno \(TM\) ([2-5]\d\d|61[0-2])\b|Adreno.*\b(30|40|50)\d\b/i.test(GPU_NAME);
+  return weakGpu || (navigator.deviceMemory || 8) <= 4;
+} catch { return false; } })();
+const LOW0 = (() => { try { return localStorage.getItem('ph_low') === '1'; } catch { return false; } })() || AUTO_LOW;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW0, powerPreference: 'high-performance' });   // v390: no multisampling on LOW (costly on a phone GPU)
 } catch (e) {
   document.querySelector('#loader p').textContent = 'WebGL is not available in this browser. Please use a recent Chrome / Edge / Firefox.';
   throw e;
@@ -85,7 +96,7 @@ try { setInterval(() => { const n = performance.now(), d = Math.max(0, n - LAG.l
 window.__lag = LAG;
 function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolution first, then shadows
   if (Q.low) return;
-  if (IS_TOUCH && !Q.low2 && Q.warm <= 0) { Q.lagT = (Q.lagT || 0) + (LAG.avg > 90 ? dt : -dt * 0.5); if (Q.lagT < 0) Q.lagT = 0; if (Q.lagT > 8) { Q.low2 = true; Q.dpr = 0.62; Q.shadows = false; Q.far = 240; if (race) { race.setShadows(false); race.setFar(); } resize(); try { race && race.toast && race.toast('Phone is overloaded: graphics lowered to keep the game smooth', 3.5); } catch { /* noop */ } } }   // v297: still stalling after the normal steps: drop to the lightest look (the phone answers the network late otherwise)
+  if (IS_TOUCH && !Q.low2 && Q.warm <= 0) { Q.lagT = (Q.lagT || 0) + (LAG.avg > 90 ? dt : -dt * 0.5); if (Q.lagT < 0) Q.lagT = 0; if (Q.lagT > 8) { Q.low2 = true; try { if (localStorage.getItem('ph_low') === null) localStorage.setItem('ph_auto', '1'); } catch { /* ignore */ } Q.dpr = 0.62; Q.shadows = false; Q.far = 240; if (race) { race.setShadows(false); race.setFar(); } resize(); try { race && race.toast && race.toast('Phone is overloaded: graphics lowered to keep the game smooth', 3.5); } catch { /* noop */ } } }   // v297: still stalling after the normal steps: drop to the lightest look (the phone answers the network late otherwise)
   if (Q.low2) return;
   if (Q.warm > 0) { Q.warm -= dt; return; }
   Q.t += dt; Q.frames++;
@@ -100,10 +111,10 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
     if (++Q.good >= 3 && Q.dpr < Math.min(MAXDPR, 1.75)) { Q.dpr = Math.min(Math.min(MAXDPR, 1.75), Q.dpr + 0.1); Q.good = 0; resize(); }
   } else Q.good = 0;
 }
-try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
-if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; }
+try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } if (AUTO_LOW) { Q.low = true; Q.auto = true; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
+if (Q.low) { Q.dpr = 0.7; Q.shadows = false; Q.far = 260; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = 0.75; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
+  if (Q.low) { Q.dpr = 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -2586,7 +2597,7 @@ document.querySelectorAll('#set-gfx button').forEach((b) => { b.onclick = () => 
 document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => { r.onclick = () => { A.sfx.click(); OPT.pk[r.dataset.pk] = OPT.pk[r.dataset.pk] ? 0 : 1; saveOpts(); paintSettings(); }; });
 
 // ------------------------------------------------------------------ in-game menu
-function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? 'LOW' : 'AUTO'); }
+function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? (Q.auto && !(() => { try { return localStorage.getItem('ph_low') !== null; } catch { return false; } })() ? 'LOW (auto)' : 'LOW') : 'AUTO'); }
 function syncPause() {
   $('p-sound').textContent = '\uD83D\uDD0A SOUND: ' + (app.muted ? 'OFF' : 'ON');
 }
