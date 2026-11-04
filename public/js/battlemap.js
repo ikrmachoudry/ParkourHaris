@@ -395,9 +395,17 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     // v369: the DOOR is painted so it can be found from anywhere round the tower: yellow / black hazard stripes down both sides and across the top (the door is on the south side)
     { const sy = '#ffcc00', sk = '#1c1c1c'; for (let k = 0; k < 6; k++) { const ya = gy + k * 0.5, yb = Math.min(gy + 2.9, ya + 0.5), c = k % 2 ? sk : sy; B.box('trim', X - 1.97, ya, Z + 3.75, X - 1.45, yb, Z + 4.5, c, 0); B.box('trim', X + 1.45, ya, Z + 3.75, X + 1.97, yb, Z + 4.5, c, 0); }
       for (let k = 0; k < 8; k++) { const xa = X - 1.97 + k * 0.49, c = k % 2 ? sk : sy; B.box('trim', xa, gy + 2.9, Z + 3.75, xa + 0.49, gy + 3.45, Z + 4.55, c, 0); } }
-    // v369: the tallest tower (the military hill) carries the HARIS GAMES logo, wrapped on the wall just under the roof, facing south
-    if (t.n > TW.n) { const tx = new THREE.TextureLoader().load('img/logo-hg.jpg'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; const lh = 8.4, d2r = Math.PI / 180, lg = new THREE.CylinderGeometry(O + 0.12, O + 0.12, lh, 40, 1, true, -70 * d2r, 110 * d2r); lg.translate(X, py - 3.6 - lh / 2, Z);
-      const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: tx, toneMapped: false })); lm.name = 'hg-logo'; group.add(lm); }
+    // v388: the tallest tower (the military hill): a BIG HG monogram (cut from the logo) under the roof and HARIS GAMES in huge bold letters stacked down the whole south face, from the monogram to just above the door (windows are on the east / west sides, so nothing is covered)
+    if (t.n > TW.n) { const d2r = Math.PI / 180, yTop = py - 3.0, mh = 10.8, yMon = yTop - mh, yL0 = gy + 4.2, ROW = 'HARIS GAMES'.split(''), cellH = (yMon - 0.5 - yL0) / ROW.length;
+      const tx = new THREE.TextureLoader().load('img/logo-hg.jpg'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; tx.repeat.set(450 / 620, 450 / 593); tx.offset.set(80 / 620, 1 - 478 / 593);   // only the round HG emblem (no small text under it)
+      const mg = new THREE.CylinderGeometry(O + 0.12, O + 0.12, mh, 48, 1, true, -62 * d2r, 124 * d2r); mg.translate(X, yMon + mh / 2, Z);
+      const mm = new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ map: tx, toneMapped: false })); mm.name = 'hg-logo'; group.add(mm);
+      const CW = 256, CH = 256, cv = document.createElement('canvas'); cv.width = CW; cv.height = CH * ROW.length; const cx = cv.getContext('2d');
+      cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineJoin = 'round'; cx.font = '900 ' + Math.round(CH * 0.92) + 'px Impact, "Arial Black", Arial, sans-serif';
+      ROW.forEach((ch, k) => { if (ch === ' ') return; const y = k * CH + CH * 0.54; cx.lineWidth = 26; cx.strokeStyle = '#161a12'; cx.strokeText(ch, CW / 2, y); cx.lineWidth = 8; cx.strokeStyle = '#b8a36a'; cx.strokeText(ch, CW / 2, y); cx.fillStyle = '#f4eed8'; cx.fillText(ch, CW / 2, y); });
+      const lt = new THREE.CanvasTexture(cv); lt.colorSpace = THREE.SRGBColorSpace; lt.anisotropy = 4;
+      const aw = cellH * 1.0 / (O + 0.14), lg = new THREE.CylinderGeometry(O + 0.14, O + 0.14, cellH * ROW.length, 32, 1, true, -aw / 2, aw); lg.translate(X, yL0 + cellH * ROW.length / 2, Z);
+      const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: lt, transparent: true, alphaTest: 0.35, toneMapped: false })); lm.name = 'hg-letters'; group.add(lm); }
     // v357: the 'JUMP HERE' parachute sign is gone: there is no parachute on the towers any more, a fall hurts by its height
     const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
   } else generic(p); }
