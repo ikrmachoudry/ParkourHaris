@@ -401,7 +401,7 @@ function build() {
     else if (f === 'school') { for (const z of [-0.8, 2.0]) for (const x of [-4, 0, 4, 8]) put(x, z, 1.4, 0.7, 0.75, '#b08a58', 'desk'); put(hx - 0.5, 0, 0.4, 3, 1.0, '#2c4a3c', 'board', false); }
     else if (f === 'church') { for (const z of [-2, 1, 4]) for (const x of [-2.2, 2.2]) put(x, z, 1.8, 0.5, 0.9, '#6a4a30', 'bench'); put(0, -hz + 1.6, 2.2, 1.0, 1.0, '#8a8a82', 'altar'); }
     else if (f === 'barn') { for (const [x, z] of [[-6, -3], [-5, 2], [6, -3], [7, 2.4]]) put(x, z, 1.5, 1.5, 1.3, '#c9a64a', 'bale'); put(0, -hz + 1.2, 3, 1.2, 1.2, '#7a5638', 'stall'); }
-    else if (f === 'ware') { for (const [x, z] of [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]]) put(x, z, 2.4, 2.4, 2.4, '#b08a58', 'pallet'); put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
+    else if (f === 'ware') { [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]].forEach(([x, z], i) => { if (i % 2 === 0) { put(x, z, 3.4, 0.45, 1.15, '#9a978f', 'sandbag'); put(x + 3.6, z, 2.2, 0.45, 0.75, '#9a978f', 'sandbag'); } else { put(x, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); put(x + 1.7, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); put(x + 0.85, z + 0.6, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); } });   /* v394: no brown pallet blocks: broken walls and sandbags instead (user) */ put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
     else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
     else if (f === 'clinic') {
       const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'crate' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
@@ -529,7 +529,7 @@ function build() {
     for (const [x, z, ax, sg] of spots) { const L1 = 1.6, n3 = 2 + (R2() < 0.5 ? 1 : 0); for (let i = 0; i < n3; i++) { const o = (i - (n3 - 1) / 2) * 1.7; crate(ax ? x : x + o, ax ? z + o : z, ax ? 0.6 : L1, ax ? L1 : 0.6, 0.9, '#a89a74', 'sandbag'); }
       if (R2() < 0.6) crate(ax ? x + sg * 1.1 : x + (n3 - 1) / 2 * 1.7 + 0.5, ax ? z + (n3 - 1) / 2 * 1.7 : z + sg * 1.1, ax ? 1.4 : 0.6, ax ? 0.6 : 1.4, 0.9, '#a89a74', 'sandbag'); } }
   /* v263: PUBG-style oil drums beside the warehouses / hangars / barns and in the base */
-  for (const b of BUILDINGS) if (b.kind === 'warehouse' || b.kind === 'hangar' || b.kind === 'barn') for (let i = 0; i < 3; i++) { const bx = b.x + b.w / 2 + 1.6, bz = b.z - 1.5 + i * 1.0; if (cmbH(bx, bz) > 0.2 && distRoad(bx, bz) > 3) crate(bx, bz, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel'); }
+  /* v394: the three oil drums beside every warehouse / hangar / barn door are gone (user) */
   for (const [x, z] of [[122, -150], [123.2, -149], [215, -142], [214, -143.3], [150, -108], [151.2, -108.6], [190, -184], [191.1, -183]]) crate(x, z, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel');
   // ---- the cliff wall round the map: nobody leaves
   const W = 12; for (const [x0, z0, x1, z1] of [[-H - W, -H - W, H + W, -H + 4], [-H - W, H - 4, H + W, H + W], [-H - W, -H, -H + 4, H], [H - 4, -H, H + W, H]]) addS({ x0, z0, x1, z1, y0: -5, y1: 140, k: 'cliff' });
