@@ -490,15 +490,15 @@ class Race {
     const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw);
     let mx = -sy * fw + cy * rt, mz = -cy * fw - sy * rt;
     const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
-    const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive && !this.meta.city };
+    const inp = { mx: canMove ? mx : 0, mz: canMove ? mz : 0, jumpPressed: canMove && press.jump && !this.downed, jumpHeld: canMove && (keys.has('Space') || touch.jump), divePressed: canMove && press.dive && !this.meta.city && !this.downed };
     if (this.meta.city) {   // jog by default (faster than before), Shift sprints; on a phone: light push = walk, normal push = jog, push the stick to the edge = sprint
       const touchOn = !!(touch.x || touch.y);
       b.speedMul = touchOn ? (ml > 0.82 ? 1.65 : ml > 0.38 ? 1.3 : 0.5) : ((keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1.65 : 1.3);
     }
     if (this.meta.city) {
-      if (this.crouch && press.jump) this.crouch = false;
+      if (this.crouch && press.jump && !this.downed) this.crouch = false;
       if (this.drive) this.crouch = false;
-      if (this.drive) this.prone = false; if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5); { const cs = this.mission && this.mission.cs; if (cs && cs.on) { if (cs.using) b.speedMul *= 0.7; if (cs.boostT > 0) b.speedMul *= 1.2; } }
+      if (this.drive) this.prone = false; if (this.downed) { this.prone = true; this.crouch = false; this.fireHeld = false; this.aiming = false; this.telescope = false; if (this.weapon) this.weapon = null; b.speedMul = 0.25; } else if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5); { const cs = this.mission && this.mission.cs; if (cs && cs.on) { if (cs.using) b.speedMul *= 0.7; if (cs.boostT > 0) b.speedMul *= 1.2; } }
     }
     press.jump = false; press.dive = false;
 
@@ -570,7 +570,7 @@ class Race {
     if (this.drive) this.seatModel(g, this.drive, this.paxMode, this.paxSeat | 0);
     else { g.position.set(b.x, b.y - (swimK > 0 ? 0.4 * swimK : 0), b.z); g.rotation.y = b.yaw; g.rotation.x = 0; g.scale.setScalar(1); }   // swimming: the body lies IN the water
     const onSt = this.jangStairs(b, dt);
-    m.update(dt, { stairs: onSt, revive: !!(this.mission && this.mission.cs && this.mission.cs.reviving), ...(this.vlt ? { vault: true, zp: this.vlt.t / this.vlt.dur } : null), peek: this.leanV || 0, ...(this.mission && this.mission.cs && (this.mission.cs.deadT > 0 || this.mission.cs.down) ? { zpose: ['dieF', 'dieB', 'dieR', 'dieL'][this.mission.cs.deaths & 3], zp: this.mission.cs.down ? 1 : Math.min(1, (4 - this.mission.cs.deadT) / 2.4) } : null), skydive: this.zipR ? 2 : this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), honk: !!(this.drive && !this.paxMode && this.honkAnim > 0), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) || this.healing() ? null : this.weapon, ...(this.healing() ? { heal: HEALK[this.mission.cs.using.k] || 0, healT: this.mission.cs.using.t } : null), nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, shooting: this.shootT > 0 && !this.drive, kick: this.shootT > 0.43 ? (this.shootT - 0.43) / 0.12 : 0, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
+    m.update(dt, { stairs: onSt, ...(this.vlt ? { vault: true, zp: this.vlt.t / this.vlt.dur } : null), peek: this.leanV || 0, ...(this.mission && this.mission.cs && (this.mission.cs.deadT > 0) ? { zpose: ['dieF', 'dieB', 'dieR', 'dieL'][this.mission.cs.deaths & 3], zp: this.mission.cs.down ? 1 : Math.min(1, (4 - this.mission.cs.deadT) / 2.4) } : null), skydive: this.zipR ? 2 : this.mission && this.mission.cs && this.mission.cs.dropPose < 3 ? this.mission.cs.dropPose | 0 : 0, swim: !this.drive && swimK > 0, seated: !!this.drive || !!(this.mission && this.mission.cs && this.mission.cs.dropPose === 3), pax: !!(this.drive && this.paxMode) || !!(!this.drive && this.mission && this.mission.cs && this.mission.cs.dropPose === 3), bike: !!(this.drive && this.drive.mesh.userData.bike), honk: !!(this.drive && !this.paxMode && this.honkAnim > 0), speed: this.drive ? 0 : Math.hypot(b.vx, b.vz), faceCam: !!this.faceCam, mvF: this.faceCam ? (b.vx * Math.sin(b.yaw) + b.vz * Math.cos(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 1, mvR: this.faceCam ? (-b.vx * Math.cos(b.yaw) + b.vz * Math.sin(b.yaw)) / (Math.hypot(b.vx, b.vz) || 1) : 0, reload: this.reloadT > 0 && this.reloadTot ? Math.max(0.001, 1 - this.reloadT / this.reloadTot) : 0, grounded: this.drive || swimK > 0 ? true : (b.grounded && !this.hang), vy: this.drive ? 0 : b.vy, stun: this.drive ? 0 : b.stun, dive: this.drive ? 0 : b.dive, celebrate: this.finished || (this.over && this.winnerSelf) || this.victory > 0, swing: this.swingT, shield: b.shield > 0, leader: this.leaderId === this.localId, mega: this.swingMega && this.swingT > 0, landed, crouch: this.crouch && !this.drive, prone: this.prone && !this.drive, weapon: this.drive || (this.weapon === 'grenade' && this.nadeRel) || this.healing() ? null : this.weapon, ...(this.healing() ? { heal: this.mission.cs.using ? HEALK[this.mission.cs.using.k] || 0 : 2, healT: this.mission.cs.using ? this.mission.cs.using.t : (this.mission.cs.reviving.rv || 0) } : null), nade: this.nadeT > 0 ? this.nadeT : 0, nadeToss: this.nadeToss | 0, aiming: this.aimOn && !this.drive, shooting: this.shootT > 0 && !this.drive, kick: this.shootT > 0.43 ? (this.shootT - 0.43) / 0.12 : 0, aimElev: Math.atan(((NO_TEXT ? 0.17 : 0.34) - this.camPitch) * 0.9), punch: this.drive ? 0 : this.punchT, kick: this.kickK });
     this.tagScale(this.me.tag, g.position, 0.85);
 
     // ---- remotes
@@ -690,6 +690,7 @@ class Race {
   shutterAnim(dt) { const cb = this.civicB(); if (!cb || !cb.shM) return; const tg = cb.shutter.open ? 1 : 0; cb.shT = cb.shT === undefined ? tg : cb.shT + Math.sign(tg - cb.shT) * Math.min(Math.abs(tg - cb.shT), dt * 0.9);
     const [m1, m2] = cb.shM, H0 = cb.shH || 2.8, h = H0 * Math.max(0.001, 1 - cb.shT); m1.scale.y = Math.max(0.001, 1 - cb.shT); m1.position.y = cb.shFy + H0 - h / 2; m1.visible = cb.shT < 0.995; m2.visible = cb.shT < 0.05; }
   toggleCar(force) {
+    if (this.downed && !force) return;
     if (!force && (this.over || this.finished || this.levelTime < 0 || this.menuOpen || !this.cars.length)) return;
     if (force && !this.drive) return;
     const b = this.me.body;
@@ -1142,7 +1143,7 @@ class Race {
   // position snapshot to the other players (also called from a background timer so a slow / hidden window never freezes on everybody else's screen)
   sendSnap() {
     const b = this.me.body; this.sendT = 0; this.lastSend = performance.now();
-    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.prone && !this.drive ? 16777216 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0) | (!this.drive && this.mission && this.mission.cs && this.mission.cs.using ? USEFLAG : 0);
+    const flags = (b.grounded ? 1 : 0) | (b.stun > 0 ? 2 : 0) | (b.dive > 0 ? 4 : 0) | (this.finished ? 8 : 0) | (this.swingT > 0 ? 16 : 0) | (b.shield > 0 ? 32 : 0) | (this.fx.turbo > 0 ? 64 : 0) | (this.swingMega && this.swingT > 0 ? 128 : 0) | (this.drive ? (this.drive.local ? (256 | LOCALCAR) : (this.paxMode ? (PAX | ((this.paxSeat & 3) << PAXSEAT)) : 256) | carFlagBits(this.cars.indexOf(this.drive))) : 0) | (this.an ? this.an.flagBits() : 0) | (b.swim > 0.4 && !this.drive ? 4096 : 0) | (this.hang ? 1048576 : 0) | (this.crouch && !this.drive ? 2097152 : 0) | (this.prone && !this.drive ? 16777216 : 0) | (this.punchT > 0 && !this.drive ? 8388608 : 0) | (this.punchT > 0 && this.kickK && !this.drive ? 4194304 : 0) | (!this.drive && this.mission && this.mission.cs && (this.mission.cs.using || this.mission.cs.reviving) ? USEFLAG : 0);
     app.net.send({ t: 's', x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), r: +Math.atan2(Math.sin(b.yaw), Math.cos(b.yaw)).toFixed(2), a: flags, w: this.weaponCode(), vm: this.drive && this.drive.local ? this.drive.st.id : 0, sp: +Math.min(99, Math.hypot(b.vx, b.vz)).toFixed(1), ts: app.net.stamp(), rs: this.rs });
   }
 
@@ -1217,10 +1218,10 @@ class Race {
     const cs = this.mission && this.mission.cs, h = cs && cs.zipHandle; if (h) h.position.set(b.x, hy - 0.05, b.z);
     if (k >= 1) { b.y = Z.by; this.zipR = null; if (h) h.position.copy(cs.zipA); return; }
     if (inp.jumpPressed || (cs && (cs.down || cs.hp <= 0))) { this.zipR = null; b.grounded = false; if (h) h.position.copy(cs.zipA); } }
-  toggleCrouch() { if (this.over || this.drive) return; if (this.prone) { this.prone = false; this.crouch = true; } else this.crouch = !this.crouch; this.syncAct(); }
-  toggleProne() { if (this.over || this.drive || !this.meta.city) return; this.prone = !this.prone; if (this.prone) { this.crouch = false; this.aiming = this.aiming && !!this.weapon; } this.syncAct(); }
+  toggleCrouch() { if (this.over || this.drive || this.downed) return; if (this.prone) { this.prone = false; this.crouch = true; } else this.crouch = !this.crouch; this.syncAct(); }
+  toggleProne() { if (this.over || this.drive || !this.meta.city || this.downed) return; this.prone = !this.prone; if (this.prone) { this.crouch = false; this.aiming = this.aiming && !!this.weapon; } this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
-  equip(k) { if (this.over || this.drive || !this.wallet) return false; this.telescope = false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
+  equip(k) { if (this.over || this.drive || !this.wallet || this.downed) return false; this.telescope = false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
   // PUBG style weapon wheel: a ring of the four weapons round the middle of the screen; tap one to swap at once
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
@@ -1250,11 +1251,11 @@ class Race {
     if (loadScreen.visible || (this.jang && this.mission && this.mission.cs && (this.mission.cs.gate || this.mission.cs.dropping))) return;   /* v375: a weapon swap made by the game itself while loading / in the plane (the match resets you to your fists) must not shout 'FIST' = the stray punch sound at start */
     if (this.over || this.finished) return; try { A.voice.weapon(k); } catch { /* noop */ }
   }
-  cycleWeapon() { if (this.over || this.drive || !this.wallet) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
+  cycleWeapon() { if (this.over || this.drive || !this.wallet || this.downed) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
   scopeMax() { if ((this.telescope && this.weapon !== 'sniper') || !this.jang) return SCOPE_FOV.length - 1; const cb = this.wallet && this.wallet.cb; return cb && cb.inv && cb.inv.sscope > 0 ? SCOPE_FOV.length - 1 : 1; }   // v251: in Jang the Kar98 zooms only a little until you carry a TELESCOPE
   zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, this.scopeMax()); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
-  aimHold(on) { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
-  toggleAim() { if (this.over || this.drive || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
+  aimHold(on) { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
+  toggleAim() { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
   syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = wIcon(this.weapon || 'fist');
     { const pb = $('a-punch'); if (pb) { const gun = this.armedNow(); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
@@ -1294,8 +1295,9 @@ class Race {
   // ================= SHARED CITY (multiplayer) =================
   // The room host simulates the pedestrians and the traffic and streams them (6 times a second); the other players show them as puppets and
   // send what they do to them (punch, shot, horn, carjack) to the host as 'ev' events. Weapons and stolen cars travel in the position snapshots.
-  weaponCode() { const wn = this.drive ? null : this.weapon; const wk = wn ? wcls(wn) : wn; return (wk === 'sniper' ? 3 | 16 : wk === 'grenade' ? 16 : WNAME.indexOf(wk) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0) | (this.healing() ? (HEALK[this.mission.cs.using.k] || 0) << 5 : 0); }
-  healing() { const cs = this.mission && this.mission.cs; return !!(cs && cs.using && !this.drive); }
+  weaponCode() { const wn = this.drive ? null : this.weapon; const wk = wn ? wcls(wn) : wn; return (wk === 'sniper' ? 3 | 16 : wk === 'grenade' ? 16 : WNAME.indexOf(wk) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0) | (this.healing() ? (this.mission.cs.using ? HEALK[this.mission.cs.using.k] || 0 : 2) << 5 : 0); }
+  healing() { const cs = this.mission && this.mission.cs; return !!(cs && (cs.using || cs.reviving) && !this.drive); }
+  get downed() { const cs = this.mission && this.mission.cs; return !!(cs && cs.on && cs.down); }   // v396: knocked down: crawl on the knees only
   get simHost() { return !this.multi || !app.room || app.room.hostId === this.localId; }
   evt(o) { if (this.multi && !this.simHost) app.net.send({ t: 'ev', ...o }); }
   remoteCar(r) {   // a stolen traffic car another player is driving: build its model once
@@ -1427,6 +1429,7 @@ class Race {
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
   throwNade() {
+    if (this.downed) return false;
     const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
@@ -1630,6 +1633,7 @@ class Race {
   }
   // R: reload now, any time (also in the middle of shooting) when the magazine is not full and there is a spare one
   reload() {
+    if (this.downed) return false;
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || this.drive || this.over || this.reloadT > 0) return false;
     if (this.wallet.mag(w) >= W.mag || this.wallet.reserve(w) <= 0) return false;
     this.reloadT = this.reloadTot = W.reload || 1.5; this.fireHeld = false; A.sfx.click(); this.updateAmmoHud(); return true;
@@ -1652,6 +1656,7 @@ class Race {
       return o.add(dir.multiplyScalar(Math.max(0.2, far))); } catch { return null; }
   }
   fire() {
+    if (this.downed) return false;
     const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
@@ -1772,6 +1777,7 @@ class Race {
   }
   // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
   punch() {
+    if (this.downed) return false;
     if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
     if (loadScreen.visible) return false;   // v375: a tap through the loading screen must not throw a punch (and its shout)
     if (this.meta.city && isGun(this.weapon)) return this.fire();
