@@ -1358,7 +1358,7 @@ body.touch #act-pad #a-crouch.on svg.pubg g[stroke], body.touch #act-pad #a-pron
 #loader .ld-logo { display: block; width: min(52vh, 64vw); height: auto; border-radius: 15%; box-shadow: 0 0 40px rgba(0,0,0,.8); z-index: 1; }
 #loader .bar { width: min(52vh, 64vw); margin-top: 0; }
 /* v363: choose-player page: MUTE MUSIC sits in the top right corner */
-#mm-btn.tr { left: auto; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); transform: none; }
+#mm-btn.tr { left: auto; right: calc(max(8px, env(safe-area-inset-right)) + 44px + 10px); top: calc(max(8px, env(safe-area-inset-top)) + 22px); transform: translateY(-50%);  }
 
 /* v367: layout editor: SAVE sits at the right side of the black bar, a little lower */
 #lay-bar { position: fixed; padding-right: 150px; min-height: 74px; }
