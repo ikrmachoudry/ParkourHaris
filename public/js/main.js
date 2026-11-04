@@ -2328,7 +2328,7 @@ function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn() || (document.body.classList.contains('in-lobby') && !!app.room);   // v284: in the lobby the buttons are there even before a friend joins
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
-  $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : 'OPEN MIC · tap to change'; $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : (voice.aec ? 'VOICE-ACTIVATED MIC · tap to change' : 'OPEN MIC · tap to change'); $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');

@@ -1,16 +1,19 @@
 // Team voice chat (v215): WebRTC, one audio connection between every two players of a room (a "mesh": fine for up to ~6 people).
 // The audio goes phone -> phone; the game server only relays the small connect messages ('vc'). Mic is OFF until you tap it.
 // A phone only pays for it while a mic is open or a teammate talks (Opus ~24 kbps per voice), the 3D drawing is not touched.
+import { av } from './assetver.js';
 const STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
 
 const PHONE = typeof navigator !== 'undefined' && (/iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+// v400: laptops get the echo canceller + voice gate (aec-worklet.js); phones never (weak CPUs: push-to-talk / the phone's own echo cancelling there). ph_aec=0 in localStorage switches it off.
+const AEC_OK = !PHONE && typeof window !== 'undefined' && typeof window.AudioWorkletNode !== 'undefined' && (() => { try { return localStorage.getItem('ph_aec') !== '0'; } catch { return true; } })();
 export class Voice {
   constructor(net) {
     this.net = net; this.me = 0; this.peers = new Map(); this.names = new Map(); this.mic = false; this.spk = true; this.stream = null;
     this.ice = STUN; this.iceLoaded = false; this.ctx = null; this.ana = null; this.level = new Map(); this.speaking = new Set(); this.timer = 0;
     this.want = false; this.vol = 1; this.muted = new Set(); this.onChange = null; this.holdMode = false; this.err = '';
     let sv = null; try { sv = localStorage.getItem('ph_ptt'); } catch { /* ignore */ }
-    this.ptt = sv === null ? true : sv === '1'; this.held = false;   // v386 (PUBG style): LAPTOP default = PUSH TO TALK (the mic only transmits while the talk key is held, so speakers can never feed back); phones default to open mic
+    this.aec = null; this.ptt = sv === null ? !AEC_OK : sv === '1'; this.held = false;   // v386 (PUBG style): phones default to PUSH TO TALK; v400: a laptop with the echo canceller defaults to the voice-activated mic
   }
   // ---- room membership: call with everybody in the room (including me) whenever the lobby changes
   setRoom(myId, players, on) {
@@ -31,21 +34,22 @@ export class Voice {
     pc.ontrack = (e) => {
       const st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; o.audio.style.display = 'none'; try { document.body.appendChild(o.audio); } catch { /* ignore */ } }   // v384: in the page, so the laptop's echo canceller can hear what is being played
-      o.audio.srcObject = st; o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id);   // v381: iPhone Safari ignores .volume, only .muted silences it
+      o.rs = st; this.addRef(id); o.audio.srcObject = st; o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id);   // v381: iPhone Safari ignores .volume, only .muted silences it
       const p = o.audio.play(); if (p && p.catch) p.catch(() => { this._needTap = true; this.changed(); });
     };
     pc.onnegotiationneeded = async () => {
       try { o.makingOffer = true; await pc.setLocalDescription(); this.sig(id, 'o', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription); } catch { /* retry on next change */ } finally { o.makingOffer = false; }
     };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') this.rebind(o); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
-    if (this.stream) { const t = this.stream.getAudioTracks()[0]; if (t) this.setTrack(o, t); }
+    const t = this.tx(); if (t) this.setTrack(o, t);
     return o;
   }
   // v223 (iPhone fix): Safari does not always re-use our pre-made audio line when the other side's offer arrives, so the mic could sit on an unused line and nobody heard an iPhone. The mic track is now put on EVERY audio sender of the connection (the unused one is harmless).
   setTrack(o, t) { try { for (const sn of o.pc.getSenders()) sn.replaceTrack(t).catch(() => {}); } catch { /* ignore */ } }
-  rebind(o) { const t = this.stream && this.stream.getAudioTracks()[0]; if (t && t.readyState === 'live') this.setTrack(o, t); }   // after every negotiation: put the mic on the line again
+  rebind(o) { const t = this.tx(); if (t && t.readyState === 'live') this.setTrack(o, t); }
+  tx() { return this.aec ? this.aec.track : (this.stream && this.stream.getAudioTracks()[0]) || null; }   // the track that goes to the other players: the cleaned one on a laptop, the raw mic otherwise   // after every negotiation: put the mic on the line again
   connect(id) { if (this.peers.has(id)) return; this.peers.set(id, this.mk(id)); }
-  drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; try { o.audio.remove(); } catch { /* ignore */ } } this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
+  drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; try { o.audio.remove(); } catch { /* ignore */ } } this.dropRef(id); this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
   sig(to, k, d) { this.net.send({ t: 'vc', to, k, d }); }
   // ---- messages from the other players (relayed by the server)
   async onSignal(m) {
@@ -88,16 +92,17 @@ export class Voice {
     if (!this.want || this.epoch !== ep) { for (const t of st.getTracks()) t.stop(); all.delete(st); return false; }   // v381: the player closed the mic while the phone was still opening it (epoch changed): drop it at once   // the player tapped it off again while the phone was asking
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = st; this.mic = true;
-    const t = st.getAudioTracks()[0]; t.enabled = !document.hidden && (this.ptt ? this.held : true);
+    const t = st.getAudioTracks()[0]; await this.buildAec(st, ep); if (this.epoch !== ep || !this.want) { return false; }
+    t.enabled = this.aec ? true : !document.hidden && (this.ptt ? this.held : true); if (this.aec) this.aec.track.enabled = !document.hidden && (this.ptt ? this.held : true);
     const now0 = performance.now(); this._opens = (this._opens || []).filter((x) => now0 - x < 20000); this._opens.push(now0);
     t.onended = () => { if (this.stream !== st) return; this.stream = null; this.mic = this.want; if (this.want) { if ((this._opens || []).length >= 5) { this.want = false; this.mic = false; this.err = 'The phone keeps closing the mic (another app may be using it). Tap the mic to try again'; this.releaseMic(); } else this.reopenSoon(); } this.changed(); };   // v382: stop the open/close loop (it made the Android mic indicator blink)
-    for (const o of this.peers.values()) this.setTrack(o, t);
+    for (const o of this.peers.values()) this.setTrack(o, this.tx());
     this.selfAn = null; try { if (/iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) throw 0; const c = this.actx(); this.selfAn = c.createAnalyser(); this.selfAn.fftSize = 256; c.createMediaStreamSource(st).connect(this.selfAn); } catch { /* no meter */ }
     this.changed(); return true;
   }
   // v386: ONE place decides if the mic line carries sound: not in the background, and (push-to-talk) only while the talk key / button is held, and (open mic) not while a teammate is talking
-  applyEn(far) { const t = this.stream && this.stream.getAudioTracks()[0]; if (!t) return; const en = !document.hidden && (this.ptt ? this.held : !far); if (t.enabled !== en) t.enabled = en; }
-  setPtt(on) { this.ptt = !!on; this.held = false; try { localStorage.setItem('ph_ptt', on ? '1' : '0'); } catch { /* ignore */ } this.applyEn(false); this.changed(); }
+  applyEn(far) { const t = this.tx(); if (!t) return; if (this.aec) far = false; const en = !document.hidden && (this.ptt ? this.held : !far); if (t.enabled !== en) t.enabled = en; }
+  setPtt(on) { this.ptt = !!on; this.held = false; try { localStorage.setItem('ph_ptt', on ? '1' : '0'); } catch { /* ignore */ } this.applyEn(false); this.gateMsg(); this.changed(); }
   setHeld(h) { if (this.held === !!h) return; this.held = !!h; this.applyEn(false); this.changed(true); }
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
   // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it
@@ -107,13 +112,34 @@ export class Voice {
     for (const o of this.peers.values()) { this.setTrack(o, null); try { for (const sn of o.pc.getSenders()) if (sn.track) { sn.track.enabled = false; sn.track.stop(); } } catch { /* ignore */ } }
     if (this.stream) { for (const t of this.stream.getTracks()) { t.onended = null; t.enabled = false; t.stop(); } this.stream = null; }
     if (this.allStreams) { for (const st of this.allStreams) for (const t of st.getTracks()) { t.onended = null; t.enabled = false; t.stop(); } this.allStreams.clear(); }
-    this.selfAn = null; this.speaking.delete(this.me);
+    this.closeAec(); this.selfAn = null; this.speaking.delete(this.me);
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* ignore */ }
   }
-  setSpk(on) { this.spk = on; for (const [id, o] of this.peers) if (o.audio) { o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !on || this.muted.has(id); } this.changed(); }   // v381: .muted as well (iPhone ignores .volume)
+  setSpk(on) { this.spk = on; this.refGain(); for (const [id, o] of this.peers) if (o.audio) { o.audio.volume = on && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !on || this.muted.has(id); } this.changed(); }   // v381: .muted as well (iPhone ignores .volume)
+  refGain() { if (!this.aec) return; for (const [id, r] of this.aec.refs) r.g.gain.value = this.spk && !this.muted.has(id) ? this.vol : 0; }
   setVol(v) { this.vol = Math.max(0, Math.min(1, v)); this.setSpk(this.spk); }
-  toggleMute(id) { if (this.muted.has(id)) this.muted.delete(id); else this.muted.add(id); const o = this.peers.get(id); if (o && o.audio) { o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id); } this.changed(); }
+  toggleMute(id) { if (this.muted.has(id)) this.muted.delete(id); else this.muted.add(id); this.refGain(); const o = this.peers.get(id); if (o && o.audio) { o.audio.volume = this.spk && !this.muted.has(id) ? this.vol : 0; o.audio.muted = !this.spk || this.muted.has(id); } this.changed(); }
   resumeAudio() { this._needTap = false; for (const o of this.peers.values()) if (o.audio && o.audio.paused && o.audio.srcObject) o.audio.play().catch(() => {}); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); }
+  // v400 LAPTOP ECHO CANCELLER: mic -> [aec worklet: subtract what the speakers play, then a voice gate] -> the track sent to the others. The speakers' signal is tapped (not re-routed) from the remote streams.
+  async buildAec(st, ep) {
+    this.closeAec(); if (!AEC_OK) return false;
+    try {
+      const C = window.AudioContext || window.webkitAudioContext, ctx = new C({ sampleRate: 16000, latencyHint: 'interactive' });
+      await Promise.race([ctx.audioWorklet.addModule(av('js/aec-worklet.js')), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]);
+      if (this.epoch !== ep) { ctx.close().catch(() => {}); return false; }
+      const node = new AudioWorkletNode(ctx, 'aec', { numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' }), dest = ctx.createMediaStreamDestination();
+      ctx.createMediaStreamSource(st).connect(node, 0, 0); node.connect(dest); if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+      const track = dest.stream.getAudioTracks()[0]; if (!track) throw new Error('no track');
+      this.aec = { ctx, node, dest, track, refs: new Map() }; this.gateMsg(); for (const id of this.peers.keys()) this.addRef(id); return true;
+    } catch (e) { this.aec = null; return false; }   // anything wrong: the plain mic goes out exactly as before
+  }
+  gateMsg() { if (this.aec) try { this.aec.node.port.postMessage({ gate: !this.ptt }); } catch { /* ignore */ } }
+  addRef(id) {
+    const a = this.aec, o = this.peers.get(id); if (!a || !o || !o.rs || a.refs.has(id)) return;
+    try { const src = a.ctx.createMediaStreamSource(o.rs), g = a.ctx.createGain(); g.gain.value = this.spk && !this.muted.has(id) ? this.vol : 0; src.connect(g); g.connect(a.node, 0, 1); a.refs.set(id, { src, g }); } catch { /* no reference from this one */ }
+  }
+  dropRef(id) { const a = this.aec, r = a && a.refs.get(id); if (!r) return; try { r.src.disconnect(); r.g.disconnect(); } catch { /* ignore */ } a.refs.delete(id); }
+  closeAec() { const a = this.aec; if (!a) return; this.aec = null; try { a.track.enabled = false; a.track.stop(); } catch { /* ignore */ } try { a.node.disconnect(); } catch { /* ignore */ } try { a.ctx.close(); } catch { /* ignore */ } }
   // ---- who is talking (8 times a second, only reads a tiny buffer)
   lvl(an) { if (!an) return 0; const b = this.buf || (this.buf = new Uint8Array(128)); an.getByteTimeDomainData(b); let m = 0; for (let i = 0; i < b.length; i += 2) { const v = Math.abs(b[i] - 128); if (v > m) m = v; } return m; }
   poll() {
@@ -128,7 +154,7 @@ export class Voice {
       for (const o of this.peers.values()) { if (o.pc.connectionState !== 'connected') continue; o.pc.getStats().then((st) => { let l = 0; st.forEach((x) => { if ((x.type === 'media-source' && x.kind === 'audio') && x.audioLevel > l) l = x.audioLevel; }); if (l > 0.02) this.level.set(this.me, performance.now()); }).catch(() => {}); break; } }
     if (this.mic) { if (this.selfAn) chk(this.me, this.selfAn); else { const on = now - (this.level.get(this.me) || -1e9) < 700; if (on !== this.speaking.has(this.me)) { on ? this.speaking.add(this.me) : this.speaking.delete(this.me); ch = true; } } }
     if (this.mic && this.stream) {   // v384/v385: open mic - paused while a teammate is talking through the speakers (half-duplex); push-to-talk needs no pause
-      let far = false; if (this.spk && !this.ptt) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
+      let far = false; if (this.spk && !this.ptt && !this.aec) for (const id of this.speaking) if (id !== this.me && !this.muted.has(id)) far = true;
       if (far) this._gateT = now; this.applyEn(far || (!!this._gateT && now - this._gateT < 500)); }
     if (ch) this.changed(true);
   }
