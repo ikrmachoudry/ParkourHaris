@@ -200,10 +200,10 @@ export class CombatScene {
   glideUI(show) {   // v379: the parafoil icon: a big tap button on a phone, a small "press JUMP" box (with the icon) on a laptop
     if (!this.glideEl) {
       const e = document.createElement('button'); e.id = 'c-glide'; const touch = !!this.R.isTouch;
-      const svg = '<svg viewBox="0 0 64 64" width="' + (touch ? 46 : 26) + '" height="' + (touch ? 46 : 26) + '" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 27C8 9 24 4 32 4s24 5 27 23c-3-5-8-6-12-3-3-4-9-4-15-4s-12 0-15 4c-4-3-9-2-12 3z" fill="#fff"/><path d="M6 28 30 50M16 25 31 50M32 22V50M48 25 33 50M58 28 34 50"/><circle cx="32" cy="53" r="2.6" fill="#fff"/><path d="M32 56v4M29 60l3-3 3 3"/></svg>';
+      const svg = '<svg viewBox="0 0 64 64" width="' + (touch ? 46 : 40) + '" height="' + (touch ? 46 : 40) + '" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 27C8 9 24 4 32 4s24 5 27 23c-3-5-8-6-12-3-3-4-9-4-15-4s-12 0-15 4c-4-3-9-2-12 3z" fill="#fff"/><path d="M6 28 30 50M16 25 31 50M32 22V50M48 25 33 50M58 28 34 50"/><circle cx="32" cy="53" r="2.6" fill="#fff"/><path d="M32 56v4M29 60l3-3 3 3"/></svg>';
       e.innerHTML = svg + (touch ? '<b>PARAGLIDE</b>' : '<b>PRESS JUMP (SPACE)<br>TO DEPLOY PARAGLIDER</b>');
       e.style.cssText = touch ? 'position:fixed;right:27vw;bottom:calc(16vh + 4px);z-index:46;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:92px;height:92px;border-radius:50%;border:3px solid #6dff8a;background:rgba(20,70,35,.78);color:#fff;font:800 10px system-ui,sans-serif;touch-action:none;cursor:pointer;animation:glidePulse 0.9s ease-in-out infinite'
-        : 'position:fixed;left:50%;top:max(120px,18vh);transform:translateX(-50%);z-index:46;display:none;flex-direction:row;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;border:2px solid #6dff8a;background:rgba(20,70,35,.78);color:#fff;font:800 12px/1.25 system-ui,sans-serif;text-align:left;pointer-events:none';
+        : 'position:fixed;left:50%;top:max(120px,22vh);transform:translateX(-50%);z-index:70;display:none;flex-direction:row;align-items:center;gap:12px;padding:10px 18px;border-radius:12px;border:3px solid #6dff8a;background:rgba(20,70,35,.88);color:#fff;font:800 16px/1.25 system-ui,sans-serif;text-align:left;pointer-events:none';
       if (touch) { const dn = (ev) => { ev.preventDefault(); ev.stopPropagation(); this.jumpReq = true; }; e.addEventListener('pointerdown', dn); e.addEventListener('contextmenu', (ev) => ev.preventDefault()); }
       if (!document.getElementById('glide-css')) { const s = document.createElement('style'); s.id = 'glide-css'; s.textContent = '@keyframes glidePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}'; document.head.appendChild(s); }
       document.body.appendChild(e); this.glideEl = e;
@@ -213,13 +213,13 @@ export class CombatScene {
   }
   /* v377: the paraglider is back as a CHOICE: fall off a TOWER (more than ~6 m above the ground, falling; roofs do not count) and tap the PARAGLIDE icon (phone) / press JUMP (laptop) in the air to open the flag wing; if you do not, the fall still hurts as before (v357). Returns true on the frame it opens. */
   glideCheck(b, inp, dt) {
-    const off = () => { this._gt = 0; if (this.glideEl && this.glideEl.style.display !== 'none') this.glideUI(false); return false; };
-    if (b.grounded && this.on) { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z; let on = false; for (const t of layout().towers || []) if (Math.abs(ox0 - t.x) < TW.O + 1.5 && Math.abs(oz0 - t.z) < TW.O + 1.5 && b.y > t.gy + 5) { on = true; break; } this._onTower = on; }   // v379: the paraglider is for the TOWERS only (PUBG): remember whether the last place you stood was up a tower
+    const off = () => { this._gt = 0; this._gHint = false; if (this.glideEl && this.glideEl.style.display !== 'none') this.glideUI(false); return false; };
+    if (b.grounded && this.on) { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z; let on = false; for (const t of layout().towers || []) if (Math.abs(ox0 - t.x) < TW.O + 4.5 && Math.abs(oz0 - t.z) < TW.O + 4.5 && b.y > t.gy + 5) { on = true; break; } this._onTower = on; }   // v379: the paraglider is for the TOWERS only (PUBG): remember whether the last place you stood was up a tower
     if (!this._onTower) return off();
     if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR) return off();
     const ox = b.x - CMB.x, oz = b.z - CMB.z, gy = Math.max(cmbH(ox, oz), supportY(layout(), ox, oz, 0.3, b.y)), h = b.y - gy;
     if (b.vy > -4 || h < 6) return off();
-    this._gt = (this._gt || 0) + dt;
+    this._gt = (this._gt || 0) + dt; if (this._gt > 0.2 && !this._gHint) { this._gHint = true; this.R.toast && this.R.toast(this.R.isTouch ? 'Tap the PARAGLIDE icon to open the parafoil' : 'Press JUMP (SPACE) to deploy the parafoil', 2.5); }
     if (!inp.jumpPressed && !this.jumpReq) { if (this._gt > 0.2) this.glideUI(true); return false; }
     inp.jumpPressed = false; this.jumpReq = false; this.glideUI(false); const sp0 = Math.hypot(b.vx || 0, b.vz || 0);
     this.drop = { ph: 'chute', tw: true, t: 0, mt: 0.45, oh: 18, hd: [0, 1], a: 0, sx: b.x, sz: b.z, L: 0, v: 0, alt: 0, vx: b.vx || 0, vz: b.vz || 0, hint: 0, ch: 0, gh: sp0 > 1 ? Math.atan2(b.vx, b.vz) : b.yaw, sp: Math.max(6, Math.min(13, sp0 + 4)), bank: 0 };
