@@ -523,7 +523,7 @@ wss.on('connection', (ws, req) => {
         if (!num(m.x, -2000, 2000) || !num(m.y, -200, 300) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
         m.r = Math.atan2(Math.sin(m.r), Math.cos(m.r));   // a turn angle that has wound up past +-10 rad (spinning the camera, driving in circles) used to get the whole packet thrown away: that player froze / vanished for everybody else
         p.x = m.x; p.y = m.y; p.z = m.z; p.r = m.r; p.a = m.a | 0;
-        bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, w: m.w & 31, vm: num(m.vm, 0, 60) ? m.vm | 0 : 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
+        bcast(room, { t: 's', id: p.id, x: m.x, y: m.y, z: m.z, r: m.r, a: m.a | 0, w: m.w & 127, vm: num(m.vm, 0, 60) ? m.vm | 0 : 0, sp: num(m.sp, 0, 100) ? m.sp : 0, ts: num(m.ts, 0, 1e15) ? m.ts : t, rs: m.rs | 0 }, p.id);
         const meta = LEVEL_META[room.level];
         if (room.phase === 'race' && !p.finished && m.z < meta.finishZ && m.y > meta.finishY - 3 && Math.abs(m.x) < 16) {
           p.finished = true;

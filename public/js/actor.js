@@ -1,7 +1,7 @@
 // HeroActor: drop-in replacement for the cartoon Character in the city (same group / height / update / dispose API),
 // but it is the realistic procedural human from hchar.js.  Poses are blended so there are no pops.
 import * as THREE from 'three';
-import { buildHeroChar, poseChar } from './hchar.js';
+import { buildHeroChar, poseChar, ensureHeal } from './hchar.js';
 import { wcls } from './economy.js';
 
 // four player looks (character ids 0..3): each wears a cap in the player's own colour (matches the map dot) - no pedestrian wears one, so players stand out in a crowd, plus a cop and a few pedestrians for later
@@ -14,6 +14,7 @@ export const HERO_LOOKS = [
 export const heroLook = (id) => HERO_LOOKS[((id | 0) % 4 + 4) % 4];
 
 const _q = new THREE.Quaternion();
+const HEALPOSE = [null, 'healMed', 'healInj', 'healPil'], HEALK = [null, 'hmed', 'hinj', 'hpil'];
 export class HeroActor {
   constructor(id, look) {
     this.ch = buildHeroChar(look || heroLook(id));
@@ -54,14 +55,15 @@ export class HeroActor {
     }
     if (st.crouch && w && !st.seated && (wc === 'ak' || wc === 'sniper') && (name === 'rifleIdle' || name === 'rifleWalk' || name === 'rifleAim')) name = sp > 0.25 ? 'rifleCrouchWalk' : st.aiming ? 'rifleCrouchAim' : 'rifleCrouchIdle';   // kneeling with the rifle (real Mixamo crouch clips)
     if (st.reload > 0 && w && !st.seated && !st.swim && wc !== 'bat') { name = 'reloadR'; t = st.reload; if (sp > 0.25 && st.grounded && !st.crouch && !st.prone) name = sp > 3 ? 'reloadRun' : 'reloadWalk'; }   // v224: reloading on the move keeps the legs running / walking (no gliding)   // the real Mixamo reload
-    if (name === 'idle' && st.gesture) name = st.gesture;
+    if (name === 'idle' && st.heal && !st.seated && !st.swim) { name = HEALPOSE[st.heal] || name; t = st.healT || this.t; }   // v393: syringe / pills / first aid each have their own motion
+    else if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }
     if (st.skydive) { name = st.skydive === 2 ? 'chute' : 'skydive'; t = this.t; }
     if (st.zpose) { name = st.zpose; t = st.zp || 0; }
     if (st.punch > 0 && !st.seated && !st.zpose) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }
     const DRV = { stairUp: 'walk', rifleStairs: 'aimLow', pistolStairs: 'aimLow', reloadRun: 'run', reloadWalk: 'walk', rifleRunShoot: 'run', pistolRunShoot: 'run', rifleWalkShoot: 'aimLow', pistolWalkShoot: 'aimLow', walkBack: 'walk', walkL: 'walk', walkR: 'walk', crawl: 'idle', proneIdle: 'idle', reloadR: 'aimLow', rifleBack: 'aimLow', rifleStrafeL: 'aimLow', rifleStrafeR: 'aimLow', pistolBack: 'aimLow', pistolStrafeL: 'aimLow', pistolStrafeR: 'aimLow', runBack: 'run', runL: 'run', runR: 'run', dieF: 'idle', dieB: 'idle', dieR: 'idle', dieL: 'idle', skydive: 'jump', jumpRifle: 'jump', jumpPistol: 'jump', chute: 'idle', rifleCrouchIdle: 'aimLow', rifleCrouchAim: 'aimLow', rifleCrouchWalk: 'aimLow', zWalk: 'walk', zCrawl: 'walk', zDeath: 'idle', dReact: 'idle', dFly: 'idle', nadeThrow: 'nadeThrow', nadeToss: 'nadeThrow', nadeStand: 'nadeThrow', pistolIdle: 'aimLow', pistolWalk: 'aimLow', rifleIdle: 'aimLow', rifleWalk: 'aimLow', rifleAim: 'aim', pistolAim: 'aim' };
     poseChar(this.ch, DRV[name] || name, t, 1);
-    { const W = this.ch.wmesh; if (w) { this.ch.gun.visible = true; for (const k in W) W[k].visible = k === w; } else for (const k in W) W[k].visible = k === 'pistol'; }
+    { const W = this.ch.wmesh; if (st.heal && !st.seated) { ensureHeal(this.ch); this.ch.gun.visible = true; const hk = HEALK[st.heal]; for (const k in W) W[k].visible = k === hk; } else if (w) { this.ch.gun.visible = true; for (const k in W) W[k].visible = k === w; } else for (const k in W) W[k].visible = k === 'pistol'; }
     // blend from the previous frame's pose (fast, so it still looks crisp)
     const k = Math.min(1, dt * 16);
     for (const n in this.ch.bones) {

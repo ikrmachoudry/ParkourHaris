@@ -73,6 +73,13 @@ export function throwModel(kind, tint, onLoad) {   // an empty group that fills 
     g.add(w); if (onLoad) onLoad(g); });
   return g;
 }
+export function holdModel(name, size, alongZ, onLoad) {   // v393: a prop GLB for the hand (heal items): scaled so its longest side = size, centred; alongZ turns the longest side to run along the fingers (+z)
+  const g = new THREE.Group();
+  propGlb(name).then((src) => { if (!src) return; const m = skClone(src), bb = new THREE.Box3().setFromObject(m), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3()), w = new THREE.Group(); m.position.sub(c); w.add(m);
+    if (alongZ) { if (sz.x >= sz.y && sz.x >= sz.z) w.rotation.y = Math.PI / 2; else if (sz.y >= sz.x && sz.y >= sz.z) w.rotation.x = Math.PI / 2; }
+    w.scale.setScalar(size / Math.max(0.001, sz.x, sz.y, sz.z)); const o = new THREE.Group(); o.add(w); g.add(o); if (onLoad) onLoad(g); });
+  return g;
+}
 export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
 export function gunMesh(kind) {
   const want = kind; if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model (and gets the ACOG scope, v391)

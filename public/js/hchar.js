@@ -1,7 +1,7 @@
 // HCHAR: a realistic-proportion human built entirely in code (no downloads).  One SkinnedMesh (~8-10k triangles) with a real
 // skeleton, so legs / arms bend smoothly.  Faces +z; character RIGHT hand is at -x.  Metres.
 import * as THREE from 'three';
-import { gunMesh, throwModel } from './weaponmodels.js';
+import { gunMesh, throwModel, holdModel } from './weaponmodels.js';
 import { MOCAP, MOCAP_BONES } from './mocapdata.js';   // real recorded human movement (CMU mocap) baked onto this skeleton: tools/mocap_bake.mjs
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -292,16 +292,17 @@ export function buildHeroChar(opts = {}) {
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.04, 8), gm2); cap.position.set(0, 0.095, 0.07); gr.add(cap);
     const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), gm2); lev.position.set(0.034, 0.085, 0.07); lev.rotation.z = -0.5; gr.add(lev); }
   { const old = [...gr.children], nm = throwModel('grenade', null, () => { for (const c of old) gr.remove(c); }); nm.position.set(0, 0.04, 0.07); gr.add(nm); }   // v392: the real M67 grenade in the hand (the code-built ball stays only until the model is in)
-  bat.visible = ak.visible = sn.visible = gr.visible = false;
-  for (const o of [bat, ak, sn, gr]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
+  const hSy = new THREE.Group(), hPi = new THREE.Group(), hMe = new THREE.Group();   // v393: heal items in the hand: empty groups, the GLBs load the first time somebody heals (GTA never loads them)
+  bat.visible = ak.visible = sn.visible = gr.visible = hSy.visible = hPi.visible = hMe.visible = false;
+  for (const o of [bat, ak, sn, gr, hSy, hPi, hMe]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
   // the real guns (Quaternius pack): the code-built pistol / AK / sniper are replaced, four more guns are added (they use the same hand frame)
   const basis = () => new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)), extra = {};
   for (const [k, grp] of [['pistol', gp], ['ak', ak], ['sniper', sn]]) { const q = gunMesh(k); if (q) { grp.clear(); grp.add(q); } }
   for (const k of ['revolver', 'smg', 'm4', 'ak49', 'shotgun']) { const q = gunMesh(k); if (!q) continue; const grp = new THREE.Group(); grp.add(q); grp.quaternion.setFromRotationMatrix(basis()); grp.visible = false; extra[k] = grp; gun.add(grp); }
-  gun.add(bat, ak, sn, gr);
+  gun.add(bat, ak, sn, gr, hSy, hPi, hMe);
   gun.add(gp); gun.position.set(0.026, -0.052, 0); gun.visible = false; bn['hand.R'].add(gun);
   let tris = geom.index.count / 3;
-  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn, grenade: gr, ...extra }, tris: Math.round(tris), outfit: o };
+  const ch = { group, mesh, bones: bn, rest, gun, wmesh: { pistol: gp, bat, ak, sniper: sn, grenade: gr, hinj: hSy, hpil: hPi, hmed: hMe, ...extra }, tris: Math.round(tris), outfit: o };
   ch.pose = (name, t = 0, k = 1) => poseChar(ch, name, t, k);
   return ch;
 }
@@ -443,6 +444,21 @@ export function poseChar(ch, name, t = 0, k = 1) {
   } else if (name === 'clap') {   // clapping
     const c = (Math.sin(t * 9) + 1) * 0.5;
     R(b.chest, 0.05, 0, 0); R(b['upperarm.R'], -1.15, 0, -0.35); R(b['upperarm.L'], -1.15, 0, 0.35); R(b['forearm.R'], 0, 0, -1.0 - c * 0.5); R(b['forearm.L'], 0, 0, 1.0 + c * 0.5); curl('R', 0.2); curl('L', 0.2);
+  } else if (name === 'healPil') {   // v393 pills: the bottle tips up to the mouth, head back for a swallow, then the hand lowers a little
+    const c = 0.5 + 0.5 * Math.sin(t * 2.4 - 1.2), br = Math.sin(t * 1.6) * 0.01;
+    R(b.chest, 0.02 + br, 0, 0); R(b.head, -0.05 - 0.3 * c, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
+    R(b['upperarm.R'], -0.75 - 0.3 * c, 0.15, 0.2); R(b['forearm.R'], -1.5 - 0.65 * c, 0, 0.45); R(b['hand.R'], -0.5 * c, 0, 0); curl('R', 1.1);
+    R(b['upperarm.L'], 0.1, 0, -0.12); R(b['forearm.L'], -0.5, 0, -0.35);
+  } else if (name === 'healInj') {   // v393 adrenaline: right hand cocks back, jabs the needle into the left upper arm, holds, pulls out
+    const ph = (t % 2.0) / 2.0, jab = ph < 0.3 ? ph / 0.3 : ph < 0.7 ? 1 : 1 - (ph - 0.7) / 0.3, cock = ph < 0.3 ? 1 - ph / 0.3 : 0, br = Math.sin(t * 1.6) * 0.01;
+    R(b.chest, 0.05 + br, -0.25 * jab, 0); R(b.head, 0.28, 0.45 * jab, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
+    R(b['upperarm.L'], -0.5, 0, -0.5); R(b['forearm.L'], -0.9, 0, -0.3);
+    R(b['upperarm.R'], -0.7 - 0.5 * cock, 0.55 * jab, 0.25 + 0.5 * cock); R(b['forearm.R'], -1.5 - 0.3 * cock, 0, 0.35); R(b['hand.R'], -0.3, 0, 0); curl('R', 1.0);
+  } else if (name === 'healMed') {   // v393 first aid kit: kit held in the right hand, the left hand wraps a bandage round the right forearm
+    const w = Math.sin(t * 5), br = Math.sin(t * 1.6) * 0.01;
+    R(b.chest, 0.08 + br, 0, 0); R(b.head, 0.42, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
+    R(b['upperarm.R'], -0.55, 0.25, 0.15); R(b['forearm.R'], -1.3, 0, 0.3); R(b['hand.R'], -0.15, 0, 0); curl('R', 0.9);
+    R(b['upperarm.L'], -0.7, -0.2, -0.15); R(b['forearm.L'], -1.45 + 0.12 * w, 0, -0.25); R(b['hand.L'], 0.2 * w, 0, 0); curl('L', 0.7);
   } else if (name === 'phone') {  // checking the phone
     const br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, 0.06 + br, 0, 0); R(b.head, 0.38, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
@@ -510,4 +526,11 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperarm.L'], -0.25 + 0.3 * s, 0, -0.22); R(b['upperarm.R'], -0.25 - 0.3 * s, 0, 0.22); R(b['forearm.L'], -0.4, 0, 0); R(b['forearm.R'], -0.4, 0, 0);   // v228: arms hang a little out with a soft elbow (they were pulled in and bent hard = awkward)
   }
   void k;
+}
+
+// v393: fills the heal-item hand groups the first time they are needed (syringe along the fingers, pill bottle upright, first-aid kit hanging from the grip)
+export function ensureHeal(ch) {
+  if (ch._healOk) return; ch._healOk = true; const W = ch.wmesh;
+  const a = holdModel('syringe', 0.17, true), b = holdModel('pills', 0.11, false), c = holdModel('medkit', 0.2, false);
+  a.position.set(0, 0.03, 0.07); b.position.set(0, 0.05, 0.05); c.position.set(0, -0.04, 0.05); W.hinj.add(a); W.hpil.add(b); W.hmed.add(c);
 }
