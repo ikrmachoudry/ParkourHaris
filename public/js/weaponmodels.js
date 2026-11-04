@@ -16,8 +16,8 @@ const part = (g, w, h, d, x, y, z, m, rx = 0) => { const q = new THREE.Mesh(new 
 const cyl = (g, r0, r1, len, x, y, z, m, axis = 'z') => { const q = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, 10), m); if (axis === 'z') q.rotation.x = Math.PI / 2; q.position.set(x, y, z); g.add(q); return q; };
 
 export function makeWeaponModel(kind) {
-  if (kind === 'ak49') kind = 'ak';
-  { const gm = gunMesh(kind); if (gm) return gm; }
+  const orig = kind; if (kind === 'ak49') kind = 'ak';
+  { const gm = gunMesh(orig); if (gm) return gm; }
   const g = new THREE.Group();
   if (kind === 'pistol') {
     part(g, 0.032, 0.04, 0.2, 0, 0.074, 0.03, steel()); part(g, 0.028, 0.03, 0.14, 0, 0.044, 0.01, black()); part(g, 0.032, 0.11, 0.046, 0, 0, -0.012, black(), -0.12);
@@ -53,12 +53,25 @@ const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefin
   g.scene.applyMatrix4(new THREE.Matrix4().fromArray(man[kind])); res(g.scene);
 }, undefined, () => res(null)))));
 export const GUN_KINDS = ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper'];
-export const preloadGuns = () => track(Promise.all(GUN_KINDS.map(glbGun)), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
+// v391: the ACOG scope ("ACOG Scope" by Mateusz Wolinski, Sketchfab, CC BY-NC) on the M4 and the AK-49. models/guns/acog.glb is the file cut down for phones (one scope, 256 px textures, ~3.7k triangles). It is turned so its optical axis (back lens -> front lens) is the gun's +z, centred and 1 m long; each gun then scales / places it.
+let SCOPE = null;
+const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => new GLTFLoader().load(av('models/guns/acog.glb'), (g) => {
+  const sc = g.scene; sc.updateMatrixWorld(true); let pf = null, pb = null;
+  sc.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()); if (/glass.front/i.test(o.name)) pf = c; if (/glass.back/i.test(o.name)) pb = c; } });
+  if (!pf || !pb) { res(null); return; }
+  const inner = new THREE.Group(); inner.add(sc); inner.quaternion.setFromUnitVectors(pf.clone().sub(pb).normalize(), new THREE.Vector3(0, 0, 1)); inner.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()); inner.position.sub(bb.getCenter(new THREE.Vector3())); const w = new THREE.Group(); w.add(inner); w.userData.len = sz.z; res(w);
+}, undefined, () => res(null))));
+const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
+export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto()]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
 export function gunMesh(kind) {
-  if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model
+  const want = kind; if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model (and gets the ACOG scope, v391)
   const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();
   if (!GEO[kind]) GEO[kind] = d.g.map(([r, gg, b, s, k]) => { const geo = new THREE.BufferGeometry(); const a = new Float32Array(k * 3); for (let i = 0; i < k * 3; i++) a[i] = d.p[s * 3 + i] / 1000; geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); geo.computeVertexNormals(); return { geo, key: r + ',' + gg + ',' + b, c: [r, gg, b] }; });
   for (const { geo, key, c } of GEO[kind]) { const m = GMAT[key] || (GMAT[key] = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(Math.min(1, c[0] * 1.5 + 0.03), Math.min(1, c[1] * 1.5 + 0.03), Math.min(1, c[2] * 1.5 + 0.03), THREE.LinearSRGBColorSpace), roughness: 0.55, metalness: 0.25, flatShading: true })); const me = new THREE.Mesh(geo, m); me.castShadow = true; g.add(me); }
-  glbGun(kind).then((src) => { if (!src) return; g.clear(); g.add(skClone(src)); });
+  glbGun(kind).then((src) => { if (!src) return; g.clear(); const m = skClone(src); g.add(m);
+    const cfg = SCOPED[want]; if (!cfg) return;
+    if (cfg.hide) m.traverse((o) => { if (o.isMesh && o.name.includes(cfg.hide)) o.visible = false; });
+    scopeProto().then((p) => { if (!p) return; const c = p.clone(true); c.scale.setScalar(cfg.s / p.userData.len); c.position.set(0, cfg.y, cfg.z); g.add(c); }); });
   return g;
 }

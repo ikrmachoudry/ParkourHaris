@@ -385,7 +385,7 @@ function build() {
   // furniture inside the rooms (bigger things are solid cover; the loot spots keep away from all of it)
   const furn = (b) => {
     const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
-      if (k === 'counter') return;   // v318: the plain wooden block counters are gone (user)
+      if (k === 'counter' || k === 'crate') return;   // v318: the plain wooden block counters are gone (user); v391: the wooden crates are gone from the whole map (user)
       if ((k === 'bench' && c !== '#6a4a30') || k === 'rack' || (k === 'shelf' && c === '#9a9a9a') || c === '#111418') return;   // v325: the grey wood-textured block props are gone (user)
       if (b.hole2 && x + w / 2 > b.hole2.x0 - 0.8 && x - w / 2 < b.hole2.x1 + 0.8 && z + d / 2 > b.hole2.z0 - 0.8 && z - d / 2 < b.hole2.z1 + 0.8) return;
       if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
@@ -404,7 +404,7 @@ function build() {
     else if (f === 'ware') { for (const [x, z] of [[-8, -6], [-8, 4], [0, -7], [8, 6], [8, -5], [-1, 6]]) put(x, z, 2.4, 2.4, 2.4, '#b08a58', 'pallet'); put(hx - 1.2, 0, 1.4, 4, 3.2, '#7a8a96', 'rack'); put(-hx + 1.2, -3, 1.4, 4, 3.2, '#7a8a96', 'rack'); }
     else if (f === 'barracks') { for (const z of [-3, -0.5, 2, 4]) { put(-hx + 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); put(hx - 1.2, z, 2.0, 0.9, 0.55, '#6a7a5a', 'bed'); } }
     else if (f === 'clinic') {
-      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'crate' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
       P(0, -3.5, 7.2, 5, 0.9, 1.1, '#e8eef2', 'counter'); for (const x of [3.2, 4.6]) P(0, x, 8.6, 1.0, 0.5, 0.9, '#6a8fb0', 'bench');   // reception desk and waiting chairs
       P(0, -12.4, -4.2, 0.9, 0.5, 1.7, '#cfd8dc', 'shelf');   // admission room 1
       P(0, -10, 0, 2.1, 1.0, 0.6, '#f2f5f7', 'bed'); P(0, -10, 2.2, 1.4, 0.9, 0.75, '#cfd8dc', 'table');   // admission room 2
@@ -417,7 +417,7 @@ function build() {
       P(1, 10.4, -2.3, 2.6, 0.9, 0.78, '#7a5a3a', 'desk'); P(1, 10.4, -2.6, 1.0, 0.1, 0.5, '#15181c', 'screen', false); P(1, 9.0, -2.3, 0.8, 0.5, 0.5, '#111418', 'crate'); P(1, 10.4, -1.1, 0.5, 0.5, 0.5, '#2a2d33', 'chair', false); P(1, 13.0, 1.8, 1.0, 2.1, 0.6, '#b9835a', 'bed'); P(1, 7.5, 1.2, 0.5, 1.8, 1.8, '#7a5638', 'shelf');   // HARIS'S GAME ROOM (desk, monitor, PC, bed)
     }
     else if (f === 'ghar') {
-      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
+      const P = (fl, x, z, w, d, h, c, k, solid = true) => { if (k === 'counter' || k === 'crate' || k === 'rack' || c === '#111418' || (k === 'bench' && c !== '#6a4a30') || (k === 'shelf' && c === '#9a9a9a')) return; const y = b.fy + fl * (b.fh + SL), it = { x: b.x + x, z: b.z + z, y, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: y, y1: y + h, k: 'prop' }); };
       P(0, 6, -7, 3.2, 1.0, 0.8, '#7a5a3a', 'table'); P(0, 1.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 9.5, -2, 2.6, 0.9, 0.85, '#5a6a7a', 'bench'); P(0, 6, 5.5, 1.8, 0.7, 0.75, '#a07848', 'table'); P(0, 11.2, 7.5, 0.6, 3, 1.6, '#6a4a30', 'shelf');   // the ground floor hall
       P(1, -7.5, -2, 3.0, 1.0, 0.8, '#7a5a3a', 'table'); P(1, -10.8, 0, 0.9, 3.4, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, -7.8, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -7.5, 4.2, 2.8, 0.9, 0.85, '#5a6a7a', 'bench'); P(1, -4.4, -8.4, 0.7, 1.2, 1.9, '#6a4a30', 'wardrobe');   // the big HALL (upstairs, west end)
       P(1, -0.8, -8, 2.1, 1.1, 0.6, '#b9835a', 'bed'); P(1, 1.0, -4, 0.6, 1.6, 2.0, '#6a4a30', 'wardrobe');   // room 1
@@ -433,8 +433,9 @@ function build() {
     for (let x = BRIDGE.xb + 2; x < BRIDGE.xa; x += 9) addS({ x0: x - 0.8, z0: BRIDGE.z - 1.0, x1: x + 0.8, z1: BRIDGE.z + 1.0, y0: -3.2, y1: y - 0.9, k: 'prop' }); }
   // outdoor props: containers, sandbags, barrels, crates, stacks of pipes
   const outside = [];
-  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { const gy = y === null ? cmbH(x, z) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: (k === 'sandbag' || (k === 'ruin' && h <= 1.3)) ? 1 : 0 }); outside.push(it); return it; };
-  const container = (x, z, along = 'x', c = '#c0482e', stack = 1) => { const w = along === 'x' ? 6.1 : 2.5, d = along === 'x' ? 2.5 : 6.1, gy = cmbH(x, z); for (let s = 0; s < stack; s++) { const it = { x, z, y: gy + s * 2.6, w, d, h: 2.6, c: s ? '#2f5d8a' : c, k: 'container' }; props.push(it); addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy + s * 2.6 - (s ? 0 : 0.4), y1: gy + (s + 1) * 2.6, k: 'prop' }); } };
+  const gmin = (x, z, w, d) => Math.min(cmbH(x, z), cmbH(x - w / 2, z - d / 2), cmbH(x + w / 2, z - d / 2), cmbH(x - w / 2, z + d / 2), cmbH(x + w / 2, z + d / 2));   // v391: the lowest ground under a prop's footprint: on a slope it sinks into the hill instead of hanging in the air
+  const crate = (x, z, w = 1.3, d = 1.3, h = 1.3, c = '#9a6a3a', k = 'crate', y = null, solid = true) => { if (k === 'crate') return { x, z, y: 0, w, d, h, c, k };   /* v391: no wooden crates on the map (user) */ const gy = y === null ? gmin(x, z, w, d) : y; const it = { x, z, y: gy, w, d, h, c, k }; props.push(it); if (solid) addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy - 0.4, y1: gy + h, k: 'prop', vault: (k === 'sandbag' || (k === 'ruin' && h <= 1.3)) ? 1 : 0 }); outside.push(it); return it; };
+  const container = (x, z, along = 'x', c = '#c0482e', stack = 1) => { const w = along === 'x' ? 6.1 : 2.5, d = along === 'x' ? 2.5 : 6.1, gy = gmin(x, z, w, d); for (let s = 0; s < stack; s++) { const it = { x, z, y: gy + s * 2.6, w, d, h: 2.6, c: s ? '#2f5d8a' : c, k: 'container' }; props.push(it); addS({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, y0: gy + s * 2.6 - (s ? 0 : 0.4), y1: gy + (s + 1) * 2.6, k: 'prop' }); } };
   // the base: a fence round the compound with a gate on the south side, sandbags, containers
   const FB = { x0: 112, z0: -192, x1: 228, z1: -96, gate: [158, 174] };
   padRect(FB.x0 + 5, FB.z0 + 5, FB.x1 - 5, FB.z1 - 5, BASE_Y);
@@ -446,7 +447,7 @@ function build() {
   for (let i = 0; i < 6; i++) container(236 + (i % 2) * 7, 126 + Math.floor(i / 2) * 7, 'x', ['#c0482e', '#2f5d8a', '#c9a22b', '#4a7a4a'][i % 4], i % 3 === 0 ? 2 : 1);   // the container yard (south east)
   for (const [x, z] of [[118, -108], [214, -110], [124, -178], [220, -184]]) { crate(x, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); crate(x + 1.8, z, 1.6, 0.6, 0.9, '#a89a74', 'sandbag'); }
   // v237: broken walls (a high piece and a lower broken piece) round the base: walls you can jump over to get across or take cover
-  for (const [x, z, r] of [[132, -150, 0], [205, -135, 0], [146, -104, 1], [200, -168, 1], [168, -176, 0], [128, -124, 1]]) { crate(x, z, r ? 0.45 : 3.4, r ? 3.4 : 0.45, 1.15, '#9a978f', 'sandbag'); crate(x + (r ? 0 : 3.6), z + (r ? 3.6 : 0), r ? 0.45 : 2.2, r ? 2.2 : 0.45, 0.75, '#9a978f', 'sandbag'); }
+  for (const [x, z, r] of [[132, -150, 0], [205, -135, 0], [200, -168, 1], [168, -176, 0], [128, -124, 1]]) { crate(x, z, r ? 0.45 : 3.4, r ? 3.4 : 0.45, 1.15, '#9a978f', 'sandbag'); crate(x + (r ? 0 : 3.6), z + (r ? 3.6 : 0), r ? 0.45 : 2.2, r ? 2.2 : 0.45, 0.75, '#9a978f', 'sandbag'); }
   // three concrete towers: closed shaft, a door at the bottom, a spiral staircase inside, a flat roof with a parachute and a flag
   const tower = (x, z, flag, nSt = TW.n, yFix) => {
     const y0 = yFix !== undefined ? yFix : Math.round(rawH(x, z) * 10) / 10; padRect(x - 7, z - 7, x + 7, z + 7, y0);
@@ -517,6 +518,16 @@ function build() {
   // some wandering crates / barrels near the buildings and roads (cover)
   for (const b of BUILDINGS) if (R() < 0.7) { const sx = (R() < 0.5 ? -1 : 1) * (b.w / 2 + 2.4), sz = (R() - 0.5) * b.d; const inB = (x, z) => BUILDINGS.some((o) => Math.abs(x - o.x) < o.w / 2 + 1.0 && Math.abs(z - o.z) < o.d / 2 + 1.0);   /* v324: a crate beside one house landed INSIDE the next house (it stood in a stairwell) */ if (!inB(b.x + sx, b.z + sz)) crate(b.x + sx, b.z + sz); if (R() < 0.5 && !inB(b.x + sx + 1.4, b.z + sz + 0.3)) crate(b.x + sx + 1.4, b.z + sz + 0.3, 1.1, 1.1, 1.1); }
   for (let i = 0; i < 40; i++) { const x = (R() * 2 - 1) * (H - 40), z = (R() * 2 - 1) * (H - 40), gy = cmbH(x, z), dr = distRoad(x, z); if (gy < 0 || dr > 5 || dr < 1.5 || onPad(x, z, 5)) continue; crate(x, z, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel'); }
+  // v391: SANDBAG WALLS across the whole map (they were only in the base corner): short straight walls with a return, 3-5 m long, never on or beside a road, a field, a pad, a house or a tower (own seeded random numbers: the rest of the map stays exactly as it was)
+  { let sd = 90417; const R2 = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; }; const spots = [];
+    const nearB = (x, z, m) => BUILDINGS.some((o) => Math.abs(x - o.x) < o.w / 2 + m && Math.abs(z - o.z) < o.d / 2 + m);
+    for (let tries = 0; tries < 900 && spots.length < 36; tries++) { const x = (R2() * 2 - 1) * (H - 45), z = (R2() * 2 - 1) * (H - 45), gy = cmbH(x, z);
+      if (gy < 0.4 || gy > 30 || distRoad(x, z) < 9 || onPad(x, z, 8) || inField(x, z) || nearB(x, z, 7)) continue;
+      if (towers.some((t) => Math.hypot(t.x - x, t.z - z) < 16)) continue; if (spots.some((q) => Math.hypot(q[0] - x, q[1] - z) < 26)) continue;
+      if (Math.hypot(cmbH(x + 3, z) - cmbH(x - 3, z), cmbH(x, z + 3) - cmbH(x, z - 3)) > 1.1) continue;   // not on a steep slope
+      spots.push([x, z, R2() < 0.5 ? 0 : 1, R2() < 0.5 ? 1 : -1]); }
+    for (const [x, z, ax, sg] of spots) { const L1 = 1.6, n3 = 2 + (R2() < 0.5 ? 1 : 0); for (let i = 0; i < n3; i++) { const o = (i - (n3 - 1) / 2) * 1.7; crate(ax ? x : x + o, ax ? z + o : z, ax ? 0.6 : L1, ax ? L1 : 0.6, 0.9, '#a89a74', 'sandbag'); }
+      if (R2() < 0.6) crate(ax ? x + sg * 1.1 : x + (n3 - 1) / 2 * 1.7 + 0.5, ax ? z + (n3 - 1) / 2 * 1.7 : z + sg * 1.1, ax ? 1.4 : 0.6, ax ? 0.6 : 1.4, 0.9, '#a89a74', 'sandbag'); } }
   /* v263: PUBG-style oil drums beside the warehouses / hangars / barns and in the base */
   for (const b of BUILDINGS) if (b.kind === 'warehouse' || b.kind === 'hangar' || b.kind === 'barn') for (let i = 0; i < 3; i++) { const bx = b.x + b.w / 2 + 1.6, bz = b.z - 1.5 + i * 1.0; if (cmbH(bx, bz) > 0.2 && distRoad(bx, bz) > 3) crate(bx, bz, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel'); }
   for (const [x, z] of [[122, -150], [123.2, -149], [215, -142], [214, -143.3], [150, -108], [151.2, -108.6], [190, -184], [191.1, -183]]) crate(x, z, 0.7, 0.7, 0.95, '#6a8a9a', 'barrel');
