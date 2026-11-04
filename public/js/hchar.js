@@ -1,7 +1,7 @@
 // HCHAR: a realistic-proportion human built entirely in code (no downloads).  One SkinnedMesh (~8-10k triangles) with a real
 // skeleton, so legs / arms bend smoothly.  Faces +z; character RIGHT hand is at -x.  Metres.
 import * as THREE from 'three';
-import { gunMesh } from './weaponmodels.js';
+import { gunMesh, throwModel } from './weaponmodels.js';
 import { MOCAP, MOCAP_BONES } from './mocapdata.js';   // real recorded human movement (CMU mocap) baked onto this skeleton: tools/mocap_bake.mjs
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -291,6 +291,7 @@ export function buildHeroChar(opts = {}) {
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), gmat); body.scale.y = 1.2; body.position.set(0, 0.02, 0.07); gr.add(body);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.04, 8), gm2); cap.position.set(0, 0.095, 0.07); gr.add(cap);
     const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), gm2); lev.position.set(0.034, 0.085, 0.07); lev.rotation.z = -0.5; gr.add(lev); }
+  { const old = [...gr.children], nm = throwModel('grenade', null, () => { for (const c of old) gr.remove(c); }); nm.position.set(0, 0.04, 0.07); gr.add(nm); }   // v392: the real M67 grenade in the hand (the code-built ball stays only until the model is in)
   bat.visible = ak.visible = sn.visible = gr.visible = false;
   for (const o of [bat, ak, sn, gr]) o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(1, 0, 0), V(0, 0, 1), V(0, -1, 0)));
   // the real guns (Quaternius pack): the code-built pistol / AK / sniper are replaced, four more guns are added (they use the same hand frame)

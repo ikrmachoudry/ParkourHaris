@@ -34,6 +34,7 @@ import { hitCode, addHit } from './cardamage.js';
 import { Net } from './net.js';
 import { Voice } from './voice.js';
 import { preloadAssets } from './preload.js';
+import { throwModel } from './weaponmodels.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 
@@ -1440,13 +1441,18 @@ class Race {
     if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(2, m.toss | 0)); return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
     if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
-    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) n.t = 1.3; } A.sfx.swing && A.sfx.swing(false);
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false);
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
     const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.nadeMats.body); body.scale.y = 1.2; g.add(body);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8), this.nadeMats.lever); cap.position.y = 0.085; g.add(cap);
-    const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), this.nadeMats.lever); lev.position.set(0.035, 0.07, 0); lev.rotation.z = -0.5; g.add(lev); return g;
+    const lev = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.075, 0.03), this.nadeMats.lever); lev.position.set(0.035, 0.07, 0); lev.rotation.z = -0.5; g.add(lev);
+    { const old = [...g.children], nm = throwModel('grenade', null, () => { for (const c of old) g.remove(c); }); g.add(nm); }   // v392: the real M67 model in flight (the code-built ball only until it is loaded)
+    return g;
+  }
+  nadeLook(n) {   // smoke bomb = the M67 in grey, molotov = the bottle (v392)
+    if (!n || !(n.smoke || n.molo)) return; for (const c of [...n.m.children]) n.m.remove(c); n.m.add(throwModel(n.molo ? 'molotov' : 'smoke', n.smoke ? '#9aa6ae' : null));
   }
   // the TARGET SIGN: where the crosshair meets the ground (at most 38 m away); the grenade is thrown so that it lands exactly there
   nadeTarget() {
@@ -1484,7 +1490,7 @@ class Race {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
           const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
           const T = clamp(0.45 + d * 0.03, 0.5, 1.5), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
-          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) n.t = 1.3; this.updateAmmoHud();
+          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } this.updateAmmoHud();
           if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }

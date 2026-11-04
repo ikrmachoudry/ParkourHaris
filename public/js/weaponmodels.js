@@ -63,7 +63,17 @@ const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Pro
   const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()); inner.position.sub(bb.getCenter(new THREE.Vector3())); const w = new THREE.Group(); w.add(inner); w.userData.len = sz.z; res(w);
 }, undefined, () => res(null))));
 const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
-export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto()]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
+// v392: the real M67 grenade / molotov (your GLB files in models/props) for the grenade in the HAND and the grenade in FLIGHT (both were a code-built olive ball)
+const PGLB = {};
+const propGlb = (n) => PGLB[n] || (PGLB[n] = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => new GLTFLoader().load(av('models/props/' + n + '.glb'), (g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); res(g.scene); }, undefined, () => res(null))));
+export function throwModel(kind, tint, onLoad) {   // an empty group that fills itself with the model (origin = the middle of the object, +y = up); onLoad(group) when it is in
+  const g = new THREE.Group(), H = kind === 'molotov' ? 0.24 : 0.17;
+  propGlb(kind === 'molotov' ? 'molotov' : 'grenade').then((src) => { if (!src) return; const m = skClone(src), bb = new THREE.Box3().setFromObject(m), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3()), w = new THREE.Group(); m.position.sub(c); w.add(m); w.scale.setScalar(H / Math.max(0.001, sz.y));
+    if (tint) m.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiply(new THREE.Color(tint)); } });
+    g.add(w); if (onLoad) onLoad(g); });
+  return g;
+}
+export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
 export function gunMesh(kind) {
   const want = kind; if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model (and gets the ACOG scope, v391)
   const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();

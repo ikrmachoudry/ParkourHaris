@@ -132,7 +132,7 @@ export class CombatScene {
   // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
   prepare() {
     const R = this.R;
-    return Promise.all([preloadAssets('jang'), this.loadPlane()]).catch(() => {}).then(() => { try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+    return Promise.all([preloadAssets('jang'), this.loadPlane()]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
       try {
         if (!this.sim || !this.on) return;
         const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
@@ -295,7 +295,7 @@ export class CombatScene {
   endDrop(landed) { this.diveHint = false; if (window.phVoiceUI) window.phVoiceUI(); if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
-    if (!this._icons) { this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
+    if (!this._icons) { if (!hasProp('syringe') || !hasProp('medkit')) return ''; this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
     return this._icons[k] || '';
   }
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
