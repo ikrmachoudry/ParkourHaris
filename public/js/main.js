@@ -2172,6 +2172,7 @@ function homeMode(m) { const t = $('s-title'); if (t) { t.classList.toggle('mode
 function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
+  { const was = app.screen; if (name === 'lobby' && was !== 'lobby') { try { A.blockMenuMusic(true); } catch (e) { /* noop */ } if (window.phGuide) window.phGuide.voiceHint(); } else if (was === 'lobby' && name !== 'lobby') { try { A.blockMenuMusic(false); } catch (e) { /* noop */ } } }   /* v429: no menu music in the lobby: it would leak into the voice chat */
   app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby'); try { voiceUI(); } catch (e) { /* voice not ready yet */ }
   try { musicBtn(name); } catch (e) { /* noop */ }
 }
@@ -2349,7 +2350,8 @@ const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.in
 const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
 $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
 // who is on my voice channel: GTA = everybody in the room; JANG team room = the room IS the team (rooms never see each other). If players ever carry a team number, only the same team is connected.
-const voiceMates = () => { const ps = app.room ? app.room.players : [], me = ps.find((p) => p.id === app.myId); return ps.filter((p) => p.id === app.myId || me == null || me.team == null || p.team == null || p.team === me.team); };
+/* v429: VOICE GROUPS: everybody without a team is the MAIN LOBBY group and hears only each other; a team hears only its own members (the server enforces it too) */
+const voiceMates = () => { const ps = app.room ? app.room.players : [], me = ps.find((p) => p.id === app.myId); return ps.filter((p) => p.id === app.myId || me == null || (p.team == null ? null : p.team) === (me.team == null ? null : me.team)); };
 const voiceOn = () => !!(voice && app.room && voiceMates().length > 1);
 function voiceSync() { if (!voice) return; if (!app.room) { voice.stopAll(); voiceUI(); return; } const on = voiceOn(); voice.setRoom(app.myId, voiceMates(), on); voiceUI(); }
 function voiceStop() { if (voice) voice.stopAll(); voiceUI(); }
@@ -2357,6 +2359,7 @@ function voiceUI(speakOnly) {
   if (!voice) return; const on = voiceOn() || (document.body.classList.contains('in-lobby') && !!app.room);   // v284: in the lobby the buttons are there even before a friend joins
   if (document.body.classList.contains('vc-on') !== on) document.body.classList.toggle('vc-on', on);
   if (!on) return;
+  if (document.body.classList.contains('in-lobby') && !voice.ptt) voice.setPtt(true, false);   /* v429: the lobby is push to talk only (up to 16 people: no open mics, no echo) */
   $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : (voice.aec ? 'VOICE-ACTIVATED MIC · tap to change' : 'OPEN MIC · tap to change'); $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
@@ -2367,7 +2370,7 @@ function voiceUI(speakOnly) {
 // act on touchend itself (like the game's other buttons): a finger always answers, the synthesized click is dropped so it cannot fire twice
 const vcTap = (el, fn) => { let lt = 0; el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); lt = Date.now(); fn(e); }, { passive: false }); el.addEventListener('click', (e) => { e.stopPropagation(); if (Date.now() - lt < 700) return; fn(e); }); };
 // v386 PUSH TO TALK (PUBG style): the mic line is open ONLY while Y (laptop) or the mic button (phone) is held; tap the grey label to switch to open mic and back
-vcTap($('vc-mode'), () => { if (!voice) return; A.sfx.click(); voice.setPtt(!voice.ptt); voiceUI(); });
+vcTap($('vc-mode'), () => { if (!voice || document.body.classList.contains('in-lobby')) return; A.sfx.click(); voice.setPtt(!voice.ptt); voiceUI(); });
 { const mic = $('vc-mic'); const down = (e) => { if (!voice || !voice.ptt) return; e.preventDefault(); e.stopPropagation(); if (!voice.want) { mic.classList.add('wait'); voice.setMic(true).then(() => { mic.classList.remove('wait'); voiceUI(); }); } voice.setHeld(true); voiceUI(); }; const up = () => { if (voice && voice.held) { voice.setHeld(false); voiceUI(); } };
   mic.addEventListener('touchstart', down, { passive: false }); mic.addEventListener('mousedown', down); window.addEventListener('touchend', up); window.addEventListener('touchcancel', up); window.addEventListener('mouseup', up); window.addEventListener('blur', up); }
 vcTap($('vc-mic'), async () => {

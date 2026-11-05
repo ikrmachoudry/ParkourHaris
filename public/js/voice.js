@@ -102,7 +102,7 @@ export class Voice {
   }
   // v386: ONE place decides if the mic line carries sound: not in the background, and (push-to-talk) only while the talk key / button is held, and (open mic) not while a teammate is talking
   applyEn(far) { const t = this.tx(); if (!t) return; if (this.aec) far = false; const en = !document.hidden && (this.ptt ? this.held : !far); if (t.enabled !== en) t.enabled = en; }
-  setPtt(on) { this.ptt = !!on; this.held = false; try { localStorage.setItem('ph_ptt', on ? '1' : '0'); } catch { /* ignore */ } this.applyEn(false); this.gateMsg(); this.changed(); }
+  setPtt(on, save = true) { this.ptt = !!on; this.held = false; if (save) try { localStorage.setItem('ph_ptt', on ? '1' : '0'); } catch { /* ignore */ } this.applyEn(false); this.gateMsg(); this.changed(); }
   setHeld(h) { if (this.held === !!h) return; this.held = !!h; this.applyEn(false); this.changed(true); }
   reopenSoon() { clearTimeout(this._ro); this._ro = setTimeout(() => { if (this.want && !(this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live'))) this.openMic().then((ok) => { if (!ok && this.want) this.reopenSoon(); }); }, 800); }
   // app in the background: the mic track is paused (silent) but the button stays on; coming back resumes it

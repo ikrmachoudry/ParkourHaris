@@ -3,8 +3,8 @@
 const KEY = 'ph_guide_jang';
 let open = null, started = false;
 
-const seen = () => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } };
-const mark = (v) => { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) { /* noop */ } };
+const seen = (k = KEY) => { try { return localStorage.getItem(k) === '1'; } catch (e) { return false; } };
+const mark = (v, k = KEY) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch (e) { /* noop */ } };
 
 const rectOf = (ids) => {
   let l = 1e9, t = 1e9, r = -1e9, b = -1e9, n = 0;
@@ -61,18 +61,18 @@ const CSS = '#gd{position:fixed;inset:0;z-index:9000;touch-action:none;font-fami
 
 function close(done) {
   if (!open) return; const o = open; open = null; clearTimeout(o.tm); window.removeEventListener('resize', o.re); o.el.remove(); o.st.remove();
-  if (o.cs) o.cs.guideOn = false; if (done) mark(true);
+  if (o.cs) o.cs.guideOn = false; if (done) mark(true, o.key);
 }
 
-function run(cs) {
-  const touch = document.body.classList.contains('touch'), steps = (touch ? TOUCH : KEYS).filter((s) => !s.ids && !s.rect ? true : (s.rect ? true : !!rectOf(s.ids)));
+function run(cs, custom, key) {
+  const touch = document.body.classList.contains('touch'), steps = (custom || (touch ? TOUCH : KEYS)).filter((s) => !s.ids && !s.rect ? true : (s.rect ? true : !!rectOf(s.ids)));
   if (!steps.length) return;
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'gd';
   el.innerHTML = '<div class="gh"></div><div class="gr"></div><div class="gf">☝️</div><div class="gc"><b></b><p></p><div class="gb"><i></i><button class="s">SKIP</button><button class="n">NEXT</button></div></div>';
   document.body.appendChild(el);
   const hole = el.querySelector('.gh'), ring = el.querySelector('.gr'), fin = el.querySelector('.gf'), card = el.querySelector('.gc'), tt = card.querySelector('b'), tx = card.querySelector('p'), cnt = card.querySelector('i'), nb = card.querySelector('.n');
-  let i = 0; open = { el, st, cs, tm: 0, re: null }; if (cs) cs.guideOn = true;
+  let i = 0; open = { el, st, cs, tm: 0, re: null, key: key || KEY }; if (cs) cs.guideOn = true;
   ['touchstart', 'touchmove', 'mousedown', 'pointerdown', 'click', 'keydown'].forEach((ev) => el.addEventListener(ev, (e) => { if (!e.target.closest || !e.target.closest('button')) { e.stopPropagation(); if (ev !== 'keydown') e.preventDefault(); } }, { passive: false }));
   const show = () => {
     const s = steps[i], W = innerWidth, H = innerHeight, p = 10;
@@ -102,4 +102,12 @@ window.phGuide = {
   maybeStart(cs) { if (open || started && !this.force) return; if (seen() && !this.force) return; this.force = false; started = true; setTimeout(() => { if (!open && cs && !cs.over) run(cs); }, 900); },
   replay() { mark(false); started = false; this.force = true; },
   close,
+  /* v429: first visit to the lobby: how to talk (push to talk) and who hears you */
+  voiceHint() {
+    const K = 'ph_guide_voice'; if (open || seen(K)) return; const touch = document.body.classList.contains('touch');
+    setTimeout(() => { if (open || seen(K) || !document.getElementById('vc')) return; run(null, [
+      { t: 'TALK TO YOUR FRIENDS', x: touch ? 'HOLD the mic button while you speak and let go when you finish. Nobody hears you while it is not held.' : 'HOLD the T key while you speak and let go when you finish. Nobody hears you while it is not held.', a: 'tap', ids: ['vc-mic'] },
+      { t: 'WHO HEARS YOU', x: 'In the MAIN LOBBY everybody hears you. When you JOIN A TEAM only your team hears you. Leave the team and you are back in the main lobby.', a: 'none' },
+    ], K); }, 800);
+  },
 };
