@@ -615,10 +615,23 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
 }
 // v258: can a bullet fly from the bot (ground ay) to the player (height py) without crossing ANY solid (walls, pillars, floors, roofs)? 3D: samples the sloped line every 0.5 m
 export function shotClear(L, ax, az, bx, bz, ay, by) {
-  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.8) return true; const B = L.B, n = Math.ceil(d / 0.5), y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3;
-  for (let k = 1; k < n; k++) {
-    const t = k / n, x = ax + dx * t, z = az + dz * t, y = y0 + (y1 - y0) * t, a = L.bucket.get(Math.floor(x / B) * 4099 + Math.floor(z / B)); if (!a) continue;
-    for (const s of a) { if (y < s.y0 - 0.05 || y > s.y1 + 0.05 || x < s.x0 || x > s.x1 || z < s.z0 || z > s.z1) continue; if (k * 0.5 < 0.45 || (n - k) * 0.5 < 0.45) continue; return false; }
+  /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.8) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = new Set();
+  for (let k = 0; k <= n; k++) {
+    const t = Math.min(1, k * ST / d), px = ax + dx * t, pz = az + dz * t, ci = Math.floor(px / B), cj = Math.floor(pz / B);
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+      const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
+      for (const s of a) {
+        let t0 = 0, t1 = 1;
+        if (Math.abs(dx) < 1e-9) { if (ax < s.x0 || ax > s.x1) continue; } else { let p = (s.x0 - ax) / dx, q = (s.x1 - ax) / dx; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
+        if (t0 > t1) continue;
+        if (Math.abs(dz) < 1e-9) { if (az < s.z0 || az > s.z1) continue; } else { let p = (s.z0 - az) / dz, q = (s.z1 - az) / dz; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
+        if (t0 > t1) continue;
+        if (Math.abs(dy) < 1e-9) { if (y0 < s.y0 - 0.05 || y0 > s.y1 + 0.05) continue; } else { let p = (s.y0 - 0.05 - y0) / dy, q = (s.y1 + 0.05 - y0) / dy; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
+        if (t0 > t1 || t1 * d < 0.45 || t0 * d > d - 0.45) continue;
+        return false;
+      }
+    }
   }
   return true;
 }
