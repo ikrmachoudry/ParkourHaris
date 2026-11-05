@@ -2873,15 +2873,23 @@ window.__ph = { P, bld: () => cmbLayout().buildings, clinic: () => { const b = c
   setInterval(() => { if (document.body.classList.contains('driving')) { if (joyId !== null) joyReset(); if (sprintLock) setSprintLock(false); } }, 200);
   { const lk = document.createElement('i'); lk.id = 'joy-lock'; lk.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>'; joy.appendChild(lk); }
   let lockArm = false;
+  /* v419 (PUBG style): the move stick only starts where the stick control is (its home spot bottom-left, or wherever the player dragged it in the layout editor); every other touch, even in the upper-left above the peek buttons, turns the camera */
+  const inJoyZone = (x, y) => {
+    const W = window.innerWidth, H = window.innerHeight, R = Math.max(110, Math.min(W, H) * 0.3);
+    let cx, cy;
+    cx = Math.max(18, W * 0.03) + 75; cy = H - Math.max(14, H * 0.05) - 75;
+    if (LAY.joy) { cx += (LAY.joy.x || 0) * W; cy += (LAY.joy.y || 0) * H; }   /* where the player dragged the stick in the layout editor */
+    return Math.hypot(x - cx, y - cy) < R;
+  };
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
-      if (t.clientX < window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) && joyId === null && !document.body.classList.contains('driving')) {   // the joystick lives in the LEFT third only (left fifth while scoped): the rest of the screen only turns the camera
+      if (joyId === null && !document.body.classList.contains('driving') && inJoyZone(t.clientX, t.clientY)) {   // the joystick lives in the LEFT third only (left fifth while scoped): the rest of the screen only turns the camera
         if (sprintLock) setSprintLock(false);
         joyId = t.identifier; ox = t.clientX; oy = t.clientY;
         if (LAY.joy) { const r = joy.getBoundingClientRect(); if (r.width > 20) { const pcx = r.left + r.width / 2, pcy = r.top + r.height / 2; if (Math.hypot(ox - pcx, oy - pcy) < r.width * 0.8) { ox = pcx; oy = pcy; } } }   /* v272: a moved pad is a fixed stick (a touch on or near it uses its centre) */
         joy.style.translate = ''; joy.style.left = ox + 'px'; joy.style.top = oy + 'px'; joy.classList.add('on'); knob.style.transform = 'translate(-50%, -50%)';
-      } else if (camId === null && (t.clientX >= window.innerWidth * (document.body.classList.contains('scoped') ? 0.2 : 0.33) || document.body.classList.contains('driving'))) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
+      } else if (camId === null && (document.body.classList.contains('driving') || !inJoyZone(t.clientX, t.clientY) || joyId !== null)) { camId = t.identifier; lx = t.clientX; ly = t.clientY; }
     }
   }, { passive: false });
   zone.addEventListener('touchmove', (e) => {
