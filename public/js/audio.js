@@ -233,8 +233,10 @@ function menuStop() {
 }
 let menuBlock = false;
 export function blockMenuMusic(b) { menuBlock = !!b; if (b) stopMusic(); }   // v359: the victory page keeps the menu song OFF until CONTINUE is pressed
+let inGame = false;
+export function setInGame(b) { inGame = !!b; if (b) menuStop(); }   // v402: while a match is on screen the MENU song can never start (phase messages / taps kept restarting it)
 export function startMusic(levelIdx) {
-  if (menuBlock && levelIdx === 99) return;
+  if ((menuBlock || inGame) && levelIdx === 99) return;
   if (levelIdx === 99 && ctx) { // the main menu / lobby: a real (CC0) track instead of the synth loop
     if (menuWant) return;
     stopMusic(); menuWant = true;

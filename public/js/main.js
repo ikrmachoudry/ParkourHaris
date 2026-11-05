@@ -432,6 +432,7 @@ class Race {
     $('hud').classList.remove('hidden');
     $('hud-hint').classList.remove('fade'); this.hintT = 8;
     this.setShadows(Q.shadows);
+    A.setInGame(true);
     if (this.meta.city) { A.stopMusic(); A.cityAmbience(true); } else A.startMusic(levelIdx);
     A.duckMusic(false);
     this.pos = this.me.body;
@@ -2144,6 +2145,7 @@ class Race {
     if (this.wanted) { this.wanted.dispose(); this.wanted = null; }
     if (this.copGhosts) { this.copGhosts.dispose(); this.copGhosts = null; }
     if (this.peds) { this.peds.dispose(); this.peds = null; }
+    A.setInGame(false);
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
     document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
@@ -2165,12 +2167,16 @@ function show(name) {
   try { musicBtn(name); } catch (e) { /* noop */ }
 }
 // v357: the MUTE MUSIC button (title, character select, lobby and the other menu pages; laptop + phone). It only stops the background music: sound effects, the team mic and the speaker are separate and never touched.
+// v402: a button that answers a finger on touchend itself (phones: the game's look / joystick handlers swallow the later click) and a mouse click, never twice
+const tapBtn = (el, fn) => { let t0 = 0; const run = (e) => { e.preventDefault(); e.stopPropagation(); const n = performance.now(); if (n - t0 < 400) return; t0 = n; fn(e); }; el.addEventListener('touchend', run, { passive: false }); el.addEventListener('click', run); };
+// v402: a volume slider that follows the finger by itself (phones: the native slider did not move inside the pause menu)
+const touchSlider = (el) => { const set = (e) => { const t = e.touches && e.touches[0]; if (!t) return; const r = el.getBoundingClientRect(), k = Math.max(0, Math.min(1, (t.clientX - r.left) / Math.max(1, r.width))), mn = +el.min || 0, mx = +el.max || 100; el.value = String(Math.round(mn + k * (mx - mn))); if (el.oninput) el.oninput(); e.preventDefault(); e.stopPropagation(); }; el.addEventListener('touchstart', set, { passive: false }); el.addEventListener('touchmove', set, { passive: false }); };
 function musicBtn(name) {
   let b = document.getElementById('mm-btn');
   if (!b) {
     b = document.createElement('button'); b.id = 'mm-btn'; b.type = 'button';
     const upd = () => { const m = A.isMusicMuted(); b.innerHTML = '<span aria-hidden="true">' + (m ? '\u{1F507}' : '\u{1F3B5}') + '</span> ' + (m ? 'MUSIC OFF' : 'MUTE MUSIC'); b.classList.toggle('off', m); b.setAttribute('aria-pressed', m ? 'true' : 'false'); };
-    b.onclick = () => { A.initAudio(); A.setMusicMuted(!A.isMusicMuted()); };
+    tapBtn(b, () => { A.initAudio(); A.setMusicMuted(!A.isMusicMuted()); });
     window.addEventListener('ph-musicmute', upd); upd(); document.body.appendChild(b);
   }
   b.style.display = ['title', 'profile'].includes(name) ? 'block' : 'none'; b.classList.toggle('tr', name === 'profile');   /* v363: only on the title page and the choose-player page (top right there); not on the pages after */
@@ -2604,9 +2610,9 @@ function closeSettings() {
   setFrom = '';
 }
 document.querySelectorAll('#s-settings .ps-tab').forEach((b) => { b.onclick = () => { A.sfx.click(); setTab(b.dataset.pg); }; });
-$('set-mm').onclick = () => { A.initAudio(); A.sfx.click(); A.setMusicMuted(!A.isMusicMuted()); };
+tapBtn($('set-mm'), () => { A.initAudio(); A.sfx.click(); A.setMusicMuted(!A.isMusicMuted()); });
 window.addEventListener('ph-musicmute', () => { const r = $('set-mm'); if (r) r.classList.toggle('on', A.isMusicMuted()); });
-$('set-snd').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); paintSettings(); };
+tapBtn($('set-snd'), () => { A.initAudio(); toggleSound(); A.sfx.click(); paintSettings(); });
 document.querySelectorAll('#set-gfx button').forEach((b) => { b.onclick = () => { Q.low = b.dataset.q === 'low'; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); paintSettings(); }; });
 document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => { r.onclick = () => { A.sfx.click(); OPT.pk[r.dataset.pk] = OPT.pk[r.dataset.pk] ? 0 : 1; saveOpts(); paintSettings(); }; });
 
@@ -2780,6 +2786,7 @@ async function boot() {
     sl('.vol-m', V.music); sl('.vol-s', V.sfx);
     for (const [c, k] of [['.sens-x', 'sx'], ['.sens-y', 'sy']]) document.querySelectorAll(c).forEach((e) => { e.value = Math.round((OPT[k] || (k === 'sx' ? 1 : 0.6)) * 100); e.oninput = () => { OPT[k] = e.value / 100; saveOpts(); document.querySelectorAll(c).forEach((q) => { q.value = e.value; }); }; });   // v237: camera speed (turn / up-down) for every player, laptop and phone
     document.querySelectorAll('.vol-m').forEach((e) => { e.oninput = () => { A.initAudio(); A.setMusicVolume(e.value / 100); sl('.vol-m', e.value / 100); }; });
+    document.querySelectorAll('.vol-m, .vol-s').forEach(touchSlider);
     document.querySelectorAll('.vol-s').forEach((e) => { e.oninput = () => { A.initAudio(); A.setSfxVolume(e.value / 100); sl('.vol-s', e.value / 100); }; e.onchange = () => A.sfx.shot(0, 0.5); }); }
   // v373: CROSSHAIR size + color (Settings > Controls): CSS variables read by #xhair and the preview
   { const applyXh = () => { const r = document.documentElement.style, sz = Math.max(50, Math.min(200, +OPT.xhSize || 100)); r.setProperty('--xhs', String(sz / 100)); r.setProperty('--xcu', /^#[0-9a-f]{6}$/i.test(OPT.xhColor || '') ? OPT.xhColor : '#ffffff'); document.querySelectorAll('#xh-col button').forEach((b) => b.classList.toggle('on', b.dataset.c === OPT.xhColor)); const sl = document.getElementById('xh-size'); if (sl) sl.value = sz; };
