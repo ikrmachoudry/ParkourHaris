@@ -1152,7 +1152,7 @@ class Race {
   // ---- baseball bat (multiplayer): pushes rivals away, never kills
   swing() {
     if (this.meta.city) return false;
-    if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0) return false;
+    if (!(this.multi || this.meta.free) || this.over || this.finished || this.levelTime < 0 || this.batCd > 0 || this.healing()) return false;
     const b = this.me.body; if (b.stun > 0) return false;
     this.swingMega = this.fx.mega > 0; if (this.swingMega) this.fx.mega--;
     this.batCd = 1.1; this.swingT = 0.001; this.batPending = true; A.sfx.swing(true);
@@ -1443,7 +1443,7 @@ class Race {
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
   throwNade() {
     if (this.downed) return false;
-    const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
+    const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || this.healing() || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
     if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
@@ -1657,7 +1657,7 @@ class Race {
   // R: reload now, any time (also in the middle of shooting) when the magazine is not full and there is a spare one
   reload() {
     if (this.downed) return false;
-    const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || this.drive || this.over || this.reloadT > 0) return false;
+    const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || W.grenade || this.drive || this.over || this.reloadT > 0 || this.healing()) return false;
     if (this.wallet.mag(w) >= W.mag || this.wallet.reserve(w) <= 0) return false;
     this.reloadT = this.reloadTot = W.reload || 1.5; this.fireHeld = false; A.sfx.click(); this.updateAmmoHud(); return true;
   }
@@ -1680,7 +1680,7 @@ class Race {
   }
   fire() {
     if (this.downed) return false;
-    const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack) return false;
+    const w = this.weapon, W = w && WEAPONS[w]; if (!W || W.melee || this.drive || this.over || this.finished || this.levelTime < 0 || this.me.body.stun > 0 || this.jack || this.healing()) return false;
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
@@ -1801,7 +1801,7 @@ class Race {
   // ---- punch (works on foot in every mode): hits pedestrians and other players in front of you, never kills
   punch() {
     if (this.downed) return false;
-    if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0) return false;
+    if (this.over || this.finished || this.levelTime < 0 || this.drive || this.punchCd > 0 || this.me.body.stun > 0 || this.healing()) return false;
     if (loadScreen.visible) return false;   // v375: a tap through the loading screen must not throw a punch (and its shout)
     if (this.meta.city && isGun(this.weapon)) return this.fire();
     if (this.meta.city && this.weapon === 'grenade') return this.throwNade();

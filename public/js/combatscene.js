@@ -766,7 +766,7 @@ export class CombatScene {
     if (k === 'smoke' || k === 'molotov') { R.nadeKind = k; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
     const U = USE[k]; if (!U) return false; if (this.using) { this.using = null; R.toast && R.toast('CANCELLED'); return false; }
     if (this.hp >= MY_DMG) { R.toast && R.toast('HEALTH IS FULL'); return false; }
-    this.using = { k, t: 0, dur: U.dur, given: 0 }; R.aiming = false; if (this.inv) this.inv.toggle(false); return true;
+    this.using = { k, t: 0, dur: U.dur, given: 0 }; R.aiming = false; R.fireHeld = false;   /* v414: no shooting / ammo use while healing */ if (this.inv) this.inv.toggle(false); return true;
   }
   useTick(dt) {
     if (this.boostT > 0) this.boostT -= dt;

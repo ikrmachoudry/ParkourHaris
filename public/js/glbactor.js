@@ -10,6 +10,7 @@ import { track } from './loading.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HeroActor } from './actor.js';
+import { hasProp, propModel } from './props.js';
 // each of the four players is a little different in height (no facial hair: it looked wrong on these heads)
 const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 1.79 }];
 
@@ -347,19 +348,23 @@ export class GlbActor extends HeroActor {
     rot(B, pcN.clone().sub(pbN), t.clone().sub(pbN));
   }
   // v414: BODY ARMOR and HELMET are visible on the character (you, teammates, bots): a green plate vest on the chest and a dark-green helmet on the head
-  setGear(v, h) { v = !!v; h = !!h; if (this._gv === v && this._gh === h) return; this._gv = v; this._gh = h; if (this._gear) { this._gear.vest.visible = v; this._gear.helm.visible = h; } }
+  setGear(v, h) { v = !!v; h = !!h; if (this._gear && this._gear.fb && hasProp('vest') && hasProp('helmet')) { for (const q of [this._gear.vest, this._gear.helm]) if (q.parent) q.parent.remove(q); this._gear = null; }   // props arrived after the actor: swap the stand-in boxes for the real models
+    if (!this._gear && this._bb) this._buildGear(); if (this._gv === v && this._gh === h) return; this._gv = v; this._gh = h; if (this._gear) { this._gear.vest.visible = v; this._gear.helm.visible = h; } }
   _buildGear() {
     const bb = this._bb, map = this._bmap; if (!bb || !map || this._gear) return;
     this.group.updateMatrixWorld(true); const gw = this.group.matrixWorld, T = new THREE.Matrix4(), M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
-    const fit = (bone, mesh, ox, oy, oz) => { bone.updateWorldMatrix(true, false); P.setFromMatrixPosition(bone.matrixWorld); P.add(S.set(ox, oy, oz).applyQuaternion(Q.setFromRotationMatrix(gw)).multiplyScalar(1)); T.makeTranslation(P.x, P.y, P.z); T.multiply(M.copy(gw).setPosition(0, 0, 0)); M.copy(bone.matrixWorld).invert().multiply(T); M.decompose(mesh.position, mesh.quaternion, mesh.scale); bone.add(mesh); };
-    if (!_gearGeo) { _gearGeo = { vest: new THREE.BoxGeometry(0.34, 0.32, 0.28), plate: new THREE.BoxGeometry(0.16, 0.18, 0.03), helm: new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), brim: new THREE.CylinderGeometry(0.15, 0.15, 0.02, 14) }; _gearMat = { vest: new THREE.MeshStandardMaterial({ color: '#2f6b45', roughness: 0.7, metalness: 0.15 }), plate: new THREE.MeshStandardMaterial({ color: '#c9b458', roughness: 0.5, metalness: 0.4 }), helm: new THREE.MeshStandardMaterial({ color: '#35553a', roughness: 0.55, metalness: 0.25 }) }; }
-    const G = _gearGeo, Mt = _gearMat; const vest = new THREE.Group(), helm = new THREE.Group();
-    vest.add(new THREE.Mesh(G.vest, Mt.vest)); { const pl = new THREE.Mesh(G.plate, Mt.plate); pl.position.z = 0.145; vest.add(pl); const pb = new THREE.Mesh(G.plate, Mt.plate); pb.position.z = -0.145; vest.add(pb); }
-    helm.add(new THREE.Mesh(G.helm, Mt.helm)); 
+    const fit = (bone, mesh, ox, oy, oz) => { bone.updateWorldMatrix(true, false); P.setFromMatrixPosition(bone.matrixWorld); P.add(S.set(ox, oy, oz).applyQuaternion(Q.setFromRotationMatrix(gw))); T.makeTranslation(P.x, P.y, P.z); T.multiply(M.copy(gw).setPosition(0, 0, 0)); M.copy(bone.matrixWorld).invert().multiply(T); M.decompose(mesh.position, mesh.quaternion, mesh.scale); bone.add(mesh); };
+    // v414: BODY ARMOR and HELMET are visible on the character (you, teammates): the real vest / helmet models (a plain green box + dome only until those files are loaded)
+    const real = hasProp('vest') && hasProp('helmet'); let vest, helm;
+    if (real) { vest = new THREE.Group(); helm = new THREE.Group(); const vm = propModel('vest'), hm = propModel('helmet'); vm.scale.set(0.9, 0.9, 1.25); hm.scale.setScalar(1.12); vest.add(vm); helm.add(hm); }
+    else {
+      if (!_gearGeo) { _gearGeo = { vest: new THREE.BoxGeometry(0.34, 0.32, 0.28), helm: new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62) }; _gearMat = { vest: new THREE.MeshStandardMaterial({ color: '#2f6b45', roughness: 0.7, metalness: 0.15 }), helm: new THREE.MeshStandardMaterial({ color: '#35553a', roughness: 0.55, metalness: 0.25 }) }; }
+      vest = new THREE.Group(); helm = new THREE.Group(); vest.add(new THREE.Mesh(_gearGeo.vest, _gearMat.vest)); helm.add(new THREE.Mesh(_gearGeo.helm, _gearMat.helm));
+    }
     vest.traverse((o) => { o.castShadow = false; o.frustumCulled = false; }); helm.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
     const cb = bb[map.chest] || bb[map.spine], hb = bb[map.head]; if (!cb || !hb) return;
-    fit(cb, vest, 0, -0.07, 0.0); fit(hb, helm, 0, 0.125, 0.0);
-    vest.visible = !!this._gv; helm.visible = !!this._gh; this._gear = { vest, helm };
+    if (real) { fit(cb, vest, 0, -0.3, 0.035); fit(hb, helm, 0, -0.01, 0.01); } else { fit(cb, vest, 0, -0.07, 0.0); fit(hb, helm, 0, 0.125, 0.0); }
+    vest.visible = !!this._gv; helm.visible = !!this._gh; this._gear = { vest, helm, fb: !real };
   }
   dispose() {
     this.disposed = true;
