@@ -1,4 +1,5 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
+import { FireSmokeFX } from './fire.js';
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -374,6 +375,7 @@ class Race {
 
     const v = VIS[this.meta.key];
     const scene = this.scene = new THREE.Scene();
+    setTimeout(() => { try { if (this.scene === scene) this.fxs().tex(); } catch (e) { /* noop */ } }, 6000);   // v416: the fire / smoke textures are drawn in the background a few seconds after the match starts (not at the first throw)
     scene.background = new THREE.Color(v.fog); scene.fog = new THREE.Fog(v.fog, v.fogNear, v.fogFar); this.fogFarBase = v.fogFar; this.fogNearBase = v.fogNear; this.setFar();
     scene.environment = envTex; scene.environmentIntensity = v.env;
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.07, 1800);
@@ -1532,37 +1534,22 @@ class Race {
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
   fireBoom(x, y, z, mine = true, bot = false) {
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
-    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); this.fxs().fire(x, y, z, 8); A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
     const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
     for (let i = a.length - 1; i >= 0; i--) { const f = a[i]; f.t -= dt; f.tk -= dt;
       if (f.t <= 0) { a.splice(i, 1); continue; }
-      const n = Math.max(1, Math.round(dt * 40)); for (let k = 0; k < n; k++) { const ang = Math.random() * 6.283, r = Math.sqrt(Math.random()) * 3.2; this.particles.emit(f.x + Math.cos(ang) * r, f.y + 0.1, f.z + Math.sin(ang) * r, 1, { color: Math.random() < 0.5 ? '#ff7a1a' : '#ffd23f', speed: 0.5, up: 2.2, life: 0.55, size: 0.5, gravity: -1.5 }); }
-      if (Math.random() < dt * 8) this.particles.emit(f.x + (Math.random() - 0.5) * 4, f.y + 1.2, f.z + (Math.random() - 0.5) * 4, 1, { color: '#3a3a3a', speed: 0.3, up: 1.6, life: 1.2, size: 0.9, gravity: -0.5 });
+      if (Math.random() < dt * 5) this.particles.emit(f.x + (Math.random() - 0.5) * 5, f.y + 0.4, f.z + (Math.random() - 0.5) * 5, 1, { color: '#ffb347', speed: 0.8, up: 3.2, life: 1.1, size: 0.12, gravity: -1 });   // v416: a few sparks (the flames themselves are in fire.js)
       if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
   }
   // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
   smokeBoom(x, y, z, mine = true) {   // v403: SOFT billowing smoke (camera-facing puffs with a cloudy texture) instead of seven hard grey balls
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) { cs.sim.addSmoke(x - CMB.x, z - CMB.z, 6.5, 15); }
-    if (!this._smokeTex) {   // one shared cloud texture: a soft blob made of many faint round puffs, fading to nothing at the edge
-      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); let sd = 7; const rn = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
-      for (let i = 0; i < 90; i++) { const dark = i % 3 === 0, a2 = rn() * 6.283, r = Math.sqrt(rn()) * 36, px = 64 + Math.cos(a2) * r, py = 64 + Math.sin(a2) * r, rad = 8 + rn() * 20, gr = g.createRadialGradient(px, py, 0, px, py, rad); gr.addColorStop(0, dark ? 'rgba(120,126,132,0.30)' : 'rgba(255,255,255,0.26)'); gr.addColorStop(1, dark ? 'rgba(120,126,132,0)' : 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, 6.283); g.fill(); }
-      g.globalCompositeOperation = 'destination-in'; const m = g.createRadialGradient(64, 64, 8, 64, 64, 64); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.7, 'rgba(0,0,0,0.7)'); m.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = m; g.fillRect(0, 0, 128, 128);
-      this._smokeTex = new THREE.CanvasTexture(c); this._smokeTex.colorSpace = THREE.SRGBColorSpace; }
-    const grp = new THREE.Group(), n = IS_TOUCH ? 14 : 26, puffs = []; let sd2 = Math.floor(Math.abs(x * 13 + z * 7) * 100) % 2147483 + 11; const rn2 = () => { sd2 = (sd2 * 16807) % 2147483647; return sd2 / 2147483647; };
-    for (let i = 0; i < n; i++) {
-      const mat = new THREE.SpriteMaterial({ map: this._smokeTex, color: new THREE.Color().setHSL(0.58, 0.04, 0.6 + rn2() * 0.22), transparent: true, opacity: 0, depthWrite: false, fog: true, rotation: rn2() * 6.283 }), sp = new THREE.Sprite(mat), a2 = rn2() * 6.283, r = Math.sqrt(rn2()) * 3.9;
-      puffs.push({ sp, mat, t0: rn2() * 2.2, ex: Math.cos(a2) * r, ez: Math.sin(a2) * r, ey: 0.5 + rn2() * 3.4, s1: 3.6 + rn2() * 3.6, spin: (rn2() - 0.5) * 0.25, wob: rn2() * 6.283, mx: 0.5 }); grp.add(sp); }
-    grp.position.set(x, y, z); this.scene.add(grp); (this.smokeFx || (this.smokeFx = [])).push({ grp, puffs, t: 0 }); A.sfx.click && A.sfx.click();
+    this.fxs().smoke(x, y, z, 15); A.sfx.click && A.sfx.click();
   }
-  smokeTick(dt) {
-    if (!this.smokeFx || !this.smokeFx.length) return;
-    for (let i = this.smokeFx.length - 1; i >= 0; i--) { const s = this.smokeFx[i]; s.t += dt;
-      for (const p of s.puffs) { const a = s.t - p.t0; if (a < 0) { p.mat.opacity = 0; continue; } const k = Math.min(1, a / 2.4), e = 1 - (1 - k) * (1 - k), fade = s.t > 12 ? Math.max(0, 1 - (s.t - 12) / 3) : 1;
-        p.sp.position.set(p.ex * e + Math.sin(s.t * 0.4 + p.wob) * 0.25, 0.4 + p.ey * e + a * 0.05, p.ez * e + Math.cos(s.t * 0.35 + p.wob) * 0.25); p.sp.scale.setScalar(1.2 + p.s1 * e); p.mat.rotation += p.spin * dt; p.mat.opacity = Math.min(0.9, a * 0.9) * 0.5 * fade; }
-      if (s.t >= 15) { this.scene.remove(s.grp); for (const p of s.puffs) p.mat.dispose(); this.smokeFx.splice(i, 1); } }
-  }
+  fxs() { return this._fxs || (this._fxs = new FireSmokeFX(this.scene, IS_TOUCH)); }
+  smokeTick(dt) { if (this._fxs) this._fxs.update(dt, this.camera); }   // v416: smoke + fire visuals live in fire.js
   grenadeBoom(x, y, z, mine = true) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
     this.particles.emit(x, y + 0.4, z, 46, { color: '#ffb347', speed: 9, up: 5, life: 0.7, size: 0.9, gravity: 6, spread: 1.2 }); this.particles.emit(x, y + 0.3, z, 30, { color: '#3a3a3a', speed: 5, up: 4, life: 1.3, size: 1.2, gravity: -1, spread: 1 }); this.particles.emit(x, y + 0.2, z, 22, { color: '#c9b79c', speed: 11, up: 2, life: 0.5, size: 0.25, gravity: 12, spread: 1.5 });
