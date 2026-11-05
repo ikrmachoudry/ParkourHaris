@@ -21,16 +21,17 @@ export class Voice {
     if (!on || !window.RTCPeerConnection) { for (const id of [...this.peers.keys()]) this.drop(id); this.changed(); return; }   // alone in the room: connections close, but the mic button keeps its state
     const want = new Set(players.map((p) => p.id).filter((id) => id !== myId));
     for (const id of [...this.peers.keys()]) if (!want.has(id)) this.drop(id);
-    (this.iceP || (this.iceP = this.loadIce())).then(() => { if (this.me !== myId) return; for (const id of want) if (this.names.has(id) && !this.peers.has(id)) this.connect(id); this.changed(); });
+    (this.iceP || (this.iceP = this.loadIce())).then(() => { if (this.me !== myId) return; for (const id of want) if (this.names.has(id) && !this.peers.has(id)) this.connect(id); for (const id of want) this.replayEarly(id); this.changed(); });
     if (!this.timer) this.timer = setInterval(() => this.poll(), 140);
     this.changed();
   }
   async loadIce() { try { const r = await fetch('/ice', { cache: 'no-store' }); const j = await r.json(); if (j && Array.isArray(j.iceServers) && j.iceServers.length) this.ice = j.iceServers; } catch { /* STUN only */ } }
   mk(id) {
     const pc = new RTCPeerConnection({ iceServers: this.ice, bundlePolicy: 'max-bundle' });
-    const o = { id, pc, audio: null, an: null, polite: this.me > id, makingOffer: false, pend: [], sender: null };
-    const tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); o.sender = tr.sender; o.recv = tr.receiver;   // one fixed audio line: the mic is plugged in / out with replaceTrack, no new negotiation
-    pc.onicecandidate = (e) => { if (e.candidate) this.sig(id, 'i', e.candidate.toJSON ? e.candidate.toJSON() : e.candidate); };
+    const o = { id, pc, audio: null, an: null, polite: this.me > id, makingOffer: false, pend: [], sender: null, sid: Math.random().toString(36).slice(2, 10), rsid: null, pendI: [] };   // v437: sid = this connection's own id, rsid = the id of the other side's connection (stops old messages from an earlier connection reaching a new one)
+    // v437: ONE side makes the offer (the lower id) and the other only answers (no more two offers colliding: that left one direction silent or the connection stuck). The offerer makes one fixed audio line; the answerer uses the line that comes with the offer. The mic is plugged in / out with replaceTrack, no new negotiation.
+    if (!o.polite) { const tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); o.sender = tr.sender; o.recv = tr.receiver; }
+    pc.onicecandidate = (e) => { if (e.candidate) this.sig(id, 'i', e.candidate.toJSON ? e.candidate.toJSON() : e.candidate, o); };
     pc.ontrack = (e) => {
       const st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; o.audio.style.display = 'none'; try { document.body.appendChild(o.audio); } catch { /* ignore */ } }   // v384: in the page, so the laptop's echo canceller can hear what is being played
@@ -38,7 +39,8 @@ export class Voice {
       const p = o.audio.play(); if (p && p.catch) p.catch(() => { this._needTap = true; this.changed(); });
     };
     pc.onnegotiationneeded = async () => {
-      try { o.makingOffer = true; await pc.setLocalDescription(); this.sig(id, 'o', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription); } catch { /* retry on next change */ } finally { o.makingOffer = false; }
+      if (o.polite) return;
+      try { o.makingOffer = true; await pc.setLocalDescription(); this.sig(id, 'o', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription, o); } catch { /* retry on next change */ } finally { o.makingOffer = false; }
     };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') this.rebind(o); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
     const t = this.tx(); if (t) this.setTrack(o, t);
@@ -50,21 +52,31 @@ export class Voice {
   tx() { return this.aec ? this.aec.track : (this.stream && this.stream.getAudioTracks()[0]) || null; }   // the track that goes to the other players: the cleaned one on a laptop, the raw mic otherwise   // after every negotiation: put the mic on the line again
   connect(id) { if (this.peers.has(id)) return; this.peers.set(id, this.mk(id)); }
   drop(id) { const o = this.peers.get(id); if (!o) return; try { o.pc.close(); } catch { /* ignore */ } if (o.audio) { o.audio.srcObject = null; try { o.audio.remove(); } catch { /* ignore */ } } this.dropRef(id); this.peers.delete(id); this.level.delete(id); this.speaking.delete(id); this.changed(); }
-  sig(to, k, d) { this.net.send({ t: 'vc', to, k, d }); }
+  sig(to, k, d, o) { o = o || this.peers.get(to); if (!o || this.peers.get(to) !== o) return; this.net.send({ t: 'vc', to, k, d: Object.assign({}, d, { _s: o.sid, _r: o.rsid || 0 }) }); }   // v437: every message carries the sender's connection id and the id it believes the other side has
   // ---- messages from the other players (relayed by the server)
   async onSignal(m) {
-    if (!window.RTCPeerConnection) return;
-    const id = m.from; if (!this.peers.has(id)) { if (!this.names.has(id)) return; this.connect(id); }
-    const o = this.peers.get(id), pc = o.pc;
+    if (!window.RTCPeerConnection || !m.d) return;
+    const id = m.from, S = m.d._s || 0, R = m.d._r || 0, d = Object.assign({}, m.d); delete d._s; delete d._r;
+    let o = this.peers.get(id);
+    if (!o) {   // the other side was faster than our own lobby update: keep its connect messages for a few seconds and replay them as soon as we know the player (before, the offer was thrown away and both sides waited for each other forever)
+      if (!this.names.has(id)) { const e = (this.early || (this.early = new Map())).get(id) || { t: 0, l: [] }; if (m.k === 'o') e.l = []; e.t = Date.now(); if (e.l.length < 40) e.l.push(m); this.early.set(id, e); return; }
+      if (m.k !== 'o') return;
+      this.connect(id); o = this.peers.get(id);
+    }
     try {
       if (m.k === 'o') {   // "perfect negotiation": the higher id gives way if both sides offer at once
-        const clash = o.makingOffer || pc.signalingState !== 'stable';
-        if (clash && !o.polite) return;
-        await pc.setRemoteDescription(m.d); await pc.setLocalDescription(); this.sig(id, 'a', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription); this.rebind(o);
-      } else if (m.k === 'a') { if (pc.signalingState === 'have-local-offer') { await pc.setRemoteDescription(m.d); this.rebind(o); } }
-      else if (m.k === 'i') { try { await pc.addIceCandidate(m.d); } catch { /* candidate for an old negotiation */ } }
+        if (o.rsid && o.rsid !== S) { this.drop(id); this.connect(id); o = this.peers.get(id); }   // the other side started a fresh connection: so do we
+        const pc = o.pc; if (!o.polite) return;   // only the higher id answers; an offer that reaches the offering side is a leftover and is ignored
+        o.rsid = S;
+        await pc.setRemoteDescription(d);
+        for (const t of pc.getTransceivers()) { try { if (t.receiver && t.receiver.track && t.receiver.track.kind === 'audio') { t.direction = 'sendrecv'; o.sender = t.sender; } } catch { /* ignore */ } }   // our mic goes out on the line the offer brought
+        this.rebind(o); await pc.setLocalDescription(); this.sig(id, 'a', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription, o); this.rebind(o); this.flushI(o);
+      } else if (m.k === 'a') { if (R !== o.sid) return; if (o.rsid && o.rsid !== S) return; const pc = o.pc; if (pc.signalingState === 'have-local-offer') { o.rsid = S; await pc.setRemoteDescription(d); this.rebind(o); this.flushI(o); } }
+      else if (m.k === 'i') { if (!o.rsid) { if (o.pendI.length < 60) o.pendI.push({ s: S, d }); return; } if (S !== o.rsid) return; try { await o.pc.addIceCandidate(d); } catch { /* candidate for an old negotiation */ } }
     } catch { /* ignore a bad message */ }
   }
+  flushI(o) { const l = o.pendI; o.pendI = []; for (const c of l) if (c.s === o.rsid) o.pc.addIceCandidate(c.d).catch(() => {}); }
+  replayEarly(id) { const e = this.early && this.early.get(id); if (!e) return; this.early.delete(id); if (Date.now() - e.t > 15000) return; for (const m of e.l) this.onSignal(m); }
   // ---- mic / speaker
   actx() { if (!this.ctx) { const C = window.AudioContext || window.webkitAudioContext; this.ctx = new C(); } if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return this.ctx; }
   // The mic is STICKY: once the player taps it on it stays on until the player taps it off. The browser or phone may cut the microphone (call, other app,
