@@ -2260,7 +2260,7 @@ function openProfile(mode) {
   charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();
-  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ANIMS.filter((a) => ['idle', 'walk', 'run', 'aim', 'rifle', 'wave'].includes(a.id)).forEach((a) => { const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
+  { const bar = $('pv-anims'); if (!bar.dataset.ok) { bar.dataset.ok = 1; ['idle', 'walk', 'run', 'wave', 'aim', 'rifle'].map((id) => ANIMS.find((a) => a.id === id)).filter(Boolean).forEach((a) => { if (a.id === 'aim') { const br = document.createElement('i'); br.className = 'pv-br'; bar.appendChild(br); }   /* v425: IDLE WALK RUN WAVE on the first row, RIFLE AIM + RIFLE WALK on the second */ const b = document.createElement('button'); b.className = 'pv-b'; b.dataset.a = a.id; b.textContent = a.label; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.pv.anim = a.id; stage.pv.t = 0; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x === b)); }; bar.appendChild(b); }); }
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
