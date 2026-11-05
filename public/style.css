@@ -1429,4 +1429,4 @@ body.touch #mm-btn:not(.tr) { top: auto; bottom: calc(14px + env(safe-area-inset
 body.aa-lock .qrow[data-k="autoAim"] { opacity: .45; filter: grayscale(1); }
 body.aa-lock .qrow[data-k="autoAim"] .sw { background: #555 !important; }
 body.aa-lock .qrow[data-k="autoAim"] .sw::after { background: #888 !important; }
-body.aa-lock .qrow[data-k="autoAim"] small::after { content: " - LOCKED OFF: 3+ teams"; color: #ff9a5a; }
+body.aa-lock .qrow[data-k="autoAim"] small::after { content: " - LOCKED OFF: 2+ teams"; color: #ff9a5a; }

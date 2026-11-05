@@ -2265,8 +2265,8 @@ function openProfile(mode) {
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
-/* v427: AUTO AIM only works in Jang when ONE or TWO teams play (one team vs the bots is optional on / off); with 3+ teams it is locked off and greyed */
-function aaLocked() { return !!(race && race.jang && race.jangTeam && (race.jangTeam.nTeams | 0) > 2); }
+/* v427: AUTO AIM is optional only when ONE team plays against the bots; with 2+ teams (players fight each other) it is locked off and greyed */
+function aaLocked() { return !!(race && race.jang && race.jangTeam && (race.jangTeam.nTeams | 0) > 1); }
 function aaOn() { return !!OPT.autoAim && !aaLocked(); }
 /* v426: a missing required field: red outline + shake + red text under it (cleared as soon as the player types) */
 function needField(inp, msg) {
@@ -2667,7 +2667,7 @@ function closePause() {
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
-$('b-auto').addEventListener('click', () => { if (aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 3 OR MORE TEAMS'); return; } A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
+$('b-auto').addEventListener('click', () => { if (aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 2 OR MORE TEAMS'); return; } A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); openSettings('pause'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
@@ -2787,7 +2787,7 @@ async function boot() {
   A.setCommentary(OPT.punjabi !== false);
   document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick4 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); if (k === 'autoAim' && aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 3 OR MORE TEAMS'); return; } A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
+    row.onclick = () => { A.initAudio(); if (k === 'autoAim' && aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 2 OR MORE TEAMS'); return; } A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
   setInterval(() => document.body.classList.toggle('guest-room', !!(app.room && app.room.hostId !== app.myId)), 500);   // v331: only the room HOST sees the bot difficulty switch
   { const paintD = () => document.querySelectorAll('.dsel button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); paintD();   // v331: BOT DIFFICULTY
