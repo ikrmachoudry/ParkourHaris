@@ -2370,7 +2370,7 @@ function voiceUI(speakOnly) {
   $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : (voice.aec ? 'VOICE-ACTIVATED MIC · tap to change' : 'OPEN MIC · tap to change'); $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
   { /* v438: one line that says what the voice is doing, so a silent connection can be diagnosed from a screenshot */
     const ms = voiceMates().filter((p) => p.id !== app.myId), relay = (voice.ice || []).some((x) => /turn/i.test(JSON.stringify(x.urls)));
-    const one = (p) => { const o = voice.peers.get(p.id), st = o ? o.pc.connectionState : 'new', nm = String(p.name).replace(/[<>&"]/g, '').slice(0, 9); return st === 'connected' ? '\u2713 ' + nm : st === 'failed' || st === 'closed' || st === 'disconnected' ? '\u2717 ' + nm + ' no link' : '\u2026 ' + nm; };
+    const one = (p) => { const o = voice.peers.get(p.id), st = o ? o.pc.connectionState : 'new', nm = String(p.name).replace(/[<>&"]/g, '').slice(0, 9), dg = o ? ' [' + o.pc.iceConnectionState.slice(0, 5) + ' h' + o.cand.h + ' s' + o.cand.s + ' r' + o.cand.r + (o.err ? ' E' + o.err : '') + ']' : ' [no link yet]'; return st === 'connected' ? '\u2713 ' + nm : st === 'failed' || st === 'closed' || st === 'disconnected' ? '\u2717 ' + nm + ' no link' + dg : '\u2026 ' + nm + dg; };   /* v439: h/s/r = how many direct / STUN / relay routes were found; E401 = the relay refused the login */
     const t = !ms.length ? 'Waiting for a teammate' : ms.slice(0, 3).map(one).join('  ') + (ms.length > 3 ? ' +' + (ms.length - 3) : '') + (relay ? '' : '  \u00b7 no relay'), el = $('vc-stat'); if (el.textContent !== t) el.textContent = t; }
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
@@ -2392,6 +2392,7 @@ vcTap($('vc-mic'), async () => {
   const ok = await voice.setMic(want); $('vc-mic').classList.remove('wait'); voiceUI();
   if (want && !ok && voice.err) gtoast(voice.err);
 });
+vcTap($('vc-stat'), () => { if (!voice) return; A.sfx.click(); voice.reset(); voiceSync(); });   // v439: tap the status line to rebuild the voice links
 vcTap($('vc-spk'), () => { if (!voice) return; A.sfx.click(); voice.resumeAudio(); voice.setSpk(!voice.spk); voiceUI(); });
 vcTap($('vc-msg'), () => { if (voice) { voice.resumeAudio(); voiceUI(); } });
 vcTap($('vc-list'), (e) => { const r = e.target.closest && e.target.closest('.vr'); if (r && voice) { voice.resumeAudio(); voice.toggleMute(+r.dataset.id); } });

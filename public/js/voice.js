@@ -28,10 +28,11 @@ export class Voice {
   async loadIce() { try { const r = await fetch('/ice', { cache: 'no-store' }); const j = await r.json(); if (j && Array.isArray(j.iceServers) && j.iceServers.length) this.ice = j.iceServers; } catch { /* STUN only */ } }
   mk(id) {
     const pc = new RTCPeerConnection({ iceServers: this.ice, bundlePolicy: 'max-bundle' });
-    const o = { id, pc, audio: null, an: null, polite: this.me > id, makingOffer: false, pend: [], sender: null, sid: Math.random().toString(36).slice(2, 10), rsid: null, pendI: [] };   // v437: sid = this connection's own id, rsid = the id of the other side's connection (stops old messages from an earlier connection reaching a new one)
+    const o = { id, pc, audio: null, an: null, polite: this.me > id, makingOffer: false, pend: [], sender: null, sid: Math.random().toString(36).slice(2, 10), rsid: null, pendI: [], born: performance.now(), cand: { h: 0, s: 0, r: 0 }, err: '' };   // v437: sid = this connection's own id, rsid = the id of the other side's connection (stops old messages from an earlier connection reaching a new one)
     // v437: ONE side makes the offer (the lower id) and the other only answers (no more two offers colliding: that left one direction silent or the connection stuck). The offerer makes one fixed audio line; the answerer uses the line that comes with the offer. The mic is plugged in / out with replaceTrack, no new negotiation.
     if (!o.polite) { const tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); o.sender = tr.sender; o.recv = tr.receiver; }
-    pc.onicecandidate = (e) => { if (e.candidate) this.sig(id, 'i', e.candidate.toJSON ? e.candidate.toJSON() : e.candidate, o); };
+    pc.onicecandidate = (e) => { if (e.candidate) { const ty = e.candidate.type || ((/ typ (\w+)/.exec(e.candidate.candidate || '') || [])[1]); if (ty === 'host') o.cand.h++; else if (ty === 'srflx') o.cand.s++; else if (ty === 'relay') o.cand.r++; this.sig(id, 'i', e.candidate.toJSON ? e.candidate.toJSON() : e.candidate, o); } };
+    pc.onicecandidateerror = (e) => { if (e.errorCode >= 300 && e.errorCode < 700) { o.err = String(e.errorCode); this.changed(); } };   // v439: a 401 here = the relay refused our login
     pc.ontrack = (e) => {
       const st = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
       if (!o.audio) { o.audio = new Audio(); o.audio.autoplay = true; o.audio.playsInline = true; o.audio.style.display = 'none'; try { document.body.appendChild(o.audio); } catch { /* ignore */ } }   // v384: in the page, so the laptop's echo canceller can hear what is being played
@@ -42,7 +43,7 @@ export class Voice {
       if (o.polite) return;
       try { o.makingOffer = true; await pc.setLocalDescription(); this.sig(id, 'o', pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription, o); } catch { /* retry on next change */ } finally { o.makingOffer = false; }
     };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') this.rebind(o); if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
+    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') { this.rebind(o); if (this.tries) this.tries.delete(id); } if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch { /* ignore */ } } this.changed(); };
     const t = this.tx(); if (t) this.setTrack(o, t);
     return o;
   }
@@ -154,8 +155,15 @@ export class Voice {
   closeAec() { const a = this.aec; if (!a) return; this.aec = null; try { a.track.enabled = false; a.track.stop(); } catch { /* ignore */ } try { a.node.disconnect(); } catch { /* ignore */ } try { a.ctx.close(); } catch { /* ignore */ } }
   // ---- who is talking (8 times a second, only reads a tiny buffer)
   lvl(an) { if (!an) return 0; const b = this.buf || (this.buf = new Uint8Array(128)); an.getByteTimeDomainData(b); let m = 0; for (let i = 0; i < b.length; i += 2) { const v = Math.abs(b[i] - 128); if (v > m) m = v; } return m; }
+  // v439: a connection that is still not up after 12 s is thrown away and made again (up to 3 times); only the offering side (lower id) does it, the other side follows by itself
+  retryTick(now) {
+    if (!this.tries) this.tries = new Map();
+    for (const [id, o] of [...this.peers]) { if (o.polite || o.pc.connectionState === 'connected' || now - o.born < 12000) continue; const t = this.tries.get(id) || 0; if (t >= 3) continue; this.tries.set(id, t + 1); this.drop(id); this.connect(id); }
+  }
+  reset() { if (this.tries) this.tries.clear(); const ids = [...this.peers.keys()]; for (const id of ids) this.drop(id); this.iceP = null; this.err = ''; this.changed(); }
   poll() {
     if (document.hidden) return; let ch = false; const now = performance.now();
+    if (!this._rt || now - this._rt > 1000) { this._rt = now; this.retryTick(now); }
     const chk = (id, an) => { const l = this.lvl(an); if (l > 5) this.level.set(id, now); const on = now - (this.level.get(id) || -1e9) < 350; if (on !== this.speaking.has(id)) { on ? this.speaking.add(id) : this.speaking.delete(id); ch = true; } };
     if (!this._sw || now - this._sw > 300) { this._sw = now;   // a teammate's loudness comes from the connection's own stats 3-4 times a second (no extra audio processing on the phone)
       for (const [id, o] of this.peers) { if (o.busy || o.pc.connectionState !== 'connected') continue; o.busy = true;
