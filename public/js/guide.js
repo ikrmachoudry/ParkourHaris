@@ -62,6 +62,7 @@ const CSS = '#gd{position:fixed;inset:0;z-index:9000;touch-action:none;font-fami
 function close(done) {
   if (!open) return; const o = open; open = null; clearTimeout(o.tm); window.removeEventListener('resize', o.re); o.el.remove(); o.st.remove();
   if (o.cs) o.cs.guideOn = false; if (done) mark(true, o.key);
+  window.removeEventListener('keydown', o.kd, true); try { window.dispatchEvent(new Event('ph-guide-closed')); } catch { /* ignore */ }   // v441: main.js takes the mouse back (pointer lock) for the game
 }
 
 function run(cs, custom, key) {
@@ -73,6 +74,7 @@ function run(cs, custom, key) {
   document.body.appendChild(el);
   const hole = el.querySelector('.gh'), ring = el.querySelector('.gr'), fin = el.querySelector('.gf'), card = el.querySelector('.gc'), tt = card.querySelector('b'), tx = card.querySelector('p'), cnt = card.querySelector('i'), nb = card.querySelector('.n');
   let i = 0; open = { el, st, cs, tm: 0, re: null, key: key || KEY }; if (cs) cs.guideOn = true;
+  if (!touch) try { if (document.pointerLockElement) document.exitPointerLock(); } catch { /* ignore */ }   // v441 (laptop): the mouse cursor is given back while the guide is open, so NEXT / SKIP can be clicked directly (no Esc needed)
   ['touchstart', 'touchmove', 'mousedown', 'pointerdown', 'click', 'keydown'].forEach((ev) => el.addEventListener(ev, (e) => { if (!e.target.closest || !e.target.closest('button')) { e.stopPropagation(); if (ev !== 'keydown') e.preventDefault(); } }, { passive: false }));
   const show = () => {
     const s = steps[i], W = innerWidth, H = innerHeight, p = 10;
@@ -91,6 +93,8 @@ function run(cs, custom, key) {
     }
   };
   open.re = () => show(); window.addEventListener('resize', open.re);
+  open.kd = (e) => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'NumpadEnter') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) nb.click(); } else if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); card.querySelector('.s').click(); } };   // v441: Enter / Space / right arrow = NEXT, Esc = SKIP
+  window.addEventListener('keydown', open.kd, true);
   nb.onclick = () => { if (i >= steps.length - 1) close(true); else { i++; show(); } };
   card.querySelector('.s').onclick = () => close(true);
   show();
@@ -98,6 +102,7 @@ function run(cs, custom, key) {
 
 window.phGuide = {
   seen,
+  isOpen: () => !!open,
   /* called when the player lands in a Jang match; force = replay from the menu */
   maybeStart(cs) { if (open || started && !this.force) return; if (seen() && !this.force) return; this.force = false; started = true; setTimeout(() => { if (!open && cs && !cs.over) run(cs); }, 900); },
   replay() { mark(false); started = false; this.force = true; },

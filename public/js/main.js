@@ -2572,13 +2572,14 @@ function onGo(m) {
 
 // ------------------------------------------------------------------ input
 function tryLock() { if (race && !race.over && document.pointerLockElement !== canvas) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* needs a user gesture */ } } }
+window.addEventListener('ph-guide-closed', () => { if (!IS_TOUCH && race && !race.over && !race.menuOpen) tryLock(); });   // v441: after the guide the mouse goes back to the game
 function exitLock() { if (document.pointerLockElement) document.exitPointerLock(); }
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (locked) hadLock = true;
-  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !race.bigMapOpen && !document.body.classList.contains('m-open') && !invOpen()) openPause(); // Esc releases the mouse -> show the menu
+  else if (hadLock && race && !race.over && !race.menuOpen && !IS_TOUCH && !race.bigMapOpen && !document.body.classList.contains('m-open') && !invOpen() && !(window.phGuide && window.phGuide.isOpen())) openPause(); // Esc releases the mouse -> show the menu
   if (!locked) hadLock = false;
-  $('click-hint').classList.toggle('show', !!race && !race.over && !race.menuOpen && !race.bigMapOpen && !invOpen() && !locked && !document.body.classList.contains('m-open'));
+  $('click-hint').classList.toggle('show', !(window.phGuide && window.phGuide.isOpen()) && !!race && !race.over && !race.menuOpen && !race.bigMapOpen && !invOpen() && !locked && !document.body.classList.contains('m-open'));
 });
 let hadLock = false;
 const invOpen = () => { const cs = race && race.mission && race.mission.cs; return !!(cs && cs.inv && cs.inv.isOpen()); };
