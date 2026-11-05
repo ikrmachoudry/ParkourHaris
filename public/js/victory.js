@@ -30,6 +30,9 @@ function statsTable(rows, winTm) {
   return h + '</tbody></table>';
 }
 
+let pre = null;   // v411: the victory song, started the moment the match ends (5 s before the page opens) and then HANDED to the page, so it never restarts
+export function startWinSong() { if (pre || cur) return; try { A.blockMenuMusic(true); A.hush(true); } catch (e) { /* noop */ } const a = new Audio(av(MUSIC)); a.loop = true; a.volume = 0.8; a.muted = A.isMusicMuted(); a.play().catch(() => { /* needs a tap on some phones: the page buttons start it */ }); pre = a; }
+export function cancelWinSong() { if (!pre) return; try { pre.pause(); } catch (e) { /* noop */ } pre = null; try { A.hush(false); } catch (e) { /* noop */ } }
 export function closeVictory() {
   if (!cur) return; const c = cur; cur = null;
   cancelAnimationFrame(c.raf); try { A.hush(false); } catch (e) { /* noop */ } try { c.audio.pause(); } catch (e) { /* noop */ } window.removeEventListener('resize', c.onResize);
@@ -88,7 +91,7 @@ export function showVictory(m, myTm, onDone) {
     scene.add(c.group); const nl = document.createElement('div'); nl.className = 'vn'; nl.style.color = TCOL[r.tm & 3]; nl.textContent = r.name + '  •  ' + r.k; el.appendChild(nl);
     actors.push({ c, dance: DANCES[order[i % DANCES.length]], t: 0 }); labels.push(nl);
   });
-  const audio = new Audio(av(MUSIC)); audio.loop = true; audio.volume = 0.8; audio.muted = A.isMusicMuted(); audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });
+  const audio = pre || new Audio(av(MUSIC)); pre = null; audio.loop = true; audio.volume = 0.8; audio.muted = A.isMusicMuted(); if (audio.paused) audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });   // v411: keeps playing if it was started 5 s earlier
 
   const st = { el, scene, renderer, actors, audio, raf: 0, onResize: null };
   cur = st;

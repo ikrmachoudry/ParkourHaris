@@ -19,7 +19,7 @@ import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
 import { Glass } from './glass.js';
 import { LOBBY } from './gta.js';
-import { showVictory } from './victory.js';
+import { showVictory, startWinSong, cancelWinSong } from './victory.js';
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -94,6 +94,7 @@ export class CombatScene {
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
+    if (this._winT || this._winAt) { clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
     if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none';
@@ -776,7 +777,7 @@ export class CombatScene {
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
     this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || (why === 'win' ? 'MISSION PASSED' : 'MATCH OVER')) + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div>' + (this.shared ? '<div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div>' : '') + '</div>';
     // v338: the victory page: the shared match waits for the server's verdict (team scores), a solo match shows it at once
-    const T = R.jangTeam; this.timeUp = !msg; this.resSent = false;
+    const T = R.jangTeam; this.timeUp = !msg; this.resSent = false; if (!msg) this.beginWin();   /* v411: a decided match (win / time up): stay in the scene with the victory song */
     if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }
     else { this.showWin({ win: 0, teams: [{ tm: 0, k: this.kills, d: this.deaths, n: String((T && T.teamName) || 'YOUR TEAM') }], rows: [{ id: 0, name: R.me.name || 'YOU', tm: 0, ch: R.me.char | 0, sk: R.me.skin === undefined ? R.me.char | 0 : R.me.skin | 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby }] }); }
   }
@@ -785,8 +786,11 @@ export class CombatScene {
   stRec(kind, w) { const o = this.st[kind], n = this.wName(w); o[n] = (o[n] || 0) + 1; }
   recDeath() { const now = performance.now(), lh = this.lastHit, pv = this.lastBy && now - (this.lastByAt || 0) < 9000; this.stRec('dby', pv ? (this.lastByW || 'gun') : lh && now - lh.at < 6000 ? lh.w : 'zone'); }
   onWin() { if (!this.over) this.finish('', 'win'); }   // the server: only one team is left
-  onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); showVictory(m, this.R.jangTeam && this.R.jangTeam.tm, () => this.leaveAfterWin()); }
-  showWin(m) { showVictory(m, 0, () => this.leaveAfterWin()); }
+  /* v411: when the match is decided the player STAYS in the last scene for 5 s with the victory song playing (game sounds off), then the victory page opens and the song carries on without a break */
+  beginWin() { if (this._winAt) return; this._winAt = performance.now(); try { startWinSong(); } catch (e) { /* noop */ } if (this.ov) this.ov.style.display = 'none'; }   // the song and the quiet last scene start the moment the match is decided
+  winScene(m, tm) { if (this._winT) return; this.beginWin(); const wait = Math.max(0, 5000 - (performance.now() - this._winAt)); this._winT = setTimeout(() => { this._winT = 0; this._winAt = 0; showVictory(m, tm, () => this.leaveAfterWin()); }, wait); }
+  onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); this.winScene(m, this.R.jangTeam && this.R.jangTeam.tm); }
+  showWin(m) { this.winScene(m, 0); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
     if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
