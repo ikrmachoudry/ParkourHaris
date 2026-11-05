@@ -1445,3 +1445,20 @@ body.aa-lock .qrow[data-k="autoAim"] small::after { content: " - LOCKED OFF: 2+ 
 body.in-lobby #vc::before { display: none !important; }
 body.in-lobby #vc-list { display: none !important; }
 @media (max-height: 460px) { body.in-lobby .code-box .note { display: none !important; } body.in-lobby .lobby-title { display: none !important; } }   /* v430: no overlapping texts / buttons at the top of the lobby on a phone */
+
+/* ---------- v431: no colliding boxes on phones (found with an overlap audit at 667x375 ... 932x430) ---------- */
+#pv-bar { width: calc(100vw - min(540px, 56vw) - 40px); }   /* the animation buttons end where the player panel begins */
+#s-lobby .lobby-bottom .lobby-block:first-child { max-height: calc(100vh - 152px); max-height: calc(100dvh - 152px); overflow: hidden; display: flex; flex-direction: column; }
+#lobby-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }   /* the player / team panel never grows up into the voice box */
+.slots.cmb { max-height: none; overflow: visible; }
+#lobby-teams { max-height: none; overflow: visible; }
+#lobby-tbar { flex: none; padding: 4px 0 2px; }   /* CREATE TEAM stays in view; only the names above it scroll */
+@media (max-height: 430px) {
+  #s-cmb { padding-top: 40px; }
+  #s-cmb .panel { width: min(520px, 70vw); padding: 8px 12px 10px; }
+  #s-cmb .panel h2 { font-size: 20px; margin: 0 0 4px; }
+  #s-cmb .panel .note { display: none; }
+  #s-cmb .btn.big { padding: 5px 12px; font-size: 18px; margin: 0 0 5px; }
+  #s-cmb .btn.big small { font-size: 11px; }
+  #s-cmb .row.end { margin-top: 2px; }
+}

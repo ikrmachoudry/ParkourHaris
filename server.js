@@ -248,7 +248,7 @@ function joinRoom(p, room) {
 
 // ---------------------------------------------------------------- sockets
 // ---- public-internet safety: limit connections per IP, messages per second, and number of rooms
-const MAX_PER_IP = 12, MAX_ROOMS = 40;
+const MAX_PER_IP = 24, MAX_ROOMS = 40;   // v431: was 12: 16 friends on ONE home wifi (or one mobile carrier address) share a public IP, so the 13th was refused
 const ipCount = new Map();
 const clientIp = (req) => { const x = req.headers['x-forwarded-for']; return (x ? String(x).split(',')[0].trim() : req.socket.remoteAddress) || '?'; };
 
