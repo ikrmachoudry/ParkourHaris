@@ -1339,7 +1339,10 @@ body.set-open #mm-btn, body.set-open #b-home-back { display: none !important; }
 #s-settings .qrow.on .sw { background: #d93a3a !important; }
 #s-settings kbd { color: #fff !important; background: rgba(255,255,255,.1) !important; }
 /* v361: phones: the F SWAP / zip prompt is a small chip on the right edge (PUBG style pick-up list), not a big button over the middle of the view */
-body.touch #c-pick { left: auto; right: max(10px, env(safe-area-inset-right)); bottom: 46%; transform: none; padding: 6px 10px; font-size: 11px; border-radius: 0; border-width: 1px; border-right: 3px solid #d93a3a; background: rgba(10,12,18,.62); max-width: 30vw; text-align: right; letter-spacing: 1px; }
+/* v435: on phones the swap / zip prompt is a real tap button (PUBG-style), centred just above the weapon slots so it never sits on the aim / fire / ammo buttons */
+body.touch #c-pick { left: 50%; right: auto; bottom: 112px; transform: translateX(-50%); padding: 9px 16px; min-height: 40px; font-size: 13px; border-radius: 22px; border: 2px solid #ffd23f; background: rgba(12,14,20,.78); color: #fff; max-width: 38vw; text-align: center; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 0 14px rgba(255,210,63,.45); animation: pickPulse 1.1s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
+body.touch #c-pick:active { background: rgba(255,210,63,.35); transform: translateX(-50%) scale(.96); }
+@keyframes pickPulse { 0%,100% { box-shadow: 0 0 8px rgba(255,210,63,.3); } 50% { box-shadow: 0 0 18px rgba(255,210,63,.75); } }
 
 /* v362: soldier silhouette icons for jump / crouch / prone: limbs are strokes, so the ON state tints them too */
 body.touch #act-pad #a-crouch.on svg.pubg [stroke], body.touch #act-pad #a-prone.on svg.pubg [stroke] { stroke: #ffd23f; }
