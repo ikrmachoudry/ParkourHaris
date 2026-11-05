@@ -1,11 +1,13 @@
 // v338: the VICTORY PAGE at the end of a Jang match: "TEAM ... WINS", the winning team dances on a stage (every player a different Mixamo dance),
 // the music plays, and a "SHOW STATS" button opens the table (kills sorted high to low, which weapons killed how many bots / players, what killed him).
 import * as THREE from 'three';
-import { makeHero, makeSkin, loadDance, preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
+import { makeHero, makeSkin, loadDance, loadSad, preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
 import { av } from './assetver.js';
 import * as A from './audio.js';
 
 const DANCES = ['dance0', 'dance1', 'dance2', 'dance3', 'dance4'];
+const SADS = ['sad0', 'sad1', 'sad2', 'sad3'], SAD_DUR = { sad0: 6.27, sad1: 4.8, sad2: 17.3, sad3: 4.17 };   // v417: the loser page: crying, rejected, bad golf shot, sitting in disbelief (random)
+const LOSE = 'audio/lose.mp3';   // 0:00 - 1:43 of the song, looped
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const TCOL = ['#ffd23f', '#4aa8ff', '#ff5a5a', '#5ef0a0'];
 const MUSIC = 'audio/win.mp3';   // drop the track in public/audio/win.mp3 (the page plays it in a loop; no file = silence)
@@ -30,9 +32,12 @@ function statsTable(rows, winTm) {
   return h + '</tbody></table>';
 }
 
-let pre = null;   // v411: the victory song, started the moment the match ends (5 s before the page opens) and then HANDED to the page, so it never restarts
-export function startWinSong() { if (pre || cur) return; try { A.blockMenuMusic(true); A.hush(true); } catch (e) { /* noop */ } const a = new Audio(av(MUSIC)); a.loop = true; a.volume = 0.8; a.muted = A.isMusicMuted(); a.play().catch(() => { /* needs a tap on some phones: the page buttons start it */ }); pre = a; }
+let pre = null, preLost = false;   // v411: the victory song, started the moment the match ends (5 s before the page opens) and then HANDED to the page, so it never restarts
+const mkSong = (lost) => { const a = new Audio(av(lost ? LOSE : MUSIC)); a.loop = true; a.volume = 0.8; a.muted = A.isMusicMuted(); a.play().catch(() => { /* needs a tap on some phones: the page buttons start it */ }); return a; };
+export function startWinSong(lost) { lost = !!lost; if (cur) return; if (pre && preLost === lost) return; if (pre) { try { pre.pause(); } catch (e) { /* noop */ } pre = null; } try { A.blockMenuMusic(true); A.hush(true); } catch (e) { /* noop */ } pre = mkSong(lost); preLost = lost; }   // v417: the DEFEAT page has its own song
 export function cancelWinSong() { if (!pre) return; try { pre.pause(); } catch (e) { /* noop */ } pre = null; try { A.hush(false); } catch (e) { /* noop */ } }
+// v417: fetch the clips + the soldiers' models BEFORE the page opens (the winners used to stand still until the dance file arrived)
+export function prepareVictory(lost) { try { Promise.all([lost ? loadSad() : loadDance(), preloadActors([...HERO_GLB, ...JANG_GLB])]).catch(() => {}); } catch (e) { /* noop */ } }
 export function closeVictory() {
   if (!cur) return; const c = cur; cur = null;
   cancelAnimationFrame(c.raf); try { A.hush(false); } catch (e) { /* noop */ } try { c.audio.pause(); } catch (e) { /* noop */ } window.removeEventListener('resize', c.onResize);
@@ -46,7 +51,9 @@ export function showVictory(m, myTm, onDone) {
   closeVictory(); A.blockMenuMusic(true); try { A.hush(true); } catch (e) { /* noop */ }   /* v407: no game sound on the victory page */
   const teams = m.teams || [], wt = teams.find((t) => t.tm === m.win) || teams[0] || { n: 'TEAM', tm: 0, k: 0 };
   const rows = (m.rows || []).map((r) => ({ ...r, bots: r.bots || {}, ply: r.ply || {}, dby: r.dby || {}, me: false })).sort((a, b) => b.k - a.k || a.d - b.d);
-  const wrows = rows.filter((r) => r.tm === wt.tm), title = String((wrows.length === 1 && wrows[0].name) || wt.n || 'PLAYER');   // v345: a lone winner (solo, or a team of one) is announced by his own NAME
+  const lost = !!m.lost || (m.win !== undefined && m.win !== null && myTm !== undefined && myTm !== null && myTm !== m.win);   // v417: my team lost: the DEFEAT page (my own team on the stage, sad moves, its own song)
+  const mt = teams.find((t) => t.tm === myTm) || { n: 'YOUR TEAM', tm: myTm | 0, k: 0 }, lrows = rows.filter((r) => r.tm === mt.tm), lshow = lrows.length ? lrows : rows.filter((r) => r.me).slice(0, 1).concat(rows.slice(0, 1)).slice(0, 1);
+  const wrows = rows.filter((r) => r.tm === wt.tm), title = lost ? String((lrows.length === 1 && lrows[0].name) || mt.n || 'YOUR TEAM') : String((wrows.length === 1 && wrows[0].name) || wt.n || 'PLAYER');   // v345: a lone winner (solo, or a team of one) is announced by his own NAME
   const el = document.createElement('div'); el.id = 'victory';
   el.innerHTML = '<style>#victory{position:fixed;inset:0;z-index:200;background:#07090d;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;user-select:none}'
     + '#victory canvas{position:absolute;inset:0;width:100%;height:100%}'
@@ -65,7 +72,7 @@ export function showVictory(m, myTm, onDone) {
     + '#victory th{position:sticky;top:0;background:#14171e;color:#fff;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
     + '#victory td{padding:6px;border-top:1px solid rgba(255,255,255,.1);vertical-align:top}'
     + '#victory tr.w td{background:rgba(217,58,58,.14)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ff6a5a}#victory td i{opacity:.4}'
-    + '</style><div class="vh"><h1>' + (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!') + '</h1><p>' + (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS</p></div>'
+    + '</style><div class="vh"><h1>' + (lost ? (title.toUpperCase() === 'YOU' ? 'YOU LOST' : esc(title.toUpperCase()) + ' LOST') : (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!')) + '</h1><p>' + (lost ? 'DEFEAT \u2022 ' + (mt.k | 0) + ' KILLS' + (wt && wt.tm !== mt.tm ? ' \u2022 ' + esc(String(wt.n || 'TEAM').toUpperCase()) + ' WON' : '') : (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS') + '</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
     + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
   document.body.appendChild(el);
@@ -83,25 +90,30 @@ export function showVictory(m, myTm, onDone) {
   const lights = [];   // v359: the cartoon light bulbs round the stage are gone (real lamp models later)
 
   // the winners: a half circle facing the camera, every one a different dance
-  const win = rows.filter((r) => r.tm === wt.tm), n = win.length, order = DANCES.map((_, i) => i).sort(() => Math.random() - 0.5);
+  const win = lost ? lshow : rows.filter((r) => r.tm === wt.tm), n = win.length, MOVES = lost ? SADS : DANCES, order = MOVES.map((_, i) => i).sort(() => Math.random() - 0.5);
   const actors = [], labels = [];
   win.forEach((r, i) => {
     const c = actorFor(r), u = n === 1 ? 0 : i / (n - 1) - 0.5, ang = u * Math.min(1.9, 0.55 * (n - 1) + 0.2), rad = 2.1;
     c.group.position.set(Math.sin(ang) * rad, 0, 1.2 - Math.cos(ang) * rad * 0.55); c.group.rotation.y = -ang * 0.8;
     scene.add(c.group); const nl = document.createElement('div'); nl.className = 'vn'; nl.style.color = TCOL[r.tm & 3]; nl.textContent = r.name + '  •  ' + r.k; el.appendChild(nl);
-    actors.push({ c, dance: DANCES[order[i % DANCES.length]], t: 0 }); labels.push(nl);
+    actors.push({ c, dance: MOVES[order[i % MOVES.length]], t: 0, until: lost ? SAD_DUR[MOVES[order[i % MOVES.length]]] * (MOVES[order[i % MOVES.length]] === 'sad2' ? 0.6 : 1) : 0, stool: null }); labels.push(nl);
+    if (lost) { const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.49, 18), new THREE.MeshStandardMaterial({ color: '#3a3f4c', roughness: 0.7 })); sl.position.set(c.group.position.x, 0.245, c.group.position.z - 0.02); scene.add(sl); actors[actors.length - 1].stool = sl; sl.visible = MOVES[order[i % MOVES.length]] === 'sad3'; }   // the one who sits in disbelief sits on a stool
   });
-  const audio = pre || new Audio(av(MUSIC)); pre = null; audio.loop = true; audio.volume = 0.8; audio.muted = A.isMusicMuted(); if (audio.paused) audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });   // v411: keeps playing if it was started 5 s earlier
+  if (lost) { key.color.set('#c9d8ff'); rim.color.set('#3a5a9a'); rim2.color.set('#2a3a6a'); }
+  if (pre && preLost !== lost) { try { pre.pause(); } catch (e) { /* noop */ } pre = null; }
+  const audio = pre || new Audio(av(lost ? LOSE : MUSIC)); pre = null; audio.loop = true; audio.volume = 0.8; audio.muted = A.isMusicMuted(); if (audio.paused) audio.play().catch(() => { /* needs a tap on some phones: the buttons start it */ });   // v411: keeps playing if it was started 5 s earlier
 
   const st = { el, scene, renderer, actors, audio, raf: 0, onResize: null };
   cur = st;
   const fit = () => { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); cam.aspect = w / h; const wide = w / h; cam.position.set(0, 1.75, wide < 0.8 ? 10 : wide < 1.3 ? 7.6 : 5.6); cam.lookAt(0, 1.05, 0); cam.updateProjectionMatrix(); };
   st.onResize = fit; window.addEventListener('resize', fit); fit();
-  Promise.all([loadDance(), preloadActors([...HERO_GLB, ...JANG_GLB])]).catch(() => {});
+  prepareVictory(lost);
   let last = performance.now(); const v = new THREE.Vector3();
   const loop = (now) => {
     if (cur !== st) return; st.raf = requestAnimationFrame(loop); const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    for (const a of actors) { a.c.update(dt, { grounded: true, speed: 0, vy: 0, dance: a.dance }); }
+    for (const a of actors) {
+      if (lost) { a.t += dt; if (a.t >= a.until) { let nx = SADS[Math.floor(Math.random() * SADS.length)]; if (nx === a.dance && Math.random() < 0.7) nx = SADS[(SADS.indexOf(nx) + 1 + Math.floor(Math.random() * 3)) % 4]; a.dance = nx; a.until = a.t + SAD_DUR[nx] * (nx === 'sad2' ? 0.6 : 1 + Math.floor(Math.random() * 2)); if (a.stool) a.stool.visible = nx === 'sad3'; } }   // random sad move; the next one is picked when the clip has played
+      a.c.update(dt, { grounded: true, speed: 0, vy: 0, dance: a.dance }); }
     lights.forEach((b, i) => { b.material.color.set(Math.floor(now / 350 + i) % 2 ? '#ffd23f' : '#ff4d4d'); });
     actors.forEach((a, i) => { v.set(a.c.group.position.x, 0, a.c.group.position.z).project(cam); const l = labels[i]; l.style.left = ((v.x + 1) / 2 * window.innerWidth) + 'px'; l.style.top = ((1 - v.y) / 2 * window.innerHeight + 6) + 'px'; });
     renderer.render(scene, cam);
@@ -110,7 +122,7 @@ export function showVictory(m, myTm, onDone) {
 
   const panel = el.querySelector('.vp'), sb = el.querySelector('.s');
   sb.onclick = () => { audio.play().catch(() => {}); panel.classList.toggle('on'); sb.textContent = panel.classList.contains('on') ? 'HIDE STATS' : 'SHOW STATS'; };
-  const shb = el.querySelector('.sh');
+  const shb = el.querySelector('.sh'); if (lost) shb.style.display = 'none';
   shb.onclick = async () => {
     const url = location.origin + location.pathname, txt = title + ' won with ' + wt.k + ' kills in JANG by Haris Games! Play with me:';
     try { if (navigator.share) { await navigator.share({ title: 'JANG - Haris Games', text: txt, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
