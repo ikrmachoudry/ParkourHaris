@@ -498,6 +498,7 @@ class Race {
     if (this.meta.city) {   // jog by default (faster than before), Shift sprints; on a phone: light push = walk, normal push = jog, push the stick to the edge = sprint
       const touchOn = !!(touch.x || touch.y);
       b.speedMul = touchOn ? (ml > 0.82 ? 1.65 : ml > 0.38 ? 1.3 : 0.5) : ((keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1.65 : 1.3);
+      { const cs1 = this.mission && this.mission.cs; if (cs1 && cs1.using) { if (b.speedMul > 1.6 && ml > 0.2) cs1.cancelUse('RUNNING  -  HEALING STOPPED, the item is not used up'); else b.speedMul = Math.min(b.speedMul, 0.62); } }   /* v432 (PUBG): you may walk slowly while healing; sprinting stops it */
     }
     if (this.meta.city) {
       if (this.crouch && press.jump && !this.downed) this.crouch = false;
@@ -2834,7 +2835,7 @@ async function boot() {
 $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
-  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.replay(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
+  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
   $('b-profile-next').onclick = () => { if (!$('inp-name').value.trim().replace(/[<>&"']/g, '')) { A.sfx.back && A.sfx.back(); needField($('inp-name'), 'Enter your player name to continue'); return; } readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };

@@ -30,7 +30,7 @@ const TOUCH = [
   { t: 'JUMP, CROUCH, PRONE', x: 'Jump over things. Crouch or lie flat to hide and be a smaller target.', a: 'tap', ids: ['a-jump', 'a-crouch', 'a-prone'] },
   { t: 'RELOAD AND WEAPONS', x: 'Reload your gun, change the fire mode, or swap to another weapon.', a: 'tap', ids: ['a-reload', 'a-fmode', 'a-weapon'] },
   { t: 'PEEK', x: 'Lean left or right to look round a corner without showing your whole body.', a: 'tap', ids: ['a-leanl', 'a-leanr'] },
-  { t: 'BAG AND HEALING', x: 'Open your bag to use medkits, bandages and other items. You cannot shoot while healing.', a: 'tap', ids: ['c-bag'] },
+  { t: 'BAG AND HEALING', x: 'Open your bag to use first aid, pain pills and adrenaline. You can only walk slowly while using one. Getting hit or sprinting stops it, and the item is NOT used up.', a: 'tap', ids: ['c-bag'] },
   { t: 'MAP AND ZONE', x: 'The circle on the map is the safe ZONE. It shrinks: stay inside it or you take damage.', a: 'none', ids: ['minimap'] },
   { t: 'LOOT', x: 'Walk over guns, armor, helmets and medkits to pick them up. Look inside buildings for the best loot.', a: 'none' },
   { t: 'WIN THE MATCH', x: 'Be the last team standing. In solo you get 3 lives and drop from the plane again each time. Good luck!', a: 'none' },
