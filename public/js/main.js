@@ -1194,6 +1194,17 @@ class Race {
   /* tap a spot on the map: a blue line along the real roads from here to there (shown on the road, the small map and the big map); tap the pin again to remove it */
   setWaypoint(x, z) { if (!this.meta.city) return; if (this.nav && Math.hypot(this.nav.x - x, this.nav.z - z) < 14 / Math.max(1, (this.minimap && this.minimap.bz ? this.minimap.bz.z : 1))) { this.clearWaypoint(); return; }
     this.nav = { x, z, pts: null, t: 0 }; if (!this.navUpdate()) { this.nav = null; this.toast('NO ROAD GOES THERE'); } else A.sfx.click(); }
+  /* v410 TEAM PIN (Jang): tap the big map to drop a flag; your teammates see it on their minimap, big map and in the world as 'PIN - YOUR NAME' with the distance. Tap near your own pin to take it away. One pin per player. */
+  refreshPins() { const l = [...(this.pins || new Map()).values()]; if (this.minimap) this.minimap.pins = l; const cs = this.mission && this.mission.cs; if (cs && cs.setPins) cs.setPins(l); }
+  setPin(x, z) {
+    this.pins = this.pins || new Map(); const mine = this.pins.get('me'), k = Math.max(1, this.minimap && this.minimap.bz ? this.minimap.bz.z : 1), T = this.jangTeam, net = T && T.net;
+    if (mine && Math.hypot(mine.x - x, mine.z - z) < 16 / k) { this.pins.delete('me'); if (net) net.send({ t: 'cpin', on: 0 }); gtoast('PIN REMOVED'); }
+    else { this.pins.set('me', { id: 'me', x, z, nm: 'YOU', me: true, col: '#e11d48' }); if (net) net.send({ t: 'cpin', on: 1, x: +x.toFixed(1), z: +z.toFixed(1) }); gtoast(net ? 'PIN DROPPED - your teammates can see it' : 'PIN DROPPED', 2.2); A.sfx.click(); }
+    this.refreshPins(); }
+  onPin(m) {
+    this.pins = this.pins || new Map(); if (!m.on) { this.pins.delete(m.id); this.refreshPins(); return; }
+    const nm = String(m.nm || 'TEAMMATE').toUpperCase().slice(0, 14); this.pins.set(m.id, { id: m.id, x: m.x, z: m.z, nm, col: CHARACTERS[(m.c | 0) % CHARACTERS.length].color }); this.refreshPins();
+    gtoast('PIN by ' + nm + ' - open the map (M) to see the flag', 3); A.sfx.click(); }
   clearWaypoint() { this.nav = null; if (this.minimap) this.minimap.nav = null; this.navHide(); }
   navHide() { if (!this.navMesh) return; this.scene.remove(this.navMesh); this.navMesh.geometry.dispose(); this.navMesh.material.dispose(); this.navMesh = null; }
   navUpdate() {
@@ -2387,6 +2398,7 @@ async function ensureNet() {
   net.on('cwin', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onWin) cs.onWin(); });
   net.on('cpk', () => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onKillCredit) cs.onKillCredit(); });
   net.on('jr', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onRevive) cs.onRevive(m); });
+  net.on('cpin', (m) => { if (race && race.jang && race.jangTeam && race.onPin) race.onPin(m); });
   net.on('jf', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMateShot) cs.onMateShot(m); });
   net.on('jt', (m) => { const cs = race && race.mission && race.mission.cs; if (cs && cs.onMate) cs.onMate(m); });
   net.on('emote', (m) => { stage.emotes = stage.emotes || {}; stage.emotes[m.char | 0] = { g: m.g, until: stage.t + 4 }; });
@@ -2735,7 +2747,7 @@ $('p-full').onclick = () => {
       const before = two(), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
       if (ptrs.size === 1) mmap.bigPan(dx, dy);
       else if (before) { const t = two(), r = cv.getBoundingClientRect(); const want = z0 * t[0] / Math.max(10, d0), cur = mmap.bz.z; mmap.bigZoom(want / cur, t[1] - r.left, t[2] - r.top); mmap.bigPan(dx / 2, dy / 2); } });
-    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250 && race && race.bigMapOpen) { const mp = race.minimap, bz = mp.bz, [lx, ly] = local(e); if (bz && mp.bS && !race.jang) { const k = mp.bS / 1020 * bz.z; race.setWaypoint(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } } };
+    const up = (e) => { if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); if (!ptrs.size && !multi && moved < 10 && performance.now() - downAt < 450 && performance.now() - openedAt > 250 && race && race.bigMapOpen) { const mp = race.minimap, bz = mp.bz, [lx, ly] = local(e); if (bz && mp.bS && !race.jang) { const k = mp.bS / 1020 * bz.z; race.setWaypoint(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } else if (bz && mp.bS && race.jang) { const k = mp.bS / mp.bW() * bz.z; race.setPin(bz.cx + (lx - mp.bS / 2) / k, bz.cz + (ly - mp.bS / 2) / k); race.drawBigMap(); } } };
     bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); });
     bw.addEventListener('wheel', (e) => { if (!race || !race.bigMapOpen) return; e.preventDefault(); const [x, y] = local(e); race.minimap.bigZoom(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0018)), x, y); }, { passive: false });
     for (const ev of ['gesturestart', 'gesturechange']) bw.addEventListener(ev, (e) => e.preventDefault(), { passive: false });   // iOS Safari: no page zoom while pinching the map

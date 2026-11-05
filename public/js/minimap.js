@@ -94,6 +94,7 @@ export class Minimap {
       g.restore(); } }   // where the thief is heading / the lines of the mission
     if (this.nav && this.nav.pts) { g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip(); g.lineJoin = 'round'; g.lineCap = 'round'; for (const [col, wd] of [['#ffffff', Math.max(4, S / 28)], ['#2f8cff', Math.max(2.6, S / 46)]]) { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); this.nav.pts.forEach((q, i) => { const [qx, qy] = toScr(q[0], q[1]); if (i) g.lineTo(qx, qy); else g.moveTo(qx, qy); }); g.stroke(); } g.restore(); }   // the blue way to the pin you tapped on the big map
     const r = Math.max(8, S / 14);
+    for (const q of this.pins || []) icon(q.x, q.z, q.col || '#e11d48', '\u{1F6A9}', r * 0.85);   // v410: team pins (flags)
     if (this.nav) icon(this.nav.x, this.nav.z, '#2f8cff', '\u{1F4CD}', r * 0.9);
     icon(REPAIR.x, REPAIR.z, '#e8890c', '\u{1F527}', r); icon(LOBBY.x, LOBBY.z, LOBBY.color, '\u{1F3AF}', r); icon(380, 92, '#22c55e', '\u{1F3CE}', r); icon(BANK.x, BANK.z, '#d4a017', '\u{1F3E6}', r * 0.85); icon(POLICE.x, POLICE.z, '#2a5bd7', '\u{1F693}', r * 0.85); icon(-170, 470, '#0e7490', '\u2693', r);
     for (const m of marks || []) icon(m.x, m.z, m.color, m.glyph, r * 0.95);   // mission targets (the thief, the police station)
@@ -143,6 +144,10 @@ export class Minimap {
     if (this.bomb) { const B = this.bomb, [bx, by] = P(CMB.x + B.x, CMB.z + B.z); g.save(); g.fillStyle = B.warn ? 'rgba(255,60,40,.18)' : 'rgba(255,40,30,.38)'; g.strokeStyle = '#ff3b30'; g.lineWidth = 4; g.beginPath(); g.arc(bx, by, B.r * k, 0, 7); g.fill(); g.stroke(); g.restore(); }
     if (this.air) { const [ax, ay] = P(CMB.x + this.air.x, CMB.z + this.air.z); g.save(); g.fillStyle = '#ffc21a'; g.strokeStyle = '#7a1a10'; g.lineWidth = 2; g.fillRect(ax - 7, ay - 7, 14, 14); g.strokeRect(ax - 7, ay - 7, 14, 14); g.restore(); }
     const r = Math.max(8, S / 46);
+    for (const q of this.pins || []) {   // v410: team pins: a flag badge and 'PIN - NAME' under it
+      const [px, py] = P(q.x, q.z); g.fillStyle = q.col || '#e11d48'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(px, py, r * 1.05, 0, 7); g.fill(); g.stroke();
+      g.font = Math.round(r * 1.3) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('\u{1F6A9}', px, py + 1);
+      const fs = Math.round(Math.max(11, S / 38)), tx = q.me ? 'YOUR PIN' : 'PIN - ' + q.nm; g.font = '900 ' + fs + 'px Arial, sans-serif'; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = '#0b1220'; g.strokeText(tx, px, py + r * 1.05 + fs * 0.8); g.fillStyle = '#fff'; g.fillText(tx, px, py + r * 1.05 + fs * 0.8); }
     for (const o of others || []) { const [px, py] = P(o.x, o.z); g.fillStyle = o.color || '#4ade80'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(px, py, r * 0.7, 0, 7); g.fill(); g.stroke(); }
     { const [px, py] = P(me.x, me.z), a = r * 0.9; g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#13203a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, -a * 1.5); g.lineTo(a, a); g.lineTo(0, a * 0.5); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke(); g.restore(); }
     g.fillStyle = '#fff'; g.font = '900 ' + Math.round(S / 28) + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'top'; g.strokeStyle = '#0b1220'; g.lineWidth = 4; g.strokeText('N', S / 2, 6); g.fillText('N', S / 2, 6);

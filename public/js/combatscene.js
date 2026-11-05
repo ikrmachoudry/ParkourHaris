@@ -506,7 +506,7 @@ export class CombatScene {
     }
   }
   update(dt) {
-    this.hitUpd(dt);
+    this.hitUpd(dt); this.pinTick(dt);
     const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam) this.stepMates(dt); const nwT = performance.now(), rdt = Math.min(30, Math.max(dt, this._tw ? (nwT - this._tw) / 1000 : dt)); this._tw = nwT; this.rdt = rdt;   /* v354: the match clock follows the real clock (a frame stall or a hidden tab used to make the clock run slow) */ this.t += rdt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
     const P = { mv: Math.hypot(b.vx || 0, b.vz || 0), stn: R.prone ? 2 : R.crouch ? 1 : 0, x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z, ed = CMB.half - 8 - Math.max(Math.abs(ox0), Math.abs(oz0));   /* v354 MAP EDGE (PUBG): near the edge of the island a red warning tells you to turn back (the cliff wall + the invisible limit stay) */
@@ -685,6 +685,22 @@ export class CombatScene {
     post(Z.ax, Z.ay, Z.az, Z.H + 0.05); post(Z.bx, Z.by, Z.bz, Z.H + 0.05);
     const h = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), mat); h.position.copy(A).add(new THREE.Vector3(0, -0.05, 0)); g.add(h); this.zipHandle = h; this.zipA = A; this.zipB = B;
     this.zipG = g; this.group.add(g); }
+  /* v410: TEAM PINS in the world: a flag with 'PIN - NAME' and the distance, drawn on top of walls (a screen-size sprite, so it is readable from far away) */
+  setPins(list) {
+    this.pinObjs = this.pinObjs || new Map(); const keep = new Set(list.map((q) => q.id));
+    for (const [id, o] of this.pinObjs) if (!keep.has(id)) { this.group.remove(o.s); o.s.material.map.dispose(); o.s.material.dispose(); this.pinObjs.delete(id); }
+    for (const q of list) { let o = this.pinObjs.get(q.id);
+      if (!o) { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 112; const tex = new THREE.CanvasTexture(cv), s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false })); s.scale.set(0.2, 0.0875, 1); s.renderOrder = 999; s.frustumCulled = false; this.group.add(s); o = { s, cv, tex, d: -1 }; this.pinObjs.set(q.id, o); }
+      o.q = q; o.d = -1; o.s.position.set(q.x, cmbH(q.x - CMB.x, q.z - CMB.z) + 7, q.z); }
+    this._pinT = 0;
+  }
+  pinTick(dt) {
+    if (!this.pinObjs || !this.pinObjs.size) return; this._pinT = (this._pinT || 0) - dt; if (this._pinT > 0) return; this._pinT = 0.4; const b = this.R.me.body;
+    for (const [, o] of this.pinObjs) { const d = Math.round(Math.hypot(o.q.x - b.x, o.q.z - b.z)); if (d === o.d) continue; o.d = d;
+      const g = o.cv.getContext('2d'), W = 256, H = 112; g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(10,14,22,.78)'; g.strokeStyle = o.q.col || '#e11d48'; g.lineWidth = 5; g.beginPath(); g.roundRect ? g.roundRect(4, 4, W - 8, H - 8, 16) : g.rect(4, 4, W - 8, H - 8); g.fill(); g.stroke();
+      g.font = '38px sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('\u{1F6A9}', 14, H / 2);
+      g.font = '900 24px Arial, sans-serif'; { const tx = o.q.me ? 'YOUR PIN' : 'PIN - ' + o.q.nm, mw = g.measureText(tx).width; g.save(); g.translate(66, 36); if (mw > 178) g.scale(178 / mw, 1); g.fillText(tx, 0, 0); g.restore(); } g.fillStyle = '#ffd23f'; g.font = '900 30px Arial, sans-serif'; g.fillText(d + ' m', 66, 78); o.tex.needsUpdate = true; }
+  }
   zipBusy() { for (const [, g] of this.mates) if (g.ph === 4 && ((g.st | 0) & 1024)) return true; return false; }
   swapPick() {
     if (this.nearDown && this.startRevive()) return true;   // v244: F next to a downed teammate = revive him

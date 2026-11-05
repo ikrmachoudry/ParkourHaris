@@ -361,6 +361,14 @@ wss.on('connection', (ws, req) => {
         if (!num(m.x, -2000, 2000) || !num(m.z, -2000, 2000)) return;
         bcast(room, { t: 'jf', id: p.id, x: m.x, z: m.z, w: m.w & 3, r: num(m.r, -1e4, 1e4) ? m.r : 0 }, p.id); break;
       }
+      case 'cpin': {   // v410: Jang: a teammate's map PIN (a flag with his name) goes to his own team only; on = 0 removes it
+        if (!room || !room.combat || room.phase !== 'race') return;
+        const t = Date.now(); if (t - (p.lastPin || 0) < 250) return; p.lastPin = t;
+        const on = m.on ? 1 : 0; if (on && (!num(m.x, -2000, 2000) || !num(m.z, -2000, 2000))) return; if (p.team == null) return;
+        const o = JSON.stringify({ t: 'cpin', id: p.id, nm: String(p.name || '').slice(0, 14), c: p.char | 0, x: on ? m.x : 0, z: on ? m.z : 0, on });
+        for (const q of room.players.values()) if (q.id !== p.id && q.team === p.team && q.ws.readyState === 1) q.ws.send(o);
+        break;
+      }
       case 'emote': {   // v227: a lobby gesture (wave, salute...) is shown to everybody in the room
         if (!room || room.phase !== 'lobby' || !['wave', 'hi', 'salute', 'cheer'].includes(m.g)) return;
         bcast(room, { t: 'emote', char: p.char | 0, g: m.g }); break;
