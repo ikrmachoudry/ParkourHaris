@@ -72,6 +72,7 @@ export function showVictory(m, myTm, onDone) {
     + '#victory th{position:sticky;top:0;background:#14171e;color:#fff;text-align:left;padding:7px 6px;font-size:11px;letter-spacing:1px}'
     + '#victory td{padding:6px;border-top:1px solid rgba(255,255,255,.1);vertical-align:top}'
     + '#victory tr.w td{background:rgba(217,58,58,.14)}#victory small{opacity:.7;font-weight:500}#victory td b{color:#ff6a5a}#victory td i{opacity:.4}'
+    + '@media (max-height:540px){#victory .vh h1{font-size:clamp(22px,5.2vh,34px);letter-spacing:4px}#victory .vh h1:after{width:60px;height:3px;margin:5px auto 0}#victory .vh p{margin:3px 0 0;font-size:12px}#victory button{padding:8px 16px;font-size:11px;letter-spacing:2px}#victory .vb{gap:8px;bottom:max(18px,calc(env(safe-area-inset-bottom) + 10px))!important}#victory .vc{font-size:9px;letter-spacing:2px}}'
     + '</style><div class="vh"><h1>' + (lost ? (title.toUpperCase() === 'YOU' ? 'YOU LOST' : esc(title.toUpperCase()) + ' LOST') : (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!')) + '</h1><p>' + (lost ? 'DEFEAT \u2022 ' + (mt.k | 0) + ' KILLS' + (wt && wt.tm !== mt.tm ? ' \u2022 ' + esc(String(wt.n || 'TEAM').toUpperCase()) + ' WON' : '') : (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS') + '</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
     + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
@@ -105,7 +106,16 @@ export function showVictory(m, myTm, onDone) {
 
   const st = { el, scene, renderer, actors, audio, raf: 0, onResize: null };
   cur = st;
-  const fit = () => { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); cam.aspect = w / h; const wide = w / h; cam.position.set(0, 1.75, wide < 0.8 ? 10 : wide < 1.3 ? 7.6 : 5.6); cam.lookAt(0, 1.05, 0); cam.updateProjectionMatrix(); };
+  /* v420: the 3D stage is fitted into the free band BETWEEN the title and the buttons (name tags sit under the feet, still above the buttons), so nothing overlaps on any screen */
+  const fit = () => {
+    const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); cam.aspect = w / h; const wide = w / h;
+    const vh = el.querySelector('.vh'), vb = el.querySelector('.vb'), TAG = 30;
+    const top = vh ? vh.getBoundingClientRect().bottom + 6 : 0, bot = (vb ? vb.getBoundingClientRect().top : h) - 6 - TAG, band = Math.max(80, bot - top);
+    const tan = Math.tan(cam.fov * Math.PI / 360), need = 2.3 * h / (2 * tan * 0.94 * band), d = Math.max(wide < 0.8 ? 10 : wide < 1.3 ? 7.6 : 5.6, need);
+    cam.position.set(0, 1.75, d); cam.lookAt(0, 1.05, 0);
+    const cy = (top + bot) / 2; cam.setViewOffset(w, h, 0, h / 2 - cy, w, h);   /* moves the actors' middle to the middle of the free band */
+    cam.updateProjectionMatrix(); st.tagMax = bot + TAG;
+  };
   st.onResize = fit; window.addEventListener('resize', fit); fit();
   prepareVictory(lost);
   let last = performance.now(); const v = new THREE.Vector3();
@@ -115,7 +125,7 @@ export function showVictory(m, myTm, onDone) {
       if (lost) { a.t += dt; if (a.t >= a.until) { let nx = SADS[Math.floor(Math.random() * SADS.length)]; if (nx === a.dance && Math.random() < 0.7) nx = SADS[(SADS.indexOf(nx) + 1 + Math.floor(Math.random() * 3)) % 4]; a.dance = nx; a.until = a.t + SAD_DUR[nx] * (nx === 'sad2' ? 0.6 : 1 + Math.floor(Math.random() * 2)); if (a.stool) a.stool.visible = nx === 'sad3'; } }   // random sad move; the next one is picked when the clip has played
       a.c.update(dt, { grounded: true, speed: 0, vy: 0, dance: a.dance }); }
     lights.forEach((b, i) => { b.material.color.set(Math.floor(now / 350 + i) % 2 ? '#ffd23f' : '#ff4d4d'); });
-    actors.forEach((a, i) => { v.set(a.c.group.position.x, 0, a.c.group.position.z).project(cam); const l = labels[i]; l.style.left = ((v.x + 1) / 2 * window.innerWidth) + 'px'; l.style.top = ((1 - v.y) / 2 * window.innerHeight + 6) + 'px'; });
+    actors.forEach((a, i) => { v.set(a.c.group.position.x, 0, a.c.group.position.z).project(cam); const l = labels[i]; l.style.left = ((v.x + 1) / 2 * window.innerWidth) + 'px'; l.style.top = Math.min((1 - v.y) / 2 * window.innerHeight + 6, (st.tagMax || 1e9) - 24) + 'px'; });
     renderer.render(scene, cam);
   };
   st.raf = requestAnimationFrame(loop);

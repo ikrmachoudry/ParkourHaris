@@ -79,7 +79,7 @@ export class CombatScene {
   begin(m, seat) {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
- this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0; this.lives = 3; this.spec = null; this.specHide();
+ this.over = false; this.victoryOpen = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0; this.lives = 3; this.spec = null; this.specHide();
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, botCount(OPT.diff || 'medium', !!R.isTouch)); if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
@@ -97,7 +97,7 @@ export class CombatScene {
   }
   clear() {
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
-    if (this._winT || this._winAt) { clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
+    if (this._winT || this._winAt) { clearTimeout(this._winFade); if (this._fadeEl) { this._fadeEl.remove(); this._fadeEl = null; } clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
     if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
@@ -810,7 +810,11 @@ export class CombatScene {
   onWin() { if (!this.over) this.finish('', 'win'); }   // the server: only one team is left
   /* v411: when the match is decided the player STAYS in the last scene for 5 s with the victory song playing (game sounds off), then the victory page opens and the song carries on without a break */
   beginWin(lost) { try { prepareVictory(!!lost); } catch (e) { /* noop */ } if (this._winAt) { if (lost !== undefined) { try { startWinSong(!!lost); } catch (e) { /* noop */ } } return; } this._winAt = performance.now(); try { startWinSong(!!lost); } catch (e) { /* noop */ } if (this.ov) this.ov.style.display = 'none'; }   // the song and the quiet last scene start the moment the match is decided
-  winScene(m, tm) { if (this._winT) return; const lost = !!m.lost || (m.win !== undefined && m.win !== null && tm !== undefined && tm !== null && tm !== m.win); this.beginWin(lost); const wait = Math.max(0, 5000 - (performance.now() - this._winAt)); this._winT = setTimeout(() => { this._winT = 0; this._winAt = 0; showVictory(m, tm, () => this.leaveAfterWin()); }, wait); }
+  winScene(m, tm) { if (this._winT) return; const lost = !!m.lost || (m.win !== undefined && m.win !== null && tm !== undefined && tm !== null && tm !== m.win); this.beginWin(lost);
+    /* v420: the player keeps walking round the last scene for 6 s with the song playing, then the screen FADES to black (0.7 s) and the victory / defeat page opens; it never opens sooner than 6 s after the match was decided */
+    const FADE = 700, el0 = performance.now() - this._winAt, showAt = Math.max(6000, el0 + FADE), fadeIn = Math.max(0, showAt - FADE - el0);
+    this._winFade = setTimeout(() => { const f = document.createElement('div'); f.id = 'win-fade'; f.style.cssText = 'position:fixed;inset:0;z-index:199;background:#000;opacity:0;pointer-events:none;transition:opacity ' + FADE + 'ms ease-in'; document.body.appendChild(f); this._fadeEl = f; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.opacity = '1'; })); }, fadeIn);
+    this._winT = setTimeout(() => { this._winT = 0; this._winAt = 0; const f = this._fadeEl; this._fadeEl = null; this.victoryOpen = true; showVictory(m, tm, () => this.leaveAfterWin()); if (f) { f.style.transition = 'opacity 400ms'; f.style.opacity = '0'; setTimeout(() => f.remove(), 450); } }, showAt - el0); }
   onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); this.winScene(m, this.R.jangTeam && this.R.jangTeam.tm); }
   showWin(m) { this.winScene(m, 0); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
