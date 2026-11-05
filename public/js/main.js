@@ -2366,6 +2366,7 @@ function voiceUI(speakOnly) {
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
   if (!speakOnly && list.dataset.k !== key) { list.dataset.k = key; list.innerHTML = rows.map((p) => { const st = voice.peers.has(p.id) ? voice.peers.get(p.id).pc.connectionState : 'new'; return `<div class="vr${voice.muted.has(p.id) ? ' mu' : ''}" data-id="${p.id}"><span class="vd ${st === 'connected' ? 'ok' : st === 'failed' ? 'bad' : ''}"></span><em>${String(p.name).replace(/[<>&"]/g, '').slice(0, 12)}</em></div>`; }).join(''); }
   for (const r of list.children) r.classList.toggle('talk', voice.speaking.has(+r.dataset.id));
+  document.querySelectorAll('.vlt[data-vid]').forEach((el) => el.classList.toggle('talk', voice.speaking.has(+el.dataset.vid)));   // v430: the light next to a name blinks while that player talks
 }
 // act on touchend itself (like the game's other buttons): a finger always answers, the synthesized click is dropped so it cannot fire twice
 const vcTap = (el, fn) => { let lt = 0; el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); lt = Date.now(); fn(e); }, { passive: false }); el.addEventListener('click', (e) => { e.stopPropagation(); if (Date.now() - lt < 700) return; fn(e); }); };
@@ -2489,20 +2490,18 @@ function onLobby(m) {
 }
 // v274 PUBG custom room: up to 4 teams of 2-4, a team name, JOIN / LEAVE, the leader's FILL switch; each team flies in its own plane
 function renderTeams(m) {
-  const box = $('lobby-teams'), bar = $('lobby-tbar'); if (!box) return; const on = !!m.combat; box.style.display = on ? 'block' : 'none'; bar.style.display = on && (m.teams || []).length < 3 ? 'flex' : 'none'; bar.style.gap = '6px'; if (!on) return;
+  const box = $('lobby-teams'), bar = $('lobby-tbar'); if (!box) return; const on = !!m.combat; box.style.display = on ? 'block' : 'none'; bar.style.display = on && (m.teams || []).length < 4 ? 'flex' : 'none'; bar.style.gap = '6px'; if (!on) return;
   const me = app.myId, esc = (t) => String(t).replace(/[<>&]/g, ''), mine = (m.teams || []).find((t) => t.ids.includes(me)), byId = new Map(m.players.map((p) => [p.id, p])); box.innerHTML = '';
-  const COL = ['#ffd23f', '#5bd2ff', '#ff6a8d'];
+  const COL = ['#ffd23f', '#5bd2ff', '#ff6a8d', '#7dff8a'];
   (m.teams || []).forEach((t, i) => {
-    const d = document.createElement('div'); d.style.cssText = 'border:2px solid ' + COL[i % 3] + ';border-radius:10px;padding:6px 8px;margin:0 0 6px;background:rgba(0,0,0,.35)';
+    const d = document.createElement('div'); d.style.cssText = 'border:2px solid ' + COL[i % 4] + ';border-radius:10px;padding:6px 8px;margin:0 0 6px;background:rgba(0,0,0,.35)';
     let h = '<div style="display:flex;align-items:center;gap:6px;font-weight:800"><span style="color:' + COL[i % 3] + '">' + esc(t.name) + '</span><small>' + t.ids.length + '/4</small><span style="flex:1"></span>';
     if (mine === t) { if (t.leader === me) h += '<button class="btn small ' + (t.fill ? 'green' : 'grey') + '" data-a="fill">FILL ' + (t.fill ? 'ON' : 'OFF') + '</button>'; h += '<button class="btn small grey" data-a="leave">LEAVE</button>'; }
     else if (t.ids.length < 4) h += '<button class="btn small pink" data-a="join" data-t="' + t.id + '">JOIN</button>'; else h += '<small>FULL</small>';
     h += '</div>';
-    for (let k = 0; k < 4; k++) { const p = byId.get(t.ids[k]); h += '<div class="slot' + (p ? '' : ' empty') + '" style="margin-top:3px">' + (p ? '<i style="background:' + CHARACTERS[p.char].color + '"></i><span>' + esc(p.name) + '</span>' + (p.id === t.leader ? '<span>\u{1F451}</span>' : '') + (p.id === me ? '<span class="you">YOU</span>' : '') : '<i style="background:#888"></i><span>Empty</span>') + '</div>'; }
+    h += '<div class="tmem">'; for (let k = 0; k < 4; k++) { const p = byId.get(t.ids[k]); h += '<div class="slot' + (p ? '' : ' empty') + '">' + (p ? '<b class="vlt" data-vid="' + p.id + '"></b><span>' + esc(p.name) + '</span>' + (p.id === t.leader ? '<span>\u{1F451}</span>' : '') + (p.id === me ? '<span class="you">YOU</span>' : '') : '<i style="background:#888"></i><span>Empty</span>') + '</div>'; } h += '</div>';
     d.innerHTML = h; box.appendChild(d);
   });
-  const loose = m.players.filter((p) => !(m.teams || []).some((t) => t.ids.includes(p.id)));
-  if (loose.length) { const d = document.createElement('div'); d.className = 'note'; d.innerHTML = 'Not in a team yet: ' + loose.map((p) => esc(p.name) + (p.id === me ? ' (you)' : '')).join(', '); box.appendChild(d); }
   box.onclick = (e) => { const b = e.target.closest && e.target.closest('button[data-a]'); if (!b) return; A.sfx.click(); const a = b.dataset.a; if (a === 'join') app.net.send({ t: 'tjoin', team: +b.dataset.t }); else if (a === 'leave') app.net.send({ t: 'tleave' }); else if (a === 'fill') { const t = (m.teams || []).find((q) => q.leader === me); app.net.send({ t: 'tfill', on: !(t && t.fill) }); } };
   $('b-tcreate').onclick = () => { A.sfx.click(); const n = $('lobby-tname').value.trim(); if (!n) { needField($('lobby-tname'), 'Enter a team name, then tap CREATE TEAM'); return; } app.net.send({ t: 'tcreate', name: n }); $('lobby-tname').value = ''; };
 }
@@ -2511,9 +2510,15 @@ function renderLobby() {
   const meP = m.players.find((p) => p.id === app.myId);
   if (meP) { app.char = meP.char; app.skin = meP.skin | 0; }
   $('lobby-code').textContent = m.code;
-  $('lobby-count').textContent = `${m.players.length}/${m.combat ? 12 : MAX_PLAYERS}`;
+  $('lobby-count').textContent = `${m.players.length}/${m.combat ? 16 : MAX_PLAYERS}`;
   renderTeams(m);
   const slots = $('lobby-players'); slots.innerHTML = '';
+  slots.classList.toggle('cmb', !!m.combat);
+  if (m.combat) {   /* v430: the MAIN LOBBY list = only the players who are not in a team yet (name + a light that blinks while they talk) */
+    const loose = m.players.filter((p) => !(m.teams || []).some((t) => t.ids.includes(p.id)));
+    loose.forEach((p) => { const d = document.createElement('div'); d.className = 'slot'; d.innerHTML = '<b class="vlt" data-vid="' + p.id + '"></b><span>' + p.name.replace(/[<>&"]/g, '') + '</span>' + (p.id === m.hostId ? '<span>\u{1F451}</span>' : '') + (p.id === app.myId ? '<span class="you">YOU</span>' : ''); slots.appendChild(d); });
+    if (!loose.length) { const d = document.createElement('div'); d.className = 'slot empty'; d.innerHTML = '<span>Everybody is in a team</span>'; slots.appendChild(d); }
+  }
   for (let i = 0; i < (m.combat ? 0 : MAX_PLAYERS); i++) {
     const p = m.players[i], d = document.createElement('div'); d.className = 'slot' + (p ? '' : ' empty');
     d.innerHTML = p ? `<i style="background:${CHARACTERS[p.char].color}"></i><span>${p.name.replace(/[<>&]/g, '')}</span>${p.id === m.hostId ? '<span>\u{1F451}</span>' : ''}${p.id === app.myId ? '<span class="you">YOU</span>' : ''}` : '<i style="background:#888"></i><span>Waiting for player...</span>';
@@ -2532,7 +2537,7 @@ function renderLobby() {
   { const ld = $('lobby-dsel'); if (ld) { ld.style.display = host && m.combat ? '' : 'none'; ld.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); } if (host && m.combat && app.net) app.net.send({ t: 'cdiff', d: OPT.diff || 'medium' }); }   // v333: the host picks the BOT DIFFICULTY in the team lobby
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
   $('lobby-hint').textContent = m.combat ? (host ? 'Make a team (name it) or tap JOIN on one. Every team needs 2 to 4 players; players without a team are placed by FILL. Host: press START.' : 'Make a team or tap JOIN on one. The host starts the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
-  stage.setLobby(m.players);
+  { const mt = (m.teams || []).find((t) => t.ids.includes(app.myId)); stage.setLobby(m.combat ? m.players.filter((p) => p.id === app.myId || (mt && mt.ids.includes(p.id))) : m.players); }   /* v430: the stage shows ONLY me, plus the people who joined MY team (never the main lobby) */
 }
 function onGo(m) {
   A.initAudio();

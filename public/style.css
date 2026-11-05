@@ -1430,3 +1430,18 @@ body.aa-lock .qrow[data-k="autoAim"] { opacity: .45; filter: grayscale(1); }
 body.aa-lock .qrow[data-k="autoAim"] .sw { background: #555 !important; }
 body.aa-lock .qrow[data-k="autoAim"] .sw::after { background: #888 !important; }
 body.aa-lock .qrow[data-k="autoAim"] small::after { content: " - LOCKED OFF: 2+ teams"; color: #ff9a5a; }
+
+/* v430: lobby board: main-lobby names + team cards with a talking light */
+.vlt { width: 12px; height: 12px; border-radius: 50%; background: #555; flex: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+.vlt.talk { background: #39ff14; box-shadow: 0 0 10px #39ff14; animation: vltb .5s ease-in-out infinite; }
+@keyframes vltb { 50% { opacity: .35; } }
+.slots.cmb { display: flex; flex-wrap: wrap; gap: 5px; max-height: 20vh; overflow: auto; }
+.slots.cmb .slot { font-size: 15px; padding: 4px 9px; gap: 7px; }
+#lobby-teams { max-height: 30vh; overflow: auto; }
+#lobby-teams .tmem { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; margin-top: 3px; }
+#lobby-teams .tmem .slot { font-size: 14px; padding: 3px 8px; gap: 7px; min-width: 0; }
+#lobby-teams .tmem .slot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* v430: the lobby voice box is compact (no title, no name list: the names and talking lights are on the board) so it never covers the player / team panels */
+body.in-lobby #vc::before { display: none !important; }
+body.in-lobby #vc-list { display: none !important; }
+@media (max-height: 460px) { body.in-lobby .code-box .note { display: none !important; } body.in-lobby .lobby-title { display: none !important; } }   /* v430: no overlapping texts / buttons at the top of the lobby on a phone */
