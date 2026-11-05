@@ -1633,12 +1633,12 @@ class Race {
   xhairTick() {
     const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished && (w !== 'sniper' || !!(this.mission && this.mission.cs && this.mission.cs.on && this.mission.cs.count('sscope') <= 0)), el = $('xhair'), bd = document.body;
     if (bd.classList.contains('xh') !== show) bd.classList.toggle('xh', show);
-    const ab = $('b-auto'); if (ab) { ab.classList.toggle('on', !!OPT.autoAim); const em = ab.querySelector('em'); if (em) em.textContent = OPT.autoAim ? 'ON' : 'OFF'; }
+    const lk = aaLocked(); if (document.body.classList.contains('aa-lock') !== lk) document.body.classList.toggle('aa-lock', lk); const ab = $('b-auto'); if (ab) { ab.classList.toggle('on', !!aaOn()); ab.classList.toggle('lock', lk); const em = ab.querySelector('em'); if (em) em.textContent = lk ? 'LOCK' : aaOn() ? 'ON' : 'OFF'; }
     if (!show || !el) return;
     const px = Math.round(28 + W.spread * 280); if (el._px !== px) { el._px = px; el.style.width = el.style.height = px + 'px'; el.style.margin = (-px / 2) + 'px 0 0 ' + (-px / 2) + 'px'; }
     let on = false; const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw;
-    if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
-    if (!on && this.wanted) for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz) || 1; if (d > W.range) continue; let da = d < 1.5 ? 0 : Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (OPT.autoAim ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
+    if (this.peds) for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (aaOn() ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
+    if (!on && this.wanted) for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz) || 1; if (d > W.range) continue; let da = d < 1.5 ? 0 : Math.atan2(dx, dz) - yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < (aaOn() ? 0.42 : 0.06) + 0.4 / d) { on = true; break; } }
     const rel = this.reloadT > 0 || this.wallet.mag(w) <= 0;
     el.classList.toggle('hit', on && !rel); el.classList.toggle('rel', rel);
   }
@@ -1680,14 +1680,14 @@ class Race {
     /* v295: the lean offset is known BEFORE the aim is worked out, so every aim (crosshair, auto-aim lock) is computed from where the bullet really starts */
     const sprd = (Math.random() - 0.5) * 2 * W.spread * this.spreadK(); let ang = (aimP && Math.hypot(aimP.x - b.x, aimP.z - b.z) > 4 ? Math.atan2(aimP.x - b.x, aimP.z - b.z) : b.yaw) + sprd; const ang0 = ang;   // the shot goes where the crosshair is (the camera sits over the shoulder: shooting along the body used to miss it sideways)
     /* v289 PUBG style on the COMBAT island: with AUTO AIM on, a bot (a pixel or two from the crosshair, within about 5 degrees) is locked on: the bullet goes to his chest, only a tiny wobble is left */
-    if (OPT.autoAim && this.mission && this.mission.cs && this.mission.cs.active && this.mission.cs.sim) { let bd4 = 0.04; this._asB = null; for (const bt of this.mission.cs.sim.bots) { if (!bt.alive) continue; const dx = CMB.x + bt.x - b.x, dz = CMB.z + bt.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - ang; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd4) { bd4 = da; this._asB = bt; ang = Math.atan2(dx - lnx, dz - lnz) + (Math.random() - 0.5) * 2 * W.spread * 0.35; } } }
+    if (aaOn() && this.mission && this.mission.cs && this.mission.cs.active && this.mission.cs.sim) { let bd4 = 0.04; this._asB = null; for (const bt of this.mission.cs.sim.bots) { if (!bt.alive) continue; const dx = CMB.x + bt.x - b.x, dz = CMB.z + bt.z - b.z, d = Math.hypot(dx, dz); if (d < 1.5 || d > W.range) continue; let da = Math.atan2(dx, dz) - ang; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd4) { bd4 = da; this._asB = bt; ang = Math.atan2(dx - lnx, dz - lnz) + (Math.random() - 0.5) * 2 * W.spread * 0.35; } } }
     // aim assist: lock on to the nearest person in front of the muzzle (a thumb on a phone cannot aim precisely)
-    if (this.peds && OPT.autoAim) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
-    if (this.wanted && OPT.autoAim) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
+    if (this.peds && aaOn()) { let bd = 0.42; for (const p of this.peds.list) { if (!p.actor || !p.actor.group.visible || p.st === 'gone' || p.st === 'fly' || p.hp <= 0) continue; const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz); if (d < 1 || d > W.range) continue; let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd) { bd = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread; } } }
+    if (this.wanted && aaOn()) { let bd2 = 0.42; for (const o of this.wanted.foot) { if (o.dead) continue; const dx = o.x - b.x, dz = o.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd2) { bd2 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.5; } } }   // officers too (and one right at your chest cannot be missed)
     const zomOn = !!(this.mission && (this.mission.mission === 'zombie' || this.mission.mission === 'poli') && this.mission.zs && this.mission.zs.active);
-    if (zomOn && OPT.autoAim) { let bd3 = 0.4; for (const z of this.mission.zs.list()) { const dx = z.x - b.x, dz = z.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd3) { bd3 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.6; } } }   // zombies too
+    if (zomOn && aaOn()) { let bd3 = 0.4; for (const z of this.mission.zs.list()) { const dx = z.x - b.x, dz = z.z - b.z, d = Math.hypot(dx, dz); if (d > W.range) continue; let da = d < 1.2 ? 0 : Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < bd3) { bd3 = da; ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.6; } } }   // zombies too
     const thiefTs = this.mission && this.mission.mission === 'thief' && this.mission.phase === 'run' && this.mission.ts && this.mission.ts.exposed ? this.mission.ts : null;
-    if (thiefTs && OPT.autoAim) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
+    if (thiefTs && aaOn()) { const dx = thiefTs.px - b.x, dz = thiefTs.pz - b.z, d = Math.hypot(dx, dz); if (d > 1 && d < W.range) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da < 0.45) ang = Math.atan2(dx, dz) + (Math.random() - 0.5) * W.spread * 0.8; } }   // aim assist on the gunman when he is out in the open
     const fx = Math.sin(ang), fz = Math.cos(ang), ox = b.x + lnx + fx * 0.7, oz = b.z + lnz + fz * 0.7, oy = b.y + (this.prone ? 0.35 : this.crouch ? 1.0 : 1.45);
     let len = W.range, hc = -1;
     let shotAt = -1;
@@ -1698,7 +1698,7 @@ class Race {
           inW = (() => { try { return !!cmbHitsSolid(this.mission.cs.sim.L, sx0 - CMB.x, sz0 - CMB.z, 0.05, b.y); } catch (e) { return false; } })();
         let ox2 = sx0, oz2 = sz0, dx2 = cx, dz2 = cz;
         if (inW) { const px = cp.x + cx * 80, pz = cp.z + cz * 80, bx0 = b.x + lnx, bz0 = b.z + lnz, l2 = Math.hypot(px - bx0, pz - bz0) || 1; ox2 = bx0; oz2 = bz0; dx2 = (px - bx0) / l2; dz2 = (pz - bz0) / l2; }   /* v295: hugging a wall the camera (over the shoulder) can sit a few cm inside it and every bullet died there: then the bullet leaves the BODY and flies to the far end of the crosshair line */
-        let bal; { const hh = Math.hypot(aimP.x - cp.x, aimP.z - cp.z); if (!inW && hh > 1) { const ab = OPT.autoAim ? this._asB : null; if (ab) { const gyb = ab.y != null ? ab.y : cmbHt(ab.x, ab.z), Hb = [1.8, 1.25, 0.6][ab.stn | 0], aa = Math.hypot(CMB.x + ab.x - ox2, CMB.z + ab.z - oz2), kk = bulletK(w); bal = { y: gyb + Hb * (0.62 + (Math.random() - 0.5) * 0.8) + kk * aa * aa, sl: 0, k: kk }; } else { const sl = (aimP.y - cp.y) / hh; bal = { y: cp.y + sl * t0, sl, k: bulletK(w) }; } } }   /* v313 + v331: bullet drop + HEIGHT always counts now (a bot has a head and a body); the auto-aim assist (3 degrees) lines the bullet up with his chest, with a small wobble so a headshot is rare */
+        let bal; { const hh = Math.hypot(aimP.x - cp.x, aimP.z - cp.z); if (!inW && hh > 1) { const ab = aaOn() ? this._asB : null; if (ab) { const gyb = ab.y != null ? ab.y : cmbHt(ab.x, ab.z), Hb = [1.8, 1.25, 0.6][ab.stn | 0], aa = Math.hypot(CMB.x + ab.x - ox2, CMB.z + ab.z - oz2), kk = bulletK(w); bal = { y: gyb + Hb * (0.62 + (Math.random() - 0.5) * 0.8) + kk * aa * aa, sl: 0, k: kk }; } else { const sl = (aimP.y - cp.y) / hh; bal = { y: cp.y + sl * t0, sl, k: bulletK(w) }; } } }   /* v313 + v331: bullet drop + HEIGHT always counts now (a bot has a head and a body); the auto-aim assist (3 degrees) lines the bullet up with his chest, with a small wobble so a headshot is rare */
         const dd0 = this.mission.cs.shoot(ox2, oz2, dx2, dz2, W.range + dl, W.dmg, w, oy - 0.15, bal);
         if (dd0 >= 0) { const hx = ox2 + dx2 * dd0, hz = oz2 + dz2 * dd0, cd = Math.max(0.05, (hx - ox) * fx + (hz - oz) * fz); if (cd < len) len = cd; } }
       else { const cd0 = this.mission.cs.shoot(b.x + lnx, b.z + lnz, fx, fz, len + 0.7, W.dmg, w, oy - 0.15), cd = cd0 >= 0 ? Math.max(0.05, cd0 - 0.7) : -1; if (cd >= 0 && cd < len) len = cd; } }
@@ -2147,7 +2147,7 @@ class Race {
 
   render() { renderer.render(this.scene, this.camera); }
 
-  destroy() {
+  destroy() { document.body.classList.remove('aa-lock');
     setJangSet(false);
     try { this.toggleWheel(false); } catch (e) { /* ignore */ }
     if (this.mission) { this.mission.destroy(); this.mission = null; }
@@ -2265,6 +2265,9 @@ function openProfile(mode) {
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
+/* v427: AUTO AIM only works in Jang when ONE or TWO teams play (one team vs the bots is optional on / off); with 3+ teams it is locked off and greyed */
+function aaLocked() { return !!(race && race.jang && race.jangTeam && (race.jangTeam.nTeams | 0) > 2); }
+function aaOn() { return !!OPT.autoAim && !aaLocked(); }
 /* v426: a missing required field: red outline + shake + red text under it (cleared as soon as the player types) */
 function needField(inp, msg) {
   if (!inp) return false;
@@ -2535,7 +2538,7 @@ function onGo(m) {
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
     app.level = 0; loadScreen.show('JANG', 'LOADING...');
     const ord = (m.order && m.order.length ? m.order : room.players.map((p) => p.id)), nn = ord.length, teamOf = m.teamOf || Object.fromEntries(ord.map((id) => [id, 0])), tm = teamOf[app.myId] | 0, tmates = ord.filter((id) => (teamOf[id] | 0) === tm);   // v274: the server places every player in a team (0..2); each team flies its own plane
-    const tm0 = { shared: nn >= 2, seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf, seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])), teamName: (m.teamNames || [])[tm] || '' };
+    const tm0 = { nTeams: new Set(ord.map((id) => teamOf[id] | 0)).size, shared: nn >= 2, seed: m.seed | 0, tm, si: tmates.indexOf(app.myId), myId: app.myId, teamOf, seatOf: Object.fromEntries(tmates.map((id, i) => [id, i])), teamName: (m.teamNames || [])[tm] || '' };
     requestAnimationFrame(() => setTimeout(() => { startJang(tm0); }, 40));
     return;
   }
@@ -2664,7 +2667,7 @@ function closePause() {
   tryLock();
 }
 $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause() : openPause()));
-$('b-auto').addEventListener('click', () => { A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
+$('b-auto').addEventListener('click', () => { if (aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 3 OR MORE TEAMS'); return; } A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); openSettings('pause'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
@@ -2784,7 +2787,7 @@ async function boot() {
   A.setCommentary(OPT.punjabi !== false);
   document.querySelectorAll('#quick .qrow, #quick2 .qrow, #quick4 .qrow').forEach((row) => {
     const k = row.dataset.k, paint = () => row.classList.toggle('on', !!OPT[k]); paint();
-    row.onclick = () => { A.initAudio(); A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
+    row.onclick = () => { A.initAudio(); if (k === 'autoAim' && aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 3 OR MORE TEAMS'); return; } A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
   setInterval(() => document.body.classList.toggle('guest-room', !!(app.room && app.room.hostId !== app.myId)), 500);   // v331: only the room HOST sees the bot difficulty switch
   { const paintD = () => document.querySelectorAll('.dsel button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); paintD();   // v331: BOT DIFFICULTY

@@ -1422,3 +1422,11 @@ body.touch #mm-btn:not(.tr) { top: auto; bottom: calc(14px + env(safe-area-inset
 .need-shake { animation: needshake .4s; }
 @keyframes needshake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
 .need-msg { color: #ff6a6a; font: 800 13px/1.3 system-ui, sans-serif; letter-spacing: .5px; margin: 4px 0 6px; text-align: left; }
+
+/* v427: auto aim locked (3+ teams) */
+#b-auto.lock { border-color: #777 !important; background: rgba(60,60,60,.6) !important; color: #999 !important; opacity: .6; }
+#b-auto.lock em { color: #999 !important; }
+body.aa-lock .qrow[data-k="autoAim"] { opacity: .45; filter: grayscale(1); }
+body.aa-lock .qrow[data-k="autoAim"] .sw { background: #555 !important; }
+body.aa-lock .qrow[data-k="autoAim"] .sw::after { background: #888 !important; }
+body.aa-lock .qrow[data-k="autoAim"] small::after { content: " - LOCKED OFF: 3+ teams"; color: #ff9a5a; }
