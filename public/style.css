@@ -1477,3 +1477,7 @@ body.in-lobby #vc-list { display: none !important; }
   #lobby-tbar button { white-space: nowrap; }
   #lobby-teams .tmem .slot, .slots.cmb .slot { font-size: 12px; padding: 2px 7px; }
 }
+
+/* v438: voice status line under the push-to-talk label */
+#vc-stat { margin-top: 4px; font: 700 9px/1.25 system-ui, sans-serif; color: #cfe8ff; background: rgba(20,24,30,.62); border-radius: 8px; padding: 2px 7px; width: max-content; max-width: 190px; white-space: normal; }
+@media (max-height: 340px) { body.in-lobby #vc-stat { display: none; } }

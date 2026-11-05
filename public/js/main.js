@@ -2353,7 +2353,7 @@ function leaveToTitle() {
 
 // ---- team voice chat (v215): GTA rooms first. Mic is OFF until the player taps it. Buttons sit under the minimap, same place on every screen size.
 let voice = null;
-const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-mode"></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
+const vcEl = (() => { const d = document.createElement('div'); d.id = 'vc'; d.innerHTML = '<div id="vc-btns"><button id="vc-mic" aria-label="Microphone"></button><button id="vc-spk" aria-label="Speaker"></button></div><div id="vc-mode"></div><div id="vc-stat"></div><div id="vc-list"></div><div id="vc-msg"></div>'; document.body.appendChild(d); return d; })();
 const SVG_MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>', SVG_SPK = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
 $('vc-mic').innerHTML = SVG_MIC + '<i></i>'; $('vc-spk').innerHTML = SVG_SPK;
 // who is on my voice channel: GTA = everybody in the room; JANG team room = the room IS the team (rooms never see each other). If players ever carry a team number, only the same team is connected.
@@ -2368,6 +2368,10 @@ function voiceUI(speakOnly) {
   if (!on) return;
   if (document.body.classList.contains('in-lobby') && !voice.ptt) voice.setPtt(true, false);   /* v429: the lobby is push to talk only (up to 16 people: no open mics, no echo) */
   $('vc-mic').classList.toggle('held', voice.held); $('vc-mode').textContent = voice.ptt ? (document.body.classList.contains('touch') ? 'PUSH TO TALK · hold the mic' : 'PUSH TO TALK · hold T') : (voice.aec ? 'VOICE-ACTIVATED MIC · tap to change' : 'OPEN MIC · tap to change'); $('vc-mode').classList.toggle('ptt', voice.ptt); $('vc-mic').classList.toggle('on', voice.want); $('vc-mic').classList.toggle('talk', voice.speaking.has(voice.me)); $('vc-spk').classList.toggle('off', !voice.spk);
+  { /* v438: one line that says what the voice is doing, so a silent connection can be diagnosed from a screenshot */
+    const ms = voiceMates().filter((p) => p.id !== app.myId), relay = (voice.ice || []).some((x) => /turn/i.test(JSON.stringify(x.urls)));
+    const one = (p) => { const o = voice.peers.get(p.id), st = o ? o.pc.connectionState : 'new', nm = String(p.name).replace(/[<>&"]/g, '').slice(0, 9); return st === 'connected' ? '\u2713 ' + nm : st === 'failed' || st === 'closed' || st === 'disconnected' ? '\u2717 ' + nm + ' no link' : '\u2026 ' + nm; };
+    const t = !ms.length ? 'Waiting for a teammate' : ms.slice(0, 3).map(one).join('  ') + (ms.length > 3 ? ' +' + (ms.length - 3) : '') + (relay ? '' : '  \u00b7 no relay'), el = $('vc-stat'); if (el.textContent !== t) el.textContent = t; }
   const msg = voice.err || (voice._needTap ? 'Tap here to hear teammates' : ''); const me = $('vc-msg'); if (me.textContent !== msg) me.textContent = msg; me.style.display = msg ? 'block' : 'none';
   const list = $('vc-list'), rows = voiceMates().filter((p) => p.id !== app.myId);
   const key = rows.map((p) => p.id + ':' + (voice.peers.has(p.id) && voice.peers.get(p.id).pc.connectionState) + ':' + (voice.muted.has(p.id) ? 1 : 0)).join('|');
