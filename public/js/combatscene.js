@@ -68,7 +68,7 @@ export class CombatScene {
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
-    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.sim && this.sim.bots ? '  \u2022  BOTS ' + this.sim.bots.filter((q) => q.alive).length : '') + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
+    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.sim && this.sim.bots ? '  \u2022  BOTS ' + this.sim.bots.filter((q) => q.alive).length : '') + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : '') + (this.soloTeam() && this.lives > 0 ? '  \u2022  LIVES ' + this.lives : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
     this.hud.querySelector('.ch-s').textContent = 'KILLS ' + this.kills + '   •   DEATHS ' + this.deaths;
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
     { const cb = this.R.wallet && this.R.wallet.cb, vh = cb && cb.inv && cb.inv.vest > 0 ? Math.max(0, Math.round(cb.vestHp)) : 0, hh = cb && cb.inv && cb.inv.helmet > 0 ? Math.max(0, Math.round(cb.helmHp)) : 0;   // v414: you can SEE what armor you wear: icons above the health bar + the gear on your soldier
@@ -79,7 +79,7 @@ export class CombatScene {
   begin(m, seat) {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
- this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0;
+ this.over = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0; this.lives = 3; this.spec = null; this.specHide();
     { const T = R.jangTeam; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, botCount(OPT.diff || 'medium', !!R.isTouch)); if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
@@ -100,7 +100,7 @@ export class CombatScene {
     if (this._winT || this._winAt) { clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
     if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
-    this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none';
+    this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
     if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; if (this.tipEl) { this.tipEl.style.display = 'none'; this._tipOn = false; } A.setCommentary(OPT.punjabi !== false);
@@ -149,7 +149,7 @@ export class CombatScene {
   }
   startDrop() {
     const R = this.R, b = R.me.body, T = R.jangTeam, rr = (k) => { const x = Math.sin((T ? T.seed : 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };   // team match: the whole room shares one flight line, the second team gets its own plane flying the other way
-    const a0 = T ? rr(1) * Math.PI * 2 : Math.random() * Math.PI * 2, tn = T ? T.tm | 0 : 0, a = tn === 1 ? a0 + Math.PI : tn === 2 ? a0 + Math.PI / 2 : a0, hd = [Math.sin(a), Math.cos(a)], off0 = T ? (rr(2) - 0.5) * 240 : (Math.random() - 0.5) * 240, off = tn === 1 ? -off0 * 0.6 + 40 : tn === 2 ? off0 * 0.4 - 30 : off0, L = 760;
+    const a0 = T ? rr(1) * Math.PI * 2 : Math.random() * Math.PI * 2, tn = T ? T.tm | 0 : 0, a = tn === 1 ? a0 + Math.PI : tn === 2 ? a0 + Math.PI / 2 : tn === 3 ? a0 + Math.PI * 1.5 : a0, hd = [Math.sin(a), Math.cos(a)], off0 = T ? (rr(2) - 0.5) * 240 : (Math.random() - 0.5) * 240, off = tn === 1 ? -off0 * 0.6 + 40 : tn === 2 ? off0 * 0.4 - 30 : tn === 3 ? -off0 * 0.3 - 50 : off0, L = 760;
     const cx = CMB.x - hd[1] * off, cz = CMB.z + hd[0] * off;   // a straight line across the island, a little off centre
     this.drop = { ph: 'plane', t: 0, hd, a, sx: cx - hd[0] * L / 2, sz: cz - hd[1] * L / 2, L, v: 34, alt: 230, vx: 0, vz: 0, hint: 0, ch: 0 };
     this.dropping = true; this.dropPose = 0; if (window.phVoiceUI) window.phVoiceUI();
@@ -532,7 +532,8 @@ export class CombatScene {
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
-      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
+      if (this.spec) this.specTick();
+      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
       else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
       else if (this.shared && !this.over && !this.dropping && this.sim.ready && this.t > 30 && this.R.jangTeam && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down && this.mates.size && [...this.mates.values()].every((g) => g.tm === this.R.jangTeam.tm)) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v379: a room with ONE team only (friends vs the bots): every bot dead = MISSION PASSED. With rival teams in the room the last team standing wins (bots do not count: nobody has to hunt the last bot)
@@ -617,16 +618,32 @@ export class CombatScene {
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
   }
-  die() { if (this.shared && !this.over && this.teamWiped()) { this.teamLost(); return; } this.recDeath(); this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.ownChute = false; this.hasChute = false; this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = 4; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; { const lh = this.lastHit, pv = this.lastBy && performance.now() - (this.lastByAt || 0) < 6000, rec = lh && performance.now() - lh.at < 6000 ? 'KILLED BY ' + lh.who + '  \u2022  ' + this.wName(lh.w) + '  \u2022  ' + Math.round(lh.d) + ' m' : pv ? 'KILLED BY AN ENEMY PLAYER' : 'YOU WERE KILLED'; this.ov.textContent = rec + '  -  RESPAWNING...'; if (lh && rec.indexOf('BOT') > 0) this.feed(lh.who, this.wName(lh.w), 'YOU', false); } } }
+  die() { if (this.shared && !this.over && this.teamWiped()) { this.teamLost(); return; } const solo = !this.over && this.soloTeam(); if (solo) { this.lives--; if (this.lives <= 0) { this.teamLost(); return; } } const toSpec = !solo && this.shared && !this.over; this.recDeath(); this.ejectCar(); if (this.shared && this.lastBy && performance.now() - (this.lastByAt || 0) < 9000 && this.R.jangTeam && this.R.jangTeam.net) { this.R.jangTeam.net.send({ t: 'cpk', to: this.lastBy }); this.lastBy = 0; } try { this.dropAll(); } catch (e) {} A.voice.death(1); this.ownChute = false; this.hasChute = false; this.hp = 0; this.down = false; this.reviving = null; this.deaths++; this.deadT = toSpec ? 1e9 : 4; if (toSpec) this.spec = { id: null }; this.R.me.body.stun = 4; this.R.fireHeld = false; if (this.ov) { this.ov.style.display = 'grid'; { const lh = this.lastHit, pv = this.lastBy && performance.now() - (this.lastByAt || 0) < 6000, rec = lh && performance.now() - lh.at < 6000 ? 'KILLED BY ' + lh.who + '  \u2022  ' + this.wName(lh.w) + '  \u2022  ' + Math.round(lh.d) + ' m' : pv ? 'KILLED BY AN ENEMY PLAYER' : 'YOU WERE KILLED'; this.ov.textContent = rec + (solo ? '  -  LIVES LEFT: ' + this.lives + '  -  DROPPING IN FROM THE PLANE...' : toSpec ? '  -  YOU ARE OUT  -  WATCHING YOUR TEAM' : '  -  RESPAWNING...'); if (toSpec) setTimeout(() => this.specShow(), 1800); if (lh && rec.indexOf('BOT') > 0) this.feed(lh.who, this.wName(lh.w), 'YOU', false); } } }
   // ---------------------------------------------------------------- v244 knocked down + revive (PUBG): with a teammate alive you do not die at once, you are DOWN for 40 s and he can pick you up
   canDown() { const T = this.R.jangTeam; if (!T || this.dropping || this.down) return false; const now = performance.now(); for (const [, g] of this.mates) if (g.tm === T.tm && g.ph >= 4 && g.ph <= 6 && g.has && now - g.at < 3000) return true; return false; }
+  // v418: LIVES: alone (solo, or a team of one) you have 3 lives, each one starts again in the plane; in a team you cannot respawn: you WATCH a teammate until the team is out
+  soloTeam() { const T = this.R.jangTeam; if (!T) return true; for (const [, g] of this.mates) if (g.tm === T.tm) return false; return true; }
+  specList() { const T = this.R.jangTeam, now = performance.now(), l = []; if (!T) return l; for (const [id, g] of this.mates) if (g.tm === T.tm && g.has && g.ph >= 4 && g.ph <= 6 && g.al !== 0 && now - g.at < 3000) l.push(id); return l; }
+  specCam() { if (!this.spec) return null; const l = this.specList(); if (!l.length) return null; if (this.spec.id == null || !l.includes(this.spec.id)) { this.spec.id = l[0]; this.specLabel(); } const g = this.mates.get(this.spec.id); return g ? { x: g.x, y: g.y, z: g.z, vx: 0, vz: 0, yaw: g.r || 0 } : null; }
+  specNext() { const l = this.specList(); if (!l.length) return; const i = l.indexOf(this.spec && this.spec.id); if (this.spec) this.spec.id = l[(i + 1) % l.length]; this.R.camInit = false; this.specLabel(); }
+  specLabel() { if (!this.specEl) return; const g = this.spec && this.mates.get(this.spec.id), n = this.specEl.querySelector('.sp-n'); if (n) n.textContent = 'WATCHING ' + String((g && g.nm) || 'TEAMMATE').toUpperCase(); }
+  specShow() {
+    if (!this.spec) return; if (this.ov) this.ov.style.display = 'none';
+    if (!this.specEl) { const e = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;bottom:max(70px,9vh);transform:translateX(-50%);z-index:60;display:flex;gap:10px;align-items:center;font:800 13px system-ui,sans-serif;color:#fff;letter-spacing:2px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);padding:8px 12px';
+      e.innerHTML = '<span class="sp-n"></span><button class="sp-x" style="font:800 12px system-ui;letter-spacing:2px;padding:9px 14px;border:1px solid #fff5;background:#14171e;color:#fff;cursor:pointer">NEXT</button><button class="sp-l" style="font:800 12px system-ui;letter-spacing:2px;padding:9px 14px;border:1px solid #fff5;background:#d93a3a;color:#fff;cursor:pointer">LEAVE</button>';
+      document.body.appendChild(e); this.specEl = e; e.querySelector('.sp-x').onclick = () => { this.specNext(); }; e.querySelector('.sp-l').onclick = () => { if (this.over) return; this.spec = null; this.specHide(); this.leaveAfterWin(); }; }
+    this.specEl.style.display = 'flex'; this.specLabel(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* noop */ }
+  }
+  specHide() { if (this.specEl) this.specEl.style.display = 'none'; }
+  specTick() { if (!this.spec || this.over) return; this._spT = (this._spT || 0) - 0.016; if (this._spT > 0) return; this._spT = 0.5; if (!this.specList().length && this.teamWiped()) this.teamLost(); }   // the last teammate fell: the team is out
   // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
   teamWiped() { const T = this.R.jangTeam; if (!T || !this.shared || this.dropping) return false; const now = performance.now(); let seen = 0; for (const [, g] of this.mates) { if (g.tm !== T.tm || !g.has || now - g.at > 3000) continue; seen++; if (g.al !== 0 && g.ph !== 7) return false; } return seen > 0; }
   teamLost() {
     if (this.over) return; const T = this.R.jangTeam, nm = String((T && T.teamName) || 'YOUR TEAM').toUpperCase();
     try { prepareVictory(true); } catch (e) { /* noop */ }   // v417: the defeat clips load while the verdict is on its way
-    this.recDeath(); this.ejectCar();
-    this.hp = 0; this.down = false; this.reviving = null; this.deaths++; try { this.dropAll(); } catch (e) { /* noop */ } A.voice.death(1); this.R.fireHeld = false; this.R.aiming = false;
+    const was = !!this.spec; this.spec = null; this.specHide(); this.deadT = 0;
+    if (!was) { this.recDeath(); this.ejectCar(); }
+    this.hp = 0; this.down = false; this.reviving = null; if (!was) { this.deaths++; try { this.dropAll(); } catch (e) { /* noop */ } A.voice.death(1); } this.R.fireHeld = false; this.R.aiming = false;
     this.R.toast && this.R.toast('TEAM ' + nm + ' LOST', 6); this.finish('TEAM ' + nm + ' LOST', 'out');
   }
   // v292: knocked down or killed inside a car / jeep / Civic: you are thrown out beside it (the others see you lying there, and the car coasts to a stop) - before this you stayed seated, hidden inside the car

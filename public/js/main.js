@@ -1972,7 +1972,7 @@ class Race {
   updateCamera(dt) {
     { const shot = this.mission && this.mission.camShot(dt);   // a scripted cut-scene shot (the thief robbing the bank)
       if (shot) { this.camera.fov = lerp(this.camera.fov, shot.fov || 60, Math.min(1, dt * 4)); this.camera.updateProjectionMatrix(); this.camera.position.set(shot.px, shot.py, shot.pz); this.camTarget.set(shot.lx, shot.ly, shot.lz); this.camera.lookAt(shot.lx, shot.ly, shot.lz); this.camInit = false; return; } }
-    let b = this.me.body; const spec = this.mission && this.mission.specTarget();   // spectating a mission runner: the camera rides behind them
+    let b = this.me.body; const spec = (this.mission && this.mission.specTarget()) || (this.mission && this.mission.cs && this.mission.cs.spec ? this.mission.cs.specCam() : null);   // v418: a dead team player watches a teammate   // spectating a mission runner: the camera rides behind them
     if (spec) b = { x: spec.x, y: spec.y, z: spec.z, vx: spec.vx || 0, vz: spec.vz || 0, yaw: spec.yaw };
     const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
     const speed = Math.hypot(b.vx, b.vz);
@@ -2470,7 +2470,7 @@ function onLobby(m) {
   if (prev && m.players.length > prev.players.length) A.sfx.join();
   renderLobby();
 }
-// v274 PUBG custom room: up to 3 teams of 2-4, a team name, JOIN / LEAVE, the leader's FILL switch; each team flies in its own plane
+// v274 PUBG custom room: up to 4 teams of 2-4, a team name, JOIN / LEAVE, the leader's FILL switch; each team flies in its own plane
 function renderTeams(m) {
   const box = $('lobby-teams'), bar = $('lobby-tbar'); if (!box) return; const on = !!m.combat; box.style.display = on ? 'block' : 'none'; bar.style.display = on && (m.teams || []).length < 3 ? 'flex' : 'none'; bar.style.gap = '6px'; if (!on) return;
   const me = app.myId, esc = (t) => String(t).replace(/[<>&]/g, ''), mine = (m.teams || []).find((t) => t.ids.includes(me)), byId = new Map(m.players.map((p) => [p.id, p])); box.innerHTML = '';

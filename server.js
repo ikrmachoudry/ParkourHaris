@@ -108,7 +108,7 @@ function genCode() {
   }
 }
 
-const COMBAT_TEAMS = 3, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 3 teams of 2-4 (PUBG custom room)
+const COMBAT_TEAMS = 4, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 4 teams of 2-4 (PUBG custom room; v418: was 3)
 let teamSeq = 1;
 function teamsOf(room) { return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, ids: [...t.ids] })); }
 function leaveTeam(room, p) {
