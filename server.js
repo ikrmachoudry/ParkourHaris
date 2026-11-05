@@ -87,6 +87,7 @@ function buildRes(room, rd) {
   const teams = Object.values(T).sort((a, b) => (a.out - b.out) || (b.k - a.k) || (a.d - b.d));   // alive teams first, then most kills, then fewest deaths
   rows.sort((a, b) => b.k - a.k || a.d - b.d);
   bcast(room, { t: 'cres', rd, win: teams[0].tm, rows, teams: teams.map((t) => ({ tm: t.tm, k: t.k, d: t.d, n: String(((room.teams || [])[t.tm] || {}).name || ('TEAM ' + (t.tm + 1))).slice(0, 24) })) });
+  room.phase = 'results'; room.chost = null; bcast(room, lobbyMsg(room));   // v433: the match is over: the room is back in its lobby state (teams are kept) so the host can start the next one without making a new room
 }
 function evalWin(room, rd, timeUp) {
   if (room.cresDone === rd) return;
@@ -196,6 +197,7 @@ const goMsg = (room, meta) => ({
 
 function startRound(room) {
   const meta = LEVEL_META[room.level];
+  room.cresDone = null; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
   room.phase = 'countdown';
   room.t0 = Date.now() + (meta.city ? 0 : COUNTDOWN_MS);   // the open-world city has no 3-2-1: you simply start
   room.finishCount = 0;
@@ -284,7 +286,12 @@ wss.on('connection', (ws, req) => {
       case 'create': {
         if (rooms.size >= MAX_ROOMS && !room) return send(ws, { t: 'err', msg: 'Server is busy. Try again in a minute.' });
         const want = roomKey(m.room);
-        if (want && rooms.has(want) && !(room && room.code === want)) return send(ws, { t: 'err', msg: `A room named ${want} already exists. Tap JOIN ROOM to enter it, or choose another name.` });
+        if (want && rooms.has(want) && !(room && room.code === want)) {   // v433: the name is taken: instead of a dead end the player simply JOINS that room (like a PUBG custom room code)
+          const ex = rooms.get(want);
+          if (!!ex.combat !== !!m.combat || ex.players.size >= capOf(ex)) return send(ws, { t: 'err', msg: ex.players.size >= capOf(ex) ? `Room ${want} is full.` : `A room named ${want} already exists. Choose another name.` });
+          if (room) removePlayer(p);
+          p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom; joinRoom(p, ex); break;
+        }
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom;
         const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0, combat: !!m.combat };   // combat: a TEAM UP room for the COMBAT MISSION (the match starts by itself when the host presses START)
@@ -405,6 +412,15 @@ wss.on('connection', (ws, req) => {
         else { const t = room.teams.find((q) => q.id === p.team); if (!t || t.leader !== p.id) return; t.fill = !!m.on; }
         bcast(room, lobbyMsg(room));
         break;
+      }
+      case 'tshuffle': {   // v433: the host mixes everybody into new teams (team names are kept)
+        if (!room || !room.combat || room.hostId !== p.id || (room.phase !== 'lobby' && room.phase !== 'results')) return;
+        const pl = [...room.players.values()].sort(() => Math.random() - 0.5), n = pl.length; if (n < 2) return;
+        room.teams = room.teams || []; let k = Math.min(COMBAT_TEAMS, Math.max(room.teams.length, Math.ceil(n / TEAM_MAX), 2)); while (k > 1 && Math.floor(n / k) < 2) k--;
+        while (room.teams.length < k) room.teams.push({ id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: 0, fill: false, ids: new Set() });
+        room.teams = room.teams.slice(0, k); for (const t of room.teams) t.ids = new Set(); for (const q of pl) q.team = null;
+        pl.forEach((q, i) => { const t = room.teams[i % k]; t.ids.add(q.id); q.team = t.id; if (!t.leader || !t.ids.has(t.leader)) t.leader = q.id; });
+        bcast(room, lobbyMsg(room)); break;
       }
       case 'start': {
         if (!room || room.hostId !== p.id || (room.phase !== 'lobby' && room.phase !== 'results')) return;

@@ -813,6 +813,7 @@ export class CombatScene {
     if (this.shared && T && T.net) { T.net.send({ t: 'cstat', rd: R.mission ? R.mission.round | 0 : 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby, out: why === 'out' ? 1 : 0, fin: 1, tu: !msg ? 1 : 0 }); this.resT = setTimeout(() => this.sendRes(), 14000); }
     else { this.showWin({ win: 0, lost: !!msg, teams: [{ tm: 0, k: this.kills, d: this.deaths, n: String((T && T.teamName) || 'YOUR TEAM') }], rows: [{ id: 0, name: R.me.name || 'YOU', tm: 0, ch: R.me.char | 0, sk: R.me.skin === undefined ? R.me.char | 0 : R.me.skin | 0, k: this.kills, d: this.deaths, bots: this.st.bots, ply: this.st.ply, dby: this.st.dby }] }); }
   }
+  backToRoom() { this.sendRes(); const R = this.R; setTimeout(() => { if (R.onBackToRoom) R.onBackToRoom(); else if (R.onCombatDone) R.onCombatDone(); }, 150); }   // v433: rematch in the same room
   leaveAfterWin() { this.sendRes(); const R = this.R; setTimeout(() => { if (R.onCombatDone) R.onCombatDone(); }, 350); }   // v361: CONTINUE goes straight to the menu (it used to leave a broken empty scene on screen for ~8 s)
   sendRes() { if (this.resSent) return; this.resSent = true; clearTimeout(this.resT); const R = this.R; if (R.mission) R.mission.send({ t: 'm_res', ok: true, round: R.mission.round }); }
   stRec(kind, w) { const o = this.st[kind], n = this.wName(w); o[n] = (o[n] || 0) + 1; }
@@ -824,7 +825,7 @@ export class CombatScene {
     /* v420: the player keeps walking round the last scene for 6 s with the song playing, then the screen FADES to black (0.7 s) and the victory / defeat page opens; it never opens sooner than 6 s after the match was decided */
     const FADE = 700, el0 = performance.now() - this._winAt, showAt = Math.max(6000, el0 + FADE), fadeIn = Math.max(0, showAt - FADE - el0);
     this._winFade = setTimeout(() => { const f = document.createElement('div'); f.id = 'win-fade'; f.style.cssText = 'position:fixed;inset:0;z-index:199;background:#000;opacity:0;pointer-events:none;transition:opacity ' + FADE + 'ms ease-in'; document.body.appendChild(f); this._fadeEl = f; requestAnimationFrame(() => requestAnimationFrame(() => { f.style.opacity = '1'; })); }, fadeIn);
-    this._winT = setTimeout(() => { this._winT = 0; this._winAt = 0; const f = this._fadeEl; this._fadeEl = null; this.victoryOpen = true; showVictory(m, tm, () => this.leaveAfterWin()); if (f) { f.style.transition = 'opacity 400ms'; f.style.opacity = '0'; setTimeout(() => f.remove(), 450); } }, showAt - el0); }
+    this._winT = setTimeout(() => { this._winT = 0; this._winAt = 0; const f = this._fadeEl; this._fadeEl = null; this.victoryOpen = true; showVictory(m, tm, () => this.leaveAfterWin(), this.shared && this.R.jangTeam && this.R.jangTeam.net ? { back: () => this.backToRoom() } : null); if (f) { f.style.transition = 'opacity 400ms'; f.style.opacity = '0'; setTimeout(() => f.remove(), 450); } }, showAt - el0); }
   onRes(m) { clearTimeout(this.resT); if (!this.over) this.finish(''); this.winScene(m, this.R.jangTeam && this.R.jangTeam.tm); }
   showWin(m) { this.winScene(m, 0); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)

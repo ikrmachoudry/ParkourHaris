@@ -47,7 +47,7 @@ export function closeVictory() {
 }
 
 // m = { win: team index, teams: [{tm,k,d,n}], rows: [{name,tm,ch,sk,k,d,bots,ply,dby}] }; myTm = my team index (highlight); onDone = called when the page is closed
-export function showVictory(m, myTm, onDone) {
+export function showVictory(m, myTm, onDone, opts) {
   closeVictory(); A.blockMenuMusic(true); try { A.hush(true); } catch (e) { /* noop */ }   /* v407: no game sound on the victory page */
   const teams = m.teams || [], wt = teams.find((t) => t.tm === m.win) || teams[0] || { n: 'TEAM', tm: 0, k: 0 };
   const rows = (m.rows || []).map((r) => ({ ...r, bots: r.bots || {}, ply: r.ply || {}, dby: r.dby || {}, me: false })).sort((a, b) => b.k - a.k || a.d - b.d);
@@ -75,7 +75,7 @@ export function showVictory(m, myTm, onDone) {
     + '@media (max-height:540px){#victory .vh h1{font-size:clamp(22px,5.2vh,34px);letter-spacing:4px}#victory .vh h1:after{width:60px;height:3px;margin:5px auto 0}#victory .vh p{margin:3px 0 0;font-size:12px}#victory button{padding:8px 16px;font-size:11px;letter-spacing:2px}#victory .vb{gap:8px;bottom:max(18px,calc(env(safe-area-inset-bottom) + 10px))!important}#victory .vc{font-size:9px;letter-spacing:2px}}'
     + '</style><div class="vh"><h1>' + (lost ? (title.toUpperCase() === 'YOU' ? 'YOU LOST' : esc(title.toUpperCase()) + ' LOST') : (title.toUpperCase() === 'YOU' ? 'YOU WIN!' : esc(title.toUpperCase()) + ' WINS!')) + '</h1><p>' + (lost ? 'DEFEAT \u2022 ' + (mt.k | 0) + ' KILLS' + (wt && wt.tm !== mt.tm ? ' \u2022 ' + esc(String(wt.n || 'TEAM').toUpperCase()) + ' WON' : '') : (wt.tm === myTm ? 'VICTORY • ' : '') + wt.k + ' KILLS') + '</p></div>'
     + '<div class="vp">' + statsTable(rows, wt.tm) + '</div>'
-    + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">CONTINUE</button></div><div class="vc">CREDITS: HARIS GAMES</div>';
+    + '<div class="vb"><button class="mm">MUTE MUSIC</button><button class="s">SHOW STATS</button><button class="sh">SHARE</button><button class="c">' + (opts && opts.back ? 'BACK TO ROOM' : 'CONTINUE') + '</button>' + (opts && opts.back ? '<button class="lv">LEAVE</button>' : '') + '</div><div class="vc">CREDITS: HARIS GAMES</div>';
   document.body.appendChild(el);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -142,8 +142,9 @@ export function showVictory(m, myTm, onDone) {
   };
   { const mb = el.querySelector('.mm'), upd = () => { mb.textContent = A.isMusicMuted() ? 'MUSIC: OFF' : 'MUTE MUSIC'; audio.muted = A.isMusicMuted(); }; mb.onclick = () => { A.setMusicMuted(!A.isMusicMuted()); upd(); audio.play().catch(() => { /* noop */ }); }; upd(); }
   el.querySelector('.c').onclick = () => { closeVictory(); A.blockMenuMusic(false); if (onDone) onDone(); try { A.startMusic(99); } catch (e) { /* noop */ } };
+  if (opts && opts.back) { el.querySelector('.c').onclick = () => { closeVictory(); if (opts.back) opts.back(); }; el.querySelector('.lv').onclick = () => { closeVictory(); A.blockMenuMusic(false); if (onDone) onDone(); try { A.startMusic(99); } catch (e) { /* noop */ } }; }   /* v433: BACK TO ROOM returns everybody to the same room lobby; LEAVE goes to the menu */
   el.addEventListener('pointerdown', () => { if (audio.paused) audio.play().catch(() => {}); }, { once: true });
   return st;
 }
 
-if (typeof window !== 'undefined') window.__phVictory = showVictory;
+if (typeof window !== 'undefined') { window.__phVictory = showVictory; window.__phCloseVictory = closeVictory; }

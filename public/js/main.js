@@ -2292,7 +2292,7 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; if (team && app.pendingCars) { race.onCars(app.pendingCars); app.pendingCars = null; } race.combatOnly = true; race.onCombatDone = leaveToTitle; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; if (team && app.pendingCars) { race.onCars(app.pendingCars); app.pendingCars = null; } race.combatOnly = true; race.onCombatDone = leaveToTitle; race.onBackToRoom = backToRoom; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang, jseed) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
@@ -2337,6 +2337,12 @@ $('b-res-next').onclick = () => {
   else app.net.send({ t: 'again' });
 };
 
+/* v433: after a match everybody can go BACK TO THE SAME ROOM (same name, same teams, the host presses START again) instead of making a new room */
+function backToRoom() {
+  if (!app.room || !app.net) { leaveToTitle(); return; }
+  if (race) { race.destroy(); race = null; }
+  exitLock(); app.combat = true; renderLobby(); show('lobby'); voiceSync();
+}
 function leaveToTitle() {
   voiceStop();
   if (race) { race.destroy(); race = null; }
@@ -2536,12 +2542,13 @@ function renderLobby() {
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
   $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)'; { const lb = $('lobby-level-block'); if (lb) lb.style.display = m.combat ? 'none' : ''; }
   { const ld = $('lobby-dsel'); if (ld) { ld.style.display = host && m.combat ? '' : 'none'; ld.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); } if (host && m.combat && app.net) app.net.send({ t: 'cdiff', d: OPT.diff || 'medium' }); }   // v333: the host picks the BOT DIFFICULTY in the team lobby
+  { const sb = $('b-shuffle'); if (sb) sb.style.display = host && m.combat && m.players.length >= 2 ? '' : 'none'; }
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';
   $('lobby-hint').textContent = m.combat ? (host ? 'Make a team (name it) or tap JOIN on one. Every team needs 2 to 4 players; players without a team are placed by FILL. Host: press START.' : 'Make a team or tap JOIN on one. The host starts the match.') : host ? (m.players.length < 2 ? 'Tell friends to tap MULTIPLAYER on the same link. You can also start alone.' : 'Everyone ready? Hit start!') : 'The host will start the race.';
   { const mt = (m.teams || []).find((t) => t.ids.includes(app.myId)); stage.setLobby(m.combat ? m.players.filter((p) => p.id === app.myId || (mt && mt.ids.includes(p.id))) : m.players); }   /* v430: the stage shows ONLY me, plus the people who joined MY team (never the main lobby) */
 }
 function onGo(m) {
-  A.initAudio();
+  A.initAudio(); try { if (window.__phCloseVictory) window.__phCloseVictory(); } catch (e) { /* noop */ }
   if (race) { race.destroy(); race = null; }
   const room = app.room; if (!room) return;
   if (room.combat) {   // v189 TEAM UP, simple version: everybody in the room plays Jang on their OWN map against the bots (no shared world yet)
@@ -2845,6 +2852,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };
   { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emotes = stage.emotes || {}; stage.emotes[app.char] = { g, until: stage.t + 4 }; if (app.net && app.net.connected) app.net.send({ t: 'emote', g }); }; box.appendChild(b); }); } }
+  $('b-shuffle').onclick = () => { if (app.room && app.room.hostId === app.myId) { A.sfx.click(); app.net.send({ t: 'tshuffle' }); } };
   $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { if (app.room.combat && $('lobby-tbar') && $('lobby-tbar').style.display !== 'none' && !(app.room.teams || []).some((t) => t.ids.includes(app.myId))) { A.sfx.back && A.sfx.back(); needField($('lobby-tname'), 'Create your team first: type a team name, then tap CREATE TEAM'); return; } A.sfx.click(); app.net.send({ t: 'start' }); } };
   $('b-copy').onclick = async () => {
     const link = `${location.origin}${location.pathname}?room=${app.room ? app.room.code : ''}`;
