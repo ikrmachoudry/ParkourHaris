@@ -15,7 +15,7 @@ import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim } from './props.js';
 import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
-import { zoneFx } from './zonefx.js';
+import { zoneFx, zoneNear } from './zonefx.js';
 import { NetSim } from './netsim.js';
 import { buildBattleMap } from './battlemap.js';
 import { Glass } from './glass.js';
@@ -103,7 +103,7 @@ export class CombatScene {
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
-    zoneFx(false); if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
+    zoneFx(false); zoneNear(0, 0, false); if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; if (this.tipEl) { this.tipEl.style.display = 'none'; this._tipOn = false; } A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
@@ -372,9 +372,16 @@ export class CombatScene {
   stepZone(dt) {
     const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = this.shared && T ? makeZone(T.seed) : this.sim.Z;   // v251: the same circles the bots (and the server) use
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
-    if (!this.zw) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 48, 1, true), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; }
+    if (!this.zw) {   // v440: the wall is a glowing LASER curtain (bright at the ground, vertical beams, light bands rising) so it can be seen from far away
+      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256; const g = cv.getContext('2d');
+      const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, 'rgba(120,190,255,.95)'); gr.addColorStop(0.18, 'rgba(60,140,255,.55)'); gr.addColorStop(0.6, 'rgba(40,110,255,.22)'); gr.addColorStop(1, 'rgba(40,110,255,.06)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
+      g.fillStyle = 'rgba(190,225,255,.75)'; for (let x = 6; x < 128; x += 32) g.fillRect(x, 0, 2, 256);   // vertical beams
+      g.fillStyle = 'rgba(190,225,255,.5)'; for (let y = 20; y < 256; y += 64) g.fillRect(0, y, 128, 3);   // horizontal light bands
+      const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(36, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 64, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx; }
+    if (this.zwTex) this.zwTex.offset.y = (this.zwTex.offset.y - dt * 0.12) % 1;   // the bands crawl upward
     this.zw.position.set(CMB.x + z.x, 30, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
-    this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 30);   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
+    this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 90);   /* v440: the wall shows 90 s before the first closing (it was 30 s) */   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
     if (R.minimap) R.minimap.zone = z;
     const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
     this.zoneTxt = z.last ? 'ZONE: FINAL' : (z.shrinking ? 'ZONE CLOSING ' : 'ZONE ') + fm(z.left);
@@ -382,7 +389,7 @@ export class CombatScene {
       if (z.shrinking && (!wasShr || z.i !== wasI)) R.toast && R.toast('THE ZONE IS CLOSING - move into the blue circle', 3.5);
       else if (!z.shrinking && !z.last && z.left < 20.2 && z.left > 19.6 && !this._zw20) { this._zw20 = true; R.toast && R.toast('The zone starts closing in 20 s', 2.5); } else if (z.left > 21) this._zw20 = false;
     }
-    const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r, inAir = this.dropping || (this.drop && this.drop.ph === 'plane'); this.outZone = out && !inAir; zoneFx(this.outZone && this.hp > 0 && !this.gate);   /* v434: blue lightning screen while you stand in the damaging zone */   /* v375: no zone damage / hurt sound / red HUD while you are in the plane or still dropping */
+    const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r, inAir = this.dropping || (this.drop && this.drop.ph === 'plane'); this.outZone = out && !inAir; zoneFx(this.outZone && this.hp > 0 && !this.gate); { const dEdge = z.r - Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z), live = this.hp > 0 && !this.gate && !inAir && this.zw.visible; zoneNear(live && !out && dEdge < 45 ? 1 - Math.max(0, dEdge) / 45 : 0, dEdge, live && out); }   /* v440: warning glow + distance BEFORE you cross the wall, and a text while outside */   /* v434: blue lightning screen while you stand in the damaging zone */   /* v375: no zone damage / hurt sound / red HUD while you are in the plane or still dropping */
     if (inAir) { this.zt = 0; this.grace = 3; } else if (this.grace > 0) { this.grace -= dt; this.zt = 0; }   // v375: 3 s of grace after you land (landing outside the circle no longer grunts on the first frame)
     if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
   }
