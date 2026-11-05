@@ -13,7 +13,7 @@ export class CombatHost {
     this.sim.tick(dt, PL.length ? PL : [{ id: 0, x: 9999, z: 9999, hp: 0, alive: false }]);
     const ev = this.sim.drain(), out = [];
     for (const e of ev) {
-      if (e.k === 'lootnew') { const it = this.sim.loot.find((l) => l.id === e.id); if (it) { const o = { k: 'lootnew', i: this.lootItem(it) }; if (this.cid.has(e.id)) { o.cid = this.cid.get(e.id); this.cid.delete(e.id); } out.push(o); } }
+      if (e.k === 'lootnew') { const it = this.sim.loot.find((l) => l.id === e.id); if (it) { const o = { k: 'lootnew', i: this.lootItem(it) }; if (this.cid.has(e.id)) { const c = this.cid.get(e.id); o.cid = c.c; o.cs = c.s; this.cid.delete(e.id); }   /* v404: the temp id is only meaningful to the player who dropped it (every player counts 1,2,3..: another player's drop used to hijack MY temp item, so the item I dropped stayed on the floor after somebody picked it up) */ out.push(o); } }
       else if (e.k === 'shot') out.push({ k: 'shot', id: e.id, x: q2(e.x), z: q2(e.z), tx: q2(e.tx), tz: q2(e.tz), tp: e.tp, hit: e.hit ? 1 : 0, dmg: q2(e.dmg), w: e.w });
       else if (e.k === 'kill') out.push({ k: 'kill', id: e.id, x: q2(e.x), z: q2(e.z), w: e.w, by: e.by, h: e.h ? 1 : 0 });
       else if (e.k === 'bothit') out.push({ k: 'bothit', id: e.id, x: q2(e.x), z: q2(e.z), h: e.h ? 1 : 0 });
@@ -32,7 +32,7 @@ export class CombatHost {
   melee(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.reach, 0, 4.5) || !f(m.dmg, 0, 60) || !this.near(p, m.x, m.z, 15)) return; this.sim.melee(m.x, m.z, m.fx, m.fz, m.reach, m.dmg, p.id); }
   blast(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.r, 1, 14) || !this.near(p, m.x, m.z, 60)) return; this.sim.blast(m.x, m.z, m.r, 3.2, p.id); }
   take(p, m) { const id = m.id | 0, it = this.sim.loot.find((l) => l.id === id && l.alive); if (!it || !this.near(p, it.x, it.z, 8)) return; this.sim.take(it.x, it.z, (l) => l.id === id); }
-  drop(p, m) { if (typeof m.k !== 'string' || m.k.length > 12 || !Number.isFinite(m.x) || !Number.isFinite(m.z) || !this.near(p, m.x, m.z, 12)) return; const it = this.sim.dropLoot(m.k, m.x, m.z); if (Number.isFinite(m.y) && m.y > -10 && m.y < 200) it.y = m.y; it.am = m.am && typeof m.am === 'object' ? { mag: Math.max(0, Math.min(999, m.am.mag | 0)), res: Math.max(0, Math.min(999, m.am.res | 0)) } : 0; if (m.g) { it.gold = 1; it.exp = this.sim.t + 150; } if (Number.isFinite(m.cid)) this.cid.set(it.id, m.cid | 0); }
+  drop(p, m) { if (typeof m.k !== 'string' || m.k.length > 12 || !Number.isFinite(m.x) || !Number.isFinite(m.z) || !this.near(p, m.x, m.z, 12)) return; const it = this.sim.dropLoot(m.k, m.x, m.z); if (Number.isFinite(m.y) && m.y > -10 && m.y < 200) it.y = m.y; it.am = m.am && typeof m.am === 'object' ? { mag: Math.max(0, Math.min(999, m.am.mag | 0)), res: Math.max(0, Math.min(999, m.am.res | 0)) } : 0; if (m.g) { it.gold = 1; it.exp = this.sim.t + 150; } if (Number.isFinite(m.cid)) this.cid.set(it.id, { c: m.cid | 0, s: m.sid | 0 }); }
   fire(p, m) { if (Number.isFinite(m.x) && Number.isFinite(m.z) && this.near(p, m.x, m.z, 60)) this.sim.addFire(m.x, m.z, 3.4, 8, p.id); }
   smoke(p, m) { if (Number.isFinite(m.x) && Number.isFinite(m.z) && this.near(p, m.x, m.z, 60)) this.sim.addSmoke(m.x, m.z, 6.5, 15); }
 }

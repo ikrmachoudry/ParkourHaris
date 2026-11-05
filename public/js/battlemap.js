@@ -188,7 +188,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     for (const s0 of b.solids) { const s = zf(s0);
       if (s.k === 'wall') B.box(wm, s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, wallC, 0.04);
       else if (s.k === 'floor') B.box('wood', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8c6b48', 0.05);
-      else if (s.k === 'step' && s.nd) { /* v326: drawn by the stairs.glb model below */ }
+      else if (s.k === 'step' && s.nd && propDim('stairs')) { /* v326: drawn by the stairs.glb model below (v404: if that model did not load the plain steps below are drawn instead, so stairs never vanish) */ }
       else if (s.k === 'step') { B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1 - 0.05, s.z1, '#cbbd9f', 0.02); B.box('wood', s.x0 - 0.01, s.y1 - 0.07, s.z0 - 0.01, s.x1 + 0.01, s.y1, s.z1 + 0.01, '#9a7650', 0.05); }   /* v264: a plaster stair body with a wooden tread on every step (the stretched all-wood blocks looked like a wall of planks) */
       else if (s.k === 'roof') { if (b.roof === 'flat') B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8d8b84', 0.02); else B.box('conc', s.x0 + 0.3, s.y1 - 0.06, s.z0 + 0.3, s.x1 - 0.3, s.y1, s.z1 - 0.3, '#cfc6b2', 0.02); }   /* v318: pitched roofs showed a thick concrete slab UNDER the real roof = two layers; the slab stays for collision, only a thin ceiling plate inside the walls is drawn */
     }

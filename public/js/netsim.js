@@ -3,7 +3,7 @@
 import { CombatSim } from './combat.js';
 export class NetSim extends CombatSim {
   constructor(seed, net, myId) {
-    super(seed, 8); this.net = net; this.myId = myId; this.ready = false; this.tgt = this.bots.map(() => null); this.tmpN = 0; this.tmpMap = new Map();
+    super(seed, 8); this.net = net; this.myId = myId; this.ready = false; this.tgt = this.bots.map(() => null); this.tmpN = 0; this.tmpMap = new Map(); this.sid = 1 + Math.floor(Math.random() * 2e9);
     this.loot = []; this.used = new Set(); this.hello();
   }
   hello() { this.net.send({ t: 'chello' }); this.helloT = 0; }
@@ -19,7 +19,7 @@ export class NetSim extends CombatSim {
   }
   onEvents(list, myId) {
     for (const e of list) {
-      if (e.k === 'lootnew') { const [id] = e.i; if (e.cid !== undefined && this.tmpMap.has(e.cid)) { const t = this.tmpMap.get(e.cid); this.tmpMap.delete(e.cid); t.id = id; } else this.addLoot(e.i); }
+      if (e.k === 'lootnew') { const [id] = e.i; if (e.cid !== undefined && e.cs === this.sid && this.tmpMap.has(e.cid)) { const t = this.tmpMap.get(e.cid); this.tmpMap.delete(e.cid); t.id = id; } else this.addLoot(e.i); }
       else if (e.k === 'lootgone') { const it = this.loot.find((l) => l.id === e.id); if (it) it.alive = false; }
       else this.events.push({ ...e, hit: !!e.hit });   // shot / kill / bothit: the scene shows them (a kill only counts for the one who made it: e.by)
     }
@@ -37,7 +37,7 @@ export class NetSim extends CombatSim {
   }
   dropLoot(k, x, z, gold) {
     const it = { k, x, z, spot: -1, alive: true, nt: this.t + 1.5, id: -(++this.tmpN), gold: gold ? 1 : 0 }; this.loot.push(it); const cid = this.tmpN; this.tmpMap.set(cid, it);
-    Promise.resolve().then(() => this.net.send({ t: 'cdrop', k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am && typeof it.am === 'object' ? { mag: it.am.mag | 0, res: it.am.res | 0 } : 0, cid, g: gold ? 1 : 0, y: Number.isFinite(it.y) ? +it.y.toFixed(2) : undefined }));   // (the caller sets it.am right after this call)
+    Promise.resolve().then(() => this.net.send({ t: 'cdrop', sid: this.sid, k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am && typeof it.am === 'object' ? { mag: it.am.mag | 0, res: it.am.res | 0 } : 0, cid, g: gold ? 1 : 0, y: Number.isFinite(it.y) ? +it.y.toFixed(2) : undefined }));   // (the caller sets it.am right after this call)
     return it;
   }
   shoot(ox, oz, fx, fz, range, dmg, y, bal) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y, undefined, undefined, bal); this.net.send({ t: 'cshoot', ...(bal ? { b0: +bal.y.toFixed(2), bs: +bal.sl.toFixed(4), bk: +(bal.k * 1e6).toFixed(2) } : null), ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: Math.min(500, range), dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }
