@@ -1387,3 +1387,8 @@ body.vc-on.jang-mode.in-race #vc { display: block; z-index: 60; }
 #vc-mode { margin-top: 5px; font: 800 9px/1.2 system-ui, sans-serif; letter-spacing: .04em; color: #fff; background: rgba(20,24,30,.62); border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 3px 7px; cursor: pointer; white-space: nowrap; width: max-content; }
 #vc-mode.ptt { border-color: #ffd23f; color: #ffd23f; }
 #vc-mic.held { background: rgba(255,170,30,.85); border-color: #ffe08a; box-shadow: 0 0 0 4px rgba(255,210,63,.8); }
+/* v405 lobby: Settings button at the top right (under the fullscreen button), player names smaller and crisper */
+#s-lobby #b-lobby-set { position: fixed !important; top: calc(max(8px, env(safe-area-inset-top)) + 52px); right: max(8px, env(safe-area-inset-right)); z-index: 61; margin: 0 !important; padding: 7px 12px; font-size: 11px; }
+#s-lobby .slot, #s-lobby .slot span { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif !important; font-size: 11.5px !important; font-weight: 700; letter-spacing: .02em !important; text-transform: none; text-shadow: none !important; -webkit-font-smoothing: antialiased; }
+#s-lobby .slot { padding: 3px 8px; }
+#s-lobby .slot i { width: 8px; height: 8px; }

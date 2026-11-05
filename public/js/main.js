@@ -2189,7 +2189,7 @@ function musicBtn(name) {
     tapBtn(b, () => { A.initAudio(); A.setMusicMuted(!A.isMusicMuted()); });
     window.addEventListener('ph-musicmute', upd); upd(); document.body.appendChild(b);
   }
-  b.style.display = ['title', 'profile'].includes(name) ? 'block' : 'none'; b.classList.toggle('tr', name === 'profile');   /* v363: only on the title page and the choose-player page (top right there); not on the pages after */
+  b.style.display = ['title', 'profile', 'lobby'].includes(name) ? 'block' : 'none'; b.classList.toggle('tr', name === 'profile' || name === 'lobby');   /* v405: also in the lobby */   /* v363: only on the title page and the choose-player page (top right there); not on the pages after */
 }
 let toastTimer = 0;
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
