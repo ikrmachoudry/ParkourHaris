@@ -261,20 +261,21 @@ export class Character {
 
 // Floating name tag (always readable, visible through geometry)
 export function makeNameTag(text, color = '#ffffff') {
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128;
-  const g = cv.getContext('2d');
-  g.font = '700 64px "Lilita One","Fredoka","Baloo 2","Trebuchet MS",Arial,sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  const w = Math.min(480, g.measureText(text).width + 56);
-  g.fillStyle = 'rgba(12,10,36,0.72)';
-  const x = (512 - w) / 2, y = 14, h = 100, r = 50;
+  /* v421: drawn at 2x resolution with a thin outline and a smaller, lighter font so the name stays sharp (the old 512 px tag with a fat stroke smeared the letters) */
+  const S = 2, cv = document.createElement('canvas'); cv.width = 512 * S; cv.height = 128 * S;
+  const g = cv.getContext('2d'); g.scale(S, S);
+  g.font = '700 50px "Lilita One","Fredoka","Baloo 2","Trebuchet MS",Arial,sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  const w = Math.min(480, g.measureText(text).width + 52);
+  g.fillStyle = 'rgba(12,10,36,0.78)';
+  const x = (512 - w) / 2, y = 24, h = 80, r = 40;
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); g.fill();
-  g.lineWidth = 6; g.strokeStyle = color; g.stroke();
-  g.lineWidth = 8; g.strokeStyle = 'rgba(0,0,0,0.65)'; g.strokeText(text, 256, 68, 440);
-  g.fillStyle = '#ffffff'; g.fillText(text, 256, 68, 440);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  g.lineWidth = 4; g.strokeStyle = color; g.stroke();
+  g.lineWidth = 3.5; g.strokeStyle = 'rgba(0,0,0,0.8)'; g.strokeText(text, 256, 65, 440);
+  g.fillStyle = '#ffffff'; g.fillText(text, 256, 65, 440);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, fog: false }));
-  sp.renderOrder = 999; sp.scale.set(2.8, 0.7, 1); sp.userData.base = 0.7;
+  sp.renderOrder = 999; sp.scale.set(2.5, 0.625, 1); sp.userData.base = 0.625;
   return sp;
 }
 
