@@ -71,6 +71,7 @@ export function mapBones(names) {
 }
 const NEED = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
+let _gearGeo = null, _gearMat = null;
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m = new THREE.Matrix4();
 
 // ---- zombie skin: the model keeps its vertex colours; the shader adds a rib cage (stripes + bump), a sternum, and blood / bruise blotches on skin-coloured pixels
@@ -127,6 +128,7 @@ export class GlbActor extends HeroActor {
     shell.scale.setScalar(s); shell.position.y = -box.min.y * s;
     if (this.opts.zombie) model.traverse((o) => { if (o.isMesh) o.material = zombieMat(o.material); });
     this.group.add(shell); shell.updateMatrixWorld(true);
+    this._bb = bonesByName; this._bmap = map; this._buildGear();   // v414: vest + helmet pieces ride on the bones
     // rest data
     const T = {}; // driver name -> { bone, Q, Rr, parent }
     // driver rest positions (sum of local rest offsets up the chain) and GLB positions in the shell's own frame, so nothing depends on where the actor currently stands
@@ -343,6 +345,21 @@ export class GlbActor extends HeroActor {
     rot(A, pb.clone().sub(pa), pb2.clone().sub(pa));
     const pcN = C.getWorldPosition(_ik.pc), pbN = B.getWorldPosition(_ik.pb);
     rot(B, pcN.clone().sub(pbN), t.clone().sub(pbN));
+  }
+  // v414: BODY ARMOR and HELMET are visible on the character (you, teammates, bots): a green plate vest on the chest and a dark-green helmet on the head
+  setGear(v, h) { v = !!v; h = !!h; if (this._gv === v && this._gh === h) return; this._gv = v; this._gh = h; if (this._gear) { this._gear.vest.visible = v; this._gear.helm.visible = h; } }
+  _buildGear() {
+    const bb = this._bb, map = this._bmap; if (!bb || !map || this._gear) return;
+    this.group.updateMatrixWorld(true); const gw = this.group.matrixWorld, T = new THREE.Matrix4(), M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
+    const fit = (bone, mesh, ox, oy, oz) => { bone.updateWorldMatrix(true, false); P.setFromMatrixPosition(bone.matrixWorld); P.add(S.set(ox, oy, oz).applyQuaternion(Q.setFromRotationMatrix(gw)).multiplyScalar(1)); T.makeTranslation(P.x, P.y, P.z); T.multiply(M.copy(gw).setPosition(0, 0, 0)); M.copy(bone.matrixWorld).invert().multiply(T); M.decompose(mesh.position, mesh.quaternion, mesh.scale); bone.add(mesh); };
+    if (!_gearGeo) { _gearGeo = { vest: new THREE.BoxGeometry(0.34, 0.32, 0.28), plate: new THREE.BoxGeometry(0.16, 0.18, 0.03), helm: new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), brim: new THREE.CylinderGeometry(0.15, 0.15, 0.02, 14) }; _gearMat = { vest: new THREE.MeshStandardMaterial({ color: '#2f6b45', roughness: 0.7, metalness: 0.15 }), plate: new THREE.MeshStandardMaterial({ color: '#c9b458', roughness: 0.5, metalness: 0.4 }), helm: new THREE.MeshStandardMaterial({ color: '#35553a', roughness: 0.55, metalness: 0.25 }) }; }
+    const G = _gearGeo, Mt = _gearMat; const vest = new THREE.Group(), helm = new THREE.Group();
+    vest.add(new THREE.Mesh(G.vest, Mt.vest)); { const pl = new THREE.Mesh(G.plate, Mt.plate); pl.position.z = 0.145; vest.add(pl); const pb = new THREE.Mesh(G.plate, Mt.plate); pb.position.z = -0.145; vest.add(pb); }
+    helm.add(new THREE.Mesh(G.helm, Mt.helm)); 
+    vest.traverse((o) => { o.castShadow = false; o.frustumCulled = false; }); helm.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
+    const cb = bb[map.chest] || bb[map.spine], hb = bb[map.head]; if (!cb || !hb) return;
+    fit(cb, vest, 0, -0.07, 0.0); fit(hb, helm, 0, 0.125, 0.0);
+    vest.visible = !!this._gv; helm.visible = !!this._gh; this._gear = { vest, helm };
   }
   dispose() {
     this.disposed = true;
