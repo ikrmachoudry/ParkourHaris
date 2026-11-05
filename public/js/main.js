@@ -1532,15 +1532,25 @@ class Race {
       if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
   }
   // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
-  smokeBoom(x, y, z, mine = true) {
+  smokeBoom(x, y, z, mine = true) {   // v403: SOFT billowing smoke (camera-facing puffs with a cloudy texture) instead of seven hard grey balls
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) { cs.sim.addSmoke(x - CMB.x, z - CMB.z, 6.5, 15); }
-    const grp = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: '#c9ced3', transparent: true, opacity: 0.0, depthWrite: false, fog: true, side: THREE.DoubleSide }); const geo = new THREE.IcosahedronGeometry(1, 1);
-    for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(geo, mat), a = i * 2.4, r = i ? 2.6 : 0; m.position.set(Math.cos(a) * r, 1.0 + (i % 3) * 0.7, Math.sin(a) * r); m.scale.setScalar(i ? 3.3 : 4.2); grp.add(m); }
-    grp.position.set(x, y, z); this.scene.add(grp); (this.smokeFx || (this.smokeFx = [])).push({ grp, mat, t: 0 }); A.sfx.click && A.sfx.click();
+    if (!this._smokeTex) {   // one shared cloud texture: a soft blob made of many faint round puffs, fading to nothing at the edge
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); let sd = 7; const rn = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+      for (let i = 0; i < 90; i++) { const dark = i % 3 === 0, a2 = rn() * 6.283, r = Math.sqrt(rn()) * 36, px = 64 + Math.cos(a2) * r, py = 64 + Math.sin(a2) * r, rad = 8 + rn() * 20, gr = g.createRadialGradient(px, py, 0, px, py, rad); gr.addColorStop(0, dark ? 'rgba(120,126,132,0.30)' : 'rgba(255,255,255,0.26)'); gr.addColorStop(1, dark ? 'rgba(120,126,132,0)' : 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, 6.283); g.fill(); }
+      g.globalCompositeOperation = 'destination-in'; const m = g.createRadialGradient(64, 64, 8, 64, 64, 64); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.7, 'rgba(0,0,0,0.7)'); m.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = m; g.fillRect(0, 0, 128, 128);
+      this._smokeTex = new THREE.CanvasTexture(c); this._smokeTex.colorSpace = THREE.SRGBColorSpace; }
+    const grp = new THREE.Group(), n = IS_TOUCH ? 14 : 26, puffs = []; let sd2 = Math.floor(Math.abs(x * 13 + z * 7) * 100) % 2147483 + 11; const rn2 = () => { sd2 = (sd2 * 16807) % 2147483647; return sd2 / 2147483647; };
+    for (let i = 0; i < n; i++) {
+      const mat = new THREE.SpriteMaterial({ map: this._smokeTex, color: new THREE.Color().setHSL(0.58, 0.04, 0.6 + rn2() * 0.22), transparent: true, opacity: 0, depthWrite: false, fog: true, rotation: rn2() * 6.283 }), sp = new THREE.Sprite(mat), a2 = rn2() * 6.283, r = Math.sqrt(rn2()) * 3.9;
+      puffs.push({ sp, mat, t0: rn2() * 2.2, ex: Math.cos(a2) * r, ez: Math.sin(a2) * r, ey: 0.5 + rn2() * 3.4, s1: 3.6 + rn2() * 3.6, spin: (rn2() - 0.5) * 0.25, wob: rn2() * 6.283, mx: 0.5 }); grp.add(sp); }
+    grp.position.set(x, y, z); this.scene.add(grp); (this.smokeFx || (this.smokeFx = [])).push({ grp, puffs, t: 0 }); A.sfx.click && A.sfx.click();
   }
   smokeTick(dt) {
     if (!this.smokeFx || !this.smokeFx.length) return;
-    for (let i = this.smokeFx.length - 1; i >= 0; i--) { const s = this.smokeFx[i]; s.t += dt; const k = Math.min(1, s.t / 1.5); s.grp.scale.setScalar(0.3 + 0.7 * k); s.mat.opacity = (s.t > 12 ? Math.max(0, 1 - (s.t - 12) / 3) : 1) * 0.82 * k; s.grp.rotation.y += dt * 0.15; if (s.t >= 15) { this.scene.remove(s.grp); s.mat.dispose(); this.smokeFx.splice(i, 1); } }
+    for (let i = this.smokeFx.length - 1; i >= 0; i--) { const s = this.smokeFx[i]; s.t += dt;
+      for (const p of s.puffs) { const a = s.t - p.t0; if (a < 0) { p.mat.opacity = 0; continue; } const k = Math.min(1, a / 2.4), e = 1 - (1 - k) * (1 - k), fade = s.t > 12 ? Math.max(0, 1 - (s.t - 12) / 3) : 1;
+        p.sp.position.set(p.ex * e + Math.sin(s.t * 0.4 + p.wob) * 0.25, 0.4 + p.ey * e + a * 0.05, p.ez * e + Math.cos(s.t * 0.35 + p.wob) * 0.25); p.sp.scale.setScalar(1.2 + p.s1 * e); p.mat.rotation += p.spin * dt; p.mat.opacity = Math.min(0.9, a * 0.9) * 0.5 * fade; }
+      if (s.t >= 15) { this.scene.remove(s.grp); for (const p of s.puffs) p.mat.dispose(); this.smokeFx.splice(i, 1); } }
   }
   grenadeBoom(x, y, z, mine = true) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
