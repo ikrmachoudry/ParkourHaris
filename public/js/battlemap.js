@@ -193,6 +193,25 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       else if (s.k === 'roof') { if (b.roof === 'flat') B.box('conc', s.x0, s.y0, s.z0, s.x1, s.y1, s.z1, '#8d8b84', 0.02); else B.box('conc', s.x0 + 0.3, s.y1 - 0.06, s.z0 + 0.3, s.x1 - 0.3, s.y1, s.z1 - 0.3, '#cfc6b2', 0.02); }   /* v318: pitched roofs showed a thick concrete slab UNDER the real roof = two layers; the slab stays for collision, only a thin ceiling plate inside the walls is drawn */
     }
     if (b.stairModel) { const M = b.stairModel, dm = propDim('stairs'); if (dm) for (let f = 0; f < M.n; f++) place('stairs', b.x + M.cx, fy + f * M.R, b.z + M.cz, dm.x, dm.y * M.sy, dm.z * (M.wk || 1), Math.PI / 2); }   // v326: the user's stair model, one per storey (turned 90 degrees: the flights run north-south)
+    if (b.stairModel && !propDim('stairs')) {   /* v409: railings (only for the plain-step stair: the stairs.glb model brings its own cable rails) on the U-turn stair (the model's own cable rails are almost invisible): posts + a wooden handrail + a mid bar on the open east side of the up-lane, on both sides of the middle between the two lanes, and a guard ring round the roof opening. They sit exactly where the invisible 'rail' solids of combat.js are, so what you see is what stops you. */
+      const M = b.stairModel, WK = M.wk || 1, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, E = 1.19 * WK, sy = M.sy, R = M.R, iron = '#2a2a2e', oak = '#8a6a48', V = THREE.Vector3, up = new V(0, 0, 1);
+      const bar = (x0, y0, z0, x1, y1, z1, t, col, mat) => { const d = new V(x1 - x0, y1 - y0, z1 - z0), L = d.length(); if (L < 0.02) return; const g = new THREE.BoxGeometry(t, t, L); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); B.add(mat, g, col, 0); };
+      const zAt = (xo) => b.z + M.cz - (xo - GX), post = (x, y, z, h) => B.box('metal', x - 0.025, y, z - 0.025, x + 0.025, y + h, z + 0.025, iron, 0);
+      const line = (x, pts, postEvery) => {   // pts = [[xo, y]...] along the flight: posts, handrail 0.92 m up, thin mid bar 0.46 m up
+        pts.forEach(([xo, y], i) => { if (i % postEvery === 0 || i === pts.length - 1) post(x, y, zAt(xo), 0.92); });
+        for (const [h, t, col, mat] of [[0.92, 0.07, oak, 'wood'], [0.46, 0.03, iron, 'metal']]) for (let i = 1; i < pts.length; i++) bar(x, pts[i - 1][1] + h, zAt(pts[i - 1][0]), x, pts[i][1] + h, zAt(pts[i][0]), t, col, mat); };
+      const xE = b.x + M.cx + E - 0.003, xM = b.x + M.cx;
+      for (let f = 0; f < M.n; f++) { const base = fy + f * R, A = [], Bl = [];
+        for (let i = 0; i < 8; i++) { A.push([-0.24 + PT * i + PT / 2, base + (0.17 + RS * i) * sy]); Bl.push([1.28 - PT * i + PT / 2, base + (1.80 + RS * i) * sy]); }
+        const land = base + 1.66 * sy;
+        line(xE, [...A, [1.56, land], [2.8, land]], 2);   // east side of the up-lane and the landing
+        line(xM + 0.02, [...A, [1.56, land]], 2);   // between the lanes: the up-lane side
+        line(xM - 0.02, [[1.56, land], ...Bl.slice(0, 6)], 2); }   // between the lanes: the down-lane side (it stops ~1 m before the next floor: that is where you step off)
+      { const top = fy + M.n * R, zN = b.z + M.cz - 1.528, zS = b.z + M.cz + 1.514, xx = (x0, x1, z0, z1) => { const w = x1 - x0, d = z1 - z0, L = Math.max(w, d), m = Math.max(2, Math.round(L / 1.2) + 1);
+          for (let i = 0; i < m; i++) { const t = i / (m - 1); post(w >= d ? x0 + w * t : (x0 + x1) / 2, top, w >= d ? (z0 + z1) / 2 : z0 + d * t, 1.0); }
+          B.box('wood', x0 - 0.035, top + 0.96, z0 - 0.035, x1 + 0.035, top + 1.03, z1 + 0.035, oak, 0); B.box('metal', x0 - 0.015, top + 0.5, z0 - 0.015, x1 + 0.015, top + 0.53, z1 + 0.015, iron, 0); };
+        xx(xE, xE, zN, zS); xx(xM, xM, b.z + M.cz - 0.28, zS); xx(xM, xE + 0.05, zS, zS); }   // the roof opening: east, middle and south guards
+    }
     /* v343: banisters. Every straight flight gets a post on each tread-pair and a SLOPED handrail + a mid bar on its open sides; every opening in an upper floor gets a guard rail (the same boxes are 'rail' solids in combat.js, so what you see is what stops you) */
     { const iron = '#2a2a2e', oak = '#8a6a48', V = THREE.Vector3, up = new V(0, 0, 1);
       const bar = (x0, y0, z0, x1, y1, z1, t, col, mat) => { const d = new V(x1 - x0, y1 - y0, z1 - z0), L = d.length(); if (L < 0.02) return; const g = new THREE.BoxGeometry(t, t, L); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); B.add(mat, g, col, 0); };
