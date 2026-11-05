@@ -35,6 +35,7 @@ import { hitCode, addHit } from './cardamage.js';
 import { Net } from './net.js';
 import { Voice } from './voice.js';
 import { preloadAssets } from './preload.js';
+import './guide.js';
 import { throwModel } from './weaponmodels.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
@@ -2264,6 +2265,16 @@ function openProfile(mode) {
     stage.pv.anim = 'idle'; bar.querySelectorAll('.pv-b').forEach((x) => x.classList.toggle('on', x.dataset.a === 'idle')); }
   show('profile');
 }
+/* v426: a missing required field: red outline + shake + red text under it (cleared as soon as the player types) */
+function needField(inp, msg) {
+  if (!inp) return false;
+  const anchor = inp.id === 'lobby-tname' ? $('lobby-tbar') : (inp.closest('label') || inp);
+  let m = anchor.nextElementSibling; if (!m || !m.classList || !m.classList.contains('need-msg')) { m = document.createElement('div'); m.className = 'need-msg'; anchor.insertAdjacentElement('afterend', m); }
+  m.textContent = msg; inp.classList.remove('need-shake'); void inp.offsetWidth; inp.classList.add('need', 'need-shake');
+  const clr = () => { inp.classList.remove('need', 'need-shake'); if (m.parentNode) m.remove(); inp.removeEventListener('input', clr); };
+  inp.addEventListener('input', clr); try { inp.focus(); } catch (e) { /* noop */ }
+  return false;
+}
 function readName() {
   let n = $('inp-name').value.trim().replace(/[<>&"']/g, '').slice(0, 14);
   if (!n) n = ['Haris', 'Speedy', 'Bouncy', 'Zippy'][Math.floor(Math.random() * 4)] + Math.floor(Math.random() * 90 + 10);
@@ -2446,7 +2457,7 @@ function openMp() { $('mp-status').textContent = ''; stage.setTitle(app.char); s
 let joinTimer = null;
 function stopJoin() { if (joinTimer) { clearTimeout(joinTimer); joinTimer = null; } }
 async function mpAction(kind) {
-  A.initAudio(); stopJoin();
+  A.initAudio(); if (!($('mp-room').value || '').trim()) { needField($('mp-room'), 'Enter a room name (the same name for everybody)'); return; } stopJoin();
   const st = $('mp-status'); st.textContent = 'Connecting...';
   try {
     const net = await ensureNet();
@@ -2487,7 +2498,7 @@ function renderTeams(m) {
   const loose = m.players.filter((p) => !(m.teams || []).some((t) => t.ids.includes(p.id)));
   if (loose.length) { const d = document.createElement('div'); d.className = 'note'; d.innerHTML = 'Not in a team yet: ' + loose.map((p) => esc(p.name) + (p.id === me ? ' (you)' : '')).join(', '); box.appendChild(d); }
   box.onclick = (e) => { const b = e.target.closest && e.target.closest('button[data-a]'); if (!b) return; A.sfx.click(); const a = b.dataset.a; if (a === 'join') app.net.send({ t: 'tjoin', team: +b.dataset.t }); else if (a === 'leave') app.net.send({ t: 'tleave' }); else if (a === 'fill') { const t = (m.teams || []).find((q) => q.leader === me); app.net.send({ t: 'tfill', on: !(t && t.fill) }); } };
-  $('b-tcreate').onclick = () => { A.sfx.click(); const n = $('lobby-tname').value.trim(); app.net.send({ t: 'tcreate', name: n || ((app.name || 'MY') + ' TEAM') }); $('lobby-tname').value = ''; };
+  $('b-tcreate').onclick = () => { A.sfx.click(); const n = $('lobby-tname').value.trim(); if (!n) { needField($('lobby-tname'), 'Enter a team name, then tap CREATE TEAM'); return; } app.net.send({ t: 'tcreate', name: n }); $('lobby-tname').value = ''; };
 }
 function renderLobby() {
   const m = app.room; if (!m) return;
@@ -2812,16 +2823,17 @@ async function boot() {
 $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
+  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.replay(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
-  $('b-profile-next').onclick = () => { readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
+  $('b-profile-next').onclick = () => { if (!$('inp-name').value.trim().replace(/[<>&"']/g, '')) { A.sfx.back && A.sfx.back(); needField($('inp-name'), 'Enter your player name to continue'); return; } readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };
   $('b-mp-back').onclick = () => { A.sfx.back(); stopJoin(); if (app.combat) show('cmb'); else openProfile('multi'); };
   $('b-create').onclick = () => { A.sfx.click(); mpAction('create'); };
   $('b-join').onclick = () => { A.sfx.click(); mpAction('join'); };
   $('b-leave').onclick = () => { A.sfx.back(); leaveToTitle(); };
   { const box = $('lobby-emotes'); if (box && !box.dataset.ok) { box.dataset.ok = 1; [['wave', 'WAVE'], ['hi', 'SAY HI'], ['salute', 'SALUTE'], ['cheer', 'CHEER']].forEach(([g, l]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'pv-b'; b.textContent = l; b.onclick = () => { A.initAudio(); A.sfx.click(); stage.emotes = stage.emotes || {}; stage.emotes[app.char] = { g, until: stage.t + 4 }; if (app.net && app.net.connected) app.net.send({ t: 'emote', g }); }; box.appendChild(b); }); } }
-  $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { A.sfx.click(); app.net.send({ t: 'start' }); } };
+  $('b-start').onclick = () => { if (app.room && app.room.hostId === app.myId) { if (app.room.combat && $('lobby-tbar') && $('lobby-tbar').style.display !== 'none' && !(app.room.teams || []).some((t) => t.ids.includes(app.myId))) { A.sfx.back && A.sfx.back(); needField($('lobby-tname'), 'Create your team first: type a team name, then tap CREATE TEAM'); return; } A.sfx.click(); app.net.send({ t: 'start' }); } };
   $('b-copy').onclick = async () => {
     const link = `${location.origin}${location.pathname}?room=${app.room ? app.room.code : ''}`;
     try { await navigator.clipboard.writeText(link); gtoast('Invite link copied!'); } catch { prompt('Copy this invite link:', link); }
