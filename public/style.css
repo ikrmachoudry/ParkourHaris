@@ -1465,3 +1465,15 @@ body.in-lobby #vc-list { display: none !important; }
   #s-cmb .btn.big small { font-size: 11px; }
   #s-cmb .row.end { margin-top: 2px; }
 }
+
+/* v436: very short phone screens (landscape with the browser address bar, ~270-340 px tall): the PLAYERS / TEAMS box showed only ONE row, so a loose player could not see the team cards to tap JOIN */
+@media (max-height: 340px) {
+  body.in-lobby #vc-mode { display: none !important; }
+  body.in-lobby #vc .vc-btn, body.in-lobby #vc button { transform: scale(.82); transform-origin: top left; }
+  #s-lobby .lobby-bottom .lobby-block:first-child { max-height: calc(100vh - 124px); max-height: calc(100dvh - 124px); }
+  #s-lobby .lobby-bottom .lobby-block:first-child h3 { margin: 0 0 3px; font-size: 12px; }
+  #lobby-tbar { padding: 2px 0 0; }
+  #lobby-tbar input, #lobby-tbar button { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 13px !important; min-height: 0 !important; height: 32px !important; line-height: 1 !important; }
+  #lobby-tbar button { white-space: nowrap; }
+  #lobby-teams .tmem .slot, .slots.cmb .slot { font-size: 12px; padding: 2px 7px; }
+}
