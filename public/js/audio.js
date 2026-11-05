@@ -2,7 +2,8 @@
 let ctx = null, master = null, sfxG = null, musG = null, noiseBuf = null;
 let sfxVol = 1, musVol = 1, revIn = null, musMuted = false, ducked = false;
 try { musMuted = localStorage.getItem('pgta_mm') === '1'; } catch (e) { /* private window */ }
-const musGainNow = () => (musMuted ? 0 : MUS * musVol * (ducked ? 0.36 : 1));   // v357: MUTE MUSIC (background music only: sound effects and the team voice never go through this gain)
+let hushed = false;   // v407: the victory page: every game sound is silent (only its own victory song plays)
+const musGainNow = () => (musMuted || hushed ? 0 : MUS * musVol * (ducked ? 0.36 : 1));   // v357: MUTE MUSIC (background music only: sound effects and the team voice never go through this gain)
 try { const v = JSON.parse(localStorage.getItem('pgta_vol') || 'null'); if (v) { sfxVol = Math.max(0, Math.min(1, +v.s)); musVol = Math.max(0, Math.min(1, +v.m)); if (!isFinite(sfxVol)) sfxVol = 1; if (!isFinite(musVol)) musVol = 1; } } catch (e) { /* defaults */ }
 const MUS = 0.07, SFX = 0.7;   // v348: the welcome / menu music at HALF of what it was (0.14, before that 0.22)
 let muted = false, musicOn = true, timer = null, musicState = null;
@@ -232,6 +233,10 @@ function menuStop() {
   try { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.15); s.stop(ctx.currentTime + 0.8); } catch (e) { /* noop */ }
 }
 let menuBlock = false;
+export function hush(on) {   // v407: ON = silence the whole game mix (effects, loops, commentary, game music); OFF = bring it back
+  hushed = !!on; if (ctx) { const t = ctx.currentTime; if (sfxG) sfxG.gain.cancelScheduledValues(t), sfxG.gain.setTargetAtTime(hushed ? 0 : SFX * sfxVol, t, 0.03); if (musG) musG.gain.setTargetAtTime(musGainNow(), t, 0.03); }
+  if (hushed) { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* noop */ } try { stopMusic(); } catch (e) { /* noop */ } }
+}
 export function blockMenuMusic(b) { menuBlock = !!b; if (b) stopMusic(); }   // v359: the victory page keeps the menu song OFF until CONTINUE is pressed
 let inGame = false;
 export function setInGame(b) { inGame = !!b; if (b) menuStop(); }   // v402: while a match is on screen the MENU song can never start (phase messages / taps kept restarting it)
@@ -280,7 +285,7 @@ export function startMusic(levelIdx) {
 export function stopMusic() { if (timer) clearInterval(timer); timer = null; musicState = null; menuStop(); }
 const saveVol = () => { try { localStorage.setItem('pgta_vol', JSON.stringify({ s: sfxVol, m: musVol })); } catch (e) { /* private window */ } };
 export function setMusicVolume(v) { musVol = Math.max(0, Math.min(1, v)); saveVol(); if (musG) musG.gain.setTargetAtTime(musGainNow(), ctx.currentTime, 0.05); }
-export function setSfxVolume(v) { sfxVol = Math.max(0, Math.min(1, v)); saveVol(); if (sfxG) sfxG.gain.setTargetAtTime(SFX * sfxVol, ctx.currentTime, 0.05); }
+export function setSfxVolume(v) { sfxVol = Math.max(0, Math.min(1, v)); saveVol(); if (sfxG) sfxG.gain.setTargetAtTime(hushed ? 0 : SFX * sfxVol, ctx.currentTime, 0.05); }
 export const getVolumes = () => ({ music: musVol, sfx: sfxVol });
 export function duckMusic(d) { ducked = !!d; if (musG) musG.gain.setTargetAtTime(musGainNow(), ctx.currentTime, 0.2); }
 export const isMusicMuted = () => musMuted;
@@ -320,7 +325,7 @@ export function engineStop() { if (!eng) return; const e = eng; eng = null; stop
 let hiVoice = null;
 export function speakHindi(text, who = 0, vol = 1) {
   try {
-    const ss = window.speechSynthesis; if (!ss || muted || vol <= 0.02) return;
+    const ss = window.speechSynthesis; if (!ss || muted || hushed || vol <= 0.02) return;
     if (!hiVoice) hiVoice = (ss.getVoices() || []).find((v) => /^hi/i.test(v.lang)) || null;
     ss.cancel();
     const u = new SpeechSynthesisUtterance(text); u.lang = 'hi-IN'; if (hiVoice) u.voice = hiVoice;

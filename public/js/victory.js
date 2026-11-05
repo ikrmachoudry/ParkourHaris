@@ -32,7 +32,7 @@ function statsTable(rows, winTm) {
 
 export function closeVictory() {
   if (!cur) return; const c = cur; cur = null;
-  cancelAnimationFrame(c.raf); try { c.audio.pause(); } catch (e) { /* noop */ } window.removeEventListener('resize', c.onResize);
+  cancelAnimationFrame(c.raf); try { A.hush(false); } catch (e) { /* noop */ } try { c.audio.pause(); } catch (e) { /* noop */ } window.removeEventListener('resize', c.onResize);
   c.actors.forEach((a) => { c.scene.remove(a.c.group); if (a.c.dispose) a.c.dispose(); });
   try { c.renderer.dispose(); c.renderer.forceContextLoss(); } catch (e) { /* noop */ }
   c.el.remove();
@@ -40,7 +40,7 @@ export function closeVictory() {
 
 // m = { win: team index, teams: [{tm,k,d,n}], rows: [{name,tm,ch,sk,k,d,bots,ply,dby}] }; myTm = my team index (highlight); onDone = called when the page is closed
 export function showVictory(m, myTm, onDone) {
-  closeVictory(); A.blockMenuMusic(true);
+  closeVictory(); A.blockMenuMusic(true); try { A.hush(true); } catch (e) { /* noop */ }   /* v407: no game sound on the victory page */
   const teams = m.teams || [], wt = teams.find((t) => t.tm === m.win) || teams[0] || { n: 'TEAM', tm: 0, k: 0 };
   const rows = (m.rows || []).map((r) => ({ ...r, bots: r.bots || {}, ply: r.ply || {}, dby: r.dby || {}, me: false })).sort((a, b) => b.k - a.k || a.d - b.d);
   const wrows = rows.filter((r) => r.tm === wt.tm), title = String((wrows.length === 1 && wrows[0].name) || wt.n || 'PLAYER');   // v345: a lone winner (solo, or a team of one) is announced by his own NAME
