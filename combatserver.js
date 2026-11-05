@@ -17,7 +17,7 @@ export class CombatHost {
       else if (e.k === 'shot') out.push({ k: 'shot', id: e.id, x: q2(e.x), z: q2(e.z), tx: q2(e.tx), tz: q2(e.tz), tp: e.tp, hit: e.hit ? 1 : 0, dmg: q2(e.dmg), w: e.w });
       else if (e.k === 'kill') out.push({ k: 'kill', id: e.id, x: q2(e.x), z: q2(e.z), w: e.w, by: e.by, h: e.h ? 1 : 0 });
       else if (e.k === 'bothit') out.push({ k: 'bothit', id: e.id, x: q2(e.x), z: q2(e.z), h: e.h ? 1 : 0 });
-      else if (e.k === 'nade') out.push({ k: 'nade', id: e.id, x: q2(e.x), z: q2(e.z), lx: q2(e.lx), lz: q2(e.lz) });
+      else if (e.k === 'nade') out.push({ k: 'nade', id: e.id, x: q2(e.x), z: q2(e.z), lx: q2(e.lx), lz: q2(e.lz), mo: e.mo ? 1 : 0 });
       else if (e.k === 'nbang') out.push({ k: 'nbang', x: q2(e.x), z: q2(e.z), tp: e.tp, dmg: e.dmg });
       else if (e.k === 'lootgone') out.push({ k: 'lootgone', id: e.id });
       else if (e.k === 'airplane') out.push({ k: 'airplane', n: e.n, x: q2(e.x), z: q2(e.z), hd: [q2(e.hd[0]), q2(e.hd[1])] });

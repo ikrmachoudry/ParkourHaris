@@ -1412,3 +1412,7 @@ body.touch #s-lobby .dsel button { padding: 6px 4px; font-size: 11px; } body.tou
 body.touch #s-lobby .lobby-block.start .note { font-size: 9px; line-height: 1.2; }
 /* title page on phones: MUTE MUSIC no longer sits under the GTA card */
 body.touch #mm-btn:not(.tr) { top: auto; bottom: calc(14px + env(safe-area-inset-bottom)); transform: none; }
+
+/* v413: every MAIN MENU button (pause menu, result page, back-to-menu) is a GREEN lit container on phone and laptop */
+#p-quit.btn, #b-res-menu.btn, #b-home-back.btn { background: linear-gradient(#3fe27f, #1c9c4c) !important; color: #fff !important; border-color: #7dffae !important; border-left-color: #fff !important; box-shadow: 0 0 14px rgba(70,255,140,.55), inset 0 0 10px rgba(255,255,255,.18) !important; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+#p-quit.btn:hover, #b-res-menu.btn:hover, #b-home-back.btn:hover, #p-quit.btn:active, #b-res-menu.btn:active, #b-home-back.btn:active { background: linear-gradient(#6dffa5, #26b85c) !important; color: #fff !important; }

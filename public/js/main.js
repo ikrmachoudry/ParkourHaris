@@ -1526,12 +1526,12 @@ class Race {
         if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
-      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine, n.bot); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
     }
   }
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
-  fireBoom(x, y, z, mine = true) {
-    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
+  fireBoom(x, y, z, mine = true, bot = false) {
+    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
     (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
@@ -1643,7 +1643,7 @@ class Race {
   }
   // the aim circle: size follows the weapon's spread, turns red when a person is under it; the AUTO AIM button shows if the lock-on is on
   xhairTick() {
-    const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished && w !== 'sniper', el = $('xhair'), bd = document.body;
+    const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished && (w !== 'sniper' || !!(this.mission && this.mission.cs && this.mission.cs.on && this.mission.cs.count('sscope') <= 0)), el = $('xhair'), bd = document.body;
     if (bd.classList.contains('xh') !== show) bd.classList.toggle('xh', show);
     const ab = $('b-auto'); if (ab) { ab.classList.toggle('on', !!OPT.autoAim); const em = ab.querySelector('em'); if (em) em.textContent = OPT.autoAim ? 'ON' : 'OFF'; }
     if (!show || !el) return;
