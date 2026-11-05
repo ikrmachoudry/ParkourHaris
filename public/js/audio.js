@@ -107,11 +107,12 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const gun = (crack, body, vol, rate, bodyRate, bodyLp, bodyVol, rev) => { const d = rnd(0.95, 1.05); if (!play(crack, vol, rate * d, 0, 0, 0, rev)) return false; play(body, vol * bodyVol, bodyRate * d, 0.004, 0, bodyLp, rev * 0.8); return true; };
 let sayAt = 0, sayCur = null;
 const say = (name, vol = 1) => { const b = bank[name]; if (!commentary || !b || !ctx) return false; const n = performance.now(); if (n - sayAt < (sayCur ? sayCur.dur : 0) * 1000 * 0.85) { return false; } sayAt = n; sayCur = { dur: b.duration }; return play(name, vol, 1, 0, 0, 0, 0.05); };
+export const hurtMute = { on: false };   // v401: set by the game while the match is over / at the victory place / in the plane: no damage sounds then
 export const voice = {
   scream(vol = 0.8) { return play(pick(['u_scared0', 'u_scared1', 'u_scared2']), Math.min(1.2, vol * 1.2), rnd(0.92, 1.12), 0, 0, 0, 0.2) || play(pick(['scream1', 'scream2']), Math.min(1.4, vol * 1.5), rnd(0.85, 1.35), 0, 0, 0, 0.25); },
   death(vol = 0.9) { return play('u_death', Math.min(1.2, vol * 1.1), rnd(0.93, 1.07), 0, 0, 0, 0.2) || play('death', vol, rnd(0.9, 1.1)); },
-  grunt(vol = 0.9) { return play('u_grunt', Math.min(1.3, vol * 1.2), rnd(0.9, 1.1), 0, 0, 0, 0.15) || play('pain', vol, rnd(0.9, 1.1)); },   // anybody (AI people, cops) taking a hit
-  pain(vol = 0.8) { return play('pain', vol, rnd(0.9, 1.1)); },
+  grunt(vol = 0.9) { if (hurtMute.on) return 0; return play('u_grunt', Math.min(1.3, vol * 1.2), rnd(0.9, 1.1), 0, 0, 0, 0.15) || play('pain', vol, rnd(0.9, 1.1)); },   // anybody (AI people, cops) taking a hit
+  pain(vol = 0.8) { if (hurtMute.on) return 0; return play('pain', vol, rnd(0.9, 1.1)); },
   // the announcer: says the weapon's name when the player changes weapon (Haris's own recordings), and a shout for the punches of a combo
   weapon(k) { const n = { fist: 'w_fist', bat: 'w_bat', pistol: 'w_pistol', ak: 'w_ak', sniper: 'w_sniper' }[k || 'fist']; return n ? say(n) : false; },
   punch(i) { return say(['w_punch1', 'w_punch2', 'w_punch3'][Math.max(0, Math.min(2, i - 1))], 0.8); },

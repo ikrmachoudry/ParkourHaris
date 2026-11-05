@@ -454,6 +454,13 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.chest, 0.05 + br, -0.25 * jab, 0); R(b.head, 0.28, 0.45 * jab, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
     R(b['upperarm.L'], -0.5, 0, -0.5); R(b['forearm.L'], -0.9, 0, -0.3);
     R(b['upperarm.R'], -0.7 - 0.5 * cock, 0.55 * jab, 0.25 + 0.5 * cock); R(b['forearm.R'], -1.5 - 0.3 * cock, 0, 0.35); R(b['hand.R'], -0.3, 0, 0); curl('R', 1.0);
+  } else if (name === 'reviveInj') {   // v401 revive: kneeling over the downed teammate, left hand on the ground, the right hand cocks up and plunges the syringe down into him, holds, pulls out
+    const ph = (t % 2.2) / 2.2, jab = ph < 0.3 ? ph / 0.3 : ph < 0.75 ? 1 : 1 - (ph - 0.75) / 0.25, cock = ph < 0.3 ? 1 - ph / 0.3 : 0, br = Math.sin(t * 1.6) * 0.01;
+    b.hips.position.y = rest.hips.y - 0.5; b.hips.position.z = rest.hips.z + 0.1;
+    R(b['upperleg.L'], -1.45, 0, 0.12); R(b['upperleg.R'], -0.5, 0, -0.12); R(b['lowerleg.L'], 2.3, 0, 0); R(b['lowerleg.R'], 1.45, 0, 0);
+    R(b.spine, 0.45 + br, 0, 0); R(b.chest, 0.2, 0, 0); R(b.head, 0.2, 0, 0);
+    R(b['upperarm.L'], -0.95, 0, -0.2); R(b['forearm.L'], -0.25, 0, 0); curl('L', 0.2);
+    R(b['upperarm.R'], -1.25 - 0.55 * cock + 0.25 * jab, 0.15, 0.2); R(b['forearm.R'], -0.8 - 0.6 * cock - 0.1 * jab, 0, 0.1); R(b['hand.R'], 0.35 * jab, 0, 0); curl('R', 1.0);
   } else if (name === 'healMed') {   // v393 first aid kit: kit held in the right hand, the left hand wraps a bandage round the right forearm
     const w = Math.sin(t * 5), br = Math.sin(t * 1.6) * 0.01;
     R(b.chest, 0.08 + br, 0, 0); R(b.head, 0.42, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
