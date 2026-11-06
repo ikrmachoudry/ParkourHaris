@@ -1238,7 +1238,7 @@ class Race {
   toggleCrouch() { if (this.over || this.drive || this.downed) return; if (this.prone) { this.prone = false; this.crouch = true; } else this.crouch = !this.crouch; this.syncAct(); }
   toggleProne() { if (this.over || this.drive || !this.meta.city || this.downed) return; this.prone = !this.prone; if (this.prone) { this.crouch = false; this.aiming = this.aiming && !!this.weapon; } this.syncAct(); }
   // equip one weapon by name ('fist' | 'bat' | 'pistol' | 'ak') - only if it is owned
-  equip(k) { if (this.over || this.drive || !this.wallet || this.downed) return false; this.telescope = false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
+  equip(k) { if (this.over || this.drive || !this.wallet || this.downed) return false; if (k !== 'grenade') this.heldThrow = null; this.telescope = false; const w = k === 'fist' ? null : k; if (w && !this.wallet.owns(w)) return false; this.weapon = w; if (!w || w === 'bat' || w === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); return true; }
   // PUBG style weapon wheel: a ring of the four weapons round the middle of the screen; tap one to swap at once
   toggleWheel(force) {
     const el = $('wheel'); if (!el || !this.wallet) return; const open = force === undefined ? el.classList.contains('hidden') : !!force;
@@ -1445,8 +1445,10 @@ class Race {
       if (this.faceCam) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * (this.aimOn || this.fireHeld ? 16 : 11)); } }
   }
   // ---- GRENADES: the throw plays the baked Mixamo clip (nadeThrow standing, nadeToss crouching); the grenade leaves the hand at the clip's release frame, bounces, and blows up 2.6 s later
+  heldCount() { const k = this.heldThrow, cb = this.wallet && this.wallet.cb; return k === 'molotov' || k === 'smoke' ? ((cb && cb.inv && cb.inv[k]) | 0) : ((this.wallet && this.wallet.nades) | 0); }   // v443: how many of the throwable in the hand are left
   throwNade() {
     if (this.downed) return false;
+    if (this.weapon === 'grenade' && this.heldThrow && this.heldThrow !== 'grenade' && !this.nadeKind) this.nadeKind = this.heldThrow;   // v443: the throwable in the hand (molotov / smoke) is thrown with FIRE
     const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || this.healing() || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
@@ -1489,7 +1491,7 @@ class Race {
     const x = b.x + Math.sin(b.yaw) * 30, z = b.z + Math.cos(b.yaw) * 30, g = this.world.findGround({ x, y: b.y + 3, z }, b.y + 3, false); return { x, y: g ? g.top : b.y, z };
   }
   nadeMarkTick() {
-    const on = this.meta.city && this.weapon === 'grenade' && !this.drive && !!this.wallet && this.wallet.nades > 0 && !(this.mission && this.mission.hold);
+    const on = this.meta.city && this.weapon === 'grenade' && !this.drive && !!this.wallet && this.heldCount() > 0 && !(this.mission && this.mission.hold);
     if (!this.nadeMark) {
       const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.78, 40), mat), ring2 = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.26, 24), mat);
@@ -1517,7 +1519,7 @@ class Race {
           A.sfx.swing && A.sfx.swing(false);
         }
       }
-      if (this.nadeT >= 1) { this.nadeT = 0; this.nadeRel = false; if (this.weapon === 'grenade' && this.wallet.nades <= 0) { this.weapon = null; this.syncAct(); } this.updateAmmoHud(); }
+      if (this.nadeT >= 1) { this.nadeT = 0; this.nadeRel = false; if (this.weapon === 'grenade' && this.heldCount() <= 0) { this.weapon = null; this.heldThrow = null; this.syncAct(); } this.updateAmmoHud(); }
     }
     if (!this.nades || !this.nades.length) return;
     for (let i = this.nades.length - 1; i >= 0; i--) {
@@ -2608,9 +2610,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); race.toggleMap(); }
   if (e.code === 'Escape') { const open = ['s-help', 's-about', 's-settings'].map($).find((x) => x && x.classList.contains('active')); if (open) { $({ 's-help': 'b-help-close', 's-about': 'b-about-close', 's-settings': 'b-settings-close' }[open.id]).click(); return; } }   // v224: Esc closes any page that sits on top
   if (e.code === 'Escape' && race && race.bigMapOpen) { race.toggleMap(false); return; }
-  { const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.inv) { if (e.code === 'Escape' && cs.inv.isOpen()) { cs.inv.toggle(false); return; } if (!e.repeat && !race.menuOpen && !race.over) { if (e.code === 'KeyI') { cs.inv.toggle(); return; } if (e.code === 'KeyF') { cs.swapPick(); return; } const k = { Digit6: 'med', Digit7: 'pills', Digit8: 'inject', Digit9: 'smoke', Digit0: 'scope', KeyN: 'molotov' }[e.code]; if (k) { cs.useItem(k); return; }
+  { const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.inv) { if (e.code === 'Escape' && cs.inv.isOpen()) { cs.inv.toggle(false); return; } if (!e.repeat && !race.menuOpen && !race.over) { if (e.code === 'KeyI') { cs.inv.toggle(); return; } if (e.code === 'KeyF') { cs.swapPick(); return; } if (e.code === 'KeyG') { cs.cycleThrow(); return; } if (e.code === 'KeyN') { cs.cycleThrow('molotov'); return; } if (e.code === 'Digit9') { cs.cycleThrow('smoke'); return; } const k = { Digit6: 'med', Digit7: 'pills', Digit8: 'inject', Digit0: 'scope' }[e.code]; if (k) { cs.useItem(k); return; }
       /* v264 (PUBG): 1 / 2 = the two guns in your hands, 3 or 4 = GRENADE (then fire to throw), 5 = fists */
-      if (/^Digit[1-5]$/.test(e.code) && !race.drive) { const n = +e.code.slice(5); if (n <= 2) { const g = cs.guns()[n - 1]; if (g) race.equip(race.weapon === g ? 'fist' : g); } else if (n <= 4) { if ((race.wallet.nades | 0) > 0) race.equip(race.weapon === 'grenade' ? 'fist' : 'grenade'); else race.toast && race.toast('NO GRENADES'); } else race.equip('fist'); cs._sk = ''; return; } } } }
+      if (/^Digit[1-5]$/.test(e.code) && !race.drive) { const n = +e.code.slice(5); if (n <= 2) { const g = cs.guns()[n - 1]; if (g) race.equip(race.weapon === g ? 'fist' : g); } else if (n <= 4) cs.cycleThrow(); else cs.cycleThrow('molotov'); cs._sk = ''; return; } } } }
   if (race && race.mission && document.body.classList.contains('m-open')) { if (e.code === 'Enter') { race.mission.pressStart(); return; } if (e.code === 'Escape') { race.mission.panelClosed = true; race.mission.showPanel(false); return; } }
   if (e.code === 'KeyG') press.grab = true;
   if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if ((e.code === 'ControlLeft' || e.code === 'KeyX') && !e.repeat) race.toggleProne(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
