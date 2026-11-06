@@ -215,7 +215,7 @@ export class MissionClient {
     this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
     this.cover(true); if (R.world && R.world.group) R.world.group.visible = false;
-    setTimeout(() => { if (this.dead) return; try { this.cs.begin(m, this.seat); } catch (e) { console.error(e); this.cover(true, 'ERROR: ' + (e && e.message || e)); setTimeout(() => this.cover(false), 5000); return; } this.cover(true, 'PREPARING THE BATTLE...'); this.cs.prepare().then(() => { this.cs.gate = false; setTimeout(() => this.cover(false), 500); }); }, 120);   // v220: the loading screen stays until every file is in and everything has been drawn once
+    setTimeout(() => { if (this.dead) return; try { this.cs.begin(m, this.seat); } catch (e) { console.error(e); this.cover(true, 'ERROR: ' + (e && e.message || e)); setTimeout(() => this.cover(false), 5000); return; } this.cover(true, 'PREPARING THE BATTLE...'); let fin = false; const go = () => { if (fin) return; fin = true; this.cs.gate = false; setTimeout(() => this.cover(false), 500); }; this.cs.prepare().then(go, go); setTimeout(() => { if (!fin && !this.dead) { console.warn('prepare watchdog'); go(); } }, 40000); }, 120);   /* v451: a phone that stalls while preparing (stuck at 90%) is let into the match after 40 s instead of waiting forever */   // v220: the loading screen stays until every file is in and everything has been drawn once
     this.big('COMBAT MISSION', 2600, '#ffb347'); this.sub('FIND WEAPONS ON THE GROUND - SHOOT THE SOLDIERS - SURVIVE 5 MINUTES  (R = RELOAD)', 7000); this.chips();
   }
   // leaves the zombie mission: the free kit goes back, the zombies disappear

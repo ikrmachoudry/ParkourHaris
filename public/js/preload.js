@@ -17,5 +17,5 @@ export function preloadAssets(kind) {   // kind: 'jang' | 'gta'
   if (done[kind]) return done[kind];
   if (typeof navigator !== 'undefined' && navigator.onLine === false) netFail('you are offline');
   const list = kind === 'jang' ? [...JANG_GLB, HERO_GLB[2], 'models/bag.glb'] : [...HERO_GLB, 'models/bag.glb'];   // the soldiers of Jang (+ the army soldier) / the five heroes of the city
-  return done[kind] = Promise.all([preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(25000), 'SOUNDS')]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
+  return done[kind] = Promise.race([Promise.all([preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(25000), 'SOUNDS')]), new Promise((r) => setTimeout(r, 60000))]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
 }

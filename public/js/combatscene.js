@@ -185,7 +185,7 @@ export class CombatScene {
   // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
   prepare() {
     const R = this.R;
-    return Promise.all([preloadAssets('jang'), this.loadPlane()]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
       try {
         if (!this.sim || !this.on) return;
         const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
