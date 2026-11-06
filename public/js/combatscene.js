@@ -105,7 +105,7 @@ export class CombatScene {
     { const T = R.jangTeam; this.practice = !!(window.phGuide && window.phGuide.practice); this.train = !!(window.phGuide && window.phGuide.train); if (window.phGuide) { window.phGuide.practice = false; window.phGuide.train = false; } this._pracPlaced = false; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, this.train ? 0 : this.practice ? 2 : botCount(OPT.diff || 'medium', !!R.isTouch));   /* v432: HOW TO PLAY practice = 2 easy bots */ if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
-    if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; } }
+    this.ensureMap();
     if (this.glass) this.glass.reset();   /* v351: every window whole again */
     if (!this.zipG) this.buildZip();   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
@@ -185,7 +185,7 @@ export class CombatScene {
   // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
   prepare() {
     const R = this.R;
-    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => { if (!(this.R.isTouch && /Android/i.test(navigator.userAgent || '')) || !this.on) return; try { loadScreen.say('BUILDING THE MAP...'); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 60)).then(() => { try { this.ensureMap(); } catch (e) { console.warn('map build', e); } }).then(() => new Promise((res) => setTimeout(res, 60))); }).then(() => {   // (the soldiers attach their model a moment after they are created)
       try {
         if (!this.sim || !this.on) return;
         const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
@@ -195,6 +195,11 @@ export class CombatScene {
         for (const [o, v] of vis) o.visible = v;
       } catch (e) { console.warn('warm-up skipped', e); }
     });
+  }
+  ensureMap() {   // v452: the landscape is built once; on Android it is built behind the loading screen (not at the first frame of the match, which froze weak phones at 94%)
+    const R = this.R; if (this.map) return;
+    const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group);
+    try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; }
   }
   startDrop() {
     const R = this.R, b = R.me.body, T = R.jangTeam, rr = (k) => { const x = Math.sin((T ? T.seed : 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };   // team match: the whole room shares one flight line, the second team gets its own plane flying the other way
@@ -435,13 +440,13 @@ export class CombatScene {
       const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.wrapT = THREE.ClampToEdgeWrapping; tx.repeat.set(10, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
       const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 600, 96, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx;
       const lc = document.createElement('canvas'); lc.width = 256; lc.height = 512; const lg = lc.getContext('2d'); lg.lineCap = 'round'; lg.lineJoin = 'round';
-      for (let n = 0; n < 5; n++) { let x = 30 + n * 48 + Math.random() * 20, y = 512; const pts = [[x, y]]; while (y > 20) { y -= 14 + Math.random() * 26; x += (Math.random() - 0.5) * 36; pts.push([x, y]); }
-        for (const [w, col] of [[9, 'rgba(60,140,255,.28)'], [4, 'rgba(120,190,255,.7)'], [1.6, 'rgba(255,255,255,1)']]) { lg.strokeStyle = col; lg.lineWidth = w; lg.beginPath(); pts.forEach(([px, py], k) => k ? lg.lineTo(px, py) : lg.moveTo(px, py)); lg.stroke(); } }
-      const lt = new THREE.CanvasTexture(lc); lt.wrapS = THREE.RepeatWrapping; lt.repeat.set(7, 1); if (THREE.SRGBColorSpace) lt.colorSpace = THREE.SRGBColorSpace;
+      for (let n = 0; n < 3; n++) { let x = 30 + n * 80 + Math.random() * 20, y = 512; const pts = [[x, y]]; while (y > 20) { y -= 14 + Math.random() * 26; x += (Math.random() - 0.5) * 36; pts.push([x, y]); }
+        for (const [w, col] of [[7, 'rgba(60,140,255,.16)'], [3, 'rgba(100,180,255,.45)'], [1.1, 'rgba(210,235,255,.85)']]) { lg.strokeStyle = col; lg.lineWidth = w; lg.beginPath(); pts.forEach(([px, py], k) => k ? lg.lineTo(px, py) : lg.moveTo(px, py)); lg.stroke(); } }
+      const lt = new THREE.CanvasTexture(lc); lt.wrapS = THREE.RepeatWrapping; lt.repeat.set(4, 1); if (THREE.SRGBColorSpace) lt.colorSpace = THREE.SRGBColorSpace;
       const lm = new THREE.Mesh(new THREE.CylinderGeometry(0.998, 0.998, 600, 96, 1, true), new THREE.MeshBasicMaterial({ map: lt, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); lm.frustumCulled = false; this.group.add(lm); this.zl = lm; this.zlTex = lt; this.zlT = 0; }
     if (this.zwTex) { this.zwTex.offset.x = (this.zwTex.offset.x + dt * 0.01) % 1; this.zw.material.opacity = 0.8 + 0.1 * Math.sin(this.t * 1.5); }   // the beams hum and flicker
-    if (this.zl) { this.zlT -= dt; const mt = this.zl.material; if (this.zlT <= 0) { this.zlT = 0.5 + Math.random() * 1.6; mt.opacity = 1; this.zlTex.offset.x = Math.random(); } else mt.opacity = Math.max(0, mt.opacity - dt * 3.2) * (Math.random() < 0.3 ? 0.4 : 1); }   // flashes of lightning along the wall
-    this.zw.position.set(CMB.x + z.x, 250, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r); if (this.zl) { this.zl.position.copy(this.zw.position); this.zl.scale.copy(this.zw.scale); this.zl.visible = this.zw.visible; }
+    if (this.zl) { this.zlT -= dt; const mt = this.zl.material; if (this.zlT <= 0) { this.zlT = 1.6 + Math.random() * 3.2; mt.opacity = 0.6; this.zlTex.offset.x = Math.random(); } else mt.opacity = Math.max(0, mt.opacity - dt * 1.5) * (Math.random() < 0.3 ? 0.4 : 1); }   // flashes of lightning along the wall
+    this.zw.position.set(CMB.x + z.x, 250, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r); if (this.zl) { this.zl.position.copy(this.zw.position); this.zl.scale.copy(this.zw.scale); this.zl.visible = this.zw.visible && !(this.R.isTouch && /Android/i.test(navigator.userAgent || '')); }   /* v452: lightning is a soft occasional touch; Android keeps only the haze (cheaper) */
     this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 90);   /* v440: the wall shows 90 s before the first closing (it was 30 s) */   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
     if (R.minimap) R.minimap.zone = z;
     const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
