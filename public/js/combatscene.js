@@ -10,7 +10,7 @@ import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, ballOK } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, ballOK, underRoof } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim } from './props.js';
@@ -151,7 +151,7 @@ export class CombatScene {
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
-    zoneFx(false); zoneNear(0, 0, false); if (this.zw) { this.group.remove(this.zw); this.zw = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
+    zoneFx(false); zoneNear(0, 0, false); if (this.zw) { this.group.remove(this.zw); this.zw = null; } if (this.zl) { this.group.remove(this.zl); this.zl = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; if (this.tipEl) { this.tipEl.style.display = 'none'; this._tipOn = false; } A.setCommentary(OPT.punjabi !== false);
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
@@ -428,13 +428,21 @@ export class CombatScene {
     const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = this.shared && T ? makeZone(T.seed) : this.sim.Z;   // v251: the same circles the bots (and the server) use
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
     if (!this.zw) {   // v440: the wall is a glowing LASER curtain (bright at the ground, vertical beams, light bands rising) so it can be seen from far away
-      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 512; const g = cv.getContext('2d');   // v444 (PUBG look): a tall hazy BLUE wall: strongest at the ground, fading to nothing high up (no visible top edge), faint vertical streaks, a bright line at the foot
-      const gr = g.createLinearGradient(0, 512, 0, 0); gr.addColorStop(0, 'rgba(90,170,255,.95)'); gr.addColorStop(0.03, 'rgba(60,140,255,.6)'); gr.addColorStop(0.12, 'rgba(40,120,255,.34)'); gr.addColorStop(0.35, 'rgba(40,110,255,.16)'); gr.addColorStop(0.7, 'rgba(40,110,255,.06)'); gr.addColorStop(1, 'rgba(40,110,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 512);
-      for (let x = 4; x < 128; x += 16) { const a = 0.07 + 0.08 * ((x * 7) % 5) / 4, sg = g.createLinearGradient(0, 512, 0, 0); sg.addColorStop(0, 'rgba(170,215,255,' + (a * 2.2) + ')'); sg.addColorStop(0.5, 'rgba(170,215,255,' + a * 0.5 + ')'); sg.addColorStop(1, 'rgba(170,215,255,0)'); g.fillStyle = sg; g.fillRect(x, 0, 2, 512); }   // faint vertical streaks
-      const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.wrapT = THREE.ClampToEdgeWrapping; tx.repeat.set(48, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 600, 64, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx; }
-    if (this.zwTex) this.zwTex.offset.x = (this.zwTex.offset.x + dt * 0.01) % 1;   // the streaks drift slowly sideways
-    this.zw.position.set(CMB.x + z.x, 250, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
+      // v448: the wall is a LASER fence: bright blue beams from the ground up to the sky with a thin haze between them, plus flashes of LIGHTNING that jump along it
+      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 512; const g = cv.getContext('2d');
+      const hz = g.createLinearGradient(0, 512, 0, 0); hz.addColorStop(0, 'rgba(40,120,255,.28)'); hz.addColorStop(0.3, 'rgba(40,120,255,.10)'); hz.addColorStop(1, 'rgba(40,120,255,.03)'); g.fillStyle = hz; g.fillRect(0, 0, 128, 512);
+      for (const bx of [10, 42, 74, 106]) { const gl = g.createLinearGradient(bx - 9, 0, bx + 9, 0); gl.addColorStop(0, 'rgba(40,120,255,0)'); gl.addColorStop(0.5, 'rgba(70,150,255,.75)'); gl.addColorStop(1, 'rgba(40,120,255,0)'); const vg = g.createLinearGradient(0, 512, 0, 0); vg.addColorStop(0, 'rgba(255,255,255,1)'); vg.addColorStop(0.35, 'rgba(255,255,255,.7)'); vg.addColorStop(1, 'rgba(255,255,255,.4)');
+        g.globalCompositeOperation = 'source-over'; g.fillStyle = gl; g.fillRect(bx - 9, 0, 18, 512); g.fillStyle = 'rgba(190,225,255,.95)'; g.fillRect(bx - 1.5, 0, 3, 512); g.globalCompositeOperation = 'destination-out'; g.fillStyle = 'rgba(0,0,0,.45)'; for (let y = 8; y < 512; y += 64) g.fillRect(bx - 12, y, 24, 6); g.globalCompositeOperation = 'source-over'; }   // beams with small gaps (a dashed laser look)
+      const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.wrapT = THREE.ClampToEdgeWrapping; tx.repeat.set(70, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 600, 96, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx;
+      const lc = document.createElement('canvas'); lc.width = 256; lc.height = 512; const lg = lc.getContext('2d'); lg.lineCap = 'round'; lg.lineJoin = 'round';
+      for (let n = 0; n < 5; n++) { let x = 30 + n * 48 + Math.random() * 20, y = 512; const pts = [[x, y]]; while (y > 20) { y -= 14 + Math.random() * 26; x += (Math.random() - 0.5) * 36; pts.push([x, y]); }
+        for (const [w, col] of [[9, 'rgba(60,140,255,.28)'], [4, 'rgba(120,190,255,.7)'], [1.6, 'rgba(255,255,255,1)']]) { lg.strokeStyle = col; lg.lineWidth = w; lg.beginPath(); pts.forEach(([px, py], k) => k ? lg.lineTo(px, py) : lg.moveTo(px, py)); lg.stroke(); } }
+      const lt = new THREE.CanvasTexture(lc); lt.wrapS = THREE.RepeatWrapping; lt.repeat.set(7, 1); if (THREE.SRGBColorSpace) lt.colorSpace = THREE.SRGBColorSpace;
+      const lm = new THREE.Mesh(new THREE.CylinderGeometry(0.998, 0.998, 600, 96, 1, true), new THREE.MeshBasicMaterial({ map: lt, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); lm.frustumCulled = false; this.group.add(lm); this.zl = lm; this.zlTex = lt; this.zlT = 0; }
+    if (this.zwTex) { this.zwTex.offset.x = (this.zwTex.offset.x + dt * 0.004) % 1; this.zw.material.opacity = 0.78 + 0.12 * Math.sin(this.t * 7) + (Math.random() - 0.5) * 0.08; }   // the beams hum and flicker
+    if (this.zl) { this.zlT -= dt; const mt = this.zl.material; if (this.zlT <= 0) { this.zlT = 0.5 + Math.random() * 1.6; mt.opacity = 1; this.zlTex.offset.x = Math.random(); } else mt.opacity = Math.max(0, mt.opacity - dt * 3.2) * (Math.random() < 0.3 ? 0.4 : 1); }   // flashes of lightning along the wall
+    this.zw.position.set(CMB.x + z.x, 250, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r); if (this.zl) { this.zl.position.copy(this.zw.position); this.zl.scale.copy(this.zw.scale); this.zl.visible = this.zw.visible; }
     this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 90);   /* v440: the wall shows 90 s before the first closing (it was 30 s) */   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
     if (R.minimap) R.minimap.zone = z;
     const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
@@ -464,7 +472,7 @@ export class CombatScene {
       if (q.t <= 0) { q.on = false; q.m.visible = false; const d = Math.hypot(b.x - wx, b.z - wz), dc = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
         if (this.glass) this.glass.blast(q.x, gy + 1.2, q.z, 9); R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
         if (dc < 140) { A.sfx.boom && A.sfx.boom(Math.max(0.12, 1 - dc / 140)); if (R.shake !== undefined && dc < 40) R.shake = Math.max(R.shake, 0.5 * (1 - dc / 40)); }
-        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down) this.hurt(Math.round(48 * (1 - d / 9)) + 6); } }
+        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down && !underRoof(layout(), b.x - CMB.x, b.z - CMB.z, b.y)) this.hurt(Math.round(48 * (1 - d / 9)) + 6);   /* v448: nobody indoors is hurt by a red-circle bomb */ } }
   }
   // ---------------------------------------------------------------- v251 the AIRDROP (PUBG care package): a plane crosses the island, a crate falls on a parachute, red smoke shows where, the loot is gold
   airKit() {

@@ -502,7 +502,7 @@ function build() {
     const gy = cmbH(x, z); if (gy < -0.2) continue;
     const pine = gy > 11 || f > 0.56 ? R() < 0.82 : R() < 0.3, s = (pine ? 1.5 : 1.3) + R() * 1.0;
     const rr = R() * 6.28; if (treeN++ & 1) continue;   // v291: half the trees (every second one is skipped AFTER its random numbers are drawn, so nothing else on the map moves)
-    const tsl = Math.hypot(cmbH(x + 0.6, z) - cmbH(x - 0.6, z), cmbH(x, z + 0.6) - cmbH(x, z - 0.6)) / 1.2; trees.push({ x, z, s, pine, y: gy - Math.min(0.55, tsl * 0.5), r: rr });   /* v368: on a steep slope the trunk is sunk so its downhill side does not float */ addS({ x0: x - 0.32, z0: z - 0.32, x1: x + 0.32, z1: z + 0.32, y0: gy - 0.6, y1: gy + 7, k: 'tree' });
+    const tsl = Math.hypot(cmbH(x + 0.6, z) - cmbH(x - 0.6, z), cmbH(x, z + 0.6) - cmbH(x, z - 0.6)) / 1.2; trees.push({ x, z, s, pine, y: gy - Math.min(0.55, tsl * 0.5), r: rr });   /* v368: on a steep slope the trunk is sunk so its downhill side does not float */ { const hw = 0.3 + 0.13 * s; addS({ x0: x - hw, z0: z - hw, x1: x + hw, z1: z + hw, y0: gy - 0.6, y1: gy + 7, k: 'tree' }); }   /* v448: the solid trunk grows with the tree (0.47 - 0.63 m, was a fixed 0.32): characters no longer sink into the thick trunks / low branches */
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)
   { const CC = ['#9d9d98', '#a8a8a2', '#8f8f8b', '#b2b1aa'];
@@ -589,6 +589,12 @@ export function hitsSolid(L, x, z, r, gy) {
   if (gy === undefined) gy = cmbH(x, z); const B = L.B, i0 = Math.floor((x - r) / B), i1 = Math.floor((x + r) / B), j0 = Math.floor((z - r) / B), j1 = Math.floor((z + r) / B);
   for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = L.bucket.get(i * 4099 + j); if (!a) continue; for (const s of a) { if (s.y1 < gy + (s.fine ? 0.5 : 0.3) || s.y0 > gy + 1.0) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return s; } }
   return null;
+}
+// v448: is there a roof (a building ceiling) just above this point? (the red bombs do not hurt anyone indoors)
+export function underRoof(L, x, z, y) {
+  const B = L.B, i = Math.floor(x / B), j = Math.floor(z / B);
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = L.bucket.get((i + di) * 4099 + (j + dj)); if (!a) continue; for (const s of a) { if (s.k !== 'roof') continue; if (s.y0 < y + 1.2 || s.y0 > y + 9) continue; if (x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1) return true; } }
+  return false;
 }
 // the highest roof / floor / crate top under (x,z) that is at or below yTop + 0.35 (what a parachutist can land on); -1e9 when none
 export function supportY(L, x, z, r, yTop) {

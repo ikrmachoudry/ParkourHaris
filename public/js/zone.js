@@ -3,9 +3,10 @@
 import { CMB, rawH, riverX } from './combat.js';
 // [wait before it shrinks (s), shrink time (s), radius at the end, damage per second outside]
 // v251: the first circle shows up only after 7 minutes, the end circle stays big enough to fight in (r 38) and the damage is HALF of before
+// v448: the first closing now starts after 200 s (was 420 s) and the red bombing circle lasts 58 s (was 115 s)
 // v440: the FIRST circle (circle 0) now covers the whole 600 x 600 m map (before it was a circle INSIDE the map square: players near the map corners / edge props took damage from minute 0). The first closing is gentle (r 270, a bit inside the map edge), then the same steps as before.
-const STEPS = [[420, 100, 270, 0.75], [60, 70, 170, 1.5], [45, 60, 105, 2.5], [35, 50, 62, 4], [25, 45, 38, 6]];
-export const BOMB_T = [330, 600], BOMB_LEN = 115, BOMB_R = 55;   // v251: the red BOMBING circle (independent of the blue one) shows up twice, 115 s each
+const STEPS = [[200, 100, 270, 0.75], [60, 70, 170, 1.5], [45, 60, 105, 2.5], [35, 50, 62, 4], [25, 45, 38, 6]];
+export const BOMB_T = [330, 600], BOMB_LEN = 58, BOMB_R = 55;   // v251: the red BOMBING circle (independent of the blue one) shows up twice, 115 s each
 export const AIR_T = [200, 470, 740];                           // v251: an airdrop plane crosses the island at these match seconds
 export const AIR = { v: 62, back: 460, alt: 170, fall: 7 };   // airdrop plane speed (m/s), how far before the drop point it starts, the height it drops from, the crate's fall speed under its parachute
 export const airLand = (q) => q.t0 + AIR.back / AIR.v + AIR.alt / AIR.fall;
