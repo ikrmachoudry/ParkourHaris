@@ -31,6 +31,27 @@ const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, in
 const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet'];
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
 const USE = { med: { dur: 4, hp: 50, name: 'FIRST AID' }, pills: { dur: 3, hp: 25, name: 'PAIN PILLS' }, inject: { dur: 1.8, hp: 20, name: 'ADRENALINE', boost: 6 } };
+const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to use it]
+  pistol: ['PISTOL', '12 rounds per magazine. Accurate and quiet, weak damage. Single shot: one click, one bullet. A good first gun.'],
+  revolver: ['REVOLVER', '6 heavy rounds per magazine. Hits much harder than the pistol but fires slowly and reloads slowly. Aim for the body.'],
+  smg: ['SMG', '25 rounds, very fast fire. Great at close range, weak and inaccurate far away. Hold fire to spray.'],
+  ak: ['AK-47', '30 rounds, full auto, strong damage but it kicks up. Fire short bursts and pull down against the recoil.'],
+  ak49: ['AK-49  (RARE)', '40 rounds and hits harder than the AK-47. The best all-round rifle. You will not find many.'],
+  m4: ['M4 RIFLE', '30 rounds, full auto, the most accurate rifle with low recoil. Good at medium range.'],
+  shotgun: ['SHOTGUN', '6 shells, devastating up close (under about 25 m), useless far away. Slow pump: one shot at a time.'],
+  sniper: ['SNIPER RIFLE (Kar98)', '5 rounds, one very powerful slow shot, range 400 m+. Hold AIM (right mouse) to look through the scope. Fit a TELESCOPE first for zoom.'],
+  ammo: ['AMMO BOX', 'Fills the spare ammo of every gun you carry. You can pick it up even with no gun: it waits in your backpack for your first gun.'],
+  med: ['FIRST AID', 'Heals +50 health but takes 4 seconds. You walk slowly while using it, and a hit stops it (it is not used up). Press 6 to use.'],
+  pills: ['PAIN PILLS', 'Heals +25 health in 3 seconds. Press 7 to use.'],
+  inject: ['ADRENALINE', 'Heals +20 health in under 2 seconds AND gives a speed boost for 6 seconds. Great for running away. Press 8 to use.'],
+  grenade: ['GRENADE', 'Press the backpack, pick it, then fire to throw. It explodes 2.6 seconds after leaving your hand, radius 7 m. Pull, throw, run.'],
+  smoke: ['SMOKE BOMB', 'Throw it to hide yourself or a teammate while healing or crossing open ground. Press 9 to throw.'],
+  molotov: ['MOLOTOV', 'Throw it to start a fire on the ground that burns anyone standing in it. Great for pushing people out of a room. Press N to throw.'],
+  scope: ['BINOCULARS', 'Press 0 to look far away with zoom (mouse wheel zooms). A separate item: it cannot be used on the sniper rifle.'],
+  sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
+  vest: ['BODY ARMOR', 'Takes 30% of every hit until its 100 points run out. Picked up, it is worn automatically.'],
+  helmet: ['HELMET', 'Takes 15% of every hit (and headshots hurt less) until its 60 points run out. Worn automatically.'],
+};
 const MY_DMG = 100;   // hit points of the player
 
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), BOT_VIS2 = (IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = 70 ** 2;   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
@@ -81,7 +102,7 @@ export class CombatScene {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this.victoryOpen = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0; this.lives = 3; this.spec = null; this.specHide();
-    { const T = R.jangTeam; this.practice = !!(window.phGuide && window.phGuide.practice); if (window.phGuide) window.phGuide.practice = false; this._pracPlaced = false; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, this.practice ? 2 : botCount(OPT.diff || 'medium', !!R.isTouch));   /* v432: HOW TO PLAY practice = 2 easy bots */ if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.practice = !!(window.phGuide && window.phGuide.practice); this.train = !!(window.phGuide && window.phGuide.train); if (window.phGuide) { window.phGuide.practice = false; window.phGuide.train = false; } this._pracPlaced = false; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, this.train ? 0 : this.practice ? 2 : botCount(OPT.diff || 'medium', !!R.isTouch));   /* v432: HOW TO PLAY practice = 2 easy bots */ if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     if (!this.map) { const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; } }
@@ -89,7 +110,33 @@ export class CombatScene {
     if (!this.zipG) this.buildZip();   // the landscape is built the first time a match starts (the city never pays for it)
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
-    this.startDrop();
+    if (this.train) this.startTrain(); else this.startDrop();
+  }
+  // ---------------------------------------------------------------- v442 TRAINING YARD (level 1): a flat, empty spot on the island with two long tables: every gun on one, every other item on the other. A text bar at the bottom says what the item near you is and how to use it.
+  startTrain() {
+    const R = this.R, b = R.me.body, L = layout(), sim = this.sim; this.time = 1e7; this.lives = 99; sim.noRespawn = true;
+    const SEA = -1.2, gridOk = (cx, cz) => { let lo = 1e9, hi = -1e9; for (let dx = -22; dx <= 22; dx += 4) for (let dz = -8; dz <= 22; dz += 4) { const x = cx + dx, z = cz + dz; if (Math.abs(x) > CMB.half - 12 || Math.abs(z) > CMB.half - 12) return null; const h = cmbH(x, z); lo = Math.min(lo, h); hi = Math.max(hi, h); if (h < SEA + 2.2 || hitsSolid(L, x, z, 2.5, h)) return null; for (const t of L.trees || []) if (Math.abs(t.x - x) < 5 && Math.abs(t.z - z) < 5) return null; for (const t of L.rocks || []) if (Math.abs(t.x - x) < 5 && Math.abs(t.z - z) < 5) return null; } return hi - lo; };
+    let best = null, bv = 1e9; for (let i = 0; i < 700 && bv > 0.35; i++) { const cx = (Math.random() * 2 - 1) * (CMB.half - 40), cz = (Math.random() * 2 - 1) * (CMB.half - 40), v = gridOk(cx, cz); if (v !== null && v < bv) { bv = v; best = { x: cx, z: cz }; } }
+    if (!best) best = { x: L.spawns[0].x, z: L.spawns[0].z }; this.yard = best;
+    const gy = cmbH(best.x, best.z), TOP = 0.95, GUNS = ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper'], ITEMS = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet'];
+    const tm = new THREE.MeshLambertMaterial({ color: 0x6a4a30 }), g = new THREE.Group(); this.trainG = g; this.stations = [];
+    const row = (kinds, z0) => { const sp = 3, n = kinds.length, w = n * sp, box = new THREE.Mesh(new THREE.BoxGeometry(w, TOP, 1.4), tm); box.position.set(CMB.x + best.x, gy + TOP / 2, CMB.z + best.z + z0); g.add(box);
+      kinds.forEach((k, i) => { const x = best.x + (i - (n - 1) / 2) * sp, it = sim.addLootAt(k, x, best.z + z0, {}); it.y = gy + TOP + 0.05; it.tk = 1; this.stations.push({ k, x, z: best.z + z0 }); }); };
+    row(GUNS, 18); row(ITEMS, 8);
+    this.group.add(g); b.x = CMB.x + best.x; b.z = CMB.z + best.z - 6; b.y = cmbH(best.x, best.z - 6) + 0.05; b.vx = b.vz = b.vy = 0; R.camInit = false; R.camYaw = 0;
+    this.dropping = false; this.endDrop(true); this.trainBar();
+    R.toast && R.toast('TRAINING YARD  -  level 1: walk up to each item and read the text at the bottom', 5);
+  }
+  trainBar() {
+    if (this.tbar) return; const e = document.createElement('div'); e.id = 'c-train';
+    e.style.cssText = 'position:fixed;left:50%;bottom:max(64px,9vh);transform:translateX(-50%);z-index:29;pointer-events:none;width:min(560px,50vw);box-sizing:border-box;text-align:center;font:700 12px/1.3 system-ui,sans-serif;color:#fff;background:rgba(10,14,22,.82);border:2px solid #4aa3ff;border-radius:12px;padding:8px 12px;text-shadow:0 1px 2px #000';
+    e.innerHTML = '<b style="display:block;color:#ffd23f;letter-spacing:1px;font-size:14px"></b><span></span>'; document.body.appendChild(e); this.tbar = e;
+    const x = document.createElement('button'); x.id = 'c-train-x'; x.type = 'button'; x.textContent = 'EXIT TRAINING'; x.style.cssText = 'position:fixed;right:max(10px,env(safe-area-inset-right));top:max(60px,8vh);z-index:31;font:800 11px system-ui,sans-serif;letter-spacing:1px;padding:7px 12px;border:1px solid #ffffff55;border-left:4px solid #d93a3a;background:rgba(8,10,14,.85);color:#fff;border-radius:6px;cursor:pointer';
+    const ex = (ev) => { ev.preventDefault(); ev.stopPropagation(); if (this.R.onCombatDone) this.R.onCombatDone(); }; x.addEventListener('pointerdown', ex); document.body.appendChild(x); this.tx = x;
+  }
+  trainTick() {
+    if (!this.tbar) return; const b = this.R.me.body, px = b.x - CMB.x, pz = b.z - CMB.z; let st = null, bd = 3.6 * 3.6; for (const s of this.stations || []) { const d = (s.x - px) ** 2 + (s.z - pz) ** 2; if (d < bd) { bd = d; st = s; } }
+    const tc = !!this.R.isTouch, H = st ? TRAIN_INFO[st.k] : null; if (this.tbar.dataset.k !== (st ? st.k : '')) { this.tbar.dataset.k = st ? st.k : ''; const bs = this.tbar.querySelector('b'), sp = this.tbar.querySelector('span'); bs.textContent = H ? H[0] : 'TRAINING YARD - LEVEL 1'; sp.textContent = H ? H[1] : (tc ? 'Walk to the tables. Left: the 8 guns. Right: ammo, healing, grenades, scopes and armor. Walk into an item to pick it up - it comes back after a moment. Open the BACKPACK button to use things.' : 'Walk (W A S D) to the tables. Far table: the 8 guns. Near table: ammo, healing, grenades, scopes and armor. Walk into an item to pick it up - it comes back after a moment. Press I for the backpack.'); }
   }
   respawn(seat) {
     const R = this.R, b = R.me.body, L = layout(); let p = L.spawns[((seat === undefined ? Math.floor(Math.random() * L.spawns.length) : seat * 5 + 1) % L.spawns.length + L.spawns.length) % L.spawns.length];
@@ -97,6 +144,7 @@ export class CombatScene {
     b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = cmbH(p.x, p.z) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
   }
   clear() {
+    if (this.trainG) { this.group.remove(this.trainG); this.trainG = null; } if (this.tbar) { this.tbar.remove(); this.tbar = null; } if (this.tx) { this.tx.remove(); this.tx = null; } this.stations = null;   // v442
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     if (this._winT || this._winAt) { clearTimeout(this._winFade); if (this._fadeEl) { this._fadeEl.remove(); this._fadeEl = null; } clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
     if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
@@ -297,7 +345,7 @@ export class CombatScene {
     d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
     if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else o.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
   }
-  endDrop(landed) { if (landed && this.practice && !this._pracPlaced && this.sim && !this.shared) this.placePracticeBots(); if (landed && window.phGuide) window.phGuide.maybeStart(this); this.diveHint = false; if (window.phVoiceUI) window.phVoiceUI(); if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
+  endDrop(landed) { if (landed && this.practice && !this._pracPlaced && this.sim && !this.shared) this.placePracticeBots(); if (landed && window.phGuide && !this.train) window.phGuide.maybeStart(this); this.diveHint = false; if (window.phVoiceUI) window.phVoiceUI(); if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
     if (!this._icons) { if (!hasProp('syringe') || !hasProp('medkit')) return ''; this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
@@ -370,6 +418,7 @@ export class CombatScene {
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
   stepZone(dt) {
+    if (this.train) { if (this.zw) this.zw.visible = false; this.outZone = false; zoneFx(false); zoneNear(0, 0, false); this.zoneTxt = 'TRAINING YARD'; this.z = { x: 0, z: 0, r: 9999, nx: 0, nz: 0, nr: 9999, i: 0, shrinking: false, last: false, left: 999, dps: 0 }; return; }   // v442: no blue zone in the training yard
     const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = this.shared && T ? makeZone(T.seed) : this.sim.Z;   // v251: the same circles the bots (and the server) use
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
     if (!this.zw) {   // v440: the wall is a glowing LASER curtain (bright at the ground, vertical beams, light bands rising) so it can be seen from far away
@@ -395,6 +444,7 @@ export class CombatScene {
   }
   // ---------------------------------------------------------------- v251 the red BOMBING circle: twice per match, 115 s each, anywhere on the island (independent of the blue circle); bombs fall from the sky
   stepBomb(dt) {
+    if (this.train) return;
     const R = this.R, Z = this.Z; if (!Z) return; const bz = bombAt(Z, this.t), THR = THREE;
     if (R.minimap) R.minimap.bomb = bz;
     if (!bz) { if (this.bw) this.bw.visible = false; this._bk = -1; this._bmsg = 0; return; }
@@ -439,6 +489,7 @@ export class CombatScene {
   }
   onAirland(e) { const a = this.airs && this.airs.find((q) => q.n === e.n); if (a) { a.landed = true; a.t = Math.max(a.t, AIR.back / AIR.v + AIR.alt / AIR.fall); } if (this.R.minimap) this.R.minimap.air = { x: e.x, z: e.z }; if (!this.dropping && this.R.toast) this.R.toast('AIRDROP LANDED - gold loot at the green smoke', 3.5); }
   stepAir(dt) {
+    if (this.train) return;
     { const pf = this._pf; if (pf && this.plane) { if (!this.plane.visible || pf.t > 60 || this.dropping) this._pf = null; else { pf.t += dt; this.plane.position.x += pf.hd[0] * pf.v * dt; this.plane.position.z += pf.hd[1] * pf.v * dt; if (this.planeProps) for (const pv of this.planeProps) { pv.rotation.z += dt * 38; pv.visible = true; } if (pf.t > 55) { this.plane.visible = false; this._pf = null; } } } }   /* v300: the transport plane did not stand still in the sky after you landed: it flies on at its speed and leaves */
     if (!this.airs) return; const tp = AIR.back / AIR.v;
     for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
@@ -537,7 +588,7 @@ export class CombatScene {
       this.time -= this.rdt || dt; this.stepDown(dt);
       // the ammo / health / weapons on the ground
       if (!(P.alive && !this.dropping)) { this.using = null; if (this.R.telescope) this.R.telescope = false; }
-      if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); } else this.promptIt = null;
+      if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); if (this.train) this.trainTick(); } else this.promptIt = null;
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
       if (this.spec) this.specTick();
@@ -773,6 +824,7 @@ export class CombatScene {
     requestAnimationFrame(() => { e.style.opacity = 1; e.style.transform = 'none'; }); setTimeout(() => { e.style.opacity = 0; }, 2400); setTimeout(() => e.remove(), 3000); while (f.children.length > 4) f.firstChild.remove();
   }
   pickup(it) {
+    if (this.train && it.tk) { const tk = it.tk; setTimeout(() => { if (this.on && this.train && this.sim) { const n = this.sim.addLootAt(it.k, it.x, it.z, {}); n.y = it.y; n.tk = tk; } }, 2500); }   // v442: a training item comes back 2.5 s after you take it
     this.feed('+ ' + (LOOT_NAME[it.k] || String(it.k).toUpperCase()));
     const R = this.R, W = R.wallet, cb = W && W.cb; if (!cb) return; if (!cb.inv) cb.inv = { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0 }; const k = it.k, A_ = (m) => { R.toast && R.toast(m); A.sfx.pickup && A.sfx.pickup(); };
     const gun = (w) => { const S = WEAPONS[w]; if (!cb.owned[w]) { cb.owned[w] = true; cb.mag[w] = it.am ? it.am.mag : S.mag; cb.ammo[w] = (it.am ? it.am.res : S.ammoPack) + (cb.spare | 0) * (S.ammoPack || 0); cb.spare = 0; if (!R.weapon || R.weapon === 'bat' || R.weapon === 'fist' || it.am) R.equip(w); A_('PICKED UP ' + LOOT_NAME[w]); } else { cb.ammo[w] = (cb.ammo[w] || 0) + S.ammoPack; A_(LOOT_NAME[w] + ' - EXTRA AMMO'); } };
