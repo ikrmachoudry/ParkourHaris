@@ -81,7 +81,7 @@ const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= 
 // v338: Jang victory page: the winning team = the last team standing, or (time up) the team with the most kills
 function buildRes(room, rd) {
   if (room.cresDone === rd) return; room.cresDone = rd; clearTimeout(room.cresT);
-  const rows = [...room.players.values()].filter((q) => q.cs && q.cs.rd === rd).map((q) => ({ id: q.id, ...q.cs }));
+  const rows = [...room.players.values()].filter((q) => q.cs && q.cs.rd === rd).map((q) => ({ id: q.id, ...q.cs })); for (const g of room.csGone || []) if (g.rd === rd && !rows.some((r) => r.id === g.id)) rows.push({ ...g });
   if (!rows.length) return;
   const T = {}; for (const r of rows) { const t = T[r.tm] = T[r.tm] || { tm: r.tm, k: 0, d: 0, out: 1 }; t.k += r.k; t.d += r.d; if (!r.out) t.out = 0; }
   const teams = Object.values(T).sort((a, b) => (a.out - b.out) || (b.k - a.k) || (a.d - b.d));   // alive teams first, then most kills, then fewest deaths
@@ -198,7 +198,7 @@ const goMsg = (room, meta) => ({
 
 function startRound(room) {
   const meta = LEVEL_META[room.level];
-  room.cresDone = null; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
+  room.cresDone = null; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); room.csGone = []; for (const q of room.players.values()) q.csSnap = null; for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
   room.phase = 'countdown';
   room.t0 = Date.now() + (meta.city ? 0 : COUNTDOWN_MS);   // the open-world city has no 3-2-1: you simply start
   room.finishCount = 0;
@@ -221,6 +221,7 @@ function startRound(room) {
 function removePlayer(p) {
   const room = p.room;
   if (!room) return;
+  const gone = p.cs || p.csSnap; if (gone) { room.csGone = (room.csGone || []).filter((g) => g.id !== p.id); room.csGone.push({ id: p.id, ...gone }); }   // v456: a teammate who died and pressed LEAVE (or dropped) still appears on the victory / defeat table
   leaveTeam(room, p); room.players.delete(p.id);
   p.room = null;
   if (room.hub) room.hub.drop(p.id, pids(room));
@@ -352,6 +353,7 @@ wss.on('connection', (ws, req) => {
       case 'cstat': {   // v338: Jang: every player reports his own end-of-match stats; the server picks the winning team and sends the victory page data to everybody
         if (!room || !room.combat || room.phase !== 'race') return;
         const clean = (o) => { const r = {}; if (o && typeof o === 'object') for (const k of Object.keys(o).slice(0, 14)) if (k.length < 14 && num(o[k], 0, 999)) r[k] = o[k] | 0; return r; };
+        if (m.snap) { p.csSnap = { rd: m.rd | 0, name: String(p.name || '').slice(0, 24), tm: p.jtm & 3, ch: p.char | 0, sk: (p.skin | 0) & 15, k: num(m.k, 0, 999) ? m.k | 0 : 0, d: num(m.d, 0, 999) ? m.d | 0 : 0, bots: clean(m.bots), ply: clean(m.ply), dby: clean(m.dby), out: 1, fin: 0 }; break; }   // v456: a player who is out reports once, so the table still lists him if he leaves before the end
         p.cs = { rd: m.rd | 0, name: String(p.name || '').slice(0, 24), tm: p.jtm & 3, ch: p.char | 0, sk: (p.skin | 0) & 15, k: num(m.k, 0, 999) ? m.k | 0 : 0, d: num(m.d, 0, 999) ? m.d | 0 : 0, bots: clean(m.bots), ply: clean(m.ply), dby: clean(m.dby), out: m.out ? 1 : 0, fin: m.fin ? 1 : 0 };
         evalWin(room, p.cs.rd, !!m.tu); break;
       }
