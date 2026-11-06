@@ -791,7 +791,7 @@ export class CombatScene {
   }
   canTake(it) {
     const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return false; const k = it.k;
-    if (isGunK(k)) return !cb.owned[k] && this.guns().length < 2;   // a full pair of hands: press F to swap. v438: a gun you already own stays on the floor ("ALREADY OWNED")
+    if (isGunK(k)) { if (cb.owned[k]) return (cb.ammo[k] || 0) < ((WEAPONS[k] && WEAPONS[k].ammoPack) || 0) * 3; return this.guns().length < 2; }   /* v454: a gun you already own is no longer dead weight on the floor: walking over it gives you ITS AMMO (until your reserve is 3 full packs) */   // a full pair of hands: press F to swap. v438: a gun you already own stays on the floor ("ALREADY OWNED")
     if (k === 'bat') return false;   /* v263: no bat in Jang (GTA only) */
     if (k === 'ammo') return true;   /* v255: PUBG: you can always pick ammo up; it waits in the backpack for your first gun */
     return this.count(k) < (CAP[k] || 4);
@@ -799,7 +799,7 @@ export class CombatScene {
   // E: swap the gun in your hands (or the first one) for the gun on the ground in front of you
   promptTick(P) {
     const it = this.sim.near(P.x, P.z, this.R.me.body.y); { const cb0 = this.R.wallet && this.R.wallet.cb; this.promptIt = it && isGunK(it.k) && !(cb0 && cb0.owned[it.k]) && !this.canTake(it) ? it : null; }
-    if (it && !this.promptIt && !this.canTake(it)) { const nw = performance.now(); if (nw - (this._noT || 0) > 1800) { this._noT = nw; const nm = LOOT_NAME[it.k] || it.k.toUpperCase(); this.R.toast && this.R.toast(it.k === 'ammo' ? 'AMMO BOX - you need a gun first' : it.k === 'bat' ? 'You already have a BASEBALL BAT' : (isGunK(it.k) || CAP[it.k] === 1 ? 'ALREADY OWNED - ' + nm : nm + ' - BACKPACK FULL (' + this.count(it.k) + '/' + (CAP[it.k] || 4) + ')'), 1.8); } }   // v247: always say WHY an item cannot be taken
+    if (it && !this.promptIt && !this.canTake(it)) { const nw = performance.now(); if (nw - (this._noT || 0) > 1800) { this._noT = nw; const nm = LOOT_NAME[it.k] || it.k.toUpperCase(); this.R.toast && this.R.toast(it.k === 'ammo' ? 'AMMO BOX - you need a gun first' : it.k === 'bat' ? 'You already have a BASEBALL BAT' : (isGunK(it.k) || CAP[it.k] === 1 ? 'ALREADY OWNED - ' + nm + (isGunK(it.k) ? ' (your ammo for it is full)' : '') : nm + ' - BACKPACK FULL (' + this.count(it.k) + '/' + (CAP[it.k] || 4) + ')'), 1.8); } }   // v247: always say WHY an item cannot be taken
     if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
     { const b = this.R.me.body, nw = performance.now(); for (const t of layout().towers) { const dx = b.x - CMB.x - t.x, dz = b.z - CMB.z - t.z - 5.6; if (Math.abs(b.y - t.gy) < 1.5 && Math.hypot(dx, dz) < 3.2 && nw - (this._twT || 0) > 15000) { this._twT = nw; this.R.toast && this.R.toast('Walk in through the DOOR - the stairs wind up inside the tower', 3); } } }
     { const Z = layout().zip, b = this.R.me.body; let zn = false; if (Z && !this.R.zipR && !this.down) { const ox = b.x - CMB.x, oz = b.z - CMB.z; zn = Math.hypot(ox - Z.ax, oz - Z.az) < 1.9 && Math.abs(b.y - Z.ay) < 1.3; } this.zipNear = zn; }
