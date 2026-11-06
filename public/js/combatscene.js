@@ -422,14 +422,13 @@ export class CombatScene {
     const R = this.R, T = R.jangTeam; if (!this.Z) this.Z = this.shared && T ? makeZone(T.seed) : this.sim.Z;   // v251: the same circles the bots (and the server) use
     const z = zoneAt(this.Z, this.t), wasShr = this.z ? this.z.shrinking : false, wasI = this.z ? this.z.i : 0; this.z = z;
     if (!this.zw) {   // v440: the wall is a glowing LASER curtain (bright at the ground, vertical beams, light bands rising) so it can be seen from far away
-      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256; const g = cv.getContext('2d');
-      const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, 'rgba(120,190,255,.95)'); gr.addColorStop(0.18, 'rgba(60,140,255,.55)'); gr.addColorStop(0.6, 'rgba(40,110,255,.22)'); gr.addColorStop(1, 'rgba(40,110,255,.06)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
-      g.fillStyle = 'rgba(190,225,255,.75)'; for (let x = 6; x < 128; x += 32) g.fillRect(x, 0, 2, 256);   // vertical beams
-      g.fillStyle = 'rgba(190,225,255,.5)'; for (let y = 20; y < 256; y += 64) g.fillRect(0, y, 128, 3);   // horizontal light bands
-      const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(36, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 64, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx; }
-    if (this.zwTex) this.zwTex.offset.y = (this.zwTex.offset.y - dt * 0.12) % 1;   // the bands crawl upward
-    this.zw.position.set(CMB.x + z.x, 30, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
+      const cv = document.createElement('canvas'); cv.width = 128; cv.height = 512; const g = cv.getContext('2d');   // v444 (PUBG look): a tall hazy BLUE wall: strongest at the ground, fading to nothing high up (no visible top edge), faint vertical streaks, a bright line at the foot
+      const gr = g.createLinearGradient(0, 512, 0, 0); gr.addColorStop(0, 'rgba(90,170,255,.95)'); gr.addColorStop(0.03, 'rgba(60,140,255,.6)'); gr.addColorStop(0.12, 'rgba(40,120,255,.34)'); gr.addColorStop(0.35, 'rgba(40,110,255,.16)'); gr.addColorStop(0.7, 'rgba(40,110,255,.06)'); gr.addColorStop(1, 'rgba(40,110,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 512);
+      for (let x = 4; x < 128; x += 16) { const a = 0.07 + 0.08 * ((x * 7) % 5) / 4, sg = g.createLinearGradient(0, 512, 0, 0); sg.addColorStop(0, 'rgba(170,215,255,' + (a * 2.2) + ')'); sg.addColorStop(0.5, 'rgba(170,215,255,' + a * 0.5 + ')'); sg.addColorStop(1, 'rgba(170,215,255,0)'); g.fillStyle = sg; g.fillRect(x, 0, 2, 512); }   // faint vertical streaks
+      const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.wrapT = THREE.ClampToEdgeWrapping; tx.repeat.set(48, 1); if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 600, 64, 1, true), new THREE.MeshBasicMaterial({ map: tx, color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, fog: false })); m.frustumCulled = false; this.group.add(m); this.zw = m; this.zwTex = tx; }
+    if (this.zwTex) this.zwTex.offset.x = (this.zwTex.offset.x + dt * 0.01) % 1;   // the streaks drift slowly sideways
+    this.zw.position.set(CMB.x + z.x, 250, CMB.z + z.z); this.zw.scale.set(z.r, 1, z.r);
     this.zw.visible = !this.dropping && (z.shrinking || z.i > 0 || z.left < 90);   /* v440: the wall shows 90 s before the first closing (it was 30 s) */   /* v267: no blue wall during the plane drop / the first minutes: it only appears when the first circle is about to close */
     if (R.minimap) R.minimap.zone = z;
     const fm = (s) => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60); };
