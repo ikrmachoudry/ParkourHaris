@@ -43,6 +43,7 @@ import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
 const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches && matchMedia('(hover: hover)').matches && !matchMedia('(pointer: coarse)').matches;   // a laptop / PC with a mouse (even a touchscreen laptop): keyboard + mouse only
+const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 let sprintLock = false;   // v213: PUBG-style SPRINT LOCK on a phone: push the stick all the way up into the lock icon and let go - the character keeps sprinting forward until you touch the stick again
@@ -1963,9 +1964,10 @@ class Race {
       for (const c of this.cars) { const u = c.mesh.userData; if (u.full && u.baked && u.full !== u.baked) { vis.push([u.full, u.full.visible], [u.baked, u.baked.visible]); u.full.visible = true; u.baked.visible = false; } }
       for (const r of this.remotes.values()) { vis.push([r.model.group, r.model.group.visible]); r.model.group.visible = true; }
       renderer.compile(sc, this.camera);
+      if (IS_ANDROID) throw new Error('android: skip full-scene warm render');   // v449: budget Android GPUs stall or lose the context on one huge draw of the whole island; shaders are compiled, textures upload as they come into view
       const rt = new THREE.WebGLRenderTarget(4, 4);
       try { renderer.setRenderTarget(rt); renderer.render(sc, this.camera); } finally { renderer.setRenderTarget(null); rt.dispose(); }
-    } catch (e) { console.warn('warm-up skipped', e); }
+    } catch (e) { if (!IS_ANDROID) console.warn('warm-up skipped', e); }
     for (const [o, f] of culled) o.frustumCulled = f;
     for (const [o, v] of vis) o.visible = v;
   }
