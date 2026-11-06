@@ -1144,6 +1144,12 @@ body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"], 
 body.jang-mode:not(.jang-fight) #a-punch, body.jang-mode:not(.jang-fight) #a-weapon, body.jang-mode:not(.jang-fight) #a-reload, body.jang-mode:not(.jang-fight) #a-fmode, body.jang-mode:not(.jang-fight) #a-aim, body.jang-mode:not(.jang-fight) #c-bag, body.jang-mode:not(.jang-fight) #c-pick, body.jang-mode:not(.jang-fight) #a-crouch, body.jang-mode:not(.jang-fight) #a-prone { display: none !important; }
 body.jang-mode #a-weapon, body.jang-mode #wheel { display: none !important; }
 #c-slots { position: fixed; left: 50%; transform: translateX(-50%); bottom: 54px; z-index: 46; display: none; gap: 6px; }
+#c-spslots { position: fixed; left: 50%; transform: translateX(-50%); bottom: 54px; z-index: 46; display: none; gap: 6px; pointer-events: none; }
+#c-spslots button { min-width: 74px; height: 38px; padding: 2px 8px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,.35); background: rgba(10,12,14,.55); color: #fff; font: 800 11px system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; position: relative; }
+#c-spslots button u { position: absolute; left: 4px; top: 1px; font-size: 9px; color: #f5b301; text-decoration: none; }
+#c-spslots button small { font-size: 9px; color: #cfd6dc; font-weight: 700; }
+#c-spslots button.sel { border-color: #f5b301; background: rgba(245,179,1,.28); }
+#c-spslots button img { max-height: 16px; max-width: 54px; }
 #c-slots button { min-width: 74px; height: 38px; padding: 2px 8px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,.35); background: rgba(10,12,14,.55); color: #fff; font: 800 11px system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; position: relative; touch-action: manipulation; }
 #c-slots button u { position: absolute; left: 4px; top: 1px; font-size: 9px; color: #f5b301; text-decoration: none; }
 #c-slots button small { font-size: 9px; color: #cfd6dc; font-weight: 700; }

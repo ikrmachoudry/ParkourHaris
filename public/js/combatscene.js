@@ -397,6 +397,11 @@ export class CombatScene {
     this._jt = (this._jt || 0) + dt; if (!this._jtTimer) this._jtTimer = setInterval(() => { try { if (this.on && performance.now() - (this._jtAt || 0) > 900) this.sendJt(); } catch (e) { /* noop */ } }, 1000);   /* v299: a tab / phone in the background stops drawing frames, so this function stopped and the others lost the player after 4 s: a timer keeps the position going out about once a second */
     if (this._jt < 0.1) return; this._jt = 0; this.sendJt();
   }
+  // v446: what a spectating teammate sees of ME: health, armor, the two guns with their ammo, the throwable and the backpack counts (sent about 3 times a second, 60 bytes)
+  ivBits() {
+    const now = performance.now(); if (now - (this._ivAt || 0) < 330) return {}; this._ivAt = now; const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb) return {}; const gs = this.guns(), iv = cb.inv || {}, g = (k) => (k ? k + ',' + (cb.mag[k] | 0) + ',' + (cb.ammo[k] | 0) : ',0,0');
+    return { iv: [Math.max(0, Math.round(this.hp)), iv.vest > 0 ? Math.round(cb.vestHp) : 0, iv.helmet > 0 ? Math.round(cb.helmHp) : 0, cb.nades | 0, iv.molotov | 0, iv.smoke | 0, iv.med | 0, iv.pills | 0, iv.inject | 0, iv.scope | 0, iv.sscope | 0, R.heldThrow || '', g(gs[0]), g(gs[1])].join(',') };
+  }
   sendJt() {
     const T = this.R.jangTeam; if (!T || !T.net || !this.on) return; this._jtAt = performance.now();
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
@@ -405,7 +410,7 @@ export class CombatScene {
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, dd: this.deadT > 0 ? 1 : 0, tm: T.tm, vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, hn: ph === 5 && A.hornOn && A.hornOn() ? 1 : 0, rv: this.reviving ? 1 : 0, ...this.poseBits(ph) });
+    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, dd: this.deadT > 0 ? 1 : 0, tm: T.tm, ...this.ivBits(), vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, hn: ph === 5 && A.hornOn && A.hornOn() ? 1 : 0, rv: this.reviving ? 1 : 0, ...this.poseBits(ph) });
   }
   /* v320: every movement the others can see (PUBG): crouch, prone, jump / fall, vault, reload, lean, punch, kick, grenade throw, camera pitch for the aim */
   poseBits(ph) { const R = this.R, b = R.me.body; if (ph !== 4) return { st: 0 };
@@ -414,6 +419,7 @@ export class CombatScene {
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const sk = m.sk | 0, mo = sk >= 4 && sk <= 8 ? makeSkin(sk, undefined, false) : makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
+    if (typeof m.iv === 'string' && m.iv.length < 200) g.iv = m.iv.split(',');
     g.id = m.id; g.c = m.c; g.sk = m.sk | 0; g.wp = m.wp || ''; g.ai = m.ai; g.hn = m.hn ? 1 : 0; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; { const st = m.st | 0, o = g.st | 0; if ((st & 128) && !(o & 128)) g.pt = 0.001; if ((st & 256) && !(o & 256)) g.pt = 0.001; if ((st & 32) && !(o & 32)) g.vt = 0.001; if ((st & 512) && !(o & 512)) g.nt0 = performance.now(); g.st = st; g.lv = +m.lv || 0; g.rl = +m.rl || 0; g.cp = +m.cp || 0; g.nts = m.nt | 0; g.vy = +m.vy || 0; } g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
   // ---------------------------------------------------------------- v243 safe zone (PUBG): the circle shrinks, outside it you take damage
@@ -590,7 +596,7 @@ export class CombatScene {
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); if (this.train) this.trainTick(); } else this.promptIt = null;
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
-      if (this.spec) this.specTick();
+      if (this.spec) { this.specTick(); this.specHud(); }
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
       else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
@@ -689,12 +695,29 @@ export class CombatScene {
   specLabel() { if (!this.specEl) return; const g = this.spec && this.mates.get(this.spec.id), n = this.specEl.querySelector('.sp-n'); if (n) n.textContent = 'WATCHING ' + String((g && g.nm) || 'TEAMMATE').toUpperCase(); }
   specShow() {
     if (!this.spec) return; if (this.ov) this.ov.style.display = 'none';
-    if (!this.specEl) { const e = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;bottom:max(70px,9vh);transform:translateX(-50%);z-index:60;display:flex;gap:10px;align-items:center;font:800 13px system-ui,sans-serif;color:#fff;letter-spacing:2px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);padding:8px 12px';
+    if (!this.specEl) { const e = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;bottom:max(140px,19vh);transform:translateX(-50%);z-index:60;display:flex;gap:10px;align-items:center;font:800 13px system-ui,sans-serif;color:#fff;letter-spacing:2px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);padding:8px 12px';
       e.innerHTML = '<span class="sp-n"></span><button class="sp-x" style="font:800 12px system-ui;letter-spacing:2px;padding:9px 14px;border:1px solid #fff5;background:#14171e;color:#fff;cursor:pointer">NEXT</button><button class="sp-l" style="font:800 12px system-ui;letter-spacing:2px;padding:9px 14px;border:1px solid #fff5;background:#d93a3a;color:#fff;cursor:pointer">LEAVE</button>';
       document.body.appendChild(e); this.specEl = e; e.querySelector('.sp-x').onclick = () => { this.specNext(); }; e.querySelector('.sp-l').onclick = () => { if (this.over) return; this.spec = null; this.specHide(); this.leaveAfterWin(); }; }
     this.specEl.style.display = 'flex'; this.specLabel(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { /* noop */ }
   }
-  specHide() { if (this.specEl) this.specEl.style.display = 'none'; }
+  specHide() { if (this.specEl) this.specEl.style.display = 'none'; if (this.spH) this.spH.style.display = 'none'; if (this.spS) this.spS.style.display = 'none'; if (this.spI) this.spI.style.display = 'none'; if (this.hpBar) this.hpBar.style.visibility = ''; if (this.slotEl) this.slotEl.style.visibility = ''; this._sk = ''; this._spK = ''; }
+  // v446: SPECTATING: the watched teammate's health bar, armor, weapon slots with ammo, throwable and backpack counts are shown exactly as he sees them (his own are hidden)
+  specHud() {
+    const g = this.spec && this.mates.get(this.spec.id); if (!g || !g.iv) return; const v = g.iv, key = v.join(',') + '|' + (g.wp || '') + '|' + this.spec.id + '|' + (this.R.isTouch ? 1 : 0); if (key === this._spK && this.spH && this.spH.style.display !== 'none') return; this._spK = key;
+    if (!this.spH) {
+      const h = document.createElement('div'); h.id = 'c-sphp'; h.style.cssText = 'position:fixed;left:50%;bottom:max(8px,2.5vh);transform:translateX(-50%);z-index:46;pointer-events:none;width:min(34vw,300px);font:800 11px/1.2 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center';
+      h.innerHTML = '<div style="display:flex;justify-content:space-between;margin:0 4px 3px"><span class="sh-n"></span><span class="sh-h">100</span></div><div style="height:9px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.4);border-radius:5px;overflow:hidden"><div class="sh-b" style="height:100%;width:100%"></div></div>';
+      document.body.appendChild(h); this.spH = h; const sl = document.createElement('div'); sl.id = 'c-spslots'; document.body.appendChild(sl); this.spS = sl;
+      const inf = document.createElement('div'); inf.id = 'c-spinfo'; inf.style.cssText = 'position:fixed;left:50%;bottom:98px;transform:translateX(-50%);z-index:46;pointer-events:none;width:min(46vw,420px);text-align:center;font:700 10px/1.25 system-ui,sans-serif;text-shadow:0 1px 3px #000'; inf.innerHTML = '<div class="sh-a" style="color:#9fd0ff"></div><div class="sh-i" style="color:#e2e8ee"></div>'; document.body.appendChild(inf); this.spI = inf; }
+    const hp = +v[0] || 0, vest = +v[1] || 0, hel = +v[2] || 0, nd = +v[3] | 0, mo = +v[4] | 0, sm = +v[5] | 0, md = +v[6] | 0, pl = +v[7] | 0, ij = +v[8] | 0, sc = +v[9] | 0, ss = +v[10] | 0, ht = v[11] || '', G1 = [v[12], v[13], v[14]], G2 = [v[15], v[16], v[17]], wp = g.wp || '';
+    this.spH.style.display = 'block'; this.spH.querySelector('.sh-n').textContent = String(g.nm || 'TEAMMATE').toUpperCase(); this.spH.querySelector('.sh-h').textContent = hp; const b = this.spH.querySelector('.sh-b'); b.style.width = Math.max(0, Math.min(100, hp)) + '%'; b.style.background = hp > 55 ? '#4ade80' : hp > 25 ? '#facc15' : '#ef4444';
+    this.spI.querySelector('.sh-a').textContent = (vest ? 'VEST ' + vest : '') + (vest && hel ? '  \u2022  ' : '') + (hel ? 'HELMET ' + hel : '');
+    this.spI.querySelector('.sh-i').textContent = ['MED ' + md, 'PILLS ' + pl, 'ADRENALINE ' + ij, 'SMOKE ' + sm, 'MOLOTOV ' + mo, 'BINOCULARS ' + sc, 'TELESCOPE ' + ss].filter((t) => !/ 0$/.test(t)).join('  \u2022  ');
+    const tk = nd > 0 ? 'grenade' : mo > 0 ? 'molotov' : sm > 0 ? 'smoke' : '', hk = tk && wp === 'grenade' && ht && ((ht === 'molotov' && mo > 0) || (ht === 'smoke' && sm > 0) || ht === 'grenade') ? ht : (tk || 'grenade'), hn = hk === 'grenade' ? nd : hk === 'molotov' ? mo : sm;
+    const list = [G1[0] ? G1 : null, G2[0] ? G2 : null, tk ? [hk, 'x' + hn] : null];
+    this.spS.innerHTML = list.map((e, i) => '<button type="button" class="' + (e ? '' : 'empty ') + (e && (e[0] === wp || (i === 2 && wp === 'grenade')) ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (e && this.icon(e[0] === 'molotov' || e[0] === 'smoke' ? 'grenade' : e[0]) ? '<img alt="" src="' + this.icon(e[0] === 'molotov' || e[0] === 'smoke' ? 'grenade' : e[0]) + '">' : '') + (e ? '<b>' + String(e[0]).toUpperCase() + '</b><small>' + (i === 2 ? e[1] : (e[1] | 0) + '/' + (e[2] | 0)) + '</small>' : '') + '</button>').join('');
+    this.spS.style.display = 'flex'; this.spI.style.display = 'block'; if (this.hpBar) this.hpBar.style.visibility = 'hidden'; if (this.slotEl) this.slotEl.style.visibility = 'hidden';
+  }
   specTick() { if (!this.spec || this.over) return; this._spT = (this._spT || 0) - 0.016; if (this._spT > 0) return; this._spT = 0.5; if (!this.specList().length && this.teamWiped()) this.teamLost(); }   // the last teammate fell: the team is out
   // v286 PUBG: when EVERY player of a team is down (or dead) nobody can pick anybody up: the team is out and the match is over for it
   teamWiped() { const T = this.R.jangTeam; if (!T || !this.shared || this.dropping) return false; const now = performance.now(); let seen = 0; for (const [, g] of this.mates) { if (g.tm !== T.tm || !g.has || now - g.at > 3000) continue; seen++; if (g.al !== 0 && g.ph !== 7) return false; } return seen > 0; }

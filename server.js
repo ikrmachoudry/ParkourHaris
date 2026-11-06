@@ -85,8 +85,9 @@ function buildRes(room, rd) {
   if (!rows.length) return;
   const T = {}; for (const r of rows) { const t = T[r.tm] = T[r.tm] || { tm: r.tm, k: 0, d: 0, out: 1 }; t.k += r.k; t.d += r.d; if (!r.out) t.out = 0; }
   const teams = Object.values(T).sort((a, b) => (a.out - b.out) || (b.k - a.k) || (a.d - b.d));   // alive teams first, then most kills, then fewest deaths
+  const noWin = teams.length === 1 && teams[0].out;   // v446: a lone team that was wiped out (everybody eliminated) has NOT won: it gets the DEFEAT page and song
   rows.sort((a, b) => b.k - a.k || a.d - b.d);
-  bcast(room, { t: 'cres', rd, win: teams[0].tm, rows, teams: teams.map((t) => ({ tm: t.tm, k: t.k, d: t.d, n: String(((room.teams || [])[t.tm] || {}).name || ('TEAM ' + (t.tm + 1))).slice(0, 24) })) });
+  bcast(room, { t: 'cres', rd, win: noWin ? -1 : teams[0].tm, rows, teams: teams.map((t) => ({ tm: t.tm, k: t.k, d: t.d, n: String(((room.teams || [])[t.tm] || {}).name || ('TEAM ' + (t.tm + 1))).slice(0, 24) })) });
   room.phase = 'results'; room.chost = null; bcast(room, lobbyMsg(room));   // v433: the match is over: the room is back in its lobby state (teams are kept) so the host can start the next one without making a new room
 }
 function evalWin(room, rd, timeUp) {
@@ -331,7 +332,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
         p.jx = m.x; p.jy = m.y; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 3; p.jsp = num(m.sp, 0, 100) ? m.sp : 0; p.jst = (m.st | 0) & 3;   // v245: where I am and whether the bots may shoot me
-        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, sk: (p.skin | 0) & 15, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, hn: m.hn ? 1 : 0, rv: m.rv ? 1 : 0, al: m.al ? 1 : 0, dd: m.dd ? 1 : 0, st: (m.st | 0) & 8191, lv: num(m.lv, -1, 1) ? m.lv : 0, rl: num(m.rl, 0, 1) ? m.rl : 0, cp: num(m.cp, -2, 2) ? m.cp : 0, nt: (m.nt | 0) & 3, vy: num(m.vy, -60, 60) ? m.vy : 0 }, p.id); break;
+        bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, sk: (p.skin | 0) & 15, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, hn: m.hn ? 1 : 0, rv: m.rv ? 1 : 0, al: m.al ? 1 : 0, dd: m.dd ? 1 : 0, st: (m.st | 0) & 8191, lv: num(m.lv, -1, 1) ? m.lv : 0, rl: num(m.rl, 0, 1) ? m.rl : 0, cp: num(m.cp, -2, 2) ? m.cp : 0, nt: (m.nt | 0) & 3, vy: num(m.vy, -60, 60) ? m.vy : 0, iv: typeof m.iv === 'string' && m.iv.length < 160 && /^[\w,]*$/.test(m.iv) ? m.iv : undefined }, p.id); break;
       }
       case 'jr': {   // v244: a teammate revives me (relay only)
         if (!room || !room.combat || room.phase !== 'race') return;
