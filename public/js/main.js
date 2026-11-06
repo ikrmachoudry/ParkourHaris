@@ -2679,8 +2679,10 @@ function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? (Q
 function syncPause() {
   $('p-sound').textContent = '\uD83D\uDD0A SOUND: ' + (app.muted ? 'OFF' : 'ON');
 }
+window.phClosePause = () => { try { if (race && race.menuOpen) closePause(); } catch { /* ignore */ } };
 function openPause() {
   if (!race || race.over || race.menuOpen) return;
+  try { const cs0 = race.mission && race.mission.cs; if (cs0 && cs0.spec && cs0.hp <= 0) return; } catch { /* ignore */ }   // v455: while you spectate there is no pause menu: only the LEAVE button
   if (race.bigMapOpen) race.toggleMap(false);
   race.menuOpen = true;
   if (!race.multi && !race.paused) { race.paused = true; race.pauseAt = performance.now(); }
