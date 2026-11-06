@@ -51,7 +51,8 @@ export class MissionClient {
   }
   // COMBAT MISSION from the main menu (alone): press the invisible pad for the player
   // a black 'loading' cover so the city never shows before the battle map
-  cover(on, txt) { if (!txt || !/^ERROR/.test(txt)) { if (on) loadScreen.show('JANG', txt || 'LOADING BATTLE MAP...'); else loadScreen.finish(); return; } loadScreen.show('JANG', txt); }   // v188: the loading screen (wallpaper + progress bar) replaces the black cover
+  cover(on, txt) { if (this.dead && on) return;   // v445: a cancelled loading screen must not come back
+   if (!txt || !/^ERROR/.test(txt)) { if (on) loadScreen.show('JANG', txt || 'LOADING BATTLE MAP...'); else loadScreen.finish(); return; } loadScreen.show('JANG', txt); }   // v188: the loading screen (wallpaper + progress bar) replaces the black cover
   autoCombat() { this.cover(true); setTimeout(() => { if (this.phase !== 'idle') { this.cover(false); return; } this.send({ t: 'm_in', on: true }); this.send({ t: 'm_pick', mission: 'combat' }); this.send({ t: 'm_start' }); }, 1200); }
   pressStart() { if (this.phase === 'idle' && this.lobby.in.includes(this.race.localId)) { this.send({ t: 'm_start', role: this.soloRole || 'sniper' }); if (this.relock) this.relock(); } }
   // where I am, as the thief director wants to know it (the same numbers the server keeps in multiplayer)
@@ -95,7 +96,7 @@ export class MissionClient {
     if (on) { const b = $('m-spec'); if (b) b.textContent = 'SPECTATE'; try { if (document.pointerLockElement) document.exitPointerLock(); } catch { /* noop */ } } else this.spectating = false;
   }
   // ---- messages from the server
-  onMsg(m) {
+  onMsg(m) { if (this.dead) return;
     const R = this.race;
     if (m.t === 'm_lobby') { this.lobby = { in: m.in || [], total: m.total || 1 }; if (m.mission) this.mission = m.mission; this.renderPanel(); }
     else if (m.t === 'm_th') this.ts.apply(m);
@@ -214,7 +215,7 @@ export class MissionClient {
     this.showPanel(false); this.panelClosed = true; this.showFin(false); this.ts.clear(); this.ss.clear(); this.zs.clear(); this.big('', 1); this.sub('', 1);
     if (R.drive) R.toggleCar(true);
     this.cover(true); if (R.world && R.world.group) R.world.group.visible = false;
-    setTimeout(() => { try { this.cs.begin(m, this.seat); } catch (e) { console.error(e); this.cover(true, 'ERROR: ' + (e && e.message || e)); setTimeout(() => this.cover(false), 5000); return; } this.cover(true, 'PREPARING THE BATTLE...'); this.cs.prepare().then(() => { this.cs.gate = false; setTimeout(() => this.cover(false), 500); }); }, 120);   // v220: the loading screen stays until every file is in and everything has been drawn once
+    setTimeout(() => { if (this.dead) return; try { this.cs.begin(m, this.seat); } catch (e) { console.error(e); this.cover(true, 'ERROR: ' + (e && e.message || e)); setTimeout(() => this.cover(false), 5000); return; } this.cover(true, 'PREPARING THE BATTLE...'); this.cs.prepare().then(() => { this.cs.gate = false; setTimeout(() => this.cover(false), 500); }); }, 120);   // v220: the loading screen stays until every file is in and everything has been drawn once
     this.big('COMBAT MISSION', 2600, '#ffb347'); this.sub('FIND WEAPONS ON THE GROUND - SHOOT THE SOLDIERS - SURVIVE 5 MINUTES  (R = RELOAD)', 7000); this.chips();
   }
   // leaves the zombie mission: the free kit goes back, the zombies disappear
@@ -363,5 +364,5 @@ export class MissionClient {
     const e = $('m-chips'); if (!e) return;
     e.innerHTML = this.phase === 'idle' ? '' : this.members.map((q) => `<span style="border-color:${this.colorOf(q.id)}">${all || this.res[q.id] ? '&#10003;' : '&middot;'}</span>`).join('');
   }
-  destroy() { this.endZombie(); this.zs.dispose(); this.ts.dispose(); this.ss.dispose(); this.showPanel(false); this.showFin(false); this.big('', 1); this.sub('', 1); if (this.hub) this.hub.reset(); }
+  destroy() { this.dead = true; this.endZombie(); this.zs.dispose(); this.ts.dispose(); this.ss.dispose(); this.showPanel(false); this.showFin(false); this.big('', 1); this.sub('', 1); if (this.hub) this.hub.reset(); }
 }

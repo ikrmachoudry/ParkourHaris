@@ -31,12 +31,16 @@ const CSS = `#loadscr{position:fixed;inset:0;z-index:100;background:#050b16;colo
 #loadscr .ls-n{font:700 12px system-ui,sans-serif;text-align:center;margin-top:5px;color:#fff;text-shadow:0 1px 4px #000}
 #loadscr .ls-net{position:absolute;inset:0;z-index:3;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.82);text-align:center;padding:20px}#loadscr .ls-net.on{display:flex}
 #loadscr .ls-net>div{max-width:460px;font:600 17px/1.4 system-ui,Arial,sans-serif}#loadscr .ls-net h2{margin:6px 0;font:800 clamp(20px,4.6vh,28px)/1.15 system-ui,Arial,sans-serif;color:#ffd23f}#loadscr .ls-net button{margin:12px 6px 0;padding:12px 22px;border:0;border-radius:10px;font:800 16px system-ui,Arial,sans-serif;cursor:pointer;touch-action:manipulation}#loadscr .ls-net .rs{background:#d93a3a;color:#fff}#loadscr .ls-net .kw{background:rgba(255,255,255,.16);color:#fff}`;
+const CSS2 = `#loadscr .ls-x{position:absolute;z-index:4;right:calc(max(env(safe-area-inset-right),0px) + 22px);top:calc(max(env(safe-area-inset-top),0px) + 16px);padding:10px 20px;border:2px solid rgba(255,255,255,.55);border-left:5px solid #d93a3a;border-radius:6px;background:rgba(8,10,14,.78);color:#fff;font:800 clamp(12px,3vh,15px) system-ui,Arial,sans-serif;letter-spacing:2px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}#loadscr .ls-x:hover{background:#d93a3a}`;
 function build() {
   if (L.el || typeof document === 'undefined') return;
-  const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+  const st = document.createElement('style'); st.textContent = CSS + CSS2; document.head.appendChild(st);
   const el = document.createElement('div'); el.id = 'loadscr'; el.className = 'out';
   el.innerHTML = SVG + '<img class="ls-bg" src="img/jang-load.jpg" alt=""><img class="ls-hero" alt=""><div class="ls-sh"></div>' + '<div class="ls-t"><span class="ls-ti">JANG</span><small class="ls-s">BATTLE ROYALE</small></div><div class="ls-b"><div class="ls-tip"></div><div class="ls-m"></div><div class="ls-bar"><div class="ls-fill"></div></div><div class="ls-n">0%</div></div><div class="ls-net"><div><div style="font-size:40px">\u26A0\uFE0F</div><h2>CHECK YOUR NETWORK AND RESTART</h2><div>The game is loading very slowly (bad connection). Nothing can hurt you while you wait.</div><button type="button" class="rs">RESTART</button><button type="button" class="kw">KEEP WAITING</button></div></div>';
   document.body.appendChild(el); L.el = el; L.bar = el.querySelector('.ls-fill'); L.num = el.querySelector('.ls-n'); L.msg = el.querySelector('.ls-m'); L.title = el.querySelector('.ls-ti'); L.sub = el.querySelector('.ls-s'); L.tip = el.querySelector('.ls-tip'); L.net = el.querySelector('.ls-net');
+  { const x = document.createElement('button'); x.type = 'button'; x.className = 'ls-x'; x.textContent = 'CANCEL';   // v445: leave a loading screen you started by mistake (CANCEL button or the Esc key)
+    const go = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } loadScreen.cancel(); }; x.onclick = go; x.ontouchend = go; el.appendChild(x); L.x = x;
+    window.addEventListener('keydown', (e) => { if (e.code === 'Escape' && L.shown && !L.wantHide) { e.preventDefault(); e.stopPropagation(); loadScreen.cancel(); } }, true); }
   const rs = el.querySelector('.ls-net .rs'), kw = el.querySelector('.ls-net .kw');
   rs.onclick = () => location.reload(); rs.ontouchend = (e) => { e.preventDefault(); location.reload(); };
   const keep = (e) => { if (e) e.preventDefault(); L.netAt = performance.now(); L.net.classList.remove('on'); }; kw.onclick = keep; kw.ontouchend = keep;
@@ -75,6 +79,9 @@ export const loadScreen = {
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
   say(label) { if (L.msg && label) L.msg.textContent = label; },
+  cancelFn: null,
+  cancel() { if (!L.shown) return; const f = this.cancelFn; this.hide(); try { if (f) f(); } catch (e) { /* ignore */ } },   // v445: the player pressed CANCEL: the screen goes away at once and main.js takes him back
+  hide() { L.shown = false; L.wantHide = true; if (L.raf) { cancelAnimationFrame(L.raf); L.raf = 0; } if (L.el) L.el.classList.add('out'); if (L.net) L.net.classList.remove('on'); },
   finish() { if (!L.shown) return; L.wantHide = true; if (!L.raf) L.raf = requestAnimationFrame(frame); },
   get visible() { return L.shown; },
 };

@@ -2345,6 +2345,8 @@ function backToRoom() {
   if (race) { race.destroy(); race = null; }
   exitLock(); app.combat = true; renderLobby(); show('lobby'); voiceSync();
 }
+const startLater = (fn) => { const g = (app.loadGen = (app.loadGen | 0) + 1); requestAnimationFrame(() => setTimeout(() => { if (g === app.loadGen) fn(); }, 40)); };   // v445: a cancelled loading screen must not start the match afterwards
+loadScreen.cancelFn = () => { app.loadGen = (app.loadGen | 0) + 1; leaveToTitle(); };   // v445: CANCEL on the loading screen: back to the title (leaves a team room if you were in one)
 function leaveToTitle() {
   voiceStop();
   if (race) { race.destroy(); race = null; }
@@ -2849,9 +2851,9 @@ async function boot() {
   { const t = $('s-title'); for (const [id, g] of [['b-go-gta', true], ['b-go-jang', false]]) { const e = $(id); if (!e) continue; const f = () => t.classList.toggle('hl-g', g); e.addEventListener('mouseenter', f); e.addEventListener('focus', f); e.addEventListener('touchstart', f, { passive: true }); } }   // v190: the big background follows the card you point at
 $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
-  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
-  $('b-cmb-train').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.train = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };   // v442: TRAINING ROOM (level 1)
-  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => { startJang(); }, 40)); };
+  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
+  $('b-cmb-train').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.train = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v442: TRAINING ROOM (level 1)
+  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
   $('b-profile-next').onclick = () => { if (!$('inp-name').value.trim().replace(/[<>&"']/g, '')) { A.sfx.back && A.sfx.back(); needField($('inp-name'), 'Enter your player name to continue'); return; } readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
