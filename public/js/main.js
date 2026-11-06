@@ -105,7 +105,14 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   Q.t += dt; Q.frames++;
   if (Q.t < 1.2) return;
   const fps = Q.frames / Q.t; Q.t = 0; Q.frames = 0;
-  if (fps < 40) {
+  if (fps < 40 && !IS_TOUCH) {   // v447 LAPTOP SMOOTH: only a laptop that really stays under 40 fps ever gets here (a fast machine never does). A match frame in town is ~600 draw calls / ~1 million triangles, so the first thing to cut is how FAR the map is drawn (that is what an integrated GPU chokes on), then the sun shadows, only then the resolution (the picture stays sharp as long as possible)
+    Q.good = 0; let did = '';
+    if (Q.far > 480) { Q.far = Math.max(480, Q.far - 110); if (race) race.setFar(); did = 'far'; }
+    else if (Q.shadows && fps < 34) { Q.shadows = false; if (race) race.setShadows(false); did = 'shadows'; }
+    else if (Q.dpr > 0.85) { Q.dpr = Math.max(0.85, Q.dpr - 0.15); resize(); did = 'dpr'; }
+    else if (Q.far > 380) { Q.far = Math.max(380, Q.far - 50); if (race) race.setFar(); did = 'far'; }
+    if (did && !Q.told) { Q.told = true; try { race && race.toast && race.toast('Graphics eased a little to keep the game smooth (GFX button in the menu)', 3.5); } catch { /* noop */ } }
+  } else if (fps < 40) {
     Q.good = 0;
     if (Q.dpr > 0.7) { Q.dpr = Math.max(0.7, Q.dpr - 0.2); resize(); }
     else if (Q.shadows && fps < 30) { Q.shadows = false; if (race) race.setShadows(false); }
@@ -2900,7 +2907,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { renderer, Q, P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls
