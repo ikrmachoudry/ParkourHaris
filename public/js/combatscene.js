@@ -57,7 +57,7 @@ const MY_DMG = 100;   // hit points of the player
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), BOT_VIS2 = (IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = 70 ** 2;   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
 const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 120) ** 2;   // loot is drawn only this close (metres, squared)
 // Shared loot parts (v221, P4): every crate / pill / ring of the same kind uses ONE material and ONE geometry, so the phone keeps a few dozen GPU objects instead of hundreds.
-const _SH = new Map(), _TINT = new Map();   // _TINT: the red enemy tint is made once per soldier material, not once per bot
+const _SH = new Map(), _TINT = new Map(), _TINTD = new Map();   // _TINT: the red enemy tint is made once per soldier material, not once per bot
 const GEO = (k, ...a) => { const id = k + a.join(','); let g = _SH.get(id); if (!g) { g = new THREE[k + 'Geometry'](...a); _SH.set(id, g); } return g; };
 const SM = (c, r) => { const id = 'S' + c + (r || ''); let m = _SH.get(id); if (!m) { m = new THREE.MeshStandardMaterial(r ? { color: c, roughness: r } : { color: c }); _SH.set(id, m); } return m; };
 const RM = (c, o) => { const id = 'R' + c + o; let m = _SH.get(id); if (!m) { m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, side: THREE.DoubleSide, depthWrite: false }); _SH.set(id, m); } return m; };
@@ -90,7 +90,7 @@ export class CombatScene {
   }
   updateHud() {
     if (!this.hud) return; const m = Math.max(0, Math.ceil(this.time)), mm = Math.floor(m / 60), ss = m % 60;
-    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.sim && this.sim.bots ? '  \u2022  BOTS ' + this.sim.bots.filter((q) => q.alive).length : '') + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : '') + (this.soloTeam() && this.lives > 0 ? '  \u2022  LIVES ' + this.lives : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
+    { const ct = this.hud.querySelector('.ch-t'); ct.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss + (this.sim && this.sim.bots ? '  \u2022  BOTS ' + this.sim.bots.filter((q) => q.alive && !q.droid).length : '') + (this.zoneTxt && !this.dropping ? '  \u2022  ' + this.zoneTxt : '') + (this.soloTeam() && this.lives > 0 ? '  \u2022  LIVES ' + this.lives : ''); ct.style.color = this.outZone ? '#ff6b6b' : '#fff'; }
     this.hud.querySelector('.ch-s').textContent = 'KILLS ' + this.kills + '   •   DEATHS ' + this.deaths;
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
     { const cb = this.R.wallet && this.R.wallet.cb, vh = cb && cb.inv && cb.inv.vest > 0 ? Math.max(0, Math.round(cb.vestHp)) : 0, hh = cb && cb.inv && cb.inv.helmet > 0 ? Math.max(0, Math.round(cb.helmHp)) : 0;   // v414: you can SEE what armor you wear: icons above the health bar + the gear on your soldier
@@ -147,7 +147,7 @@ export class CombatScene {
     if (this.trainG) { this.group.remove(this.trainG); this.trainG = null; } if (this.tbar) { this.tbar.remove(); this.tbar = null; } if (this.tx) { this.tx.remove(); this.tx = null; } this.stations = null;   // v442
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     if (this._winT || this._winAt) { clearTimeout(this._winFade); if (this._fadeEl) { this._fadeEl.remove(); this._fadeEl = null; } clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
-    if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
+    if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { if (g.tg) this.group.remove(g.tg); this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
@@ -382,6 +382,7 @@ export class CombatScene {
   }
   bot(b) {
     let a = this.bots.get(b.id); if (a) return a;
+    if (b.droid) { const dm = makeSkin(4, undefined, false); dm.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINTD.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#9a2c3e')); _TINTD.set(o.material, t); } o.material = t; } }); this.group.add(dm.group); a = { g: dm.group, m: dm, last: 0 }; this.bots.set(b.id, a); return a; }   // v457: INTELLIDROID = the military soldier in dark maroon camouflage
     const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
     this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
@@ -540,8 +541,26 @@ export class CombatScene {
       if (A.remoteHorn) { if (hb) A.remoteHorn(true, Math.max(0.03, 0.2 * Math.pow(1 - hd / 150, 1.5)), this.panOf(hb.x, hb.z), 420); else A.remoteHorn(false); } }
     if (best && A.remoteEngine) A.remoteEngine(0.2 * (1 - bd / 90), Math.min(1, (best.sp || 0) / 22), this.panOf(best.x, best.z)); else if (A.remoteEngineStop) A.remoteEngineStop();
   }
+  /* v457 TEAM NAME TAGS: a small name above every teammate (and an INTELLIDROID teammate), readable through walls, tiny so it never gets in the way of the shooting */
+  mkTag(txt, col) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56; const c = cv.getContext('2d'); c.font = '800 ' + fitPx(c, txt, 34, 236) + 'px system-ui, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,.85)'; c.fillStyle = col; c.strokeText(txt, 128, 30); c.fillText(txt, 128, 30);
+    const tex = new THREE.CanvasTexture(cv), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, opacity: 0.9, fog: false })); sp.scale.set(1.0, 0.22, 1); sp.renderOrder = 998; sp.frustumCulled = false; this.group.add(sp); return sp; }
+  tagTick() {
+    const T = this.R.jangTeam; if (!T || !this.sim) return; const c = this.R.camera.position;
+    for (const [, g] of this.mates) {
+      if (g.tm !== T.tm) { if (g.tg) g.tg.visible = false; continue; }
+      const gp = g.m.group, ok = g.has && gp.visible && g.al !== 0 && !g.dd && !this.dropping && Math.hypot(gp.position.x - c.x, gp.position.z - c.z) < 120;
+      if (!ok) { if (g.tg) g.tg.visible = false; continue; }
+      if (!g.tg) g.tg = this.mkTag(g.nm || 'MATE', '#9dffb0'); g.tg.position.set(gp.position.x, gp.position.y + 2.15, gp.position.z); g.tg.visible = true;
+    }
+    for (const s of this.sim.bots) {
+      if (!s.droid) continue; const a = this.bots.get(s.id); if (!a) continue;
+      if (s.dtm !== T.tm || !s.alive || !a.g.visible) { if (a.tg) a.tg.visible = false; continue; }
+      if (!a.tg) a.tg = this.mkTag('INTELLIDROID', '#ff9aa8'); a.tg.position.set(a.g.position.x, a.g.position.y + 2.15, a.g.position.z); a.tg.visible = true;
+    }
+  }
   stepMates(dt) {
-    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt); this.mateSounds(dt);
+    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt); this.mateSounds(dt); this.tagTick();
     const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
     for (const [, g] of this.mates) {
       const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 9000;
@@ -652,7 +671,7 @@ export class CombatScene {
       const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, mine ? tx : CMB.x + e.tx, mine ? b.y + 1.3 : gy + 1.3, mine ? tz : CMB.z + e.tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
       if (cd < 160) { const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
       if (!e.hit && cd < 90 && A.sfx.whiz) { const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
-      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
+      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
       if (e.by !== -2 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });

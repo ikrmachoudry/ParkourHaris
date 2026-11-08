@@ -112,7 +112,7 @@ function genCode() {
 
 const COMBAT_TEAMS = 4, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 4 teams of 2-4 (PUBG custom room; v418: was 3)
 let teamSeq = 1;
-function teamsOf(room) { return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, ids: [...t.ids] })); }
+function teamsOf(room) { return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, droid: !!t.droid, ids: [...t.ids] })); }
 function leaveTeam(room, p) {
   if (!room || !room.teams || p.team == null) return; const t = room.teams.find((q) => q.id === p.team); p.team = null; if (!t) return; t.ids.delete(p.id);
   if (!t.ids.size) room.teams = room.teams.filter((q) => q !== t); else if (t.leader === p.id) t.leader = t.ids.values().next().value;
@@ -177,15 +177,16 @@ function prepTeams(room, ws) {
     const loose = players.filter((q) => q.team == null).sort(() => Math.random() - 0.5);
     const put = (t, q) => { t.ids.add(q.id); q.team = t.id; };
     /* v381: loose players are GROUPED (3 players with no team = ONE team of 3, not three teams of 1 that then fail the "2 to 4" rule): 1) teams with fewer than 2 are topped up, 2) FILL teams take the rest up to 4, 3) the others form new teams of 2-4 (dealt evenly), 4) a last single player joins the smallest team with a free seat */
-    for (const t of room.teams) while (t.ids.size < 2 && loose.length) put(t, loose.shift());
-    for (const t of room.teams.filter((x) => x.fill)) while (t.ids.size < TEAM_MAX && loose.length) put(t, loose.shift());
+    for (const t of room.teams) while (t.ids.size + (t.droid ? 1 : 0) < 2 && loose.length) put(t, loose.shift());
+    for (const t of room.teams.filter((x) => x.fill)) while (t.ids.size + (t.droid ? 1 : 0) < TEAM_MAX && loose.length) put(t, loose.shift());
     if (loose.length) {
       const free = COMBAT_TEAMS - room.teams.length, k = Math.min(Math.ceil(loose.length / TEAM_MAX), Math.floor(loose.length / 2), free);
       if (k >= 1) { const ts = []; for (let i = 0; i < k; i++) { const t = { id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: loose[i].id, fill: false, ids: new Set() }; room.teams.push(t); ts.push(t); } loose.forEach((q, i) => put(ts[i % k], q)); }
       else for (const q of loose) { const t = room.teams.filter((x) => x.ids.size < TEAM_MAX).sort((u, v) => u.ids.size - v.ids.size)[0]; if (!t) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; } put(t, q); }
     }
     if (room.teams.some((t) => t.ids.size > TEAM_MAX)) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; }
-    const small = room.teams.find((t) => t.ids.size < 2);
+    for (const t of room.teams) if (t.droid && (players.length !== 3 || !t.ids.size)) t.droid = false;   // v457: INTELLIDROID only plays when exactly 3 real players are in the room
+    const small = room.teams.find((t) => t.ids.size + (t.droid ? 1 : 0) < 2);
     if (small) { send(ws, { t: 'err', msg: `Team ${small.name} has only 1 player. Every team needs 2 to 4 players (or the player can leave the team).` }); return false; }
     bcast(room, lobbyMsg(room));
   } else if (!room.teams.length) { const q = players[0]; const t = { id: teamSeq++, name: 'TEAM 1', leader: q.id, fill: false, ids: new Set([q.id]) }; room.teams.push(t); q.team = t.id; }
@@ -209,6 +210,7 @@ function startRound(room) {
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN) : null;   // v245: the shared Jang match: the server runs the bots + loot
   if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
+  if (room.chost && room.players.size === 3) { const di = (room.teams || []).findIndex((t) => t.droid); if (di >= 0) room.chost.addDroid(di); }   // v457: INTELLIDROID takes the empty seat
   bcast(room, goMsg(room, meta));
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
@@ -416,12 +418,18 @@ wss.on('connection', (ws, req) => {
         bcast(room, lobbyMsg(room));
         break;
       }
+      case 'tdroid': {   // v457: INTELLIDROID: the team leader adds / removes the AI teammate (only with exactly 3 real players, one droid per room)
+        if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return;
+        const t = (room.teams || []).find((q) => q.id === p.team); if (!t || t.leader !== p.id) return;
+        if (m.on) { if (room.players.size !== 3) return send(ws, { t: 'err', msg: 'INTELLIDROID joins only when exactly 3 real players are in the room (2 + 1 + the droid = 2 v 2).' }); if (t.ids.size !== 1 || (room.teams || []).some((q) => q !== t && q.droid)) return send(ws, { t: 'err', msg: 'INTELLIDROID joins the team that has only 1 real player (one per match).' }); t.droid = true; } else t.droid = false;
+        bcast(room, lobbyMsg(room)); break;
+      }
       case 'tshuffle': {   // v433: the host mixes everybody into new teams (team names are kept)
         if (!room || !room.combat || room.hostId !== p.id || (room.phase !== 'lobby' && room.phase !== 'results')) return;
         const pl = [...room.players.values()].sort(() => Math.random() - 0.5), n = pl.length; if (n < 2) return;
         room.teams = room.teams || []; let k = Math.min(COMBAT_TEAMS, Math.max(room.teams.length, Math.ceil(n / TEAM_MAX), 2)); while (k > 1 && Math.floor(n / k) < 2) k--;
         while (room.teams.length < k) room.teams.push({ id: teamSeq++, name: 'TEAM ' + (room.teams.length + 1), leader: 0, fill: false, ids: new Set() });
-        room.teams = room.teams.slice(0, k); for (const t of room.teams) t.ids = new Set(); for (const q of pl) q.team = null;
+        room.teams = room.teams.slice(0, k); for (const t of room.teams) { t.ids = new Set(); t.droid = false; } for (const q of pl) q.team = null;
         pl.forEach((q, i) => { const t = room.teams[i % k]; t.ids.add(q.id); q.team = t.id; if (!t.leader || !t.ids.has(t.leader)) t.leader = q.id; });
         bcast(room, lobbyMsg(room)); break;
       }
@@ -588,7 +596,7 @@ setInterval(() => {
 setInterval(() => {
   for (const room of rooms.values()) {
     const h = room.chost; if (!h || room.phase !== 'race') continue;
-    const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, x: q.jx, y: q.jy, z: q.jz, al: q.jal, mv: q.jsp || 0, stn: q.jst === 2 ? 2 : q.jst === 1 ? 1 : 0 });
+    const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, tm: q.jtm & 3, x: q.jx, y: q.jy, z: q.jz, al: q.jal, mv: q.jsp || 0, stn: q.jst === 2 ? 2 : q.jst === 1 ? 1 : 0 });
     try { h.tick(0.05, pl); } catch (e) { console.error('combat tick', e); }
   }
 }, 50);
