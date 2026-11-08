@@ -762,10 +762,14 @@ export class CombatSim {
   /* v457 INTELLIDROID: an AI soldier that is a TEAMMATE of one real team (3 real players: 2 + 1 + the droid = 2 v 2). Hard setting: tough (150 hp), better aim, faster reactions, frag grenades; it follows its human teammate, kills the regular bots AND the other team (never its own team) and the regular bots shoot at it too. Server only (shared match). */
   addDroid(tm) {
     const b = this.newBot(this.bots.length); b.droid = true; b.dtm = tm | 0; b.hp = 150; b.thw = true; b.gr = 2; b.mo = 0; b.weapon = 'ak'; b.nadeCd = 5; this.bots.push(b); this.droidBot = b; this.ptm = this.ptm || {}; return b; }
+  droidFollow(PL) {   // v458: the droid starts next to its human teammate and stays within ~10 m of him (it is teleported back to a free spot beside him only if it falls 60 m behind)
+    const D = this.droidBot; if (!D || !D.alive) return; let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== D.dtm || !q.alive) continue; const dd = (q.x - D.x) ** 2 + (q.z - D.z) ** 2; if (dd < qd) { qd = dd; q0 = q; } } if (!q0) { D.farMate = false; return; }
+    const d = Math.sqrt(qd); D.farMate = d > 12; D.mateD = d; D.mate = q0;
+    if (!D.placed || d > 40) for (let k = 0; k < 40; k++) { const a = this.R() * 6.283, r = 3 + this.R() * (k < 16 ? 4 : 9), x = q0.x + Math.cos(a) * r, z = q0.z + Math.sin(a) * r; if (!hitsSolid(this.L, x, z, 0.55) && cmbH(x, z) > -0.3) { D.x = x; D.z = z; D.y = null; D.cl = null; D.bld = null; D.path = null; D.placed = true; D.seen = false; D.alert = 0; break; } } }
   pseudo(e) { const q = e._ps || (e._ps = { bt: e, id: -10 - e.id }); q.x = e.x; q.z = e.z; q.y = e.y == null ? undefined : e.y; q.alive = e.alive; q.hp = e.hp; q.mv = e.speed || 0; q.stn = e.stn | 0; q.tm = e.droid ? e.dtm : -1; return q; }
   candsFor(b, PL) {   // who this bot may shoot: normal bots = every player + the droid; the droid = the players of the OTHER teams + the normal bots
     const D = this.droidBot; if (!D) return PL;
-    if (b.droid) { const o = PL.filter((q) => q.tm !== b.dtm); for (const e of this.bots) if (e !== b && e.alive && !e.droid) o.push(this.pseudo(e)); return o; }
+    if (b.droid) { const M = b.mate; if (M && b.mateD > 30) return []; const o = PL.filter((q) => q.tm !== b.dtm && (!M || Math.hypot(q.x - M.x, q.z - M.z) < 45)); for (const e of this.bots) if (e !== b && e.alive && !e.droid && (!M || Math.hypot(e.x - M.x, e.z - M.z) < 45)) o.push(this.pseudo(e)); return o; }
     return D.alive ? PL.concat([this.pseudo(D)]) : PL; }
   friendly(b, by) { return !!(b.droid && this.ptm && this.ptm[by] === b.dtm); }   // a bullet / blast of the droid's own team never hurts it
   shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
@@ -812,6 +816,7 @@ export class CombatSim {
     if (this.pendF) for (let i = this.pendF.length - 1; i >= 0; i--) if (this.t >= this.pendF[i].t) { const sp = this.L.spots[this.pendF[i].k]; this.pendF.splice(i, 1); const it = { k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: this.L.spots.indexOf(sp), alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
+    if (this.droidBot) this.droidFollow(PL);
     for (const b of this.bots) {
       if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0 && !this.noRespawn) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
@@ -857,10 +862,10 @@ export class CombatSim {
           b.think = 5 + this.R() * 5; let tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b);
           if (b.thw && b.gr + b.mo === 0 && !(b.alert > 0 && d < 70) && b.y == null) { let bi = null, bd = 55 * 55; for (const it of this.loot) { if (!it.alive || (it.k !== 'grenade' && it.k !== 'molotov') || (it.y !== undefined && it.y > cmbH(it.x, it.z) + 1.5)) continue; const dd = (it.x - b.x) ** 2 + (it.z - b.z) ** 2; if (dd < bd) { bd = dd; bi = it; } } if (bi) tgt = { x: bi.x, z: bi.z }; }   /* v413: a thrower with empty hands goes to the nearest grenade / molotov lying around */
           if (b.alert > 0 && d < 70 && b.y == null) { const UB = this.upBld(P), usi = UB && this.stairInfo(UB); if (usi) { tgt = usi.foot; b.think = 2; } }   /* the player is upstairs: go to the foot of the stairs */
-          if (b.droid && !(b.alert > 0 && d < 70)) { let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== b.dtm || !q.alive) continue; const dd2 = (q.x - b.x) ** 2 + (q.z - b.z) ** 2; if (dd2 < qd) { qd = dd2; q0 = q; } } if (q0) tgt = qd > 22 * 22 ? { x: q0.x, z: q0.z } : { x: q0.x + (this.R() - 0.5) * 26, z: q0.z + (this.R() - 0.5) * 26 }; }   /* the droid sticks with its human teammate */
+          if (b.droid && !(b.alert > 0 && d < 70)) { let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== b.dtm || !q.alive) continue; const dd2 = (q.x - b.x) ** 2 + (q.z - b.z) ** 2; if (dd2 < qd) { qd = dd2; q0 = q; } } if (q0) { tgt = qd > 12 * 12 ? { x: q0.x, z: q0.z } : { x: q0.x + (this.R() - 0.5) * 14, z: q0.z + (this.R() - 0.5) * 14 }; b.think = 2 + this.R() * 2; } }   /* the droid sticks with its human teammate */
           if (zn) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92, tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
           b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
-          if (!b.path) { b.np = (b.np || 0) + 1; b.think = 1.2; if (b.np >= 3) { const rp = this.respawnPoint(PL, zn, b); if (rp) { b.x = rp.x; b.z = rp.z; b.np = 0; this.events.push({ k: 'bot', id: b.id }); } } } else b.np = 0;   /* v302: no route from here (boxed in): after 3 tries he is moved to a fresh unseen spot */
+          if (!b.path) { b.np = (b.np || 0) + 1; b.think = 1.2; if (b.np >= 3 && !b.droid) { const rp = this.respawnPoint(PL, zn, b); if (rp) { b.x = rp.x; b.z = rp.z; b.np = 0; this.events.push({ k: 'bot', id: b.id }); } } } else b.np = 0;   /* v302: no route from here (boxed in): after 3 tries he is moved to a fresh unseen spot */
         }
         let dir3 = false; { const UB = b.alert > 0 && d < 70 ? this.upBld(P) : null;
           if (b.y == null && UB && !b.cl) { const usi = this.stairInfo(UB); if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 2.2) { b.cl = { B: UB, t: 0, dir: 1 }; b.path = null; continue; } else if (usi && Math.hypot(b.x - usi.foot.x, b.z - usi.foot.z) < 6) { dir3 = true; const fx = usi.foot.x - b.x, fz = usi.foot.z - b.z, fl = Math.hypot(fx, fz) || 1; mx = fx / fl; mz = fz / fl; sp = 3.0; b.walk = false; b.yaw = Math.atan2(fx, fz); } }
@@ -869,7 +874,7 @@ export class CombatSim {
             else if (b.bld) { b.cl = { B: b.bld, t: 1, dir: -1 }; continue; }
             else { b.y = null; } } }
         if (b.y == null && !dir3 && b.path && b.pi < b.path.length) {
-          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
+          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || b.farMate || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }
       const l = Math.hypot(mx, mz);
@@ -880,7 +885,7 @@ export class CombatSim {
         b.mvT = (b.mvT || 0) + dt; b.mvD = (b.mvD || 0) + Math.hypot(b.x - ox, b.z - oz); if (b.mvT === dt) { b.sx = ox; b.sz = oz; }
         if (b.mvT >= 2) { const away = Math.hypot(b.x - b.sx, b.z - b.sz); if (b.mvD < sp * 2 * 0.35 || (away < 1.2 && !sees)) { b.stk = (b.stk || 0) + 1; b.unst = 1 + this.R(); b.unsD = this.R() < 0.5 ? -1 : 1; b.path = null; b.think = 0; b.seen = false;
               if (b.stk >= 2) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
-              if (b.stk >= 4) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
+              if (b.stk >= 4 && !b.droid) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
           else b.stk = Math.max(0, (b.stk || 0) - 1); b.mvT = 0; b.mvD = 0; }
       } else { b.speed = 0; b.mvT = 0; b.mvD = 0; }
     }
