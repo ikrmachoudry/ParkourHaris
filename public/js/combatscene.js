@@ -102,7 +102,7 @@ export class CombatScene {
     this.gate = true;   // v296: the match is HELD while the loading screen is up (the plane does not fly, nothing can hurt you, no zone damage): a slow network used to drop you into the game behind the loading screen
     this.clear(); const R = this.R, b = R.me.body; A.setCommentary(false); this.on = true;   // no Punjabi commentary in the combat mission
  this.over = false; this._snapSent = false; this.victoryOpen = false; this.st = { bots: {}, ply: {}, dby: {} }; this.kills = 0; this.deaths = 0; this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.deadT = 0; this.lives = 3; this.spec = null; this.specHide();
-    { const T = R.jangTeam; this.practice = !!(window.phGuide && window.phGuide.practice); this.train = !!(window.phGuide && window.phGuide.train); if (window.phGuide) { window.phGuide.practice = false; window.phGuide.train = false; } this._pracPlaced = false; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, this.train ? 0 : this.practice ? 2 : botCount(OPT.diff || 'medium', !!R.isTouch));   /* v432: HOW TO PLAY practice = 2 easy bots */ if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); }   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
+    { const T = R.jangTeam; this.practice = !!(window.phGuide && window.phGuide.practice); this.train = !!(window.phGuide && window.phGuide.train); if (window.phGuide) { window.phGuide.practice = false; window.phGuide.train = false; } this._pracPlaced = false; this.shared = !!(T && T.shared && T.net); this.sim = this.shared ? new NetSim((m.round * 7919 + 13) | 0, T.net, T.myId) : new CombatSim(((Math.random() * 2147483000) | 0) || 77, this.train ? 0 : this.practice ? 2 : botCount(OPT.diff || 'medium', !!R.isTouch));   /* v432: HOW TO PLAY practice = 2 easy bots */ if (!this.shared) this.sim.noRespawn = true; this.setBotDiff(); this.soloT = null; const wd = !!window.phSoloDroid; window.phSoloDroid = false; if (!this.shared && wd && !this.practice && !this.train) { this.sim.soloDroid = true; this.sim.addDroid(0); this.soloT = { tm: 0, myId: -1, seatOf: { '-1': 0 }, seed: 0, si: 0, net: { send() {} } }; } }   /* v461: SOLO + INTELLIDROID */   /* v378: easy 5 / medium 8 / hard 12 bots; a dead bot stays dead; kill them all = MISSION PASSED */   /* v264: a solo match has its own random seed: loot, bots and zone are different every game */   // v245: 2+ players = the SERVER runs the bots and the loot
     this.group.visible = true; this.pay = 0;
     if (R.world && R.world.group) R.world.group.visible = false;   // the city is 800 000 triangles and 1.5 km away: do not draw it during the match
     this.ensureMap();
@@ -383,7 +383,7 @@ export class CombatScene {
   tintDroid(grp) { grp.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINTD.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#9a2c3e')); _TINTD.set(o.material, t); } o.material = t; } }); }
   /* v459: the INTELLIDROID flies WITH you: while you are in the plane / skydiving / under the parachute a copy of your flight is shown beside you (seated next to you in the plane, jumping with you, its own parachute); when you land the real droid (the server's bot) appears right beside you and stays within ~10 m */
   mimicDroid(src) {
-    const T = this.R.jangTeam; if (!T || !this.sim || !this.sim.bots) return; const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (!D) return;
+    const T = (this.R.jangTeam || this.soloT); if (!T || !this.sim || !this.sim.bots) return; const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (!D) return;
     if (src.ph >= 4 || !this.on) { const g = this.mates.get(-777); if (g) { this.group.remove(g.m.group); this.group.remove(g.ch); if (g.tg) this.group.remove(g.tg); this.mates.delete(-777); } return; }
     if (T.seatOf && T.seatOf[-777] === undefined) T.seatOf[-777] = Object.keys(T.seatOf).length;
     const off = src.ph <= 1 ? 0 : 1.6; this.onMate({ ...src, id: -777, c: 0, sk: 4, nm: 'INTELLIDROID', tm: T.tm, x: src.x + off, z: src.z + off * 0.6, al: 1, dd: 0, wp: '', ai: 0, st: 0, hn: 0, rv: 0, vi: 0, ps: 0, iv: undefined });
@@ -417,7 +417,7 @@ export class CombatScene {
     return { iv: [Math.max(0, Math.round(this.hp)), iv.vest > 0 ? Math.round(cb.vestHp) : 0, iv.helmet > 0 ? Math.round(cb.helmHp) : 0, cb.nades | 0, iv.molotov | 0, iv.smoke | 0, iv.med | 0, iv.pills | 0, iv.inject | 0, iv.scope | 0, iv.sscope | 0, R.heldThrow || '', g(gs[0]), g(gs[1])].join(',') };
   }
   sendJt() {
-    const T = this.R.jangTeam; if (!T || !T.net || !this.on) return; this._jtAt = performance.now();
+    const T = (this.R.jangTeam || this.soloT); if (!T || !T.net || !this.on) return; this._jtAt = performance.now();
     const b = this.R.me.body, d = this.drop; let ph = 4, x = b.x, y = b.y, z = b.z;
     const dv = this.R.drive && !this.R.paxMode ? this.R.drive : null, vi = dv ? this.R.cars.indexOf(dv) : -1; const px = this.R.drive && this.R.paxMode ? this.R.drive : null, pvi = px ? this.R.cars.indexOf(px) : -1;
     if (this.down || this.deadT > 0) ph = 7;   // v244: lying down (v292: also when dead - the others used to see a dead teammate standing, or nothing)
@@ -431,7 +431,7 @@ export class CombatScene {
     const st = (R.crouch ? 1 : 0) | (R.prone ? 2 : 0) | (!b.grounded && !R.hang ? 4 : 0) | (R.vlt ? 32 : 0) | (R.reloadT > 0 ? 16 : 0) | (R.punchT > 0 && !R.kickK ? 128 : 0) | (R.punchT > 0 && R.kickK ? 256 : 0) | (R.nadeT > 0 ? 512 : 0) | (R.zipR ? 1024 : 0) | (this.gearV ? 2048 : 0) | (this.gearH ? 4096 : 0);
     return { st, lv: +(R.leanV || 0).toFixed(2), rl: R.reloadT > 0 && R.reloadTot ? +Math.max(0, 1 - R.reloadT / R.reloadTot).toFixed(2) : 0, cp: +(R.camPitch || 0).toFixed(2), nt: R.nadeToss | 0, vy: +(b.vy || 0).toFixed(1) }; }
   onMate(m) {
-    const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
+    const T = (this.R.jangTeam || this.soloT); if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
     if (!g) { const sk = m.sk | 0, mo = sk >= 4 && sk <= 8 ? makeSkin(sk, undefined, false) : makeHero((m.c | 0) % 4, undefined, false); if (m.id === -777) this.tintDroid(mo.group); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
     if (typeof m.iv === 'string' && m.iv.length < 200) g.iv = m.iv.split(',');
     g.id = m.id; g.c = m.c; g.sk = m.sk | 0; g.wp = m.wp || ''; g.ai = m.ai; g.hn = m.hn ? 1 : 0; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; { const st = m.st | 0, o = g.st | 0; if ((st & 128) && !(o & 128)) g.pt = 0.001; if ((st & 256) && !(o & 256)) g.pt = 0.001; if ((st & 32) && !(o & 32)) g.vt = 0.001; if ((st & 512) && !(o & 512)) g.nt0 = performance.now(); g.st = st; g.lv = +m.lv || 0; g.rl = +m.rl || 0; g.cp = +m.cp || 0; g.nts = m.nt | 0; g.vy = +m.vy || 0; } g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
@@ -554,7 +554,7 @@ export class CombatScene {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56; const c = cv.getContext('2d'); c.font = '800 ' + fitPx(c, txt, 34, 236) + 'px system-ui, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,.85)'; c.fillStyle = col; c.strokeText(txt, 128, 30); c.fillText(txt, 128, 30);
     const tex = new THREE.CanvasTexture(cv), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, opacity: 0.9, fog: false })); sp.scale.set(1.0, 0.22, 1); sp.renderOrder = 998; sp.frustumCulled = false; this.group.add(sp); return sp; }
   tagTick() {
-    const T = this.R.jangTeam; if (!T || !this.sim) return; const c = this.R.camera.position;
+    const T = (this.R.jangTeam || this.soloT); if (!T || !this.sim) return; const c = this.R.camera.position;
     for (const [, g] of this.mates) {
       if (g.tm !== T.tm) { if (g.tg) g.tg.visible = false; continue; }
       const gp = g.m.group, ok = g.has && gp.visible && g.al !== 0 && !g.dd && !this.dropping && Math.hypot(gp.position.x - c.x, gp.position.z - c.z) < 120;
@@ -568,7 +568,7 @@ export class CombatScene {
     }
   }
   stepMates(dt) {
-    const T = this.R.jangTeam; if (!T) return; this.sendMate(dt); this.mateSounds(dt); this.tagTick();
+    const T = (this.R.jangTeam || this.soloT); if (!T) return; if (this.R.jangTeam) { this.sendMate(dt); this.mateSounds(dt); } else { this._jt = (this._jt || 0) + dt; if (this._jt >= 0.1) { this._jt = 0; this.sendJt(); } } this.tagTick();   /* solo droid: only the flight copy, no team networking */
     const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
     for (const [, g] of this.mates) {
       const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 9000;
@@ -615,8 +615,8 @@ export class CombatScene {
   }
   update(dt) {
     this.hitUpd(dt); this.pinTick(dt);
-    const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam) this.stepMates(dt); const nwT = performance.now(), rdt = Math.min(30, Math.max(dt, this._tw ? (nwT - this._tw) / 1000 : dt)); this._tw = nwT; this.rdt = rdt;   /* v354: the match clock follows the real clock (a frame stall or a hidden tab used to make the clock run slow) */ this.t += rdt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
-    const P = { mv: Math.hypot(b.vx || 0, b.vz || 0), stn: R.prone ? 2 : R.crouch ? 1 : 0, x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
+    const R = this.R; if (!this.on || !this.sim) return; if (this.gate && !loadScreen.visible) this.gate = false; if (R.jangTeam || this.soloT) this.stepMates(dt); const nwT = performance.now(), rdt = Math.min(30, Math.max(dt, this._tw ? (nwT - this._tw) / 1000 : dt)); this._tw = nwT; this.rdt = rdt;   /* v354: the match clock follows the real clock (a frame stall or a hidden tab used to make the clock run slow) */ this.t += rdt; if (this.shared && this.sim.srvAt) this.t = this.sim.srvT + (performance.now() - this.sim.srvAt) / 1000; this.stepZone(dt); this.stepBomb(dt); this.stepAir(dt); const sim = this.sim, b = R.me.body, M = R.mission;
+    const P = { mv: Math.hypot(b.vx || 0, b.vz || 0), stn: R.prone ? 2 : R.crouch ? 1 : 0, x: b.x - CMB.x, z: b.z - CMB.z, y: b.y, hp: this.hp, tm: 0, alive: this.hp > 0 && this.deadT <= 0 && !this.dropping };
     { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z, ed = CMB.half - 8 - Math.max(Math.abs(ox0), Math.abs(oz0));   /* v354 MAP EDGE (PUBG): near the edge of the island a red warning tells you to turn back (the cliff wall + the invisible limit stay) */
       if (!this.edgeEl) { const e = this.edgeEl = document.createElement('div'); e.style.cssText = 'position:fixed;left:50%;top:max(92px,calc(env(safe-area-inset-top) + 86px));transform:translateX(-50%);z-index:30;pointer-events:none;font:800 12px system-ui;letter-spacing:1.5px;color:#fff;background:rgba(200,30,30,.78);padding:4px 12px;border-radius:10px;border:1px solid #ff8a8a;display:none'; document.body.appendChild(e); }
       const sh = ed < 30 && !this.dropping && this.hp > 0; if (sh) { this.edgeEl.textContent = 'MAP EDGE  ' + Math.max(0, Math.round(ed)) + ' m  -  TURN BACK'; if (this.edgeEl.style.display !== 'block') this.edgeEl.style.display = 'block'; } else if (this.edgeEl.style.display !== 'none') this.edgeEl.style.display = 'none'; }
@@ -638,7 +638,7 @@ export class CombatScene {
       if (this.spec) { this.specTick(); this.specHud(); }
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
-      else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
+      else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive || q.droid) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
       else if (this.shared && !this.over && !this.dropping && this.sim.ready && this.t > 30 && this.R.jangTeam && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down && this.mates.size && [...this.mates.values()].every((g) => g.tm === this.R.jangTeam.tm)) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v379: a room with ONE team only (friends vs the bots): every bot dead = MISSION PASSED. With rival teams in the room the last team standing wins (bots do not count: nobody has to hunt the last bot)
     }
     this.syncLoot(); if (this.map) this.map.update(dt, R.camera.position); if (this.glass) this.glass.update(dt);
@@ -682,7 +682,7 @@ export class CombatScene {
       if (!e.hit && cd < 90 && A.sfx.whiz) { const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
       if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
-      if (e.by !== -2 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
+      if (e.by !== -2 && e.by !== -3 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
     } else if (e.k === 'nade') {   // v331: a bot throws a frag: it flies in an arc and lands where the sim says; the damage comes with the 'nbang' event
       const x0 = CMB.x + e.x, z0 = CMB.z + e.z, y0 = cmbH(e.x, e.z) + 1.4, tx = CMB.x + e.lx, tz = CMB.z + e.lz, ty = cmbH(e.lx, e.lz) + 0.07, dx = tx - x0, dz = tz - z0, d = Math.hypot(dx, dz), T = Math.max(0.5, Math.min(1.5, 0.45 + d * 0.03)), vy = (ty - y0 + 0.5 * 18 * T * T) / T;

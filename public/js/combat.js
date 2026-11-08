@@ -771,7 +771,7 @@ export class CombatSim {
     const D = this.droidBot; if (!D) return PL;
     if (b.droid) { const M = b.mate; if (M && b.mateD > 30) return []; const o = PL.filter((q) => q.tm !== b.dtm && (!M || Math.hypot(q.x - M.x, q.z - M.z) < 45)); for (const e of this.bots) if (e !== b && e.alive && !e.droid && (!M || Math.hypot(e.x - M.x, e.z - M.z) < 45)) o.push(this.pseudo(e)); return o; }
     return D.alive && D.placed ? PL.concat([this.pseudo(D)]) : PL; }
-  friendly(b, by) { return !!(b.droid && (!b.placed || (this.ptm && this.ptm[by] === b.dtm))); }   // a bullet / blast of the droid's own team never hurts it
+  friendly(b, by) { return !!(b.droid && (!b.placed || (this.soloDroid ? by === undefined : this.ptm && this.ptm[by] === b.dtm))); }   // a bullet / blast of the droid's own team never hurts it
   shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
     let yW = yAbs; if (yAbs !== undefined) { const g0 = cmbH(ox, oz); if (yAbs < g0 + 1.05) yW = bal && Number.isFinite(bal.y) ? Math.max(yAbs, Math.min(bal.y, g0 + 1.55)) : g0 + 1.3;   /* v444: a crouching shooter's camera sees (and shoots) over a 0.95 m window sill */ }   /* v414: a PRONE / crouching shooter fires along the CAMERA line (it sees over a window sill, a low wall...): the wall test used his belly height, so the sill ate every bullet and a bot in the window could not be hit */
     const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yW); let best = null, bd = Math.min(range, wall), bhead = false; const DF = DIFFS[this.diff] || DIFFS.medium;

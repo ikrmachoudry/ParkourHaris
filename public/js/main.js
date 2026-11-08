@@ -2863,6 +2863,7 @@ async function boot() {
 $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
+  $('b-cmb-sdroid').onclick = () => { A.sfx.go(); window.phSoloDroid = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v461: solo with the INTELLIDROID teammate
   $('b-cmb-train').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.train = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v442: TRAINING ROOM (level 1)
   $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
   $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
