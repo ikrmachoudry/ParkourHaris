@@ -761,7 +761,7 @@ export class CombatSim {
   setDiff(d) { if (DIFFS[d]) { this.diff = d; for (const b of this.bots) b.thw = d === 'hard' || (d === 'medium' && b.id < 5); } }
   /* v457 INTELLIDROID: an AI soldier that is a TEAMMATE of one real team (3 real players: 2 + 1 + the droid = 2 v 2). Hard setting: tough (150 hp), better aim, faster reactions, frag grenades; it follows its human teammate, kills the regular bots AND the other team (never its own team) and the regular bots shoot at it too. Server only (shared match). */
   addDroid(tm) {
-    const b = this.newBot(this.bots.length); b.droid = true; b.dtm = tm | 0; b.hp = 150; b.thw = true; b.gr = 2; b.mo = 0; b.weapon = 'ak'; b.nadeCd = 5; this.bots.push(b); this.droidBot = b; this.ptm = this.ptm || {}; return b; }
+    const b = this.newBot(this.bots.length); b.droid = true; b.dtm = tm | 0; b.hp = 150; b.thw = true; b.gr = 2; b.mo = 0; b.weapon = 'ak'; b.nadeCd = 5; b.placed = false; b.x = b.z = 9999; this.bots.push(b);   /* waits off the map (not shot, not drawn) until its human teammate has landed */ this.droidBot = b; this.ptm = this.ptm || {}; return b; }
   droidFollow(PL) {   // v458: the droid starts next to its human teammate and stays within ~10 m of him (it is teleported back to a free spot beside him only if it falls 60 m behind)
     const D = this.droidBot; if (!D || !D.alive) return; let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== D.dtm || !q.alive) continue; const dd = (q.x - D.x) ** 2 + (q.z - D.z) ** 2; if (dd < qd) { qd = dd; q0 = q; } } if (!q0) { D.farMate = false; return; }
     const d = Math.sqrt(qd); D.farMate = d > 12; D.mateD = d; D.mate = q0;
@@ -770,8 +770,8 @@ export class CombatSim {
   candsFor(b, PL) {   // who this bot may shoot: normal bots = every player + the droid; the droid = the players of the OTHER teams + the normal bots
     const D = this.droidBot; if (!D) return PL;
     if (b.droid) { const M = b.mate; if (M && b.mateD > 30) return []; const o = PL.filter((q) => q.tm !== b.dtm && (!M || Math.hypot(q.x - M.x, q.z - M.z) < 45)); for (const e of this.bots) if (e !== b && e.alive && !e.droid && (!M || Math.hypot(e.x - M.x, e.z - M.z) < 45)) o.push(this.pseudo(e)); return o; }
-    return D.alive ? PL.concat([this.pseudo(D)]) : PL; }
-  friendly(b, by) { return !!(b.droid && this.ptm && this.ptm[by] === b.dtm); }   // a bullet / blast of the droid's own team never hurts it
+    return D.alive && D.placed ? PL.concat([this.pseudo(D)]) : PL; }
+  friendly(b, by) { return !!(b.droid && (!b.placed || (this.ptm && this.ptm[by] === b.dtm))); }   // a bullet / blast of the droid's own team never hurts it
   shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
     let yW = yAbs; if (yAbs !== undefined) { const g0 = cmbH(ox, oz); if (yAbs < g0 + 1.05) yW = bal && Number.isFinite(bal.y) ? Math.max(yAbs, Math.min(bal.y, g0 + 1.55)) : g0 + 1.3;   /* v444: a crouching shooter's camera sees (and shoots) over a 0.95 m window sill */ }   /* v414: a PRONE / crouching shooter fires along the CAMERA line (it sees over a window sill, a low wall...): the wall test used his belly height, so the sill ate every bullet and a bot in the window could not be hit */
     const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yW); let best = null, bd = Math.min(range, wall), bhead = false; const DF = DIFFS[this.diff] || DIFFS.medium;
@@ -818,6 +818,7 @@ export class CombatSim {
     if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
     if (this.droidBot) this.droidFollow(PL);
     for (const b of this.bots) {
+      if (b.droid && !b.placed) { b.speed = 0; continue; }
       if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0 && !this.noRespawn) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
@@ -898,7 +899,7 @@ export class CombatSim {
     let lx = b.x + ux * dd, lz = b.z + uz * dd; for (let k = 0; k < 6 && hitsSolid(L, lx, lz, 0.25); k++) { dd -= 0.8; lx = b.x + ux * dd; lz = b.z + uz * dd; }
     b.thr = 0; const mo = b.pk ? 1 : 0; this.nades.push({ x: lx, z: lz, t: mo ? 1.6 : 2.6, mo, dtm: b.droid ? b.dtm : undefined }); this.events.push({ k: 'nade', id: b.id, x: b.x, z: b.z, lx, lz, mo }); }
   nadeBang(n, PL) {
-    const r = 6.5; for (const e of this.bots) { if (!e.alive || (n.dtm !== undefined ? e.droid : !e.droid)) continue; const d = Math.hypot(e.x - n.x, e.z - n.z); if (d >= r || (d > 1.5 && !los(this.L, n.x, n.z, e.x, e.z))) continue; this.hurt(e, (5 + 50 * (1 - d / r) * (1 - d / r * 0.3)) * 1.7, n.x, n.z, -3); }   /* v457: a droid frag hurts the normal bots, a normal frag hurts the droid */
+    const r = 6.5; for (const e of this.bots) { if (!e.alive || (e.droid && !e.placed) || (n.dtm !== undefined ? e.droid : !e.droid)) continue; const d = Math.hypot(e.x - n.x, e.z - n.z); if (d >= r || (d > 1.5 && !los(this.L, n.x, n.z, e.x, e.z))) continue; this.hurt(e, (5 + 50 * (1 - d / r) * (1 - d / r * 0.3)) * 1.7, n.x, n.z, -3); }   /* v457: a droid frag hurts the normal bots, a normal frag hurts the droid */
     for (const q of PL) { if (!q.alive || (n.dtm !== undefined && q.tm === n.dtm)) continue; const d = Math.hypot(q.x - n.x, q.z - n.z); if (d >= r) continue; if (q.y !== undefined && Math.abs(q.y - cmbH(n.x, n.z)) > 3) continue; if (d > 1.5 && !los(this.L, n.x, n.z, q.x, q.z)) continue; this.events.push({ k: 'nbang', x: n.x, z: n.z, tp: q.id, dmg: Math.round(5 + 50 * (1 - d / r) * (1 - d / r * 0.3)) }); } }
   drain() { const e = this.events; this.events = []; return e; }
 }

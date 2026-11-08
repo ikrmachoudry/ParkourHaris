@@ -380,9 +380,17 @@ export class CombatScene {
       /* no light beam: PUBG items just lie there with a ring */
       g.position.set(CMB.x + it.x, it.y !== undefined ? it.y : cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
   }
+  tintDroid(grp) { grp.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINTD.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#9a2c3e')); _TINTD.set(o.material, t); } o.material = t; } }); }
+  /* v459: the INTELLIDROID flies WITH you: while you are in the plane / skydiving / under the parachute a copy of your flight is shown beside you (seated next to you in the plane, jumping with you, its own parachute); when you land the real droid (the server's bot) appears right beside you and stays within ~10 m */
+  mimicDroid(src) {
+    const T = this.R.jangTeam; if (!T || !this.sim || !this.sim.bots) return; const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (!D) return;
+    if (src.ph >= 4 || !this.on) { const g = this.mates.get(-777); if (g) { this.group.remove(g.m.group); this.group.remove(g.ch); if (g.tg) this.group.remove(g.tg); this.mates.delete(-777); } return; }
+    if (T.seatOf && T.seatOf[-777] === undefined) T.seatOf[-777] = Object.keys(T.seatOf).length;
+    const off = src.ph <= 1 ? 0 : 1.6; this.onMate({ ...src, id: -777, c: 0, sk: 4, nm: 'INTELLIDROID', tm: T.tm, x: src.x + off, z: src.z + off * 0.6, al: 1, dd: 0, wp: '', ai: 0, st: 0, hn: 0, rv: 0, vi: 0, ps: 0, iv: undefined });
+  }
   bot(b) {
     let a = this.bots.get(b.id); if (a) return a;
-    if (b.droid) { const dm = makeSkin(4, undefined, false); dm.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINTD.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#9a2c3e')); _TINTD.set(o.material, t); } o.material = t; } }); this.group.add(dm.group); a = { g: dm.group, m: dm, last: 0 }; this.bots.set(b.id, a); return a; }   // v457: INTELLIDROID = the military soldier in dark maroon camouflage
+    if (b.droid) { const dm = makeSkin(4, undefined, false); this.tintDroid(dm.group); this.group.add(dm.group); a = { g: dm.group, m: dm, last: 0 }; this.bots.set(b.id, a); return a; }   // v457: INTELLIDROID = the military soldier in dark maroon camouflage
     const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
     this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
@@ -416,7 +424,7 @@ export class CombatScene {
     else if (px && pvi >= 0) { ph = 6; x = px.st.x; y = px.st.y; z = px.st.z; }
     else if (dv && vi >= 0) { ph = 5; x = dv.st.x; y = dv.st.y; z = dv.st.z; }   // v240: driving a jeep: its place goes out instead of mine, so everybody sees the jeep move
     else if (this.dropping && d) { if (d.ph === 'plane') { ph = d.stand ? 0 : 1; x = d.lv || 0; z = d.lu || 0; y = 0; } else ph = d.ph === 'fall' ? 2 : 3; }
-    T.net.send({ t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, dd: this.deadT > 0 ? 1 : 0, tm: T.tm, ...this.ivBits(), vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, hn: ph === 5 && A.hornOn && A.hornOn() ? 1 : 0, rv: this.reviving ? 1 : 0, ...this.poseBits(ph) });
+    T.net.send(this._lastJt = { t: 'jt', ph, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), r: +(ph === 5 ? dv.st.yaw : ph === 6 ? px.st.yaw : b.yaw).toFixed(3), sp: ph === 5 ? +dv.st.speed.toFixed(1) : ph === 6 ? 0 : +Math.min(99, Math.hypot(b.vx || 0, b.vz || 0)).toFixed(1), al: this.hp > 0 && this.deadT <= 0 && !this.down ? 1 : 0, dd: this.deadT > 0 ? 1 : 0, tm: T.tm, ...this.ivBits(), vi: ph === 5 ? vi : ph === 6 ? pvi : 0, ps: ph === 6 ? this.R.paxSeat | 0 : 0, wp: this.R.weapon || '', ai: this.R.aiming ? 1 : 0, hn: ph === 5 && A.hornOn && A.hornOn() ? 1 : 0, rv: this.reviving ? 1 : 0, ...this.poseBits(ph) }); try { this.mimicDroid(this._lastJt); } catch (e) { /* never break the flight */ }
   }
   /* v320: every movement the others can see (PUBG): crouch, prone, jump / fall, vault, reload, lean, punch, kick, grenade throw, camera pitch for the aim */
   poseBits(ph) { const R = this.R, b = R.me.body; if (ph !== 4) return { st: 0 };
@@ -424,7 +432,7 @@ export class CombatScene {
     return { st, lv: +(R.leanV || 0).toFixed(2), rl: R.reloadT > 0 && R.reloadTot ? +Math.max(0, 1 - R.reloadT / R.reloadTot).toFixed(2) : 0, cp: +(R.camPitch || 0).toFixed(2), nt: R.nadeToss | 0, vy: +(b.vy || 0).toFixed(1) }; }
   onMate(m) {
     const T = this.R.jangTeam; if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
-    if (!g) { const sk = m.sk | 0, mo = sk >= 4 && sk <= 8 ? makeSkin(sk, undefined, false) : makeHero((m.c | 0) % 4, undefined, false); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
+    if (!g) { const sk = m.sk | 0, mo = sk >= 4 && sk <= 8 ? makeSkin(sk, undefined, false) : makeHero((m.c | 0) % 4, undefined, false); if (m.id === -777) this.tintDroid(mo.group); const nm0 = String(m.nm || '').toUpperCase().slice(0, 14) || 'HARIS', ch = this.mkChute(nm0); ch.visible = false; this.group.add(mo.group); this.group.add(ch); g = { m: mo, ch, x: 0, y: -99, z: 0, has: false, nm: nm0 }; this.mates.set(m.id, g); }
     if (typeof m.iv === 'string' && m.iv.length < 200) g.iv = m.iv.split(',');
     g.id = m.id; g.c = m.c; g.sk = m.sk | 0; g.wp = m.wp || ''; g.ai = m.ai; g.hn = m.hn ? 1 : 0; g.rvg = m.rv ? 1 : 0; g.al = m.al === undefined ? 1 : m.al; g.dd = m.dd ? 1 : 0; { const st = m.st | 0, o = g.st | 0; if ((st & 128) && !(o & 128)) g.pt = 0.001; if ((st & 256) && !(o & 256)) g.pt = 0.001; if ((st & 32) && !(o & 32)) g.vt = 0.001; if ((st & 512) && !(o & 512)) g.nt0 = performance.now(); g.st = st; g.lv = +m.lv || 0; g.rl = +m.rl || 0; g.cp = +m.cp || 0; g.nts = m.nt | 0; g.vy = +m.vy || 0; } g.ph = m.ph; g.vi = m.vi | 0; g.ps = m.ps | 0; g.tx = m.x; g.ty = m.y; g.tz = m.z; g.r = m.r; g.sp = m.sp; g.tm = m.tm; g.at = performance.now();
   }
@@ -648,6 +656,7 @@ export class CombatScene {
       let bi = 0;
       for (const s of sim.bots) {
         const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1); bi++;   // (scoped with a sniper: twice as far)
+        if (s.droid && this.mates.has(-777)) { if (a.g.visible) a.g.visible = false; continue; }
         if (!s.alive && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
