@@ -274,7 +274,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
           if (al) B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x1 + 0.1, capY + 0.96, b.z + z0 + 0.1, cream, 0); else if (x0 > 0) { B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z - 2.2, cream, 0); B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + 2.2, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); } else B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); }
         if (geos.length) B.add('trim', mergeGeometries(geos), cream, 0); }
       // the tall arched tower bay over the door: the white sign board, a ledge, and the niche with two tall blue windows
-      { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.6, bzf = zO + 0.2, yb = fy + 3.7;
+      { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.2, bzf = zO + 0.2, yb = fy + 3.7;
         B.box('wall', bx - bw, yb, bzb, bx + bw, spr, bzf, b.c, 0.02); half(bx, spr, bw, bzb, bzf, b.c);
         for (const sx of [-1, 1]) B.box('trim', bx + sx * bw - (sx > 0 ? 0 : 0.18), yb, bzf - 0.05, bx + sx * bw + (sx > 0 ? 0.18 : 0), spr, bzf + 0.12, tan, 0); half(bx, spr, bw + 0.18, bzf - 0.05, bzf + 0.12, tan);
         B.box('trim', bx - bw - 0.3, fy + 6.0, bzf - 0.05, bx + bw + 0.3, fy + 6.16, bzf + 0.4, tan, 0);   // the ledge under the niche
