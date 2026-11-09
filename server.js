@@ -42,17 +42,24 @@ const assetVersion = () => {
   try { for (const d of ['models', 'models-lite', 'audio', 'anim']) walk(path.join(pubDir, d)); avCache = String(mx | 0); } catch { /* keep the old one */ }
   return avCache;
 };
+// v474: every file gets its OWN version (its change time), so after an update a phone only downloads the files that really changed
+let avmCache = {}, avmAt = 0;
+const assetMap = () => {
+  if (Date.now() - avmAt < 30e3) return avmCache; avmAt = Date.now(); const m = {};
+  const walk = (d, rel) => { for (const f of fs.readdirSync(path.join(pubDir, d), { withFileTypes: true })) { const p = rel + '/' + f.name; if (f.isDirectory()) walk(d + '/' + f.name, p); else m[p] = String(fs.statSync(path.join(pubDir, d, f.name)).mtimeMs | 0); } };
+  try { for (const d of ['models', 'models-lite', 'audio', 'anim']) walk(d, d); avmCache = m; } catch { /* keep the old one */ }
+  return avmCache;
+};
 app.use(['/models', '/models-lite', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
 // v473: list of every Android-lite model / sound / animation (with the versioned URL the game asks for) so the phone can download them all once ("Download Jang")
 app.get('/api/pack', (_q, r) => {
-  const v = assetVersion(), files = []; const walk = (d, rel) => { for (const f of fs.readdirSync(path.join(pubDir, d), { withFileTypes: true })) { const p = rel + '/' + f.name; if (f.isDirectory()) walk(d + '/' + f.name, p); else files.push({ u: p + '?v=' + v, s: fs.statSync(path.join(pubDir, d, f.name)).size }); } };
-  try { for (const d of ['models-lite', 'audio', 'anim']) walk(d, d); } catch { /* partial list */ }
+  const v = assetVersion(), m = assetMap(), files = []; for (const p of Object.keys(m)) if (/^(models-lite|audio|anim)\//.test(p)) { let s = 0; try { s = fs.statSync(path.join(pubDir, p)).size; } catch { /* gone */ } files.push({ u: p + '?v=' + m[p], s }); }
   r.set('Cache-Control', 'no-store').json({ v, files, bytes: files.reduce((a, f) => a + f.s, 0) });
 });
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;
-    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"').replace('__AV__', assetVersion());
+    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"').replace('__AV__', assetVersion()).replace('/*AVM*/null', JSON.stringify(assetMap()));
     r.set('Cache-Control', 'no-store').type('html').send(html);
   } catch (e) { r.set('Cache-Control', 'no-store').sendFile(path.join(pubDir, 'index.html')); }
 });

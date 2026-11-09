@@ -16,7 +16,10 @@ export async function downloadPack(info, onProgress) {
   const worker = async () => { while (i < info.files.length) { const f = info.files[i++]; await one(f); onProgress && onProgress(Math.min(1, got / total), failed); } };
   await Promise.all([worker(), worker(), worker(), worker()]);
   if (failed) throw new Error(failed + ' files failed');
-  try { for (const k of await c.keys()) { const m = /[?&]v=([^&]+)/.exec(k.url); if (m && m[1] !== info.v) c.delete(k); } } catch (e) { /* old files stay: harmless */ }
+  try { const keep = new Set(info.files.map((f) => new URL(f.u, location.href).href)); for (const k of await c.keys()) { if (/\/(models-lite|audio|anim)\//.test(k.url) && !keep.has(k.url)) c.delete(k); } } catch (e) { /* old files stay: harmless */ }
   try { localStorage.setItem(KEY, info.v); } catch (e) { /* no storage */ }
   try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); } catch (e) { /* ok */ }
 }
+// v474: after an update, a phone that already downloaded Jang quietly fetches ONLY the changed files in the background (no screen, no full re-download)
+export async function packQuietUpdate() { try { if (!packSupported() || !packHas() || packDone()) return; await downloadPack(await packInfo(), null); } catch (e) { /* next start retries */ } }
+export const packHas = () => { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } };

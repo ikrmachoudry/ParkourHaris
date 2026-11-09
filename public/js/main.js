@@ -1,7 +1,7 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
 import { FireSmokeFX } from './fire.js';
 import { potatoize } from './potato.js';
-import { packSupported, packDone, packInfo, downloadPack } from './offlinepack.js';
+import { packSupported, packDone, packInfo, downloadPack, packQuietUpdate, packHas } from './offlinepack.js';
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -2877,8 +2877,9 @@ const packAsk = () => {
     catch (e) { busy = false; g('pk-go').style.opacity = 1; g('pk-skip').style.opacity = 1; g('pk-go').textContent = 'TRY AGAIN'; g('pk-t').textContent = 'Download stopped (network). Tap TRY AGAIN - it continues where it stopped.'; }
   };
 };
-$('b-go-jang').onclick = () => { if (IS_ANDROID && packSupported() && !packDone() && !/[?&]nopack=1/.test(location.search)) packAsk(); else startJang(); };
-if (IS_ANDROID && packSupported() && !packDone()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
+$('b-go-jang').onclick = () => { if (IS_ANDROID && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else startJang(); };
+if (IS_ANDROID) setTimeout(packQuietUpdate, 6000);
+if (IS_ANDROID && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
   $('b-cmb-sdroid').onclick = () => { A.sfx.go(); window.phSoloDroid = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v461: solo with the INTELLIDROID teammate
