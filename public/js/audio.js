@@ -76,7 +76,11 @@ function decode(url, cb, fin) {
 }
 function loadBank() {
   if (bankStarted || !ctx) return; bankStarted = true;
-  bankLeft = SAMPLES.length; for (const n of SAMPLES) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, () => { bankLeft--; });
+  /* v470 (Android): the sounds you do not need in the first seconds (engines, water, loops, zombies, the win jingle...) are decoded AFTER the loading screen (a budget phone spent ~100 decodes in front of it); guns, footsteps, hits, doors and the UI stay in front */
+  const AND = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || ''), LATE = /^(eng_|skid|crash|spl_|water_|sea_|lap_|rain_|city_|cash|bouncepad|respawn|win$|fin$|u_z|u_scared|scream)/;
+  const core = AND ? SAMPLES.filter((n) => !LATE.test(n)) : SAMPLES, late = AND ? SAMPLES.filter((n) => LATE.test(n)) : [];
+  bankLeft = core.length; for (const n of core) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, () => { bankLeft--; });
+  if (late.length) setTimeout(() => { late.reduce((p, n) => p.then(() => new Promise((res) => decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, res))), Promise.resolve()); }, 25000);   // one at a time, 25 s after the sounds start loading (the match is running by then)
 }
 // v220: resolves when every recorded sample is decoded (or after maxMs): the loading screen waits for it, so no sound is missing during the match
 export function bankReady(maxMs = 20000) { return new Promise((res) => { if (!bankStarted) return res(); const t0 = performance.now(), iv = setInterval(() => { if (bankLeft <= 0 || performance.now() - t0 > maxMs) { clearInterval(iv); res(); } }, 120); }); }
