@@ -76,13 +76,21 @@ function cmbH0(x, z) {
 }
 
 // v275: the ground you WALK on is the very triangle mesh that is DRAWN (same grid, same diagonal), so you can never sink into a lump of the terrain or float over a dip
-let MSTEP = 3; export function setMeshStep(st) { MSTEP = st; }
+let MSTEP = 3, GHS = 0, GHK = -1, GH = null, GHN = 0; export function setMeshStep(st) { MSTEP = st; }
+// v477: the ground height at the mesh corners is remembered (same numbers as cmbH, computed once): the map build, the minimap and every step you walk used to recompute the same 4 corners again and again
+export function nodeH(i, j) {
+  const half = H + 26, key = PADS.length + (BR ? 1e6 : 0);
+  if (GH === null || GHS !== MSTEP || GHK !== key) { GHS = MSTEP; GHK = key; GHN = Math.round(2 * half / MSTEP) + 2; GH = new Float64Array(GHN * GHN).fill(NaN); }
+  if (i < 0 || j < 0 || i >= GHN || j >= GHN) return cmbH(-half + i * MSTEP, -half + j * MSTEP);
+  const k = j * GHN + i; let v = GH[k]; if (v !== v) v = GH[k] = cmbH(-half + i * MSTEP, -half + j * MSTEP); return v;
+}
 export function cmbG(x, z) {
   const half = H + 26, s = MSTEP; if (x < -half || z < -half || x >= half - s || z >= half - s) return cmbH(x, z);
   const i = Math.floor((x + half) / s), j = Math.floor((z + half) / s), x0 = -half + i * s, z0 = -half + j * s, u = (x - x0) / s, v = (z - z0) / s;
-  const a = cmbH(x0, z0), b = cmbH(x0 + s, z0), d = cmbH(x0, z0 + s);
+  const a = nodeH(i, j), b = nodeH(i + 1, j), d = nodeH(i, j + 1);
   if (u + v <= 1) return a + (b - a) * u + (d - a) * v;
-  return cmbH(x0 + s, z0 + s) + (b - cmbH(x0 + s, z0 + s)) * (1 - v) + (d - cmbH(x0 + s, z0 + s)) * (1 - u);
+  const e = nodeH(i + 1, j + 1);
+  return e + (b - e) * (1 - v) + (d - e) * (1 - u);
 }
 
 // ---------------------------------------------------------------- buildings
