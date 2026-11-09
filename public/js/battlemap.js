@@ -274,7 +274,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
           if (al) B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x1 + 0.1, capY + 0.96, b.z + z0 + 0.1, cream, 0); else if (x0 > 0) { B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z - 2.2, cream, 0); B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + 2.2, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); } else B.box('trim', bx + x0 - 0.1, capY + 0.86, b.z + z0 - 0.1, bx + x0 + 0.1, capY + 0.96, b.z + z1 + 0.1, cream, 0); }
         if (geos.length) B.add('trim', mergeGeometries(geos), cream, 0); }
       // the tall arched tower bay over the door: the white sign board, a ledge, and the niche with two tall blue windows
-      { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.2, bzf = zO + 0.2, yb = fy + 3.7;
+      { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.1, bzf = zO + 0.2, yb = fy + 3.7;
         B.box('wall', bx - bw, yb, bzb, bx + bw, spr, bzf, b.c, 0.02); half(bx, spr, bw, bzb, bzf, b.c);
         for (const sx of [-1, 1]) B.box('trim', bx + sx * bw - (sx > 0 ? 0 : 0.18), yb, bzf - 0.05, bx + sx * bw + (sx > 0 ? 0.18 : 0), spr, bzf + 0.12, tan, 0); half(bx, spr, bw + 0.18, bzf - 0.05, bzf + 0.12, tan);
         B.box('trim', bx - bw - 0.3, fy + 6.0, bzf - 0.05, bx + bw + 0.3, fy + 6.16, bzf + 0.4, tan, 0);   // the ledge under the niche
@@ -291,7 +291,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       B.box('trim', bx + 6.4, fy + fh + 2.0, zf, bx + 7.5, fy + fh + 2.55, zf + 0.45, '#ecebe7', 0.01); B.box('trim', bx + 6.5, fy + fh + 2.1, zf + 0.44, bx + 7.4, fy + fh + 2.14, zf + 0.46, '#8a8a8a', 0); B.box('trim', bx + 6.5, fy + fh + 2.3, zf + 0.44, bx + 7.4, fy + fh + 2.34, zf + 0.46, '#8a8a8a', 0);
       for (const yy of [fy + fh - 1.3, fy + fh - 1.55, fy + fh + 1.6]) B.box('trim', bx - hx, yy, zf + 0.34, bx + hx, yy + 0.025, zf + 0.37, '#17171a', 0);
       const tx = b.x + 11.6, tz = b.z - 8.3; if (!place('tank', tx, roofY, tz, 1.3, 2.3, 1.3, 0, true)) B.box('metal', tx - 1.1, roofY, tz - 1.1, tx + 1.1, roofY + 0.4, tz + 1.1, '#8d9096', 0.02);   // v263: the real water tank model
-      /* v463: ROOF like the real Sada Ghar roof (Haris's video): an ARCHED PORCH (cream arches on square pillars under a sloping roof) along the west edge, and a small BOX ROOM with a sloping roof and four vent holes in the north-west corner. Only the roof changes: the front, the stairs, the tank, the loot spots and the jump-down gap are untouched. */
+      /* v463: ROOF like the real Sada Ghar roof (Haris's video): an ARCHED PORCH (cream arches on square pillars under a sloping roof) along the west edge, Only the roof changes: the front, the stairs, the tank, the loot spots and the jump-down gap are untouched. */
       { const rY = roofY, wx = b.x - hx + 0.35, cream3 = '#ead9b4', cream4 = '#e2cfa6', slope = (xa, xb, za, zb, yHi, yLo, col) => { const a = Math.atan2(yHi - yLo, xb - xa), L = Math.hypot(xb - xa, yHi - yLo), g = new THREE.BoxGeometry(L, 0.2, zb - za); g.rotateZ(a); g.translate((xa + xb) / 2, (yHi + yLo) / 2, (za + zb) / 2); B.add('roof', g, col, 0.04); };
         // -- the porch: 4 arched bays, depth 3.0 m, open towards the roof terrace (east)
         const pz0 = b.z - 1.5, bays = 4, bw2 = 2.5, p2 = 0.45, dep = 3.0, Hh = 3.4, sy = 1.9, r2 = (bw2 - p2) / 2, xl = wx + dep;
@@ -302,12 +302,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         B.box('wall', wx, rY, pz0, wx + 0.35, rY + 3.0, pz0 + bays * bw2, '#a8b890', 0.02);   // the back wall (green, like the inside in the video)
         for (const zz of [pz0 - 0.15, pz0 + bays * bw2 - 0.15]) B.box('wall', wx, rY, zz, xl + 0.2, rY + 3.0, zz + 0.3, cream3, 0.02);   // the two end walls
         slope(wx - 0.1, xl + 0.7, pz0 - 0.3, pz0 + bays * bw2 + 0.3, rY + Hh + 0.3, rY + 3.0, '#b79a72');   // the sloping roof, higher at the open side
-        // -- the box room (north-west corner)
-        const bx0 = wx, bx1 = wx + 4.0, bz0 = b.z - hz + 0.45, bz1 = bz0 + 4.0, bh = 2.5;
-        B.box('wall', bx0, rY, bz0, bx1, rY + bh, bz1, '#d8c79c', 0.02);
-        slope(bx0 - 0.3, bx1 + 0.4, bz0 - 0.3, bz1 + 0.3, rY + bh + 0.5, rY + bh + 0.1, '#b79a72');
-        for (const [hy, hzo] of [[0.55, 0.55], [0.55, -0.55], [-0.0, 0.55], [-0.0, -0.55]]) B.box('trim', bx1 - 0.01, rY + 1.5 + hy, (bz0 + bz1) / 2 + hzo - 0.07, bx1 + 0.03, rY + 1.5 + hy + 0.14, (bz0 + bz1) / 2 + hzo + 0.07, '#2a2622', 0);   // four vent holes
-        B.box('trim', bx1 - 0.01, rY, (bz0 + bz1) / 2 - 0.55, bx1 + 0.03, rY + 0.55, (bz0 + bz1) / 2 + 0.55, '#3a342c', 0); }
+      }
       // v247: no second roof over the tank any more; the stair hole gets a bright yellow rim (you can see where the stairs go down) and the jump-down gap in the east railing a yellow edge line
       if (b.roofHole) { const H = b.roofHole, y0 = roofY + 0.02, y1 = roofY + 0.06, w = 0.14; for (const [a, c, d, e] of [[H.x0 - w, H.z0 - w, H.x1 + w, H.z0], [H.x0 - w, H.z1, H.x1 + w, H.z1 + w], [H.x0 - w, H.z0, H.x0, H.z1], [H.x1, H.z0, H.x1 + w, H.z1]]) B.box('trim', b.x + a, y0, b.z + c, b.x + d, y1, b.z + e, '#ffd23f', 0);
         /* v264: the way DOWN must be easy to find from the roof: yellow posts with a bar over the stair opening and two big STAIRS DOWN markings on the roof (you read them from the south and from the east) */
