@@ -38,7 +38,7 @@ function embank(x, z, h) {
   return h + (ramp - h) * (1 - smooth(6, 14, dz)); }
 export function cmbH(x, z) { return embank(x, z, cmbH0(x, z)); }
 // v355 ROAD BED: a road is cut / filled so that its cross-section is LEVEL (the hillside used to slope across it: one edge sank into the ground and the other floated) and its grade follows the smoothed hill along the centre line; it blends into the hillside over 6 m
-let BEDS = null;
+let BEDS = null, BGRID = null; const BGC = 16, NOBED = [];
 function bedSegs() {
   let RD; try { RD = ROADS; } catch (e) { return null; }   // (the module is still being built)
   const spl = (pts) => { if (pts.length < 3) return pts; const out = []; for (let i = 0; i + 1 < pts.length; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]; for (let t = 0; t < 1; t += 0.125) { const t2 = t * t, t3 = t2 * t, f = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]); } } out.push(pts[pts.length - 1]); return out; };   // the same Catmull-Rom curve the road is DRAWN with
@@ -54,7 +54,9 @@ function roadBed(x, z, h) {
   if (!BEDS) { BEDS = bedSegs(); if (!BEDS) return h; }
   if (BR && Math.abs(z - BR.z) < 16 && x > BR.xb - 62 && x < BR.xa + 62) return h;   // the bridge and its embankments keep their own heights
   let bd = 1e9, bh = 0, bw = 0;
-  for (const [ax, az, bx, bz, w, ha, hb] of BEDS) {
+  if (!BGRID) { BGRID = new Map(); for (let i = 0; i < BEDS.length; i++) { const [ax, az, bx, bz, w] = BEDS[i], m = w + 7, c0 = Math.floor((Math.min(ax, bx) - m) / BGC), c1 = Math.floor((Math.max(ax, bx) + m) / BGC), r0 = Math.floor((Math.min(az, bz) - m) / BGC), r1 = Math.floor((Math.max(az, bz) + m) / BGC); for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) { const k = (cx + 4096) * 8192 + (cz + 4096); let a = BGRID.get(k); if (!a) BGRID.set(k, a = []); a.push(i); } } }   /* v472: a spatial grid: the ground height asked for ~millions of times (map, minimap, bots) scanned ALL road pieces each time (33 s of a 76 s start on a laptop = minutes on a phone); now only the few pieces near the point are looked at (same result, same order) */
+  for (const bi of BGRID.get((Math.floor(x / BGC) + 4096) * 8192 + (Math.floor(z / BGC) + 4096)) || NOBED) {
+    const [ax, az, bx, bz, w, ha, hb] = BEDS[bi];
     if (x < Math.min(ax, bx) - w - 7 || x > Math.max(ax, bx) + w + 7 || z < Math.min(az, bz) - w - 7 || z > Math.max(az, bz) + w + 7) continue;
     const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0, d = Math.hypot(x - (ax + t * dx), z - (az + t * dz));
     if (d < bd) { bd = d; bh = ha + (hb - ha) * t; bw = w; }
