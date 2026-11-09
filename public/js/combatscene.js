@@ -5,7 +5,7 @@ import { makeHero, makeSkin } from './glbactor.js';
 import { buildCabin } from './planecabin.js';
 import { av } from './assetver.js';
 import { preloadAssets } from './preload.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mkLoader } from './gltfload.js';
 import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
@@ -168,7 +168,7 @@ export class CombatScene {
   // ---------------------------------------------------------------- the drop: a transport plane flies over the island, you jump, free-fall and open the parachute
   loadPlane() {
     if (this.planeP) return this.planeP;
-    return this.planeP = track(new Promise((res) => new GLTFLoader().load(av('models/c130.glb'), (g) => {
+    return this.planeP = track(new Promise((res) => mkLoader().load(av('models/c130.glb'), (g) => {
       const inner = g.scene; inner.position.set(3.83, 0, -4.73); const w = new THREE.Group(); w.add(inner); w.rotation.y = 0.9235; this.planeProps = [];   // the scan faces the wrong way: turn the nose to +Z, centre it
       const COL = (n) => /FUZEL/.test(n) ? '#e4e9f2' : /KRIL|OPER|Object05|NGon|Box09/.test(n) ? '#27478a' : /KIL/.test(n) ? '#27478a' : /Cylinder0[12]/.test(n) ? '#aab3c4' : '#c9d0dd';
       inner.updateMatrixWorld(true);

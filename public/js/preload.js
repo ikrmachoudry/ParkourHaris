@@ -1,6 +1,7 @@
 // v220 P1: ONE preload step. Everything the match needs is fetched and decoded on the loading screen (a longer wait before the game, no loading while playing).
 import { track } from './loading.js';
-import { preloadGuns } from './weaponmodels.js';
+import { preloadGuns, preloadGunsCore, preloadGunsRest } from './weaponmodels.js';
+const ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');   // v462: Android loads less before play
 import { preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
 import { bankReady } from './audio.js';
 import { preloadProps } from './props.js';
@@ -17,5 +18,7 @@ export function preloadAssets(kind) {   // kind: 'jang' | 'gta'
   if (done[kind]) return done[kind];
   if (typeof navigator !== 'undefined' && navigator.onLine === false) netFail('you are offline');
   const list = kind === 'jang' ? [...JANG_GLB, HERO_GLB[2], 'models/bag.glb'] : [...HERO_GLB, 'models/bag.glb'];   // the soldiers of Jang (+ the army soldier) / the five heroes of the city
-  return done[kind] = Promise.race([Promise.all([preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(25000), 'SOUNDS')]), new Promise((r) => setTimeout(r, 60000))]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
+  const P = Promise.race([Promise.all([ANDROID ? preloadGunsCore() : preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(25000), 'SOUNDS')]), new Promise((r) => setTimeout(r, 60000))]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
+  if (ANDROID) P.then(() => setTimeout(() => { preloadGunsRest().catch(() => {}); }, 15000));   // the remaining guns download quietly once the match is running
+  return done[kind] = P;
 }

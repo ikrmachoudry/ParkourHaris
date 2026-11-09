@@ -39,10 +39,10 @@ let avCache = '0', avAt = 0;
 const assetVersion = () => {
   if (Date.now() - avAt < 30e3) return avCache; avAt = Date.now();
   let mx = 0; const walk = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const q = path.join(d, f.name); if (f.isDirectory()) walk(q); else mx = Math.max(mx, fs.statSync(q).mtimeMs); } };
-  try { for (const d of ['models', 'audio', 'anim']) walk(path.join(pubDir, d)); avCache = String(mx | 0); } catch { /* keep the old one */ }
+  try { for (const d of ['models', 'models-lite', 'audio', 'anim']) walk(path.join(pubDir, d)); avCache = String(mx | 0); } catch { /* keep the old one */ }
   return avCache;
 };
-app.use(['/models', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
+app.use(['/models', '/models-lite', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;

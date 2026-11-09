@@ -5,7 +5,7 @@
 //   target_world_rotation(bone) = G(driver bone) * Q(bone) * Rrest(bone)      Q = shortest rotation taking the target's rest bone direction onto the driver's rest direction
 // While the GLB is still loading (or if it fails) the procedural body is shown, so the game never breaks.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mkLoader } from './gltfload.js';
 import { track } from './loading.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -18,7 +18,7 @@ import { av } from './assetver.js';
 const cache = new Map();
 const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.12;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
 export function loadGlb(url) {
-  if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => new GLTFLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
+  if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => mkLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
   return cache.get(url);
 }
 

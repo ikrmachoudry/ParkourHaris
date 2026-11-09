@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { av } from './assetver.js';
 import { track } from './loading.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mkLoader } from './gltfload.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import GUNS from './guns.json' with { type: 'json' };   // the seven real low-poly guns (Ultimate Gun Pack by Quaternius, CC0), pre-converted to flat-coloured triangles in millimetres
 
@@ -48,14 +48,14 @@ export function makeWeaponModel(kind) {
 const GEO = {}, GMAT = {};
 // the detailed guns (Sketchfab, CC BY: see the credits in the pause menu): loaded on first use, then they replace the flat-coloured stand-ins. models/guns/manifest.json holds each gun's frame matrix.
 const GLB = {}; let MAN = null;
-const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefined' ? Promise.resolve(null) : (MAN || (MAN = fetch(av('models/guns/manifest.json')).then((r) => r.json()).catch(() => ({}))))).then((man) => !man || !man[kind] ? null : new Promise((res) => new GLTFLoader().load(av('models/guns/' + kind + '.glb'), (g) => {
+const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefined' ? Promise.resolve(null) : (MAN || (MAN = fetch(av('models/guns/manifest.json')).then((r) => r.json()).catch(() => ({}))))).then((man) => !man || !man[kind] ? null : new Promise((res) => mkLoader().load(av('models/guns/' + kind + '.glb'), (g) => {
   g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m && m.map) m.map.colorSpace = THREE.SRGBColorSpace; if (m && m.metalness > 0.6) m.metalness = 0.6; }); } });
   g.scene.applyMatrix4(new THREE.Matrix4().fromArray(man[kind])); res(g.scene);
 }, undefined, () => res(null)))));
 export const GUN_KINDS = ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper'];
 // v391: the ACOG scope ("ACOG Scope" by Mateusz Wolinski, Sketchfab, CC BY-NC) on the M4 and the AK-49. models/guns/acog.glb is the file cut down for phones (one scope, 256 px textures, ~3.7k triangles). It is turned so its optical axis (back lens -> front lens) is the gun's +z, centred and 1 m long; each gun then scales / places it.
 let SCOPE = null;
-const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => new GLTFLoader().load(av('models/guns/acog.glb'), (g) => {
+const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/guns/acog.glb'), (g) => {
   const sc = g.scene; sc.updateMatrixWorld(true); let pf = null, pb = null;
   sc.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()); if (/glass.front/i.test(o.name)) pf = c; if (/glass.back/i.test(o.name)) pb = c; } });
   if (!pf || !pb) { res(null); return; }
@@ -65,7 +65,7 @@ const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Pro
 const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
 // v392: the real M67 grenade / molotov (your GLB files in models/props) for the grenade in the HAND and the grenade in FLIGHT (both were a code-built olive ball)
 const PGLB = {};
-const propGlb = (n) => PGLB[n] || (PGLB[n] = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => new GLTFLoader().load(av('models/props/' + n + '.glb'), (g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); res(g.scene); }, undefined, () => res(null))));
+const propGlb = (n) => PGLB[n] || (PGLB[n] = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/props/' + n + '.glb'), (g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); res(g.scene); }, undefined, () => res(null))));
 export function throwModel(kind, tint, onLoad) {   // an empty group that fills itself with the model (origin = the middle of the object, +y = up); onLoad(group) when it is in
   const g = new THREE.Group(), H = kind === 'molotov' ? 0.24 : 0.17;
   propGlb(kind === 'molotov' ? 'molotov' : 'grenade').then((src) => { if (!src) return; const m = skClone(src), bb = new THREE.Box3().setFromObject(m), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3()), w = new THREE.Group(); m.position.sub(c); w.add(m); w.scale.setScalar(H / Math.max(0.001, sz.y));
@@ -80,6 +80,9 @@ export function holdModel(name, size, alongZ, onLoad) {   // v393: a prop GLB fo
     w.scale.setScalar(size / Math.max(0.001, sz.x, sz.y, sz.z)); const o = new THREE.Group(); o.add(w); g.add(o); if (onLoad) onLoad(g); });
   return g;
 }
+// v462 (Android): only the starting pistol, the scope and the two grenades are fetched on the loading screen; the other guns download in the background once the match runs (a gun lying on the ground shows its flat stand-in until its file arrives, then swaps; nothing else changes)
+export const preloadGunsCore = () => track(Promise.all([glbGun('pistol'), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');
+export const preloadGunsRest = () => GUN_KINDS.filter((k) => k !== 'pistol').reduce((p, k) => p.then(() => glbGun(k)), Promise.resolve());
 export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
 export function gunMesh(kind) {
   const want = kind; if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model (and gets the ACOG scope, v391)
