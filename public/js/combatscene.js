@@ -384,6 +384,11 @@ export class CombatScene {
   /* v459: the INTELLIDROID flies WITH you: while you are in the plane / skydiving / under the parachute a copy of your flight is shown beside you (seated next to you in the plane, jumping with you, its own parachute); when you land the real droid (the server's bot) appears right beside you and stays within ~10 m */
   mimicDroid(src) {
     const T = (this.R.jangTeam || this.soloT); if (!T || !this.sim || !this.sim.bots) return; const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (!D) return;
+    if (src.ph === 5 || src.ph === 6) {   // v467: I drive / ride in a vehicle: INTELLIDROID rides in a free seat of the same vehicle (a passenger seat; not in a tractor, which has one seat)
+      const R = this.R, car = R.cars[src.vi | 0], ci = src.vi | 0; let seat = -1;
+      if (car && !car.st.wreck && (ci < 12 || ci >= 16)) { const cap = R.seatCap(car), pp = car.st.paxs || [], used = this.paxSeats(ci); if (src.ph === 6) used.push(src.ps | 0); for (let k = 0; k < cap - 1; k++) if ((pp[k] === undefined || pp[k] === -1) && !used.includes(k)) { seat = k; break; } }
+      if (seat >= 0) { if (T.seatOf && T.seatOf[-777] === undefined) T.seatOf[-777] = Object.keys(T.seatOf).length; this.onMate({ ...src, ph: 6, vi: ci, ps: seat, id: -777, c: 0, sk: 4, nm: 'INTELLIDROID', tm: T.tm, x: src.x, z: src.z, al: 1, dd: 0, wp: '', ai: 0, st: 0, hn: 0, rv: 0, iv: undefined }); return; }
+    }
     if (src.ph >= 4 || !this.on) { const g = this.mates.get(-777); if (g) { this.group.remove(g.m.group); this.group.remove(g.ch); if (g.tg) this.group.remove(g.tg); this.mates.delete(-777); } return; }
     if (T.seatOf && T.seatOf[-777] === undefined) T.seatOf[-777] = Object.keys(T.seatOf).length;
     const off = src.ph <= 1 ? 0 : 1.6; this.onMate({ ...src, id: -777, c: 0, sk: 4, nm: 'INTELLIDROID', tm: T.tm, x: src.x + off, z: src.z + off * 0.6, al: 1, dd: 0, wp: '', ai: 0, st: 0, hn: 0, rv: 0, vi: 0, ps: 0, iv: undefined });
