@@ -61,8 +61,8 @@ function frame() {
   let target = Math.max(90 * (1 - Math.exp(-t / 5)), real * 92);
   /* v296: a slow network must never leave you staring at 90%: after SLOW seconds the line says so, after WARN seconds the CHECK YOUR NETWORK AND RESTART panel appears (RESTART / KEEP WAITING) */
   { const SL = (typeof window !== 'undefined' && window.__LS_SLOW) || [25, 60], tn = (now - (L.netAt || L.t0)) / 1000;
-    if (!(L.wantHide && L.done >= L.total)) { if (t > SL[0] && L.msg && now - (L.slowT || 0) > 1000) { L.slowT = now; L.msg.textContent = 'SLOW NETWORK - STILL LOADING...  ' + Math.round(t) + ' s  [' + (Object.keys(L.pend).join(',') || 'BUILDING') + ' | ' + L.fps + ' FPS | done: ' + (L.marks.join(', ') || '-') + ']'; }
-      if (tn > SL[1] && L.net && !L.net.classList.contains('on')) { const busy = L.fps > 0 && L.fps < 12; const h = L.net.querySelector('h2'), q = h && h.nextElementSibling; if (h) h.textContent = busy ? 'YOUR PHONE IS BUSY LOADING' : 'CHECK YOUR NETWORK AND RESTART'; if (q) q.textContent = busy ? 'The game is still preparing (your phone is working hard, the network is probably fine). Nothing can hurt you while you wait.' : 'The game is loading very slowly (bad connection). Nothing can hurt you while you wait.'; L.net.classList.add('on'); } } else if (L.net && L.net.classList.contains('on')) L.net.classList.remove('on'); }
+    if (!(L.wantHide && L.done >= L.total)) { if (t > SL[0] && L.msg && now - (L.slowT || 0) > 1000) { L.slowT = now; L.msg.textContent = (Object.keys(L.pend).length ? 'SLOW NETWORK - STILL LOADING...  ' : 'FILES ARE DOWNLOADED - YOUR PHONE IS PREPARING (' + (L.stage || 'BUILDING') + ')...  ') + Math.round(t) + ' s  [' + (Object.keys(L.pend).join(',') || 'BUILDING') + ' | ' + L.fps + ' FPS | done: ' + (L.marks.join(', ') || '-') + ']'; }
+      if (tn > SL[1] && L.net && !L.net.classList.contains('on')) { const busy = !Object.keys(L.pend).length || (L.fps > 0 && L.fps < 12); const h = L.net.querySelector('h2'), q = h && h.nextElementSibling; if (h) h.textContent = busy ? 'YOUR PHONE IS BUSY LOADING' : 'CHECK YOUR NETWORK AND RESTART'; if (q) q.textContent = busy ? 'The game is still preparing (your phone is working hard, the network is probably fine). Nothing can hurt you while you wait.' : 'The game is loading very slowly (bad connection). Nothing can hurt you while you wait.'; L.net.classList.add('on'); } } else if (L.net && L.net.classList.contains('on')) L.net.classList.remove('on'); }
   if (t > 600) { L.wantHide = true; L.done = L.total; }   // last-resort fail-safe (the restart panel has been up for minutes)
   const ready = L.wantHide && L.done >= L.total && now - L.t0 > 900;
   if (ready) target = 100;
@@ -79,6 +79,7 @@ export const loadScreen = {
     L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; heroPlace(); L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
+  stage(n) { L.stage = n; },
   say(label) { if (L.msg && label) L.msg.textContent = label; },
   cancelFn: null,
   cancel() { if (!L.shown) return; const f = this.cancelFn; this.hide(); try { if (f) f(); } catch (e) { /* ignore */ } },   // v445: the player pressed CANCEL: the screen goes away at once and main.js takes him back

@@ -1965,6 +1965,10 @@ class Race {
       sc.traverse((o) => { if (o.isMesh || o.isLine || o.isPoints) { culled.push([o, o.frustumCulled]); o.frustumCulled = false; } });
       for (const c of this.cars) { const u = c.mesh.userData; if (u.full && u.baked && u.full !== u.baked) { vis.push([u.full, u.full.visible], [u.baked, u.baked.visible]); u.full.visible = true; u.baked.visible = false; } }
       for (const r of this.remotes.values()) { vis.push([r.model.group, r.model.group.visible]); r.model.group.visible = true; }
+      if (IS_ANDROID && renderer.compileAsync) {   // v475: KHR_parallel_shader_compile: the phone's driver compiles the shaders on its own threads, the page keeps running (a blocking compile froze budget phones at 92%)
+        const restore = () => { for (const [o, f] of culled) o.frustumCulled = f; for (const [o, v] of vis) o.visible = v; };
+        return renderer.compileAsync(sc, this.camera).then(restore, restore);
+      }
       renderer.compile(sc, this.camera);
       if (IS_ANDROID) throw new Error('android: skip full-scene warm render');   // v449: budget Android GPUs stall or lose the context on one huge draw of the whole island; shaders are compiled, textures upload as they come into view
       const rt = new THREE.WebGLRenderTarget(4, 4);

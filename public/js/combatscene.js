@@ -185,13 +185,14 @@ export class CombatScene {
   // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
   prepare() {
     const R = this.R;
-    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => { if (!(this.R.isTouch && /Android/i.test(navigator.userAgent || '')) || !this.on) return; try { loadScreen.say('BUILDING THE MAP...'); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 60)).then(() => { try { this.ensureMap(); } catch (e) { console.warn('map build', e); } }).then(() => new Promise((res) => setTimeout(res, 60))); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { try { this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => { if (!(this.R.isTouch && /Android/i.test(navigator.userAgent || '')) || !this.on) return; try { loadScreen.say('BUILDING THE MAP...'); loadScreen.stage('MAP'); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 60)).then(() => { try { this.ensureMap(); } catch (e) { console.warn('map build', e); } }).then(() => new Promise((res) => setTimeout(res, 60))); }).then(() => {   // (the soldiers attach their model a moment after they are created)
       try {
         if (!this.sim || !this.on) return;
         const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
         for (const [, l] of this.loot) show(l.g); for (const [, a] of this.bots) show(a.g); show(this.plane);
         if (this.plane && !this.plane.children.length) this.loadPlane().then((w) => { if (w && this.plane && !this.plane.children.length) this.plane.add(w); });
-        R.warmUp();
+        try { loadScreen.say('PREPARING GRAPHICS...'); loadScreen.stage('GRAPHICS'); } catch (e) { /* ignore */ }
+        const wu = R.warmUp(); if (wu && wu.then) return Promise.race([wu, new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { for (const [o, v] of vis) o.visible = v; });   // v475: on Android the shaders compile in parallel without freezing the phone
         for (const [o, v] of vis) o.visible = v;
       } catch (e) { console.warn('warm-up skipped', e); }
     });
