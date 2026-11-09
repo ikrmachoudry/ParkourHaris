@@ -1,6 +1,6 @@
 // v188: the loading screen - an original night-drop wallpaper, a progress bar and a status line.
 // Anything slow (a model file, the battle map, new characters) is wrapped in track(); the bar follows the real files and creeps a little in between.
-const L = { total: 0, done: 0, shown: false, wantHide: false, t0: 0, pct: 0, el: null, bar: null, num: null, msg: null, title: null, tip: null, raf: 0, label: '', tipT: 0 };
+const L = { total: 0, done: 0, shown: false, wantHide: false, t0: 0, pct: 0, el: null, bar: null, num: null, msg: null, title: null, tip: null, raf: 0, label: '', tipT: 0, pend: {}, fc: 0, fps: 0, fpsT: 0 };
 const TIPS = ['LAND NEAR HOUSES FOR FAST LOOT', 'PRESS AND HOLD A PEEK BUTTON TO LOOK AROUND A CORNER', 'CROUCH OR GO PRONE TO STAY HIDDEN', 'A BACKPACK LETS YOU CARRY MORE', 'USE THE SCOPE ON THE SNIPER FOR LONG SHOTS', 'HEAL BEFORE THE NEXT FIGHT', 'THE DOOR OPENS BY ITSELF - THEN DIVE'];
 const SVG = `<svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <defs><linearGradient id="lsSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050b16"/><stop offset=".55" stop-color="#10243c"/><stop offset=".82" stop-color="#3a3d52"/><stop offset="1" stop-color="#b4562a"/></linearGradient>
@@ -56,11 +56,12 @@ function heroPlace() {
 }
 function frame() {
   L.raf = 0; if (!L.shown) return;
+  L.fc++; if (performance.now() - L.fpsT > 1000) { L.fps = L.fc; L.fc = 0; L.fpsT = performance.now(); }
   const now = performance.now(), t = (now - L.t0) / 1000, real = L.total ? L.done / L.total : 0;
   let target = Math.max(90 * (1 - Math.exp(-t / 5)), real * 92);
   /* v296: a slow network must never leave you staring at 90%: after SLOW seconds the line says so, after WARN seconds the CHECK YOUR NETWORK AND RESTART panel appears (RESTART / KEEP WAITING) */
   { const SL = (typeof window !== 'undefined' && window.__LS_SLOW) || [25, 60], tn = (now - (L.netAt || L.t0)) / 1000;
-    if (!(L.wantHide && L.done >= L.total)) { if (t > SL[0] && L.msg && now - (L.slowT || 0) > 1000) { L.slowT = now; L.msg.textContent = 'SLOW NETWORK - STILL LOADING...  ' + Math.round(t) + ' s'; }
+    if (!(L.wantHide && L.done >= L.total)) { if (t > SL[0] && L.msg && now - (L.slowT || 0) > 1000) { L.slowT = now; L.msg.textContent = 'SLOW NETWORK - STILL LOADING...  ' + Math.round(t) + ' s  [' + (Object.keys(L.pend).join(',') || 'BUILDING') + ' | ' + L.fps + ' FPS]'; }
       if (tn > SL[1] && L.net && !L.net.classList.contains('on')) L.net.classList.add('on'); } else if (L.net && L.net.classList.contains('on')) L.net.classList.remove('on'); }
   if (t > 600) { L.wantHide = true; L.done = L.total; }   // last-resort fail-safe (the restart panel has been up for minutes)
   const ready = L.wantHide && L.done >= L.total && now - L.t0 > 900;
@@ -86,4 +87,4 @@ export const loadScreen = {
   get visible() { return L.shown; },
 };
 // wrap any slow load (a GLB, a texture, new characters): the bar follows the real work
-export function track(p, label) { L.total++; if (label && L.shown) loadScreen.say('LOADING ' + label + '...'); const d = () => { L.done++; }; p.then(d, d); return p; }
+export function track(p, label) { L.total++; if (label && L.shown) loadScreen.say('LOADING ' + label + '...'); const k = label || '?'; L.pend[k] = (L.pend[k] || 0) + 1; const d = () => { L.done++; if (--L.pend[k] <= 0) delete L.pend[k]; }; p.then(d, d); return p; }   // v468: pending[] also feeds the SLOW NETWORK line (what is still loading, FPS)

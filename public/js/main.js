@@ -2901,7 +2901,7 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
     requestAnimationFrame(loop);
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
-    if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); race.render(); }
+    if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); if (!(IS_ANDROID && loadScreen.visible)) race.render(); }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
     else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
