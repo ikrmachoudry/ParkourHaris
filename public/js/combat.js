@@ -233,7 +233,7 @@ function buildSolids(o) {
       }
     }
   }   // v336: under a gable / pent roof this slab is only the CEILING plate: nobody can stand on it (he slides off, PUBG style)
-  if (o.bay) wall(-o.bay, hz - 0.6, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'wall');   // the tower bay over the front door stands on the roof
+  if (o.bay) wall(-o.bay, hz - 0.1, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'prop');   /* v466: invisible solid (it was drawn as a plain brick box that showed square corners behind the round arch; the arch plate is drawn in battlemap.js) */   // the tower bay over the front door stands on the roof
   o.openings = openings; o.top = top; o.hole = hole; o.hole2 = hole2 || null;
   return out;
 }

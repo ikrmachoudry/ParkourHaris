@@ -275,7 +275,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         if (geos.length) B.add('trim', mergeGeometries(geos), cream, 0); }
       // the tall arched tower bay over the door: the white sign board, a ledge, and the niche with two tall blue windows
       { const bw = 1.9, spr = fy + 9.1, bzb = zO - 0.1, bzf = zO + 0.2, yb = fy + 3.7;
-        B.box('wall', bx - bw, yb, bzb, bx + bw, spr, bzf, b.c, 0.02); half(bx, spr, bw, bzb, bzf, b.c);
+        { const sh = new THREE.Shape(); sh.moveTo(-bw, 0); sh.lineTo(bw, 0); sh.lineTo(bw, spr - yb); sh.absarc(0, spr - yb, bw, 0, Math.PI, false); sh.lineTo(-bw, 0); const eg = new THREE.ExtrudeGeometry(sh, { depth: bzf - bzb, bevelEnabled: false, curveSegments: 18 }); eg.translate(bx, yb, bzb); B.add('wall', eg, b.c, 0.02); }   /* v466: ONE closed arch-shaped slab (rectangle + round top) so the back and sides are round too, not a box with a flat top */
         for (const sx of [-1, 1]) B.box('trim', bx + sx * bw - (sx > 0 ? 0 : 0.18), yb, bzf - 0.05, bx + sx * bw + (sx > 0 ? 0.18 : 0), spr, bzf + 0.12, tan, 0); half(bx, spr, bw + 0.18, bzf - 0.05, bzf + 0.12, tan);
         B.box('trim', bx - bw - 0.3, fy + 6.0, bzf - 0.05, bx + bw + 0.3, fy + 6.16, bzf + 0.4, tan, 0);   // the ledge under the niche
         B.box('trim', bx - 1.45, fy + 6.45, bzf, bx + 1.45, spr, bzf + 0.04, dark, 0); half(bx, spr, 1.45, bzf, bzf + 0.04, dark);
