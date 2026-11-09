@@ -1,5 +1,6 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
 import { FireSmokeFX } from './fire.js';
+import { potatoize } from './potato.js';
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -123,9 +124,9 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   } else Q.good = 0;
 }
 try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } if (AUTO_LOW) { Q.low = true; Q.auto = true; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
-if (Q.low) { Q.dpr = 0.7; Q.shadows = false; Q.far = 260; }
+if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
+  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -2901,7 +2902,8 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
     requestAnimationFrame(loop);
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
-    if (race) { if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); if (!(IS_ANDROID && loadScreen.visible)) race.render(); }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
+    if (race) { const c0 = performance.now(); if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); if (!(IS_ANDROID && loadScreen.visible)) race.render(); window.__cpuMs = (window.__cpuMs || 0) * 0.9 + (performance.now() - c0) * 0.1;
+      if (IS_ANDROID && (Q.low || Q.low2) && !loadScreen.visible && now - (Q.potT || 0) > 1500) { Q.potT = now; try { potatoize(race.scene); } catch (e) { /* never break the frame */ } } }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
     else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
@@ -2912,7 +2914,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { renderer, Q, P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { renderer, potatoize, Q, P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls
