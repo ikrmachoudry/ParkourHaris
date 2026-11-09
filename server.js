@@ -52,8 +52,10 @@ const assetMap = () => {
 };
 app.use(['/models', '/models-lite', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
 // v473: list of every Android-lite model / sound / animation (with the versioned URL the game asks for) so the phone can download them all once ("Download Jang")
-app.get('/api/pack', (_q, r) => {
-  const v = assetVersion(), m = assetMap(), files = []; for (const p of Object.keys(m)) if (/^(models-lite|audio|anim)\//.test(p)) { let s = 0; try { s = fs.statSync(path.join(pubDir, p)).size; } catch { /* gone */ } files.push({ u: p + '?v=' + m[p], s }); }
+app.get('/api/pack', (q, r) => {   // v476: ?lite=1 (Android) = the light models; otherwise (iPhone) the full models. Everything else is the same: all sounds, animations and pictures.
+  const lite = q.query.lite === '1', v = assetVersion(), m = assetMap(), files = [], re = lite ? /^(models-lite|audio|anim)\// : /^(models|audio|anim)\//;
+  for (const p of Object.keys(m)) if (re.test(p)) { let s = 0; try { s = fs.statSync(path.join(pubDir, p)).size; } catch { /* gone */ } files.push({ u: p + '?v=' + m[p], s }); }
+  try { for (const f of fs.readdirSync(path.join(pubDir, 'img'))) files.push({ u: 'img/' + f, s: fs.statSync(path.join(pubDir, 'img', f)).size }); } catch { /* no pictures */ }
   r.set('Cache-Control', 'no-store').json({ v, files, bytes: files.reduce((a, f) => a + f.s, 0) });
 });
 app.get(['/', '/index.html'], (_q, r) => {

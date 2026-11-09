@@ -46,6 +46,7 @@ const P0 = { ...P };   // the cartoon-game physics; the city overrides them with
 const $ = (id) => document.getElementById(id);
 const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches && matchMedia('(hover: hover)').matches && !matchMedia('(pointer: coarse)').matches;   // a laptop / PC with a mouse (even a touchscreen laptop): keyboard + mouse only
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+const IS_IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (/Macintosh/i.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1));   // v476: iPhone / iPad also download everything
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 let sprintLock = false;   // v213: PUBG-style SPRINT LOCK on a phone: push the stick all the way up into the lock icon and let go - the character keeps sprinting forward until you touch the stick again
@@ -2872,7 +2873,7 @@ async function boot() {
 const startJang = () => { $('b-combat').onclick(); };
 const packAsk = () => {
   const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,8,14,.94);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#fff;text-align:center;padding:16px';
-  o.innerHTML = '<div style="max-width:420px"><div style="font-size:26px;font-weight:900;letter-spacing:1px;color:#ff9a3c">DOWNLOAD JANG</div><div id="pk-t" style="margin:10px 0 14px;font-size:14px;opacity:.9">Saves the maps, soldiers, guns and sounds on your phone <b>once</b>, so Jang loads fast and plays smoother. Use Wi-Fi if you can.</div><div id="pk-b" style="height:14px;border-radius:7px;background:#222;overflow:hidden;display:none"><div id="pk-f" style="height:100%;width:0;background:#ff9a3c"></div></div><button id="pk-go" style="margin-top:14px;padding:12px 26px;font-size:17px;font-weight:800;border:0;border-radius:10px;background:#ff9a3c;color:#111">DOWNLOAD</button> <button id="pk-skip" style="margin-top:14px;padding:12px 18px;font-size:14px;border:0;border-radius:10px;background:#333;color:#ddd">Skip</button></div>';
+  o.innerHTML = '<div style="max-width:420px"><div style="font-size:26px;font-weight:900;letter-spacing:1px;color:#ff9a3c">DOWNLOAD JANG</div><div id="pk-t" style="margin:10px 0 14px;font-size:14px;opacity:.9">Saves EVERYTHING on your phone <b>once</b>: soldiers, guns, plane, buildings, animations, sounds and pictures. After that Jang only needs internet for the match itself. Use Wi-Fi if you can.</div><div id="pk-b" style="height:14px;border-radius:7px;background:#222;overflow:hidden;display:none"><div id="pk-f" style="height:100%;width:0;background:#ff9a3c"></div></div><button id="pk-go" style="margin-top:14px;padding:12px 26px;font-size:17px;font-weight:800;border:0;border-radius:10px;background:#ff9a3c;color:#111">DOWNLOAD</button> <button id="pk-skip" style="margin-top:14px;padding:12px 18px;font-size:14px;border:0;border-radius:10px;background:#333;color:#ddd">Skip</button></div>';
   document.body.appendChild(o); const g = (id) => o.querySelector('#' + id); let busy = false;
   g('pk-skip').onclick = () => { if (busy) return; o.remove(); startJang(); };
   g('pk-go').onclick = async () => {
@@ -2881,9 +2882,9 @@ const packAsk = () => {
     catch (e) { busy = false; g('pk-go').style.opacity = 1; g('pk-skip').style.opacity = 1; g('pk-go').textContent = 'TRY AGAIN'; g('pk-t').textContent = 'Download stopped (network). Tap TRY AGAIN - it continues where it stopped.'; }
   };
 };
-$('b-go-jang').onclick = () => { if (IS_ANDROID && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else startJang(); };
-if (IS_ANDROID) setTimeout(packQuietUpdate, 6000);
-if (IS_ANDROID && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
+$('b-go-jang').onclick = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else startJang(); };
+if (IS_ANDROID || IS_IOS) setTimeout(packQuietUpdate, 6000);
+if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
   $('b-cmb-sdroid').onclick = () => { A.sfx.go(); window.phSoloDroid = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v461: solo with the INTELLIDROID teammate
@@ -3029,4 +3030,4 @@ window.__ph = { renderer, potatoize, Q, P, bld: () => cmbLayout().buildings, cli
 })();
 
 // v471: Android: a service worker keeps the big versioned files (models, sounds, animations, the game script) on the phone after the first visit
-try { if (IS_ANDROID && 'serviceWorker' in navigator) window.addEventListener('load', () => { setTimeout(() => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }, 4000); }); } catch (e) { /* no service worker: fine */ }
+try { if ((IS_ANDROID || IS_IOS) && 'serviceWorker' in navigator) window.addEventListener('load', () => { setTimeout(() => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }, 4000); }); } catch (e) { /* no service worker: fine */ }

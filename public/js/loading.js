@@ -79,7 +79,7 @@ export const loadScreen = {
     L.wantHide = false; if (title) { L.title.textContent = title; if (L.sub) L.sub.textContent = /GTA/i.test(title) ? 'OPEN WORLD' : 'BATTLE ROYALE'; } L.el.classList.toggle('jang', !/GTA/i.test(title || L.title.textContent)); L.msg.textContent = label || 'LOADING...'; heroPlace(); L.el.classList.remove('out');
     if (!L.raf) L.raf = requestAnimationFrame(frame);
   },
-  stage(n) { L.stage = n; },
+  stage(n) { const now = performance.now(); if (L.stage && L.stageAt) { const d = Math.round((now - L.stageAt) / 100) / 10; if (L.shown) L.marks.push(L.stage + ' ' + d + 's'); (window.__stg || (window.__stg = [])).push([L.stage, d]); } L.stage = n; L.stageAt = now; },
   say(label) { if (L.msg && label) L.msg.textContent = label; },
   cancelFn: null,
   cancel() { if (!L.shown) return; const f = this.cancelFn; this.hide(); try { if (f) f(); } catch (e) { /* ignore */ } },   // v445: the player pressed CANCEL: the screen goes away at once and main.js takes him back

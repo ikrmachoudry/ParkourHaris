@@ -4,7 +4,7 @@ const CACHE = 'ph-assets-1', KEY = 'ph_pack';
 const AVN = () => (typeof window !== 'undefined' && window.__AV) || '0';
 export const packSupported = () => typeof caches !== 'undefined' && typeof fetch === 'function';
 export const packDone = () => { try { return localStorage.getItem(KEY) === AVN(); } catch (e) { return false; } };
-export async function packInfo() { const r = await fetch('/api/pack', { cache: 'no-store' }); if (!r.ok) throw new Error('list'); return r.json(); }
+export async function packInfo() { const r = await fetch('/api/pack?lite=' + (/Android/i.test(navigator.userAgent || '') ? 1 : 0), { cache: 'no-store' }); if (!r.ok) throw new Error('list'); return r.json(); }
 export async function downloadPack(info, onProgress) {
   const c = await caches.open(CACHE); const total = info.bytes || 1; let got = 0, failed = 0, i = 0;
   const one = async (f) => {
@@ -16,7 +16,7 @@ export async function downloadPack(info, onProgress) {
   const worker = async () => { while (i < info.files.length) { const f = info.files[i++]; await one(f); onProgress && onProgress(Math.min(1, got / total), failed); } };
   await Promise.all([worker(), worker(), worker(), worker()]);
   if (failed) throw new Error(failed + ' files failed');
-  try { const keep = new Set(info.files.map((f) => new URL(f.u, location.href).href)); for (const k of await c.keys()) { if (/\/(models-lite|audio|anim)\//.test(k.url) && !keep.has(k.url)) c.delete(k); } } catch (e) { /* old files stay: harmless */ }
+  try { const keep = new Set(info.files.map((f) => new URL(f.u, location.href).href)); for (const k of await c.keys()) { if (/\/(models-lite|models|audio|anim|img)\//.test(k.url) && !keep.has(k.url)) c.delete(k); } } catch (e) { /* old files stay: harmless */ }
   try { localStorage.setItem(KEY, info.v); } catch (e) { /* no storage */ }
   try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {}); } catch (e) { /* ok */ }
 }
