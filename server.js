@@ -43,6 +43,12 @@ const assetVersion = () => {
   return avCache;
 };
 app.use(['/models', '/models-lite', '/audio', '/anim'], (q, r, next) => { if (q.query && q.query.v) r.set('Cache-Control', 'public, max-age=31536000, immutable'); next(); });
+// v473: list of every Android-lite model / sound / animation (with the versioned URL the game asks for) so the phone can download them all once ("Download Jang")
+app.get('/api/pack', (_q, r) => {
+  const v = assetVersion(), files = []; const walk = (d, rel) => { for (const f of fs.readdirSync(path.join(pubDir, d), { withFileTypes: true })) { const p = rel + '/' + f.name; if (f.isDirectory()) walk(d + '/' + f.name, p); else files.push({ u: p + '?v=' + v, s: fs.statSync(path.join(pubDir, d, f.name)).size }); } };
+  try { for (const d of ['models-lite', 'audio', 'anim']) walk(d, d); } catch { /* partial list */ }
+  r.set('Cache-Control', 'no-store').json({ v, files, bytes: files.reduce((a, f) => a + f.s, 0) });
+});
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;
