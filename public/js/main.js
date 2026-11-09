@@ -2870,19 +2870,19 @@ async function boot() {
   $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
   { const t = $('s-title'); for (const [id, g] of [['b-go-gta', true], ['b-go-jang', false]]) { const e = $(id); if (!e) continue; const f = () => t.classList.toggle('hl-g', g); e.addEventListener('mouseenter', f); e.addEventListener('focus', f); e.addEventListener('touchstart', f, { passive: true }); } }   // v190: the big background follows the card you point at
 // v473: Android: the first time, Jang asks to download all its files into the phone (about 20 MB, once); after that it starts from the phone's storage
-const startJang = () => { $('b-combat').onclick(); };
+const openJangMenu = () => { $('b-combat').onclick(); };
 const packAsk = () => {
   const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,8,14,.94);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#fff;text-align:center;padding:16px';
   o.innerHTML = '<div style="max-width:420px"><div style="font-size:26px;font-weight:900;letter-spacing:1px;color:#ff9a3c">DOWNLOAD JANG</div><div id="pk-t" style="margin:10px 0 14px;font-size:14px;opacity:.9">Saves EVERYTHING on your phone <b>once</b>: soldiers, guns, plane, buildings, animations, sounds and pictures. After that Jang only needs internet for the match itself. Use Wi-Fi if you can.</div><div id="pk-b" style="height:14px;border-radius:7px;background:#222;overflow:hidden;display:none"><div id="pk-f" style="height:100%;width:0;background:#ff9a3c"></div></div><button id="pk-go" style="margin-top:14px;padding:12px 26px;font-size:17px;font-weight:800;border:0;border-radius:10px;background:#ff9a3c;color:#111">DOWNLOAD</button> <button id="pk-skip" style="margin-top:14px;padding:12px 18px;font-size:14px;border:0;border-radius:10px;background:#333;color:#ddd">Skip</button></div>';
   document.body.appendChild(o); const g = (id) => o.querySelector('#' + id); let busy = false;
-  g('pk-skip').onclick = () => { if (busy) return; o.remove(); startJang(); };
+  g('pk-skip').onclick = () => { if (busy) return; o.remove(); openJangMenu(); };
   g('pk-go').onclick = async () => {
     if (busy) return; busy = true; g('pk-go').style.opacity = .5; g('pk-skip').style.opacity = .5; g('pk-b').style.display = 'block'; g('pk-t').textContent = 'Downloading... keep this page open.';
-    try { const info = await packInfo(); g('pk-t').textContent = 'Downloading ' + Math.round(info.bytes / 1048576) + ' MB... keep this page open.'; await downloadPack(info, (p) => { g('pk-f').style.width = Math.round(p * 100) + '%'; g('pk-t').textContent = 'Downloading ' + Math.round(p * 100) + '% ... keep this page open.'; }); g('pk-t').textContent = 'Done! Starting Jang...'; setTimeout(() => { o.remove(); startJang(); }, 700); }
+    try { const info = await packInfo(); g('pk-t').textContent = 'Downloading ' + Math.round(info.bytes / 1048576) + ' MB... keep this page open.'; await downloadPack(info, (p) => { g('pk-f').style.width = Math.round(p * 100) + '%'; g('pk-t').textContent = 'Downloading ' + Math.round(p * 100) + '% ... keep this page open.'; }); g('pk-t').textContent = 'Done! Starting Jang...'; setTimeout(() => { o.remove(); openJangMenu(); }, 700); }
     catch (e) { busy = false; g('pk-go').style.opacity = 1; g('pk-skip').style.opacity = 1; g('pk-go').textContent = 'TRY AGAIN'; g('pk-t').textContent = 'Download stopped (network). Tap TRY AGAIN - it continues where it stopped.'; }
   };
 };
-$('b-go-jang').onclick = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else startJang(); };
+$('b-go-jang').onclick = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else openJangMenu(); };
 if (IS_ANDROID || IS_IOS) setTimeout(packQuietUpdate, 6000);
 if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
