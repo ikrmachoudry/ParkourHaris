@@ -72,12 +72,12 @@ function nbuild() {
   nel = document.createElement('div'); nel.id = 'zonenear';
   nel.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .25s linear;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(40,130,255,.35) 85%,rgba(30,110,255,.7) 100%)';
   ntx = document.createElement('div'); ntx.id = 'zonenear-t';
-  ntx.style.cssText = 'position:fixed;left:50%;top:27%;transform:translateX(-50%);pointer-events:none;z-index:6;opacity:0;transition:opacity .25s linear;font:800 15px/1.2 system-ui,sans-serif;letter-spacing:.06em;color:#fff;background:rgba(20,70,200,.72);border:2px solid #7db8ff;border-radius:18px;padding:6px 16px;white-space:nowrap;text-shadow:0 1px 3px #000;box-shadow:0 0 14px rgba(70,150,255,.8)';
+  ntx.style.cssText = 'position:fixed;left:50%;top:calc(max(env(safe-area-inset-top),0px) + 78px);transform:translateX(-50%);pointer-events:none;z-index:3;opacity:0;transition:opacity .25s linear;font:800 12px/1 system-ui,sans-serif;letter-spacing:.05em;color:#dcecff;background:rgba(30,100,230,.28);border:1px solid rgba(125,184,255,.55);border-radius:10px;padding:3px 9px;white-space:nowrap;text-shadow:0 1px 2px #000'; /* v471: small, transparent, parked at the top below the match bar so it never covers anything */
   document.body.appendChild(nel); document.body.appendChild(ntx);
 }
 function near(level, meters, outside) {
   if (!nel) { if (!(level > 0) && !outside) return; nbuild(); }
-  const t = outside ? 'OUTSIDE THE SAFE ZONE - RUN INTO THE CIRCLE' : level > 0 ? '\u26A0 BLUE ZONE ' + Math.max(1, Math.round(meters)) + ' m AHEAD' : '';
+  const t = outside ? 'OUTSIDE ZONE' : level > 0 ? Math.max(1, Math.round(meters)) + ' m' : '';
   if (t !== last) { last = t; ntx.textContent = t; }
   nel.style.opacity = outside ? '0' : String(level > 0 ? Math.min(1, 0.25 + level * 0.75) : 0); ntx.style.opacity = t ? '1' : '0';
 }

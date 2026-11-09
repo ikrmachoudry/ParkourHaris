@@ -1211,13 +1211,13 @@ class Race {
   refreshPins() { const l = [...(this.pins || new Map()).values()]; if (this.minimap) this.minimap.pins = l; const cs = this.mission && this.mission.cs; if (cs && cs.setPins) cs.setPins(l); }
   setPin(x, z) {
     this.pins = this.pins || new Map(); const mine = this.pins.get('me'), k = Math.max(1, this.minimap && this.minimap.bz ? this.minimap.bz.z : 1), T = this.jangTeam, net = T && T.net;
-    if (mine && Math.hypot(mine.x - x, mine.z - z) < 16 / k) { this.pins.delete('me'); if (net) net.send({ t: 'cpin', on: 0 }); gtoast('PIN REMOVED'); }
-    else { this.pins.set('me', { id: 'me', x, z, nm: 'YOU', me: true, col: '#e11d48' }); if (net) net.send({ t: 'cpin', on: 1, x: +x.toFixed(1), z: +z.toFixed(1) }); gtoast(net ? 'PIN DROPPED - your teammates can see it' : 'PIN DROPPED', 2.2); A.sfx.click(); }
+    if (mine && Math.hypot(mine.x - x, mine.z - z) < 16 / k) { this.pins.delete('me'); if (net) net.send({ t: 'cpin', on: 0 }); pinFlag('\u{1F6A9}\u2715'); }
+    else { this.pins.set('me', { id: 'me', x, z, nm: 'YOU', me: true, col: '#e11d48' }); if (net) net.send({ t: 'cpin', on: 1, x: +x.toFixed(1), z: +z.toFixed(1) }); pinFlag('\u{1F6A9}'); A.sfx.click(); }
     this.refreshPins(); }
   onPin(m) {
     this.pins = this.pins || new Map(); if (!m.on) { this.pins.delete(m.id); this.refreshPins(); return; }
     const nm = String(m.nm || 'TEAMMATE').toUpperCase().slice(0, 14); this.pins.set(m.id, { id: m.id, x: m.x, z: m.z, nm, col: CHARACTERS[(m.c | 0) % CHARACTERS.length].color }); this.refreshPins();
-    gtoast('PIN by ' + nm + ' - open the map (M) to see the flag', 3); A.sfx.click(); }
+    pinFlag('\u{1F6A9} ' + nm.slice(0, 8)); A.sfx.click(); }
   clearWaypoint() { this.nav = null; if (this.minimap) this.minimap.nav = null; this.navHide(); }
   navHide() { if (!this.navMesh) return; this.scene.remove(this.navMesh); this.navMesh.geometry.dispose(); this.navMesh.material.dispose(); this.navMesh = null; }
   navUpdate() {
@@ -2205,6 +2205,8 @@ function musicBtn(name) {
   b.style.display = ['title', 'profile', 'lobby'].includes(name) ? 'block' : 'none'; b.classList.toggle('tr', name === 'profile' || name === 'lobby');   /* v405: also in the lobby */   /* v363: only on the title page and the choose-player page (top right there); not on the pages after */
 }
 let toastTimer = 0;
+/* v471: dropping a pin shows only a small flag at the top (no sentence in the middle of the screen) */
+function pinFlag(txt) { let el = document.getElementById('pinflag'); if (!el) { el = document.createElement('div'); el.id = 'pinflag'; el.style.cssText = 'position:fixed;left:calc(50% + 72px);top:calc(max(env(safe-area-inset-top),0px) + 74px);z-index:3;pointer-events:none;font:800 13px/1 system-ui,sans-serif;color:#fff;background:rgba(20,24,34,.35);border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:3px 8px;opacity:0;transition:opacity .2s;text-shadow:0 1px 2px #000;white-space:nowrap'; document.body.appendChild(el); } el.textContent = txt; el.style.opacity = '1'; clearTimeout(pinFlag.t); pinFlag.t = setTimeout(() => { el.style.opacity = '0'; }, 2200); }
 function gtoast(msg) { const el = $('toast-global'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
 
 // ---- zombie skin toggle (looks only; the other players see it too)
@@ -2900,9 +2902,11 @@ $('b-go-jang').onclick = () => { $('b-combat').onclick(); };
   } catch { /* no workers: fine */ }
   const loop = (now) => {
     requestAnimationFrame(loop);
+    if (IS_ANDROID && (Q.low || Q.low2) && race && !race.paused && !loadScreen.visible && now - last < 28) return;   /* v471: weak Android: the game runs at a steady 30 fps (every 2nd screen refresh) instead of stuttering between 12 and 40 */
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
     if (race) { const c0 = performance.now(); if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); if (!(IS_ANDROID && loadScreen.visible)) race.render(); window.__cpuMs = (window.__cpuMs || 0) * 0.9 + (performance.now() - c0) * 0.1;
+      if (IS_ANDROID && !loadScreen.visible && now - (Q.perfT || 0) > 600) { Q.perfT = now; let pe = document.getElementById('perfro'); if (!pe) { pe = document.createElement('div'); pe.id = 'perfro'; pe.style.cssText = 'position:fixed;left:6px;top:1px;z-index:3;pointer-events:none;font:700 9px/1 system-ui,sans-serif;color:rgba(255,255,255,.6);text-shadow:0 1px 1px #000'; document.body.appendChild(pe); } const ri = renderer.info.render; pe.textContent = 'FPS ' + Math.round(1 / Math.max(0.001, dt)) + ' DC ' + ri.calls + ' TRI ' + Math.round(ri.triangles / 1000) + 'k CPU ' + Math.round(window.__cpuMs || 0) + 'ms'; }
       if (IS_ANDROID && (Q.low || Q.low2) && !loadScreen.visible && now - (Q.potT || 0) > 1500) { Q.potT = now; try { potatoize(race.scene); } catch (e) { /* never break the frame */ } } }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
     else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
@@ -3003,3 +3007,6 @@ window.__ph = { renderer, potatoize, Q, P, bld: () => cmbLayout().buildings, cli
   btn('b-car', () => { if (race) race.toggleCar(); }); btn('b-exit', () => { if (race) race.toggleCar(); });
   for (const id of ['b-car', 'b-exit']) { const el = $(id); if (el) el.addEventListener('click', () => { if (race) race.toggleCar(); el.blur(); }); }
 })();
+
+// v471: Android: a service worker keeps the big versioned files (models, sounds, animations, the game script) on the phone after the first visit
+try { if (IS_ANDROID && 'serviceWorker' in navigator) window.addEventListener('load', () => { setTimeout(() => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }, 4000); }); } catch (e) { /* no service worker: fine */ }
