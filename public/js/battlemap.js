@@ -436,7 +436,11 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       ROW.forEach((ch, k) => { if (ch === ' ') return; const y = k * CH + CH * 0.54; cx.lineWidth = 26; cx.strokeStyle = '#161a12'; cx.strokeText(ch, CW / 2, y); cx.lineWidth = 8; cx.strokeStyle = '#b8a36a'; cx.strokeText(ch, CW / 2, y); cx.fillStyle = '#f4eed8'; cx.fillText(ch, CW / 2, y); });
       const lt = new THREE.CanvasTexture(cv); lt.colorSpace = THREE.SRGBColorSpace; lt.anisotropy = 4;
       const aw = cellH * 1.0 / (O + 0.14), lg = new THREE.CylinderGeometry(O + 0.14, O + 0.14, cellH * ROW.length, 32, 1, true, -aw / 2, aw); lg.translate(X, yL0 + cellH * ROW.length / 2, Z);
-      const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: lt, transparent: true, alphaTest: 0.35, toneMapped: false })); lm.name = 'hg-letters'; group.add(lm); }
+      const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ map: lt, transparent: true, alphaTest: 0.35, toneMapped: false })); lm.name = 'hg-letters'; group.add(lm);
+      // v484: a BIG portrait on the north face of the tallest tower (the side opposite the HG logo): one small picture (384 x 640, loaded in the background) on one curved panel = one draw call
+      { const ph = 16, pt = new THREE.TextureLoader().load('img/tower-pic.jpg'); pt.colorSpace = THREE.SRGBColorSpace; pt.anisotropy = 4;
+        const pg = new THREE.CylinderGeometry(O + 0.12, O + 0.12, ph, 48, 1, true, 118 * d2r, 124 * d2r); pg.translate(X, yTop - ph / 2, Z);
+        const pm = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ map: pt, toneMapped: false })); pm.name = 'tower-pic'; group.add(pm); } }
     // v357: the 'JUMP HERE' parachute sign is gone: there is no parachute on the towers any more, a fall hurts by its height
     const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
   } else generic(p); }
