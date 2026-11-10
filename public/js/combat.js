@@ -782,7 +782,7 @@ export class CombatSim {
   droidFollow(PL) {   // v458: the droid starts next to its human teammate and stays within ~10 m of him (it is teleported back to a free spot beside him only if it falls 60 m behind)
     const D = this.droidBot; if (!D || !D.alive) return; let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== D.dtm || !q.alive) continue; const dd = (q.x - D.x) ** 2 + (q.z - D.z) ** 2; if (dd < qd) { qd = dd; q0 = q; } } if (!q0) { D.farMate = false; return; }
     const d = Math.sqrt(qd); D.farMate = d > 12; D.mateD = d; D.mate = q0;
-    if (!D.placed || d > 40) for (let k = 0; k < 40; k++) { const a = this.R() * 6.283, r = 3 + this.R() * (k < 16 ? 4 : 9), x = q0.x + Math.cos(a) * r, z = q0.z + Math.sin(a) * r; if (!hitsSolid(this.L, x, z, 0.55) && cmbH(x, z) > -0.3) { D.x = x; D.z = z; D.y = null; D.cl = null; D.bld = null; D.path = null; D.placed = true; D.seen = false; D.alert = 0; break; } } }
+    if (!D.placed || d > 60) for (let k = 0; k < 40; k++) {   /* v482: 60 m (was 40) - with the faster run the jump back to you is a last resort */ const a = this.R() * 6.283, r = 3 + this.R() * (k < 16 ? 4 : 9), x = q0.x + Math.cos(a) * r, z = q0.z + Math.sin(a) * r; if (!hitsSolid(this.L, x, z, 0.55) && cmbH(x, z) > -0.3) { D.x = x; D.z = z; D.y = null; D.cl = null; D.bld = null; D.path = null; D.placed = true; D.seen = false; D.alert = 0; break; } } }
   pseudo(e) { const q = e._ps || (e._ps = { bt: e, id: -10 - e.id }); q.x = e.x; q.z = e.z; q.y = e.y == null ? undefined : e.y; q.alive = e.alive; q.hp = e.hp; q.mv = e.speed || 0; q.stn = e.stn | 0; q.tm = e.droid ? e.dtm : -1; return q; }
   candsFor(b, PL) {   // who this bot may shoot: normal bots = every player + the droid; the droid = the players of the OTHER teams + the normal bots
     const D = this.droidBot; if (!D) return PL;
@@ -880,8 +880,8 @@ export class CombatSim {
           b.think = 5 + this.R() * 5; let tgt = b.alert > 0 && d < 70 ? { x: P.x, z: P.z } : this.nearSpawn(b);
           if (b.thw && b.gr + b.mo === 0 && !(b.alert > 0 && d < 70) && b.y == null) { let bi = null, bd = 55 * 55; for (const it of this.loot) { if (!it.alive || (it.k !== 'grenade' && it.k !== 'molotov') || (it.y !== undefined && it.y > cmbH(it.x, it.z) + 1.5)) continue; const dd = (it.x - b.x) ** 2 + (it.z - b.z) ** 2; if (dd < bd) { bd = dd; bi = it; } } if (bi) tgt = { x: bi.x, z: bi.z }; }   /* v413: a thrower with empty hands goes to the nearest grenade / molotov lying around */
           if (b.alert > 0 && d < 70 && b.y == null) { const UB = this.upBld(P), usi = UB && this.stairInfo(UB); if (usi) { tgt = usi.foot; b.think = 2; } }   /* the player is upstairs: go to the foot of the stairs */
-          if (b.droid && !(b.alert > 0 && d < 70)) { let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== b.dtm || !q.alive) continue; const dd2 = (q.x - b.x) ** 2 + (q.z - b.z) ** 2; if (dd2 < qd) { qd = dd2; q0 = q; } } if (q0) { tgt = qd > 12 * 12 ? { x: q0.x, z: q0.z } : { x: q0.x + (this.R() - 0.5) * 14, z: q0.z + (this.R() - 0.5) * 14 }; b.think = 2 + this.R() * 2; } }   /* the droid sticks with its human teammate */
-          if (zn) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92, tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
+          if (b.droid && !(b.alert > 0 && d < 70)) { let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== b.dtm || !q.alive) continue; const dd2 = (q.x - b.x) ** 2 + (q.z - b.z) ** 2; if (dd2 < qd) { qd = dd2; q0 = q; } } if (q0) { tgt = qd > 12 * 12 ? { x: q0.x, z: q0.z } : { x: q0.x + (this.R() - 0.5) * 14, z: q0.z + (this.R() - 0.5) * 14 }; b.think = 2 + this.R() * 2; if (qd > 8 * 8) { tgt = { x: q0.x, z: q0.z }; b.think = 0.6; } } }   /* v482: while it is behind, it re-aims at where you are NOW every 0.9 s */   /* the droid sticks with its human teammate */
+          if (zn && !(b.droid && b.mate && b.mate.alive && !(b.alert > 0 && d < 70))) { const out = Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr * 0.92,   /* v482: the droid stays with its human even when he is outside the next circle (it used to run off to the circle on its own, fall 40 m behind and then pop back) */ tOut = Math.hypot(tgt.x - zn.nx, tgt.z - zn.nz) > zn.nr; if (out || tOut) { tgt = this.zoneSpot(zn.nx, zn.nz, zn.nr, out ? null : { x: b.x, z: b.z, d: 150 }); if (out) b.think = 4 + this.R() * 3; } }   /* v251: stay inside the NEXT circle: run into it as soon as it is shown */
           b.path = findPath(L, b.x, b.z, tgt.x, tgt.z); b.pi = 0;
           if (!b.path) { b.np = (b.np || 0) + 1; b.think = 1.2; if (b.np >= 3 && !b.droid) { const rp = this.respawnPoint(PL, zn, b); if (rp) { b.x = rp.x; b.z = rp.z; b.np = 0; this.events.push({ k: 'bot', id: b.id }); } } } else b.np = 0;   /* v302: no route from here (boxed in): after 3 tries he is moved to a fresh unseen spot */
         }
@@ -892,20 +892,20 @@ export class CombatSim {
             else if (b.bld) { b.cl = { B: b.bld, t: 1, dir: -1 }; continue; }
             else { b.y = null; } } }
         if (b.y == null && !dir3 && b.path && b.pi < b.path.length) {
-          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || b.farMate || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
+          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || b.farMate || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; if (b.droid && (b.mateD || 0) > 8 && !(b.alert > 0 && d < 70)) sp = Math.min(9.5, 5.5 + ((b.mateD || 0) - 8) * 0.5);   /* v482: the droid RUNS to catch up (4.2 m/s was slower than your sprint: it fell 40 m behind and was then teleported = 'gone, then suddenly back') */ b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }
       const l = Math.hypot(mx, mz);
       if (l > 0.01 && sp > 0) {
         let ux = mx / l, uz = mz / l; if (b.unst > 0) { b.unst -= dt; const sd = b.unsD || 1, px = -uz * sd, pz = ux * sd; ux = px * 0.85 + ux * 0.15; uz = pz * 0.85 + uz * 0.15; }   // stuck: slide along the obstacle for a moment
-        const ox = b.x, oz = b.z; this.step(b, ux * sp * dt, uz * sp * dt); b.speed = sp;
+        const ox = b.x, oz = b.z; this.step(b, ux * sp * dt, uz * sp * dt); b.speed = sp; b.idT = 0;
         /* v302: STUCK WATCH - he is trying to move but 2 s later is still within ~1.2 m: re-path and slide sideways; the 2nd time hop to a free spot a few metres away; the 4th time he goes to a fresh out-of-sight spot (never gets stuck for ever on a fence / wall / prop) */
         b.mvT = (b.mvT || 0) + dt; b.mvD = (b.mvD || 0) + Math.hypot(b.x - ox, b.z - oz); if (b.mvT === dt) { b.sx = ox; b.sz = oz; }
         if (b.mvT >= 2) { const away = Math.hypot(b.x - b.sx, b.z - b.sz); if (b.mvD < sp * 2 * 0.35 || (away < 1.2 && !sees)) { b.stk = (b.stk || 0) + 1; b.unst = 1 + this.R(); b.unsD = this.R() < 0.5 ? -1 : 1; b.path = null; b.think = 0; b.seen = false;
-              if (b.stk >= 2) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
+              if (b.stk >= (b.droid ? 1 : 2)) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
               if (b.stk >= 4 && !b.droid) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
           else b.stk = Math.max(0, (b.stk || 0) - 1); b.mvT = 0; b.mvD = 0; }
-      } else { b.speed = 0; b.mvT = 0; b.mvD = 0; }
+      } else { b.speed = 0; b.idT = (b.idT || 0) + dt; if (b.idT > 0.25) { b.mvT = 0; b.mvD = 0; } }   // v482: ONE still tick (a fresh path starts with one) no longer resets the stuck watch - a bot that re-plans often could stay stuck on a prop for ever
     }
   }
   startHide(b, P) {   // v331: find a spot 4-13 m away that the player cannot see (and that he can walk to in a straight line) and run there

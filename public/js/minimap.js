@@ -74,12 +74,12 @@ export class Minimap {
   tick(dt, iv) { this.t += dt || 0; if (this.t < (iv || 0.033)) return false; this.t = 0; return true; }
   draw(view, me, others, dt, marks, route, wi) {
     if (dt !== -1) { this.t += dt || 0; if (this.t < 0.033) return; this.t = 0; }   // v481: dt = -1: the caller already decided (tick) that it is time
-    if (!this.map) this.map = drawStatic();
+    if (!this.map && !this.jangView) this.map = drawStatic();   // v482: Jang never even builds the GTA city picture
     const g = this.g, S = this.cv.width; if (!S) { this.resize(); return; }
     const k = S / 2 / this.R, th = view.head - Math.PI, c = Math.cos(th), s = Math.sin(th);
     g.save(); g.clearRect(0, 0, S, S); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 1, 0, 7); g.clip();
     g.fillStyle = '#2c78ad'; g.fillRect(0, 0, S, S);
-    g.translate(S / 2, S / 2); g.scale(k, k); g.rotate(th); g.translate(-view.x, -view.z); if (!this.jangView) g.drawImage(this.map, -O, -O);   /* v481: in Jang the (hidden) city is not painted under the island 30 times a second */ g.drawImage(this.cmap || (this.cmap = drawCombat()), CMB.x - CMB.half - 10, CMB.z - CMB.half - 10); g.restore();
+    g.translate(S / 2, S / 2); g.scale(k, k); g.rotate(th); g.translate(-view.x, -view.z); if (!this.jangView) g.drawImage(this.map, -O, -O);   /* v481: in Jang the (hidden) city is not painted under the island 30 times a second */ if (this.jangView) g.drawImage(this.cmap || (this.cmap = drawCombat()), CMB.x - CMB.half - 10, CMB.z - CMB.half - 10);   /* v482: the Jang island is only painted in Jang (GTA and Jang are two different games: neither map shows the other) */ g.restore();
     const toScr = (x, z) => { const dx = x - view.x, dz = z - view.z; return [S / 2 + (dx * c - dz * s) * k, S / 2 + (dx * s + dz * c) * k]; };
     if (this.zone) { const Z = this.zone, [zx, zy] = toScr(CMB.x + Z.x, CMB.z + Z.z), [nx, ny] = toScr(CMB.x + Z.nx, CMB.z + Z.nz); g.save(); g.fillStyle = 'rgba(220,40,40,.28)'; g.beginPath(); g.rect(-S, -S, 3 * S, 3 * S); g.arc(zx, zy, Z.r * k, 0, 7, true); g.fill('evenodd'); g.strokeStyle = '#3b82f6'; g.lineWidth = Math.max(2, S / 60); g.beginPath(); g.arc(zx, zy, Z.r * k, 0, 7); g.stroke(); if (!Z.last) { g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(1.5, S / 90); g.beginPath(); g.arc(nx, ny, Z.nr * k, 0, 7); g.stroke(); } g.restore(); }   // v243: blue = the safe zone now, white = the next one, red = danger
     if (this.bomb) { const B = this.bomb, [bx, by] = toScr(CMB.x + B.x, CMB.z + B.z); g.save(); g.fillStyle = B.warn ? 'rgba(255,60,40,.18)' : 'rgba(255,40,30,.38)'; g.strokeStyle = '#ff3b30'; g.lineWidth = Math.max(2, S / 70); g.beginPath(); g.arc(bx, by, B.r * k, 0, 7); g.fill(); g.stroke(); g.restore(); }   // v251: the red BOMBING circle

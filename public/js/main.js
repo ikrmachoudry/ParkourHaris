@@ -1199,7 +1199,7 @@ class Race {
   }
   restoreMission(mesh) { restoreCar(mesh); }
   mapDots() { const o = [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })); const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.mates) for (const [, g] of cs.mates) if (g.has && performance.now() - g.at < 9000 && !(this.jangTeam && g.tm != null && this.jangTeam.tm != null && g.tm !== this.jangTeam.tm)) o.push({ x: g.x, z: g.z, color: CHARACTERS[(g.c | 0) % CHARACTERS.length].color }); return o; }   // v236: teammates on the map (Jang team)
-  drawBigMap() { if (!this.minimap) return; this.minimap.jangView = !!this.jang; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
+  drawBigMap() { if (!this.minimap) return; this.minimap.jangView = !!this.jang; if (this.jang) { const hp = !!(this.pins && this.pins.has('me')); if (hp !== this._hp2) { this._hp2 = hp; const w = $('bigmap-wrap'); if (w) w.classList.toggle('haspin', hp); } } const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
     this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
   /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
   toggleMap(on) { if (!this.meta.city) return; const was = this.bigMapOpen; this.bigMapOpen = on === undefined ? !this.bigMapOpen : !!on; if (this.bigMapOpen && !was && this.minimap) this.minimap.bigOpen(); document.body.classList.toggle('big-map', this.bigMapOpen);
@@ -1212,6 +1212,7 @@ class Race {
     this.nav = { x, z, pts: null, t: 0 }; if (!this.navUpdate()) { this.nav = null; this.toast('NO ROAD GOES THERE'); } else A.sfx.click(); }
   /* v410 TEAM PIN (Jang): tap the big map to drop a flag; your teammates see it on their minimap, big map and in the world as 'PIN - YOUR NAME' with the distance. Tap near your own pin to take it away. One pin per player. */
   refreshPins() { const l = [...(this.pins || new Map()).values()]; if (this.minimap) this.minimap.pins = l; const cs = this.mission && this.mission.cs; if (cs && cs.setPins) cs.setPins(l); }
+  clearPin() { const mine = this.pins && this.pins.get('me'); if (mine) this.setPin(mine.x, mine.z); }   // v482: the REMOVE PIN button
   setPin(x, z) {
     this.pins = this.pins || new Map(); const mine = this.pins.get('me'), k = Math.max(1, this.minimap && this.minimap.bz ? this.minimap.bz.z : 1), T = this.jangTeam, net = T && T.net;
     if (mine && Math.hypot(mine.x - x, mine.z - z) < 16 / k) { this.pins.delete('me'); if (net) net.send({ t: 'cpin', on: 0 }); pinFlag('\u{1F6A9}\u2715'); }
@@ -2789,13 +2790,14 @@ $('p-full').onclick = () => {
   const open = () => { if (race && !race.over) { if (!race.jang) { keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; }   /* v481: in Jang the map does not take the controls away (PUBG) */ race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
   if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.bigMapOpen && race.jang) { if (performance.now() - openedAt > 250) close(); return; }   /* v481 Jang: tap the small map again = close at once */ if (performance.now() - closedAt < (race && race.jang ? 250 : 600)) return; open(); });
+  { const up = $('bigmap-unpin'); if (up) up.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.jang) { race.clearPin(); race.drawBigMap(); } }); }
   if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
   // the big map: drag = move, two fingers = pinch zoom, wheel / trackpad pinch = zoom, + - buttons; a plain tap closes it
   const ptrs = new Map(); let moved = 0, downAt = 0, multi = false, d0 = 0, z0 = 1;
   const local = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   const two = () => { const a = [...ptrs.values()]; return a.length > 1 ? [Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), (a[0].x + a[1].x) / 2, (a[0].y + a[1].y) / 2] : null; };
   if (bw) {
-    bw.addEventListener('pointerdown', (e) => { if (e.target === bx || e.target.closest('#bigmap-zoom')) return; e.preventDefault(); try { bw.setPointerCapture(e.pointerId); } catch {}
+    bw.addEventListener('pointerdown', (e) => { if (e.target === bx || e.target.id === 'bigmap-unpin' || e.target.closest('#bigmap-zoom')) return; e.preventDefault(); try { bw.setPointerCapture(e.pointerId); } catch {}
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 1) { moved = 0; downAt = performance.now(); multi = false; } else { multi = true; const t = two(); d0 = t[0]; z0 = race && race.minimap.bz ? race.minimap.bz.z : 1; } });
     bw.addEventListener('pointermove', (e) => { const p = ptrs.get(e.pointerId); if (!p || !race) return; const mmap = race.minimap; e.preventDefault();
       const before = two(), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
