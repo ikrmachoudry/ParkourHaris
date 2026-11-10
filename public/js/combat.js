@@ -679,23 +679,29 @@ export function vaultSpot(L, x, z, dx, dz, feetY) {   // v271: works at EVERY po
   return null;
 }
 // A* over the 2 m grid with a binary heap: returns a list of [x, z] waypoints (map-local) or null
+// v480: the same A* (same heap, same order, same paths) but on reused number arrays: the old one built thousands of small arrays / Map entries per search, and the clean-up of that garbage made phones stutter when many bots re-plan
+let FP_N = 0, FP_G = null, FP_GS = null, FP_FROM = null, FP_CL = null, FP_GEN = 0; const FP_HF = [], FP_HI = [], FP_HJ = [];
 export function findPath(L, ax, az, bx, bz) {
   const { N, free, cell } = L.nav, idx = (v) => Math.max(0, Math.min(N - 1, Math.floor((v + H) / cell)));
   const near = (i, j) => { if (free[i * N + j]) return [i, j]; for (let r = 1; r < 4; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { const a = i + di, b = j + dj; if (a >= 0 && b >= 0 && a < N && b < N && free[a * N + b]) return [a, b]; } return null; };
   const s = near(idx(ax), idx(az)), g = near(idx(bx), idx(bz)); if (!s || !g) return null;
-  const key = (i, j) => i * N + j, gs = new Map([[key(...s), 0]]), from = new Map(), closed = new Set(), heap = [[0, ...s]];
-  const push = (e) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
-  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { let m = i; const l = 2 * i + 1, r = l + 1; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
-  const hh = (i, j) => Math.hypot(i - g[0], j - g[1]);
-  while (heap.length) {
-    const [, i, j] = pop(), kk = key(i, j); if (closed.has(kk)) continue; closed.add(kk);
-    if (i === g[0] && j === g[1]) { const p = []; let c = kk; while (c !== undefined) { const ci = Math.floor(c / N), cj = c % N; p.push([-H + (ci + 0.5) * cell, -H + (cj + 0.5) * cell]); c = from.get(c); } return p.reverse(); }
+  if (FP_N !== N) { FP_N = N; FP_G = new Float64Array(N * N); FP_GS = new Uint32Array(N * N); FP_FROM = new Int32Array(N * N); FP_CL = new Uint32Array(N * N); FP_GEN = 0; }
+  const gen = ++FP_GEN, G = FP_G, GS = FP_GS, FROM = FP_FROM, CL = FP_CL, hf = FP_HF, hi = FP_HI, hj = FP_HJ, g0 = g[0], g1 = g[1];
+  let hn = 0, closedN = 0;
+  const push = (f, a, b) => { let i = hn++; hf[i] = f; hi[i] = a; hj[i] = b; while (i > 0) { const p = (i - 1) >> 1; if (hf[p] <= hf[i]) break; const tf = hf[p], ti = hi[p], tj = hj[p]; hf[p] = hf[i]; hi[p] = hi[i]; hj[p] = hj[i]; hf[i] = tf; hi[i] = ti; hj[i] = tj; i = p; } };
+  { const sk = s[0] * N + s[1]; G[sk] = 0; GS[sk] = gen; FROM[sk] = -1; push(0, s[0], s[1]); }
+  while (hn > 0) {
+    const i = hi[0], j = hj[0]; hn--;
+    if (hn > 0) { hf[0] = hf[hn]; hi[0] = hi[hn]; hj[0] = hj[hn]; let q = 0; for (;;) { let m = q; const l = 2 * q + 1, r = l + 1; if (l < hn && hf[l] < hf[m]) m = l; if (r < hn && hf[r] < hf[m]) m = r; if (m === q) break; const tf = hf[m], ti = hi[m], tj = hj[m]; hf[m] = hf[q]; hi[m] = hi[q]; hj[m] = hj[q]; hf[q] = tf; hi[q] = ti; hj[q] = tj; q = m; } }
+    const kk = i * N + j; if (CL[kk] === gen) continue; CL[kk] = gen; closedN++;
+    if (i === g0 && j === g1) { const p = []; let c = kk; while (c !== -1) { const ci = Math.floor(c / N), cj = c % N; p.push([-H + (ci + 0.5) * cell, -H + (cj + 0.5) * cell]); c = FROM[c]; } return p.reverse(); }
+    const gk = G[kk];
     for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
-      if (!di && !dj) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= N || b >= N || !free[key(a, b)]) continue;
-      if (di && dj && (!free[key(i + di, j)] || !free[key(i, j + dj)])) continue;   // no cutting corners
-      const ng = gs.get(kk) + (di && dj ? 1.414 : 1), nk = key(a, b); if (ng < (gs.has(nk) ? gs.get(nk) : 1e9)) { gs.set(nk, ng); from.set(nk, kk); push([ng + hh(a, b), a, b]); }
+      if (!di && !dj) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= N || b >= N || !free[a * N + b]) continue;
+      if (di && dj && (!free[(i + di) * N + j] || !free[i * N + j + dj])) continue;   // no cutting corners
+      const ng = gk + (di && dj ? 1.414 : 1), nk = a * N + b; if (ng < (GS[nk] === gen ? G[nk] : 1e9)) { G[nk] = ng; GS[nk] = gen; FROM[nk] = kk; push(ng + Math.hypot(a - g0, b - g1), a, b); }
     }
-    if (closed.size > 30000) return null;
+    if (closedN > 30000) return null;
   }
   return null;
 }

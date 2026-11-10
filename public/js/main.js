@@ -92,7 +92,7 @@ const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.25), t: 0
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setSize(window.innerWidth, window.innerHeight, false); resize.w = window.innerWidth; resize.h = window.innerHeight;
   stage.camera.aspect = window.innerWidth / window.innerHeight; stage.camera.updateProjectionMatrix();
   if (race) { race.camera.aspect = window.innerWidth / window.innerHeight; race.camera.updateProjectionMatrix(); race.particles.setScale(renderer.domElement.height); if (race.fxP) race.fxP.setScale(renderer.domElement.height); }
   stage.particles.setScale(renderer.domElement.height);
@@ -2645,6 +2645,8 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { keys.delete(e.code); if (e.code === 'KeyT' && voice && voice.held) { voice.setHeld(false); voiceUI(); } if (e.code === 'KeyH') A.hornStop(); });
 window.addEventListener('blur', () => { keys.clear(); dragging = false; });
 window.addEventListener('resize', resize);
+// v480: phones sometimes report the OLD screen size when they fire 'resize' (rotation, address bar, keyboard) - the picture then stayed stretched. Re-check the real size a few times a second and after a rotation.
+try { setInterval(() => { if (stage && (resize.w !== window.innerWidth || resize.h !== window.innerHeight)) resize(); }, 400); addEventListener('orientationchange', () => { setTimeout(resize, 250); setTimeout(resize, 900); }); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => setTimeout(resize, 60)); } catch (e) { /* old browser */ }
 
 function toggleSound() { app.muted = !app.muted; A.setMuted(app.muted); const bs = $('b-sound'); if (bs) bs.textContent = 'SOUND: ' + (app.muted ? 'OFF' : 'ON'); syncPause(); try { document.querySelectorAll('#set-snd').forEach((r) => r.classList.toggle('on', !app.muted)); } catch (e) { /* noop */ } }
 
@@ -2928,7 +2930,7 @@ if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { co
     adaptQuality(dt); flashPolice(now); A.sirenTickAll();
     if (race) { const c0 = performance.now(); if (race.over && race.menuOpen) closePause(); if (!race.paused) race.update(dt); else if (race.bigMapOpen) race.drawBigMap(); if (!(IS_ANDROID && loadScreen.visible)) race.render(); window.__cpuMs = (window.__cpuMs || 0) * 0.9 + (performance.now() - c0) * 0.1;
       if (IS_ANDROID && !loadScreen.visible && now - (Q.perfT || 0) > 600) { Q.perfT = now; let pe = document.getElementById('perfro'); if (!pe) { pe = document.createElement('div'); pe.id = 'perfro'; pe.style.cssText = 'position:fixed;left:6px;top:1px;z-index:3;pointer-events:none;font:700 9px/1 system-ui,sans-serif;color:rgba(255,255,255,.6);text-shadow:0 1px 1px #000'; document.body.appendChild(pe); } const ri = renderer.info.render; pe.textContent = 'FPS ' + Math.round(1 / Math.max(0.001, dt)) + ' DC ' + ri.calls + ' TRI ' + Math.round(ri.triangles / 1000) + 'k CPU ' + Math.round(window.__cpuMs || 0) + 'ms'; }
-      if (IS_ANDROID && (Q.low || Q.low2) && !loadScreen.visible && now - (Q.potT || 0) > 1500) { Q.potT = now; try { potatoize(race.scene); } catch (e) { /* never break the frame */ } } }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
+      if (IS_ANDROID && (Q.low || Q.low2) && !loadScreen.visible && now - (Q.potT || 0) > ((Q.potN || 0) > 12 ? 5000 : 1500)) { Q.potT = now; Q.potN = (Q.potN || 0) + 1;   /* v480: after the first 18 s the whole-scene pass runs every 5 s instead of every 1.5 s */ try { potatoize(race.scene); } catch (e) { /* never break the frame */ } } }   /* v468: Android: the 3D scene is NOT drawn behind the opaque loading screen (a budget phone spent the loading time rendering a picture nobody could see) */
     else if (app.screen !== 'title') { stage.update(dt); renderer.render(stage.scene, stage.camera); }   // v190: the home screen is a picture - the 3D stage is not drawn there (saves battery)
   };
   requestAnimationFrame(loop);
