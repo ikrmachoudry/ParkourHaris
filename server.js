@@ -61,7 +61,7 @@ app.get('/api/pack', (q, r) => {   // v476: ?lite=1 (Android) = the light models
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;
-    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace('href="style.css"', 'href="style.css?v=' + v + '"').replace('__AV__', assetVersion()).replace('/*AVM*/null', JSON.stringify(assetMap()));
+    const html = fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8').replace(/game\.js\?v=\w+/, 'game.js?v=' + v).replace(/href="style\.css(\?v=\w+)?"/, 'href="style.css?v=' + v + '"')   /* v483: the page said style.css?v=337 for ever, so this never matched - and since the phones keep versioned files, they never received a new style sheet */.replace('__AV__', assetVersion()).replace('/*AVM*/null', JSON.stringify(assetMap()));
     r.set('Cache-Control', 'no-store').type('html').send(html);
   } catch (e) { r.set('Cache-Control', 'no-store').sendFile(path.join(pubDir, 'index.html')); }
 });

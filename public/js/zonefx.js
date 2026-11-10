@@ -4,6 +4,16 @@ const TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 const CFG = TOUCH ? { scale: 0.34, fps: 16, bolts: 4, glow: false } : { scale: 0.6, fps: 30, bolts: 9, glow: true };
 let el = null, cv = null, g = null, on = false, raf = 0, lastT = 0, bolts = [], W = 0, H = 0, clockT = 0;
 
+const LITE = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');   // v483: Android: NO full-screen layer and NO lightning canvas - a see-through layer over the whole 3D picture has to be blended on every frame, and that alone made budget phones crawl in the blue zone
+function buildLite() {
+  el = document.createElement('div'); el.id = 'zonefx'; el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .45s ease';
+  const strip = (css) => { const s = document.createElement('div'); s.style.cssText = 'position:absolute;' + css; el.appendChild(s); };
+  strip('left:0;right:0;top:0;height:8%;background:linear-gradient(to bottom,rgba(20,80,255,.7),rgba(20,80,255,0))');
+  strip('left:0;right:0;bottom:0;height:8%;background:linear-gradient(to top,rgba(20,80,255,.7),rgba(20,80,255,0))');
+  strip('left:0;top:8%;bottom:8%;width:5%;background:linear-gradient(to right,rgba(20,80,255,.7),rgba(20,80,255,0))');
+  strip('right:0;top:8%;bottom:8%;width:5%;background:linear-gradient(to left,rgba(20,80,255,.7),rgba(20,80,255,0))');
+  document.body.appendChild(el);
+}
 function build() {
   el = document.createElement('div'); el.id = 'zonefx';
   el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .45s ease;' +
@@ -61,9 +71,9 @@ function frame(t) {
 }
 // call every frame from the scene: true while the player stands in the damaging zone
 function set(v) {
-  v = !!v; if (v === on && (raf || !v)) return;
-  on = v; if (!el) { if (!v) return; build(); }
-  el.style.opacity = v ? '1' : '0';
+  v = !!v; if (v === on && (raf || !v || (LITE && el))) return;
+  on = v; if (!el) { if (!v) return; if (LITE) buildLite(); else build(); }
+  el.style.opacity = v ? '1' : '0'; if (LITE) { el.style.display = v ? 'block' : 'none'; return; }   // lite: four thin blue edge strips, nothing animated
   if (v) { size(); if (!raf) { lastT = 0; raf = requestAnimationFrame(frame); } }
 }
 // v440: a soft blue glow at the screen edges + a distance text while you walk TOWARD the blue wall from the safe side (level 0..1), and a text while you stand outside it
@@ -73,6 +83,7 @@ function nbuild() {
   nel.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .25s linear;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(40,130,255,.35) 85%,rgba(30,110,255,.7) 100%)';
   ntx = document.createElement('div'); ntx.id = 'zonenear-t';
   ntx.style.cssText = 'position:fixed;left:50%;top:calc(max(env(safe-area-inset-top),0px) + 78px);transform:translateX(-50%);pointer-events:none;z-index:3;opacity:0;transition:opacity .25s linear;font:800 12px/1 system-ui,sans-serif;letter-spacing:.05em;color:#dcecff;background:rgba(30,100,230,.28);border:1px solid rgba(125,184,255,.55);border-radius:10px;padding:3px 9px;white-space:nowrap;text-shadow:0 1px 2px #000'; /* v471: small, transparent, parked at the top below the match bar so it never covers anything */
+  if (LITE) nel.style.display = 'none';   // v483 Android: only the distance text, no full-screen glow layer
   document.body.appendChild(nel); document.body.appendChild(ntx);
 }
 function near(level, meters, outside) {
