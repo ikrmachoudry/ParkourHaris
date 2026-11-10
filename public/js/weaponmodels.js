@@ -62,7 +62,7 @@ const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Pro
   const inner = new THREE.Group(); inner.add(sc); inner.quaternion.setFromUnitVectors(pf.clone().sub(pb).normalize(), new THREE.Vector3(0, 0, 1)); inner.updateMatrixWorld(true);
   const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()); inner.position.sub(bb.getCenter(new THREE.Vector3())); const w = new THREE.Group(); w.add(inner); w.userData.len = sz.z; res(w);
 }, undefined, () => res(null))));
-const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
+const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' }, ak: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   /* v481: the AK-47 carries the same scope */   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
 // v392: the real M67 grenade / molotov (your GLB files in models/props) for the grenade in the HAND and the grenade in FLIGHT (both were a code-built olive ball)
 const PGLB = {};
 const propGlb = (n) => PGLB[n] || (PGLB[n] = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/props/' + n + '.glb'), (g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); res(g.scene); }, undefined, () => res(null))));
@@ -92,6 +92,6 @@ export function gunMesh(kind) {
   glbGun(kind).then((src) => { if (!src) return; g.clear(); const m = skClone(src); g.add(m);
     const cfg = SCOPED[want]; if (!cfg) return;
     if (cfg.hide) m.traverse((o) => { if (o.isMesh && o.name.includes(cfg.hide)) o.visible = false; });
-    scopeProto().then((p) => { if (!p) return; const c = p.clone(true); c.scale.setScalar(cfg.s / p.userData.len); c.position.set(0, cfg.y, cfg.z); g.add(c); }); });
+    scopeProto().then((p) => { if (!p) return; const c = p.clone(true); c.scale.setScalar(cfg.s / p.userData.len); c.position.set(0, cfg.y, cfg.z); c.name = 'ACOG'; c.userData.kind = want; g.add(c); }); });
   return g;
 }

@@ -381,7 +381,7 @@ body.in-race.city-mode #minimap { display: block; }
 body.big-map #bigmap-wrap { display: grid; }
 #bigmap { border-radius: 18px; border: 3px solid #fff; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 /* the touch-control layer sits above everything else in the HUD: while a full-screen panel is open it must not swallow the taps (close X, START MISSION ...) */
-body.big-map #touch, body.m-open #touch, body.m-fin-open #touch { display: none !important; }
+body.big-map:not(.jang-mode) #touch, body.m-open #touch, body.m-fin-open #touch { display: none !important; }
 #bigmap-wrap, #bigmap-x { pointer-events: auto; }   /* the HUD that contains them ignores pointers, so without this the X could never be tapped */
 #bigmap-x { z-index: 5; touch-action: manipulation; position: absolute; top: max(12px, 2vh); left: max(12px, 2vw); width: 48px; height: 48px; border-radius: 50%; border: 3px solid #fff; background: #e3262d; color: #fff; font-size: 22px; font-weight: 900; cursor: pointer; }
 
@@ -1489,3 +1489,21 @@ body.in-lobby #vc-list { display: none !important; }
 @media (max-height: 340px) { body.in-lobby #vc-stat { display: none; } }
 
 #vc-stat { cursor: pointer; }
+
+/* v481 Jang (PUBG style): the map is a square in the MIDDLE of the screen, not a full-screen page: the joystick, the look area and every button around it keep working, so you can steer the parachute / run while you read it */
+body.jang-mode #bigmap-wrap { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--jmS, 60vmin); height: var(--jmS, 60vmin); background: none; }
+body.jang-mode #bigmap { opacity: .94; border-width: 2px; border-radius: 12px; }
+body.jang-mode #bigmap-x { top: -10px; left: -10px; width: 42px; height: 42px; font-size: 19px; }
+body.jang-mode #bigmap-zoom { right: 6px; gap: 6px; }
+body.jang-mode #bigmap-zoom button { width: 38px; height: 38px; font-size: 24px; border-width: 2px; }
+body.jang-mode #bigmap-tip { display: none; }
+
+/* v481: the rifle scope (AK-47 / AK-49 / M4): a wider ring than the Kar98, a red chevron instead of the long cross, no zoom buttons */
+body.acog #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 37vmin, #0c1018 37.8vmin, #222b3d 39.5vmin, #05070b 41vmin, rgba(0,0,0,.93) 41.4vmin); }
+body.acog #scope i, body.acog #scope b { display: none; }
+body.acog #scope::after { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -1px 0 0 -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 13px solid #ff2020; filter: drop-shadow(0 0 2px rgba(255,40,40,.9)); }
+body.acog #scope::before { content: ""; position: absolute; left: 50%; top: calc(50% + 14px); width: 2px; height: 9vmin; margin-left: -1px; background: rgba(10,10,10,.85); }
+body.acog #scope-zoom { display: none !important; }
+#rscope-chip { display: none; position: fixed; left: max(8px, env(safe-area-inset-left)); top: 40%; z-index: 30; padding: 6px 9px; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.75); background: rgba(16,22,34,.55); color: #fff; font: 900 10px system-ui, sans-serif; letter-spacing: .5px; pointer-events: auto; touch-action: manipulation; cursor: pointer; }
+#rscope-chip.off { opacity: .6; border-style: dashed; }
+body.scoped #rscope-chip, body.big-map #rscope-chip, body.m-open #rscope-chip { display: none !important; }

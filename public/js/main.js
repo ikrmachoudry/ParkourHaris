@@ -146,6 +146,7 @@ const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5)
 const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (it exists only in that player's game; the model id travels in 'vm')
 const WNAME = [null, 'bat', 'pistol', 'ak'];
 const wnameOf = (w) => ((w & 16) && !(w & 3) ? 'grenade' : (w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // (bit 16 with no weapon bits = a grenade in the hand)   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
+const RSCOPE = new Set(['ak', 'ak49', 'm4']), ACOG_FOV = 20;   // v481: the rifle scope (ACOG): one fixed zoom of about 3x, far less than the Kar98 telescope
 const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in degrees): wide -> very tight
 const isGun = (w) => !!w && w !== 'bat' && w !== 'grenade' && !!WEAPONS[w] && !WEAPONS[w].melee;
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)
@@ -472,7 +473,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp(SCOPE_FOV[this.scopeLvl || 0] / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
+    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, 1.25); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -606,8 +607,8 @@ class Race {
 
 
     if (this.minimap) { const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z, hd = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : bb.yaw;
-      if (this.bigMapOpen) this.drawBigMap();
-      this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), dt, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
+      if (this.bigMapOpen && (!this.jang || (this._bmT = (this._bmT || 0) + dt) > 0.1)) { this._bmT = 0; this.drawBigMap(); }   // v481 Jang: the open map is redrawn 10 times a second, not every frame
+      this.minimap.jangView = !!this.jang; if (this.minimap.tick(dt, this.jang && IS_TOUCH ? 0.085 : 0.033)) this.minimap.draw({ x: px, z: pz, head: hd }, { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), -1, this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }   // v481: the dot list is only built when the map is really redrawn; on phones in Jang the small map is redrawn 12 times a second instead of 30
     if (this.peds && !this.jang) this.peds.update(dt, Math.max(0, this.levelTime) + 60 + (this.multi && !this.simHost ? this.pedOff || 0 : 0), this.camera.position, this.cars.map((c) => c.st).concat(this.info.trafficList || [], this.multi ? [...this.remotes.values()].filter((r) => r.vcar).map((r) => r.vcar.st) : []), this.drive ? null : this.me.body, (p, sp) => { A.sfx.thud(Math.min(1, 0.5 + sp * 0.05)); A.crashSfx(Math.min(10, 2 + sp * 0.3)); if (sp > 5 && this.meta.city) this.crime('run', p.x, p.z); this.particles.emit(p.x, 1, p.z, 8, { color: '#ffd9a0', speed: 3, up: 2, life: 0.4, size: 0.2 }); }, { sit: this.crouch, hitMe: (p) => this.pedHitMe(p), hitOther: (p, o) => { const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz) || 1; app.net.send({ t: 'ph', to: o.id, nx: +(dx / d).toFixed(3), nz: +(dz / d).toFixed(3) }); } });
     if (this.peds && !this.drive && !this.over) this.peds.pushOut(this.me.body);
     this.updateCamera(dt);
@@ -1197,7 +1198,7 @@ class Race {
     }
   }
   restoreMission(mesh) { restoreCar(mesh); }
-  mapDots() { const o = [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })); const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.mates) for (const [, g] of cs.mates) if (g.has && g.m.group.visible !== false) o.push({ x: g.x, z: g.z, color: CHARACTERS[(g.c | 0) % CHARACTERS.length].color }); return o; }   // v236: teammates on the map (Jang team)
+  mapDots() { const o = [...this.remotes.values()].filter((q) => q.has).map((q) => ({ x: q.x, z: q.z, color: CHARACTERS[q.info.char].color })); const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.mates) for (const [, g] of cs.mates) if (g.has && performance.now() - g.at < 9000 && !(this.jangTeam && g.tm != null && this.jangTeam.tm != null && g.tm !== this.jangTeam.tm)) o.push({ x: g.x, z: g.z, color: CHARACTERS[(g.c | 0) % CHARACTERS.length].color }); return o; }   // v236: teammates on the map (Jang team)
   drawBigMap() { if (!this.minimap) return; this.minimap.jangView = !!this.jang; const bb = this.me.body, drv = this.drive ? this.drive.st : null, px = drv ? drv.x : bb.x, pz = drv ? drv.z : bb.z;
     this.minimap.drawBig($('bigmap'), { x: px, z: pz, yaw: drv ? drv.yaw : bb.yaw }, this.mapDots(), this.mission && this.mission.marks(), this.mission && this.mission.route(), this.wanted && this.wanted.mapInfo()); }
   /* the map pauses the game for this player (alone: the whole game waits; with friends the world goes on and you stand still) */
@@ -1281,7 +1282,8 @@ class Race {
   }
   cycleWeapon() { if (this.over || this.drive || !this.wallet || this.downed) return; this.telescope = false; const L = this.wallet.cycle(), i = Math.max(0, L.indexOf(this.weapon)); this.weapon = L[(i + 1) % L.length]; if (!this.weapon || this.weapon === 'bat' || this.weapon === 'grenade') { this.aiming = false; this.aimT = 0; } this.reloadT = 0; this.syncAct(); }
   scopeMax() { if ((this.telescope && this.weapon !== 'sniper') || !this.jang) return SCOPE_FOV.length - 1; const cb = this.wallet && this.wallet.cb; return cb && cb.inv && cb.inv.sscope > 0 ? SCOPE_FOV.length - 1 : 1; }   // v251: in Jang the Kar98 zooms only a little until you carry a TELESCOPE
-  zoomScope(d) { if (!this.scoped) return; const n = clamp((this.scopeLvl || 0) + d, 0, this.scopeMax()); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
+  toggleRScope() { const w = this.weapon; if (!this.jang || !RSCOPE.has(w) || this.over) return; const so = this.scopeOff || (this.scopeOff = {}); so[w] = !so[w]; A.sfx.click(); this.toast(so[w] ? 'SCOPE OFF - open sights' : 'SCOPE ON'); try { this.me.model.group.traverse((o) => { if (o.name === 'ACOG') o.visible = !so[o.userData.kind]; }); } catch (e) { /* model not ready */ } this._rsK = ''; }   // v481: take the rifle scope off / put it back (PUBG: an attachment)
+  zoomScope(d) { if (!this.scoped || this.acog) return; const n = clamp((this.scopeLvl || 0) + d, 0, this.scopeMax()); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
   aimHold(on) { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
   toggleAim() { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
@@ -1998,11 +2000,13 @@ class Race {
     const speed = Math.hypot(b.vx, b.vz);
     { const cs9 = this.mission && this.mission.cs, noSc = !!(cs9 && cs9.on && cs9.count('sscope') <= 0);   // v238 Jang: the Kar98 only zooms when you carry a TELESCOPE (without one: open iron sights)
       if (noSc && this.weapon === 'sniper' && this.aiming && !(this._nsT > performance.now())) { this._nsT = performance.now() + 4000; this.toast && this.toast('NO SCOPE - find a TELESCOPE (blue item) and the Kar98 uses it by itself'); }
-      const want = !!(((this.weapon === 'sniper' && this.aiming && !noSc) || (this.telescope && this.weapon !== 'sniper')) && !this.drive && !this.over && !(this.mission && this.mission.freeze));   // !! matters: classList.toggle(x, undefined) FLIPS the class every frame - that was the flashing
+      const rsc = !!(this.jang && RSCOPE.has(this.weapon) && !(this.scopeOff && this.scopeOff[this.weapon])), acogW = rsc && this.aiming && !this.telescope;   // v481: AK-47 / AK-49 / M4 with the scope on: AIM looks through it
+      { const k = (this.jang && RSCOPE.has(this.weapon) && !this.drive && !this.over ? this.weapon : '') + (rsc ? '1' : '0'); if (k !== this._rsK) { this._rsK = k; let ch = $('rscope-chip'); if (!ch) { ch = document.createElement('button'); ch.id = 'rscope-chip'; document.body.appendChild(ch); const tg = (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.toggleRScope(); }; ch.addEventListener('pointerdown', tg); } ch.style.display = k.length > 1 ? 'block' : 'none'; ch.textContent = rsc ? 'SCOPE ON' : 'SCOPE OFF'; ch.classList.toggle('off', !rsc); } }
+      const want = !!(((this.weapon === 'sniper' && this.aiming && !noSc) || (this.telescope && this.weapon !== 'sniper') || acogW) && !this.drive && !this.over && !(this.mission && this.mission.freeze));   // !! matters: classList.toggle(x, undefined) FLIPS the class every frame - that was the flashing
       if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
-      const scoped = this._scW >= 0.1 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
-      if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? SCOPE_FOV[this.scopeLvl || 0] : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 18 : 12)));
-      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); { const bn = scoped && !!this.telescope && this.weapon !== 'sniper'; if (document.body.classList.contains('binoc') !== bn) document.body.classList.toggle('binoc', bn); } this.camera.updateProjectionMatrix(); }
+      const scoped = this._scW >= 0.1 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped; this.acog = scoped && acogW;   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
+      if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? (this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 18 : 12)));
+      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); if (document.body.classList.contains('acog') !== !!this.acog) document.body.classList.toggle('acog', !!this.acog); { const bn = scoped && !!this.telescope && this.weapon !== 'sniper'; if (document.body.classList.contains('binoc') !== bn) document.body.classList.toggle('binoc', bn); } this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
         const b0 = this.me.body, Lm = cmbLayout(); let tw = false;
@@ -2175,7 +2179,7 @@ class Race {
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.setInGame(false);
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc'); document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc', 'acog'); { const ch = $('rscope-chip'); if (ch) ch.style.display = 'none'; } document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);
@@ -2638,6 +2642,7 @@ window.addEventListener('keydown', (e) => {
   if (race && !race.over && !race.menuOpen && race.meta.city) { if (e.code === 'KeyT') $('b-auto').click(); else if (e.code === 'KeyZ') race.toggleCrouch(); else if ((e.code === 'ControlLeft' || e.code === 'KeyX') && !e.repeat) race.toggleProne(); else if (e.code === 'KeyF') race.punch(); else if (e.code === 'KeyV') race.cycleWeapon(); else if (e.code === 'KeyR') race.reload(); else if (e.code === 'KeyX') race.toggleFireMode(); else if (/^Digit[1-5]$/.test(e.code)) { const L = race.wallet.cycle(), n = +e.code.slice(5) - 1; if (L[n] !== undefined) race.equip(L[n]); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') race.zoomScope(1); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') race.zoomScope(-1); }
   if (e.code === 'KeyL' && race && !race.over && !e.repeat) race.toggleLights();
   if (e.code === 'KeyB' && race && !race.menuOpen) { if (race.meta.city && isGun(race.weapon)) race.toggleFireMode(); else race.swing(); }
+  if (e.code === 'KeyN' && race && !race.over && !race.menuOpen && !e.repeat) race.toggleRScope();   // v481: N = rifle scope on / off
   if (e.code === 'KeyC' && race && !race.over && !e.repeat) race.toggleCar();
   if (e.code === 'KeyH' && race && !race.menuOpen) race.honkOn();
   if (e.code === 'Escape' || e.code === 'KeyP') { if (race && !race.over) (race.menuOpen ? closePause() : openPause()); }
@@ -2781,9 +2786,9 @@ $('p-full').onclick = () => {
   }
 }
 { const mm = $('minimap'), bw = $('bigmap-wrap'), bx = $('bigmap-x'), cv = $('bigmap'); let closedAt = 0, openedAt = 0;
-  const open = () => { if (race && !race.over) { keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
+  const open = () => { if (race && !race.over) { if (!race.jang) { keys.clear(); setSprintLock(false); touch.x = touch.y = 0; touch.jump = false; touch.sl = touch.sr = touch.gas = touch.brk = touch.hb = 0; touch.bs = 0; }   /* v481: in Jang the map does not take the controls away (PUBG) */ race.minimap.bigOpen(); race.toggleMap(true); openedAt = performance.now(); } };
   const close = () => { if (race && race.bigMapOpen) { race.toggleMap(false); closedAt = performance.now(); } };
-  if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - closedAt < 600) return; open(); });
+  if (mm) mm.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.bigMapOpen && race.jang) { if (performance.now() - openedAt > 250) close(); return; }   /* v481 Jang: tap the small map again = close at once */ if (performance.now() - closedAt < (race && race.jang ? 250 : 600)) return; open(); });
   if (bx) bx.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (performance.now() - openedAt < 250) return; close(); });
   // the big map: drag = move, two fingers = pinch zoom, wheel / trackpad pinch = zoom, + - buttons; a plain tap closes it
   const ptrs = new Map(); let moved = 0, downAt = 0, multi = false, d0 = 0, z0 = 1;

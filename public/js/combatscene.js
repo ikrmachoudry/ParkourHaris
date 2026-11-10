@@ -54,6 +54,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
 };
 const MY_DMG = 100;   // hit points of the player
 
+let TR_GEO = null, TR_MAT = null;
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), IS_ANDR = /Android/i.test(navigator.userAgent), BOT_VIS2 = (IS_ANDR ? 190 : IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = (IS_ANDR ? 40 : 70) ** 2;   /* v471: Android: bots are drawn up to 190 m and animated at a quarter of the rate beyond 40 m */   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
 const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 120) ** 2;   // loot is drawn only this close (metres, squared)
 // Shared loot parts (v221, P4): every crate / pill / ring of the same kind uses ONE material and ONE geometry, so the phone keeps a few dozen GPU objects instead of hundreds.
@@ -192,6 +193,7 @@ export class CombatScene {
         for (const [, l] of this.loot) show(l.g); for (const [, a] of this.bots) show(a.g); show(this.plane);
         if (this.plane && !this.plane.children.length) this.loadPlane().then((w) => { if (w && this.plane && !this.plane.children.length) this.plane.add(w); });
         try { loadScreen.say('PREPARING GRAPHICS...'); loadScreen.stage('GRAPHICS'); } catch (e) { /* ignore */ }
+        try { while (this.tr.length < 8) { const q = new THREE.Mesh(TR_GEO || (TR_GEO = new THREE.BoxGeometry(0.04, 0.04, 1)), TR_MAT || (TR_MAT = new THREE.MeshBasicMaterial({ color: '#ffd978', transparent: true, opacity: 0.9 }))); q.visible = false; this.group.add(q); this.tr.push(q); } } catch (e) { /* tracers are made on demand anyway */ }   // v481: the bullet tracers exist (and their shader is compiled) before the first shot
         const wu = R.warmUp(); if (wu && wu.then) return Promise.race([wu, new Promise((r) => setTimeout(r, 25000))]).catch(() => {}).then(() => { for (const [o, v] of vis) o.visible = v; });   // v475: on Android the shaders compile in parallel without freezing the phone
         for (const [o, v] of vis) o.visible = v;
       } catch (e) { console.warn('warm-up skipped', e); }
@@ -402,7 +404,7 @@ export class CombatScene {
   }
   tracer(x0, y0, z0, x1, y1, z1) {
     if (this.glass) this.glass.seg(x0 - CMB.x, y0, z0 - CMB.z, x1 - CMB.x, y1, z1 - CMB.z);   // v351: a bullet shatters every window it crosses
-    let q = this.tr.find((t) => !t.visible); if (!q) { if (this.tr.length > 14) return; q = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1), new THREE.MeshBasicMaterial({ color: '#ffd978', transparent: true, opacity: 0.9 })); this.group.add(q); this.tr.push(q); }
+    let q = this.tr.find((t) => !t.visible); if (!q) { if (this.tr.length > 14) return; q = new THREE.Mesh(TR_GEO || (TR_GEO = new THREE.BoxGeometry(0.04, 0.04, 1)), TR_MAT || (TR_MAT = new THREE.MeshBasicMaterial({ color: '#ffd978', transparent: true, opacity: 0.9 }))); this.group.add(q); this.tr.push(q); }   /* v481: every tracer shares ONE box and ONE material (each used to make its own = a new shader set-up in the middle of a firefight) */
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dx, dy, dz) || 1; q.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); q.scale.set(1, 1, l); q.lookAt(x1, y1, z1); q.visible = true; q.userData.t = 0.07;
   }
   glassShot(x0, y0, z0, x1, y1, z1) { if (this.glass) this.glass.seg(x0 - CMB.x, y0, z0 - CMB.z, x1 - CMB.x, y1, z1 - CMB.z); }   // my own bullets (called from main.js)
@@ -666,7 +668,7 @@ export class CombatScene {
         if (!s.alive && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
-        a.acc = (a.acc || 0) + dt; const skip = d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0; if (skip && a.g.visible) continue;   // (a bot that was hidden is always updated once when it comes back)
+        a.acc = (a.acc || 0) + dt; const skip = (d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0) || (IS_PHONE && d2 > 324 && d2 <= BOT_MID2 && (fr + bi) % 2 !== 0); if (skip && a.g.visible) continue;   /* v481: phones: bots 18 - 40 m away are animated every 2nd frame */   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
         { const yy = s.y == null ? 0 : s.y; a.sv = a.ly === undefined || adt <= 0 ? 0 : (yy - a.ly) / adt; a.ly = yy; a.sa = s.y != null && a.sv > 0.4 ? Math.min(1, (a.sa || 0) + adt * 4) : Math.max(0, (a.sa || 0) - adt * 4); }   // v342: a bot climbing a staircase / tower spiral plays the real stair-climb clip
@@ -684,9 +686,9 @@ export class CombatScene {
     if (e.k === 'shot') {
       const wx = CMB.x + e.x, wz = CMB.z + e.z, tx = e.hit ? b.x : b.x + (Math.random() - 0.5) * 3, tz = e.hit ? b.z : b.z + (Math.random() - 0.5) * 3, cd = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z), mine = !this.shared || e.tp === (R.jangTeam && R.jangTeam.myId);   // v245: a bot shooting at ANOTHER player: the tracer goes to him, I do not get hurt
       const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, mine ? tx : CMB.x + e.tx, mine ? b.y + 1.3 : gy + 1.3, mine ? tz : CMB.z + e.tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
-      const sNow = performance.now(), sOk = !IS_ANDR || sNow - (this._shS || 0) > (cd > 80 ? 220 : 70);   // v480: Android: a firefight of many bots made dozens of sounds per second; near shots at most ~14 / s, far ones ~4 / s
+      const sNow = performance.now(), sOk = !IS_PHONE || sNow - (this._shS || 0) > (cd > 80 ? 220 : 70);   // v480: Android: a firefight of many bots made dozens of sounds per second; near shots at most ~14 / s, far ones ~4 / s
       if (cd < 160 && sOk) { this._shS = sNow; const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
-      if (!e.hit && cd < 90 && A.sfx.whiz && (!IS_ANDR || sNow - (this._shW || 0) > 250)) { this._shW = sNow; const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
+      if (!e.hit && cd < 90 && A.sfx.whiz && (!IS_PHONE || sNow - (this._shW || 0) > 250)) { this._shW = sNow; const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
       if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
       if (e.by !== -2 && e.by !== -3 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
@@ -712,8 +714,8 @@ export class CombatScene {
   hitMark(sx, sz) {
     if (!Number.isFinite(sx) || !Number.isFinite(sz)) return; let ring = this.hitRing;
     if (!ring) { ring = this.hitRing = document.createElement('div'); ring.style.cssText = 'position:fixed;left:50%;top:50%;width:0;height:0;z-index:28;pointer-events:none'; document.body.appendChild(ring); this.hitArr = []; }
-    const e = document.createElement('div'); e.style.cssText = 'position:absolute;left:-60px;top:-150px;width:120px;height:46px;transform-origin:60px 150px;pointer-events:none;background:radial-gradient(ellipse at 50% 100%,rgba(255,40,40,0) 0%,rgba(255,40,40,.9) 55%,rgba(255,40,40,0) 75%);clip-path:polygon(0 100%,50% 0,100% 100%);filter:drop-shadow(0 0 6px #f22)'; ring.appendChild(e);
-    this.hitArr.push({ e, x: sx, z: sz, t: 2 }); if (this.hitArr.length > 6) { const o = this.hitArr.shift(); o.e.remove(); } }
+    const e = document.createElement('div'); e.style.cssText = 'position:absolute;left:-60px;top:-150px;width:120px;height:46px;transform-origin:60px 150px;pointer-events:none;background:radial-gradient(ellipse at 50% 100%,rgba(255,40,40,0) 0%,rgba(255,40,40,.9) 55%,rgba(255,40,40,0) 75%);clip-path:polygon(0 100%,50% 0,100% 100%);' + (IS_PHONE ? '' : ';filter:drop-shadow(0 0 6px #f22)'); ring.appendChild(e);   /* v481: phones: no blur filter on the hit arrows (a filtered layer repainted every frame is slow) */
+    this.hitArr.push({ e, x: sx, z: sz, t: 2 }); if (this.hitArr.length > (IS_PHONE ? 3 : 6)) { const o = this.hitArr.shift(); o.e.remove(); } }
   hitUpd(dt) { const a = this.hitArr; if (!a || !a.length) return; const R = this.R, b = R.me.body, yw = R.camYaw || 0, fx = -Math.sin(yw), fz = -Math.cos(yw), rx = Math.cos(yw), rz = -Math.sin(yw);
     for (let i = a.length - 1; i >= 0; i--) { const h = a[i]; h.t -= dt; if (h.t <= 0) { h.e.remove(); a.splice(i, 1); continue; } const dx = h.x - b.x, dz = h.z - b.z; h.e.style.transform = 'rotate(' + Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz) + 'rad)'; h.e.style.opacity = Math.min(1, h.t / 0.8); } }
   hurt(d, sx, sz) {
