@@ -157,7 +157,7 @@ export class CombatScene {
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
-    if (this.edgeEl) this.edgeEl.style.display = 'none'; if (this.glideEl) this.glideEl.style.display = 'none'; if (this.ddEl) this.ddEl.style.display = 'none'; this._ddOn = false;
+    if (this.edgeEl) this.edgeEl.style.display = 'none'; if (this.glideEl) this.glideEl.style.display = 'none'; if (this.ddEl) this.ddEl.style.display = 'none'; this._ddOn = false; clearTimeout(this._songT); this._songT = 0;
     if (this.hitRing) { this.hitRing.remove(); this.hitRing = null; this.hitArr = []; }
     if (this.chuteBadge) { this.chuteBadge.remove(); this.chuteBadge = null; } this.ownChute = false;
     this.gate = false;
@@ -703,6 +703,7 @@ export class CombatScene {
       if (!e.hit && cd < 90 && A.sfx.whiz && (!IS_PHONE || sNow - (this._shW || 0) > 250)) { this._shW = sNow; const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
       if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
     } else if (e.k === 'kill') {
+      this._lastKillAt = performance.now();
       if (e.by !== -2 && e.by !== -3 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } else if (this.shared && this.myW === 'sniper' && e.by !== -2 && e.by !== -3 && performance.now() - (this.shotAt || 0) < 2500) this.hitX(true);   /* v487: a sniper kill that lands late (bullet flight + ping) still shows the red cross */
       { const dd = Math.hypot(CMB.x + e.x - R.me.body.x, CMB.z + e.z - R.me.body.z); if (dd < 90) A.voice.death(Math.max(0.15, 1 - dd / 90)); }   // v222: no money in Jang (kills used to pay $100) A.sfx.pickup && A.sfx.pickup();
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
@@ -974,7 +975,10 @@ export class CombatScene {
   recDeath() { const now = performance.now(), lh = this.lastHit, pv = this.lastBy && now - (this.lastByAt || 0) < 9000; this.stRec('dby', pv ? (this.lastByW || 'gun') : lh && now - lh.at < 6000 ? lh.w : 'zone'); }
   onWin() { if (!this.over) this.finish('', 'win'); }   // the server: only one team is left
   /* v411: when the match is decided the player STAYS in the last scene for 5 s with the victory song playing (game sounds off), then the victory page opens and the song carries on without a break */
-  beginWin(lost) { try { prepareVictory(!!lost); } catch (e) { /* noop */ } if (this._winAt) { if (lost !== undefined) { try { startWinSong(!!lost); } catch (e) { /* noop */ } } return; } this._winAt = performance.now(); try { startWinSong(!!lost); } catch (e) { /* noop */ } if (this.ov) this.ov.style.display = 'none'; }   // the song and the quiet last scene start the moment the match is decided
+  beginWin(lost) { try { prepareVictory(!!lost); } catch (e) { /* noop */ } const go = () => { this._songT = 0; try { startWinSong(!!lost); } catch (e) { /* noop */ } };
+    if (this._winAt) { if (lost !== undefined) { if (this._songT && !!lost === !!this._songLost) return; clearTimeout(this._songT); go(); } return; }
+    const dl = !lost && performance.now() - (this._lastKillAt || 0) < 900 ? 1700 : 0;   /* v494: the LAST bot's kill sound (shot + death cry) is heard first - the victory song starts 1.7 s later (it used to start at once and hush every other sound); the quiet last scene and the victory page are shifted by the same time */
+    this._winAt = performance.now() + dl; this._songLost = !!lost; if (dl) this._songT = setTimeout(go, dl); else go(); if (this.ov) this.ov.style.display = 'none'; }   // the song and the quiet last scene start the moment the match is decided
   winScene(m, tm) { if (this._winT) return; const lost = !!m.lost || (m.win !== undefined && m.win !== null && tm !== undefined && tm !== null && tm !== m.win); this.beginWin(lost);
     /* v420: the player keeps walking round the last scene for 6 s with the song playing, then the screen FADES to black (0.7 s) and the victory / defeat page opens; it never opens sooner than 6 s after the match was decided */
     const FADE = 700, el0 = performance.now() - this._winAt, showAt = Math.max(6000, el0 + FADE), fadeIn = Math.max(0, showAt - FADE - el0);
