@@ -1528,3 +1528,12 @@ body.btn-edit :is(#c-slots, #c-hp, #c-hud, #scope-zoom, #rscope-chip, #perfro, #
 #lay-bar #lay-d { position: static !important; right: auto !important; bottom: auto !important; padding: 8px 16px !important; font-size: 12px !important; margin-left: 4px !important; }
 #lay-bar #lay-mv { background: #475569; }
 @media (max-height: 460px) { #lay-bar b { display: none; } }
+
+/* v490: scope looks.  SNIPER (Kar98 / AWM): a big round lens, everything outside it solid black, a soft dark edge inside the lens, thick black posts that thin to a hairline with mil-dots, small red centre dot.
+   AK-47 / AK-49 / M4 (red-triangle scope): like PUBG - a dark scope BODY ring around the lens and the world stays visible around it (no black screen). */
+body.scoped:not(.acog):not(.binoc) #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 36vmin, rgba(0,0,0,.28) 39vmin, rgba(0,0,0,.78) 42vmin, #000 44.5vmin); }
+body.scoped:not(.acog):not(.binoc) #scope i { width: 90vmin; height: 12px; margin: -6px 0 0 -45vmin; background: linear-gradient(#000, #000) left center / 33vmin 6px no-repeat, linear-gradient(#000, #000) right center / 33vmin 6px no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 24vmin 1px no-repeat; }
+body.scoped:not(.acog):not(.binoc) #scope b { width: 12px; height: 90vmin; margin: -45vmin 0 0 -6px; background: linear-gradient(#000, #000) center top / 6px 22vmin no-repeat, linear-gradient(#000, #000) center bottom / 6px 33vmin no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 1px 24vmin no-repeat; }
+body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absolute; left: 50%; top: 50%; width: 24vmin; height: 8px; margin: -4px 0 0 -12vmin; background: radial-gradient(circle, #000 1.4px, transparent 1.9px) center / 3vmin 8px repeat-x; }
+body.scoped:not(.acog):not(.binoc) #scope::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #ff2a2a; box-shadow: 0 0 5px 1px rgba(255,40,40,.8); }
+body.acog #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 27vmin, #05070a 27.6vmin, #151a21 29.2vmin, #232a34 30.4vmin, #0a0d12 32.2vmin, rgba(8,10,14,.5) 35vmin, rgba(8,10,14,.12) 41vmin, rgba(8,10,14,0) 50vmin); }
