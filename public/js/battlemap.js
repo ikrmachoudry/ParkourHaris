@@ -239,7 +239,9 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
     else if (b.roof === 'lowgable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.12 + 0.6, along, b.c === '#b5a48c' ? '#7a6a58' : '#6e7a84', 0.3);
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05); }
-    else if (b.kind !== 'clinic') { for (const [x0, z0, x1, z1] of [[-hx, -hz, hx, -hz + 0.3], [-hx, hz - 0.3, hx, hz], [-hx, -hz, -hx + 0.3, hz], [hx - 0.3, -hz, hx, hz]]) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - 0.3, b.x + x1 + 0.3, fy + tri + 0.85, b.z + z1 + 0.3, wallC, 0.03); /* v298: the grey roof box is gone */ }   // flat roof: a parapet and a roof box
+    else if (b.kind !== 'clinic') { const ph = b.roofHole ? 1.1 : 0.55, segs = [[-hx, -hz, hx, -hz + 0.3, 3, 3], [-hx, hz - 0.3, hx, hz, 3, 3], [-hx, -hz, -hx + 0.3, hz, 3, 3]];   /* v493: a roof you can reach has a 1.1 m parapet (it matches the solid) with the 4.4 m jump-down gap in the east side drawn open; other roofs keep the low decorative 0.55 m one */
+      if (b.roofHole) segs.push([hx - 0.3, -hz, hx, -2.2, 3, 0], [hx - 0.3, 2.2, hx, hz, 0, 3]); else segs.push([hx - 0.3, -hz, hx, hz, 3, 3]);
+      for (const [x0, z0, x1, z1, ea, eb] of segs) B.box('wall', b.x + x0 - 0.3, fy + tri + 0.3, b.z + z0 - ea / 10, b.x + x1 + 0.3, fy + tri + 0.3 + ph, b.z + z1 + eb / 10, wallC, 0.03); /* v298: the grey roof box is gone */ }   // flat roof: a parapet and a roof box
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
       /* v298: the flat concrete slab in front of the villa is gone (it showed as a raised platform and clipped the player's legs) */
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;

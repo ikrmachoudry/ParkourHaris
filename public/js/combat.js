@@ -163,8 +163,8 @@ function buildSolids(o) {
   }
   let hole = null, hole2 = null;
   let zf = null;   /* v324: a REAL staircase (IRC/building-code numbers: riser <= 19 cm, tread 28 cm, 1.1 m wide, 1.2 m landings, 2 m headroom): a stacked U-shaped (switchback) stair in the north-west corner. Flight a climbs from the ground to a half landing, flight b turns back and arrives on floor 2; above it the same two flights go on from floor 2 to the roof. */
-  if (nfl > 1 && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
-  if (nfl > 1 && zf) {   /* v326: the user's own stair model (public/models/props/stairs.glb, 'modern_stairs02': a U-turn stair with floating treads and cable rails, 3.3 m per storey) in the NW corner of every ordinary 2-storey building. The collision below follows its treads exactly (original-model numbers: 8 treads per flight, pitch 0.217, riser 0.186, tread top 0.17 + 0.186 i, landing top 1.66, lane A x -0.58..0.58, lane B x -1.79..-0.63, flights run along the model's x and the whole thing is turned 90 degrees so the flights run north-south: lane A (east) climbs north from the south end, the landing is at the north wall, lane B (west, against the west wall) comes back south and arrives on the next floor next to where the next flight starts). Heights are stretched by R / 3.32. */
+  if ((nfl > 1 || o.roofAcc) && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
+  if ((nfl > 1 || o.roofAcc) && zf) {   /* v326: the user's own stair model (public/models/props/stairs.glb, 'modern_stairs02': a U-turn stair with floating treads and cable rails, 3.3 m per storey) in the NW corner of every ordinary 2-storey building. The collision below follows its treads exactly (original-model numbers: 8 treads per flight, pitch 0.217, riser 0.186, tread top 0.17 + 0.186 i, landing top 1.66, lane A x -0.58..0.58, lane B x -1.79..-0.63, flights run along the model's x and the whole thing is turned 90 degrees so the flights run north-south: lane A (east) climbs north from the south end, the landing is at the north wall, lane B (west, against the west wall) comes back south and arrives on the next floor next to where the next flight starts). Heights are stretched by R / 3.32. */
     const R = zf.R, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, WK = 1.4, E = 1.19 * WK;   /* v353: the U-stair is 1.4 x WIDER across (lanes 1.62 m instead of 1.16 m: two people can pass, it no longer feels like a ladder) */
     const cxB = -hx + TH / 2 + 0.05 + E, czB = -hz + TH / 2 + 0.05 + 1.528, xW = cxB - E, xE = cxB + E, zN = czB - 1.528, zS = czB + 1.514;
     const Q = (zo0, zo1, xo0, xo1, y0, y1, k) => { wall(cxB + (zo0 - GZ) * WK, czB - (xo1 - GX), cxB + (zo1 - GZ) * WK, czB - (xo0 - GX), y0, y1, k); const q = out[out.length - 1]; if (k === 'step') { q.fine = 1; q.nd = 1; } };   // a box given in the ORIGINAL model frame (z across, x along the flight)
@@ -261,10 +261,16 @@ function roadClear(x, z, w, d) {
   }
   if (bd >= 0 || !bq) return null; const l = Math.hypot(bq[0], bq[1]) || 1; return [bq[0] / l * 1.5, bq[1] / l * 1.5];
 }
+const ROOF_ACC_KINDS = ['house', 'cabin', 'shop', 'warehouse', 'barracks', 'shack'];
+let RA_N = 0;
 function mk(kind, x, z, w, d, front, ov = {}) {
   if (ov.fy === undefined) { for (let k = 0; k < 30; k++) { const q = roadClear(x, z, w, d); if (!q) break; x += q[0]; z += q[1]; x = Math.round(x * 2) / 2; z = Math.round(z * 2) / 2; } }   /* v255: a road never runs through a room: a building that sits on a road is moved sideways until it is clear (rect to road centre line >= half road + 2.5 m) */
   const K = KIND[kind], rr = RB, fy = ov.fy !== undefined ? ov.fy : Math.round(rawH(x, z) * 10) / 10;
   const o = { kind, x, z, w, d, front, fy, fh: ov.fh || K.fh, fl: K.fl || 1, win: ov.win === null ? null : (ov.win || K.win), roof: K.roof, fur: K.fur, c: ov.c || WALLS[Math.floor(rr() * WALLS.length)], rc: ov.rc || ROOFS[Math.floor(rr() * ROOFS.length)], noWin: ov.noWin || [] };
+  if ((K.fl || 1) === 1 && !ov.stair && !ov.stair2 && !ov.roofStair && !ov.stairAlong && !ov.inner && !ov.tank && !ov.bay && ov.roofAcc !== null && w >= 8 && d >= 8 && o.fh + SL < 6 && ROOF_ACC_KINDS.includes(kind)) {   /* v493: about half of the ordinary one-storey buildings get the tested U-stair up to a flat roof terrace with a parapet: you can climb up and shoot from the roof (four of every five houses; shops and barracks always) */
+    const always = kind === 'shop' || kind === 'barracks' || kind === 'warehouse' || kind === 'school' || kind === 'church';
+    if (ov.roofAcc || always || (RA_N++ % 5 !== 4)) { o.roofAcc = true; o.roof = 'flat'; }
+  }
   const alongX = front === 'N' || front === 'S', len = alongX ? w : d, big = kind === 'warehouse' || kind === 'hangar' || kind === 'barn';
   const dh = big ? 4.6 : 2.5, dwid = kind === 'hangar' ? 12 : big ? 5 : 3.4;
   o.doors = ov.doors || [{ s: front, o: big ? 0 : Math.round((rr() - 0.5) * len * 0.4 * 2) / 2, w: dwid, h: dh }];
@@ -274,7 +280,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
   if (kind === 'barracks') o.part = { ax: 'z', pos: 0, gap: 0 };
   if (ov.stair) o.stair = ov.stair;
-  if ((K.fl || 1) > 1 && !ov.inner) {   /* v255: no door opens onto the foot of the staircase: a door on the stair wall slides to the free part of that wall (or goes when there is no room) */
+  if (((K.fl || 1) > 1 || o.roofAcc) && !ov.inner) {   /* v255: no door opens onto the foot of the staircase: a door on the stair wall slides to the free part of that wall (or goes when there is no room) */
     const nwU = !ov.stair2 && !ov.roofStair && d >= 8 && w >= 8 && ((K.fh || 3) + SL) < 6;   /* v324: the stairwell is the NW corner (2.4 m wide, 4 m deep): no N / W door on it */
     if (nwU) o.doors = o.doors.filter((q) => { const hw = (q.w || 3.4) / 2; if (q.s === 'N') { if (q.o - hw > -w / 2 + 4.3) return true; q.o = Math.round((-w / 2 + 4.4 + hw + 0.5) * 2) / 2; return q.o + hw < w / 2 - 1.6; } if (q.s === 'W') { if (q.o - hw > -d / 2 + 5.0) return true; q.o = Math.round((-d / 2 + 5.1 + hw) * 2) / 2; return q.o + hw < d / 2 - 1.2; } return true; });
     const S0 = nwU ? { x0: -w / 2 - 20, z0: 99 } : (o.stair || { x0: -w / 2 + 1.6, z0: -d / 2 }), sx0 = S0.x0 - 0.8, sx1 = S0.x0 + 7.4 + 0.8, sideS = S0.z0 < 0 ? 'N' : 'S', hx_ = w / 2, hz_ = d / 2;
@@ -286,7 +292,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   if (o.part && o.part.ax === 'z') {   /* v258: the inner wall must never end at a door / window / the stairs of the outside wall: slide it to the nearest clean spot (or leave it out) */
     const bad = (pp) => { for (const q of o.doors) if ((q.s === 'N' || q.s === 'S') && Math.abs(pp - q.o) < (q.w || 3.4) / 2 + 1.0) return true;
       if (o.win && o.win.ww) for (const sd of ['N', 'S']) { if ((o.noWin || []).includes(sd)) continue; const cs2 = sd === 'S' && o.win.csS, n2 = cs2 ? cs2.length : Math.floor((w - 3.2) / o.win.gap) + 1; for (let i = 0; i < n2; i++) { const c = cs2 ? cs2[i] : -(n2 - 1) * o.win.gap / 2 + i * o.win.gap; if (Math.abs(pp - c) < o.win.ww / 2 + 0.9) return true; } }
-      if (o.stair && Math.abs(pp - (o.stair.x0 + 3.5)) < 5.5) return true; return false; };
+      if (o.stair && Math.abs(pp - (o.stair.x0 + 3.5)) < 5.5) return true; if (o.roofAcc && pp < -w / 2 + 5.4) return true; return false; };
     let best = null; for (let dlt = 0; dlt <= w * 0.4; dlt += 0.5) for (const sg of [1, -1]) { const pp = o.part.pos + sg * dlt; if (best === null && Math.abs(pp) < w / 2 - 2.5 && !bad(pp)) best = pp; }
     if (best === null) o.part = undefined; else o.part.pos = best;
   }
@@ -621,7 +627,7 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
       const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
       for (const s of a) {
-        if (s.k === 'roof' || s.k === 'floor' || s.y1 < y - 0.2 || s.y0 > y + 0.2) continue;   /* v444: 0.2 (was 0.4): a window sill (0.95 m) no longer eats the shots of a crouching player */
+        if (s.k === 'roof' || s.k === 'floor' || s.y1 < y - 0.2 || s.y0 > y + 0.2 || (s.vault && y > s.y1 - 0.3)) continue;   /* v493: a roof parapet / low rail (the 'vault' pieces, 1.1 m) is shot OVER by anyone standing or crouching behind it - before, a standing shooter (gun at 1.3 m) was blocked by the 1.1 m parapet and nobody on a rooftop could hit anything */   /* v444: 0.2 (was 0.4): a window sill (0.95 m) no longer eats the shots of a crouching player */
         let t0 = 0, t1 = best; if (Math.abs(dx) < 1e-9) { if (x < s.x0 || x > s.x1) continue; } else { let p = (s.x0 - x) / dx, q = (s.x1 - x) / dx; if (p > q) { const w = p; p = q; q = w; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); }
         if (t0 > t1) continue;
         if (Math.abs(dz) < 1e-9) { if (z < s.z0 || z > s.z1) continue; } else { let p = (s.z0 - z) / dz, q = (s.z1 - z) / dz; if (p > q) { const w = p; p = q; q = w; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); }
