@@ -1512,3 +1512,19 @@ body.scoped #rscope-chip, body.big-map #rscope-chip, body.m-open #rscope-chip { 
 #bigmap-unpin, #bigmap-jtip { display: none; }
 body.jang-mode #bigmap-wrap.haspin #bigmap-unpin { display: block; position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 5; pointer-events: auto; touch-action: manipulation; cursor: pointer; padding: 7px 12px; border-radius: 10px; border: 2px solid #fff; background: rgba(225,29,72,.9); color: #fff; font: 900 11px system-ui, sans-serif; letter-spacing: .5px; white-space: nowrap; }
 body.jang-mode #bigmap-jtip { display: block; position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); white-space: nowrap; color: #fff; font: 800 9px system-ui, sans-serif; letter-spacing: .4px; opacity: .85; text-shadow: 0 1px 2px #000; pointer-events: none; }
+
+#solo-dsel button small { display: block; font: 600 10px system-ui, sans-serif; opacity: .8; margin-top: 2px; }
+
+/* v489: ONE rule for every full page: while Settings / Pause / Help / About / the guide / the victory page / the button editor is open, the in-game HUD (slots, health, scope chip, zoom, pick-up, backpack ...) is hidden so nothing sits on top of the page */
+#s-settings { z-index: 9000 !important; }
+body:has(#s-settings.active, #s-help.active, #s-about.active, #pause:not(.hidden), #pset:not(.hidden), #victory) :is(#hud, #c-hud, #c-slots, #c-hp, #c-pick, #c-use, #c-glide, #c-jump, #c-rev, #c-rvp, #c-train, #c-train-x, #c-bag, #c-dive, #c-pullup, #rscope-chip, #scope-zoom, #mm-btn, #vc, #perfro, #pinflag, #joy-lock, #zonefx, #zonenear, #zonenear-t, #minimap, #bigmap, #a-jump, #act-pad) { display: none !important; }
+/* the button editor: a slim one-row bar (tap the arrows to move it to the bottom), and the pieces you cannot move are hidden so they do not pile up on the buttons */
+body.btn-edit :is(#c-slots, #c-hp, #c-hud, #scope-zoom, #rscope-chip, #perfro, #c-pick, #c-use, #zonenear, #zonenear-t) { display: none !important; }
+#lay-bar { padding: 4px 8px !important; min-height: 0 !important; flex-wrap: nowrap !important; gap: 4px !important; max-width: 92vw !important; width: max-content; border-radius: 12px !important; top: max(4px, env(safe-area-inset-top)) !important; opacity: .94; }
+#lay-bar.lay-bot { top: auto !important; bottom: max(4px, env(safe-area-inset-bottom)) !important; }
+#lay-bar b { font: 800 10px system-ui, sans-serif; white-space: nowrap; margin: 0 4px; }
+#lay-bar span { display: flex; flex-wrap: nowrap; gap: 3px; }
+#lay-bar button { padding: 7px 9px !important; margin: 0 !important; font-size: 11px !important; white-space: nowrap; }
+#lay-bar #lay-d { position: static !important; right: auto !important; bottom: auto !important; padding: 8px 16px !important; font-size: 12px !important; margin-left: 4px !important; }
+#lay-bar #lay-mv { background: #475569; }
+@media (max-height: 460px) { #lay-bar b { display: none; } }

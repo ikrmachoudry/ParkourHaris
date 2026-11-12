@@ -12,7 +12,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid, bulletK } from './combat.js';
+import { botCount as cmbBotCount, layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid, bulletK } from './combat.js';
 const CAMK = new Set(['wall', 'roof', 'floor', 'cliff', 'ruin', 'crate', 'sandbag', 'container', 'tower']);   // v305: solids the third-person camera must not enter
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
@@ -2322,6 +2322,7 @@ function startSingle(levelIdx, jang, jseed) {
   A.initAudio();
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
+  try { const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.setClearColor(cc, ca); } catch (e) { /* never block the start */ }   // v489: the old profile-page podium picture must not stay on the canvas until the first frame
   race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
   resize();
   show('none');
@@ -2741,6 +2742,7 @@ window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply
   const hit = (el, fn) => { let t0 = 0; const run = (e) => { e.preventDefault(); e.stopPropagation(); const n = performance.now(); if (n - t0 < 350) return; t0 = n; fn(); }; el.addEventListener('pointerdown', run); el.addEventListener('click', run); el.addEventListener('touchend', run, { passive: false }); };   // v247: answers on the press itself (the game's look / joystick handlers swallowed the later click)
   const opac = (d) => { if (!sel) { gtoast('Tap a button first'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.o = Math.max(0.2, Math.min(1, (v.o == null ? 1 : v.o) + d)); layApply(); laySave(); };
   hit($('lay-m'), () => size(-0.1)); hit($('lay-p'), () => size(0.1)); hit($('lay-om'), () => opac(-0.1)); hit($('lay-op'), () => opac(0.1));
+  hit($('lay-mv'), () => { bar().classList.toggle('lay-bot'); });   // v489: the editor bar can jump to the bottom so it never covers the button you want to move
   hit($('lay-r'), () => { LAY = {}; laySave(); layApply(); mark(null); });
   const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; openSettings('pause', 'ctrl'); };
   hit($('lay-d'), stop);
@@ -2845,6 +2847,7 @@ async function boot() {
     row.onclick = () => { A.initAudio(); if (k === 'autoAim' && aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 2 OR MORE TEAMS'); return; } A.sfx.click(); OPT[k] = !OPT[k]; saveOpts(); if (k === 'punjabi') A.setCommentary(OPT.punjabi); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); };
   });
   setInterval(() => document.body.classList.toggle('guest-room', !!(app.room && app.room.hostId !== app.myId)), 500);   // v331: only the room HOST sees the bot difficulty switch
+  { const sd = document.getElementById('solo-dsel'); if (sd) sd.querySelectorAll('button').forEach((b) => { const sm = b.querySelector('small'); if (sm) sm.textContent = cmbBotCount(b.dataset.d, IS_TOUCH) + ' bots'; }); }   // v489: the Solo menu shows how many bots each level has (phones fewer)
   { const paintD = () => document.querySelectorAll('.dsel button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); paintD();   // v331: BOT DIFFICULTY
     document.querySelectorAll('.dsel button').forEach((b) => { b.onclick = () => { if (app.room && app.room.hostId !== app.myId) { race && race.toast && race.toast('Only the HOST can change bot difficulty'); return; } A.initAudio(); A.sfx.click(); OPT.diff = b.dataset.d; saveOpts(); paintD(); if (app.room && app.net) app.net.send({ t: 'cdiff', d: OPT.diff }); const cs = race && race.mission && race.mission.cs; if (cs && cs.on && cs.setBotDiff) cs.setBotDiff(); if (race && race.toast) race.toast('BOTS: ' + OPT.diff.toUpperCase()); }; }); }
   { const HRS = { morning: 8, noon: 12, afternoon: 17, night: 23 };
