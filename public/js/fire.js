@@ -42,11 +42,11 @@ export class FireSmokeFX {
     const flash = new THREE.Sprite(mk(T.glow, THREE.AdditiveBlending, { opacity: 0 })); flash.center.set(0.5, 0.35); g.add(flash);
     const tongues = [], smoke = [];
     for (let i = 0; i < nT; i++) {
-      const a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R - 0.35), m = mk(T.flame[i % 3], THREE.AdditiveBlending, { opacity: 0, rotation: (rnd() - 0.5) * 0.25 }), sp = new THREE.Sprite(m); sp.center.set(0.5, 0.04); g.add(sp);
+      let a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R - 0.35); if (this.clip) r = Math.min(r, Math.max(0, this.clip(x, z, Math.cos(a), Math.sin(a), r + 0.9) - 0.9));   /* v486: flames never grow through a wall */ const m = mk(T.flame[i % 3], THREE.AdditiveBlending, { opacity: 0, rotation: (rnd() - 0.5) * 0.25 }), sp = new THREE.Sprite(m); sp.center.set(0.5, 0.04); g.add(sp);
       tongues.push({ sp, m, x: Math.cos(a) * r, z: Math.sin(a) * r, per: 0.55 + rnd() * 0.5, off: rnd() * 3, h: 2.3 + rnd() * 2 * (1 - r / R * 0.5), w: 1.25 + rnd() * 0.9, sw: rnd() * 6.283, edge: r / R });
     }
     for (let i = 0; i < nS; i++) {
-      const a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R * 0.55), m = mk(T.puff[i % 4], THREE.NormalBlending, { color: new THREE.Color().setHSL(0.06, 0.05, 0.1 + rnd() * 0.07), opacity: 0, rotation: rnd() * 6.283 }), sp = new THREE.Sprite(m); g.add(sp);
+      let a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R * 0.55); if (this.clip) r = Math.min(r, Math.max(0, this.clip(x, z, Math.cos(a), Math.sin(a), r + 1.2) - 1.2)); const m = mk(T.puff[i % 4], THREE.NormalBlending, { color: new THREE.Color().setHSL(0.06, 0.05, 0.1 + rnd() * 0.07), opacity: 0, rotation: rnd() * 6.283 }), sp = new THREE.Sprite(m); g.add(sp);
       smoke.push({ sp, m, x: Math.cos(a) * r, z: Math.sin(a) * r, per: 2.6 + rnd() * 1.4, off: rnd() * 4, sw: rnd() * 6.283, spin: (rnd() - 0.5) * 0.4 });
     }
     g.position.set(x, y, z); this.scene.add(g);

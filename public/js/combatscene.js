@@ -10,7 +10,7 @@ import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, ballOK, underRoof } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim } from './props.js';
@@ -157,7 +157,7 @@ export class CombatScene {
   }
   // back to the city (the mission is over for everybody): the backpack is emptied, the saved weapons come back, you stand outside the mission lobby
   leave() {
-    if (this.edgeEl) this.edgeEl.style.display = 'none'; if (this.glideEl) this.glideEl.style.display = 'none';
+    if (this.edgeEl) this.edgeEl.style.display = 'none'; if (this.glideEl) this.glideEl.style.display = 'none'; if (this.ddEl) this.ddEl.style.display = 'none'; this._ddOn = false;
     if (this.hitRing) { this.hitRing.remove(); this.hitRing = null; this.hitArr = []; }
     if (this.chuteBadge) { this.chuteBadge.remove(); this.chuteBadge = null; } this.ownChute = false;
     this.gate = false;
@@ -402,7 +402,9 @@ export class CombatScene {
     const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
     this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
+  wallClip(wx, wz, dx, dz, len) { try { return rayWalls(layout(), wx - CMB.x, wz - CMB.z, dx, dz, len, 1.3); } catch (e) { return len; } }   // v486: how far a line from a world point runs before a wall
   tracer(x0, y0, z0, x1, y1, z1) {
+    { const ddx = x1 - x0, ddz = z1 - z0, dl = Math.hypot(ddx, ddz); if (dl > 1) { const w = this.wallClip(x0, z0, ddx / dl, ddz / dl, dl); if (w < dl - 0.3) { const k = Math.max(0.05, w - 0.05) / dl; x1 = x0 + ddx * k; z1 = z0 + ddz * k; y1 = y0 + (y1 - y0) * k; } } }   /* v486: a bullet line stops at the wall it hits (it used to draw through) */
     if (this.glass) this.glass.seg(x0 - CMB.x, y0, z0 - CMB.z, x1 - CMB.x, y1, z1 - CMB.z);   // v351: a bullet shatters every window it crosses
     let q = this.tr.find((t) => !t.visible); if (!q) { if (this.tr.length > 14) return; q = new THREE.Mesh(TR_GEO || (TR_GEO = new THREE.BoxGeometry(0.04, 0.04, 1)), TR_MAT || (TR_MAT = new THREE.MeshBasicMaterial({ color: '#ffd978', transparent: true, opacity: 0.9 }))); this.group.add(q); this.tr.push(q); }   /* v481: every tracer shares ONE box and ONE material (each used to make its own = a new shader set-up in the middle of a firefight) */
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dx, dy, dz) || 1; q.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); q.scale.set(1, 1, l); q.lookAt(x1, y1, z1); q.visible = true; q.userData.t = 0.07;
@@ -571,7 +573,12 @@ export class CombatScene {
     }
     for (const s of this.sim.bots) {
       if (!s.droid) continue; const a = this.bots.get(s.id); if (!a) continue;
-      if (s.dtm !== T.tm || !s.alive || !a.g.visible) { if (a.tg) a.tg.visible = false; continue; }
+      if (s.dtm !== T.tm) { if (a.tg) a.tg.visible = false; if (a.tgD) a.tgD.visible = false; continue; }
+      { const dead = !s.alive && s.placed !== false;   // v486: a dead INTELLIDROID keeps a (grey) name on its body, and a small line on the screen says it is dead
+        if (dead !== !!this._ddOn) { this._ddOn = dead; if (!this.ddEl) { const e = this.ddEl = document.createElement('div'); e.textContent = '\u2620 INTELLIDROID IS DEAD'; e.style.cssText = 'position:fixed;left:50%;top:max(122px,calc(env(safe-area-inset-top) + 116px));transform:translateX(-50%);z-index:30;pointer-events:none;font:800 10px system-ui,sans-serif;letter-spacing:1px;color:#ffd6d6;background:rgba(24,26,34,.62);padding:3px 10px;border-radius:9px;border:1px solid rgba(255,140,140,.55);display:none;white-space:nowrap'; document.body.appendChild(e); } this.ddEl.style.display = dead ? 'block' : 'none'; if (dead && this.R.toast) this.R.toast('INTELLIDROID IS DEAD'); }
+        if (dead) { if (a.tg) a.tg.visible = false; if (a.g.visible) { if (!a.tgD) a.tgD = this.mkTag('INTELLIDROID - DEAD', '#c9ced6'); a.tgD.position.set(a.g.position.x, a.g.position.y + 0.95, a.g.position.z); a.tgD.visible = true; } else if (a.tgD) a.tgD.visible = false; continue; }
+        if (a.tgD) a.tgD.visible = false; }
+      if (!a.g.visible) { if (a.tg) a.tg.visible = false; continue; }
       if (!a.tg) a.tg = this.mkTag('INTELLIDROID', '#ff9aa8'); a.tg.position.set(a.g.position.x, a.g.position.y + 2.15, a.g.position.z); a.tg.visible = true;
     }
   }
@@ -663,9 +670,9 @@ export class CombatScene {
     { const pb = this.R.me.body, fr = (this._fr = (this._fr || 0) + 1);   // v219: bot level of detail - far bots are not drawn or animated, middle ones animate every 3rd frame (every bot was a 9000-triangle skinned model animated 60 times a second wherever it stood)
       let bi = 0;
       for (const s of sim.bots) {
-        const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1); bi++;   // (scoped with a sniper: twice as far)
+        const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1) && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500 && d2 < 420 * 420); bi++;   /* v486: a bot that is shooting at you is always drawn (up to 420 m) - he used to vanish at 190-330 m while his bullets kept coming */   // (scoped with a sniper: twice as far)
         if (s.droid && this.mates.has(-777)) { if (a.g.visible) a.g.visible = false; continue; }
-        if (!s.alive && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }
+        if (!s.alive && !s.droid && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }   /* v486: the droid's body never disappears */
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         a.acc = (a.acc || 0) + dt; const skip = (d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0) || (IS_PHONE && d2 > 324 && d2 <= BOT_MID2 && (fr + bi) % 2 !== 0); if (skip && a.g.visible) continue;   /* v481: phones: bots 18 - 40 m away are animated every 2nd frame */   // (a bot that was hidden is always updated once when it comes back)
@@ -673,7 +680,7 @@ export class CombatScene {
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
         { const yy = s.y == null ? 0 : s.y; a.sv = a.ly === undefined || adt <= 0 ? 0 : (yy - a.ly) / adt; a.ly = yy; a.sa = s.y != null && a.sv > 0.4 ? Math.min(1, (a.sa || 0) + adt * 4) : Math.max(0, (a.sa || 0) - adt * 4); }   // v342: a bot climbing a staircase / tower spiral plays the real stair-climb clip
         if (s.alive) { a.g.visible = true; a.m.update(adt, { seated: false, stairs: a.sa > 0.6, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen && !(s.thr > 0), crouch: s.stn === 1, prone: s.stn === 2, nade: s.thr > 0 ? Math.min(0.999, s.thr) : 0, nadeToss: 2, vy: 0, stun: 0 }); }
-        else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.m.update(adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = s.dieT < (this.R.isTouch ? 45 : 1e9); }
+        else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6]; a.m.update(adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, s.dieT / 2.4), weapon: s.weapon }); a.g.visible = !!s.droid || s.dieT < (this.R.isTouch ? 45 : 1e9); }
       } }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
     if (this.vig && this.vig.style.opacity > 0) this.vig.style.opacity = Math.max(0, this.vig.style.opacity - dt * 1.6);
@@ -684,8 +691,9 @@ export class CombatScene {
   event(e, b) {
     const R = this.R;
     if (e.k === 'shot') {
+      { const ab = b && this.bots.get(b.id); if (ab) ab.shotAt = performance.now(); }
       const wx = CMB.x + e.x, wz = CMB.z + e.z, tx = e.hit ? b.x : b.x + (Math.random() - 0.5) * 3, tz = e.hit ? b.z : b.z + (Math.random() - 0.5) * 3, cd = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z), mine = !this.shared || e.tp === (R.jangTeam && R.jangTeam.myId);   // v245: a bot shooting at ANOTHER player: the tracer goes to him, I do not get hurt
-      const gy = cmbH(e.x, e.z); this.tracer(wx, gy + 1.4, wz, mine ? tx : CMB.x + e.tx, mine ? b.y + 1.3 : gy + 1.3, mine ? tz : CMB.z + e.tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, 3, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 });
+      const gy = cmbH(e.x, e.z), shN = performance.now(), shOk = cd < 45 || shN - (this._shT || 0) > 45; if (shOk) { this._shT = shN; this.tracer(wx, gy + 1.4, wz, mine ? tx : CMB.x + e.tx, mine ? b.y + 1.3 : gy + 1.3, mine ? tz : CMB.z + e.tz); R.particles && R.particles.emit(wx, gy + 1.4, wz, cd < 45 ? 3 : 1, { color: '#ffd978', speed: 1.5, up: 0.5, life: 0.12, size: 0.14 }); }   /* v486: in a firefight of many bots only the near shots draw every tracer / spark - far ones at most ~22 / s (the laptop stuck while 10+ bots fired) */
       const sNow = performance.now(), sOk = !IS_PHONE || sNow - (this._shS || 0) > (cd > 80 ? 220 : 70);   // v480: Android: a firefight of many bots made dozens of sounds per second; near shots at most ~14 / s, far ones ~4 / s
       if (cd < 160 && sOk) { this._shS = sNow; const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
       if (!e.hit && cd < 90 && A.sfx.whiz && (!IS_PHONE || sNow - (this._shW || 0) > 250)) { this._shW = sNow; const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you

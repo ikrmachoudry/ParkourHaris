@@ -1552,7 +1552,7 @@ class Race {
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
   fireBoom(x, y, z, mine = true, bot = false) {
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
-    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); this.fxs().fire(x, y, z, 8); A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
     const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
