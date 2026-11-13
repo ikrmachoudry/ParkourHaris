@@ -205,6 +205,17 @@ export class CombatScene {
     const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group);
     try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; }
   }
+  /* v501 LATE-LIFE KIT (solo): a life that starts when the match is already old no longer comes back empty-handed into 10+ bots. More than 10 min left: nothing (loot as usual). 5-10 min left: a pistol + 2 bandages. 5 min or less: an M4 + a pistol, ammo, 3 bandages, vest, helmet, 2 grenades. */
+  giveKit() {
+    const R = this.R, cb = R.wallet && R.wallet.cb, left = this.time; if (!cb || !(left < 600)) return; const full = left <= 300;
+    const gun = (w, packs) => { const S = WEAPONS[w]; if (!S) return false; cb.owned[w] = true; cb.mag[w] = S.mag; cb.ammo[w] = Math.max(90, (S.ammoPack || 30) * packs); return true; };
+    const got = [];
+    if (full) { if (gun('m4', 2)) got.push('M4'); if (gun('pistol', 1)) got.push('PISTOL'); cb.inv.med = 3; cb.inv.vest = Math.max(1, cb.inv.vest | 0); cb.vestHp = 100; cb.inv.helmet = Math.max(1, cb.inv.helmet | 0); cb.helmHp = 60; cb.nades = 2; got.push('3 BANDAGES', 'VEST', 'HELMET', '2 GRENADES'); }
+    else { if (gun('pistol', 2)) got.push('PISTOL'); cb.inv.med = 2; got.push('2 BANDAGES'); }
+    const first = full ? 'm4' : 'pistol'; if (cb.owned[first]) R.equip && R.equip(first);
+    R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); this.updateHud(); if (this.inv) this.inv.render && this.inv.render();
+    R.toast && R.toast('LATE-MATCH KIT: ' + got.join(' + '), 5);
+  }
   startDrop() {
     const R = this.R, b = R.me.body, T = R.jangTeam, rr = (k) => { const x = Math.sin((T ? T.seed : 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };   // team match: the whole room shares one flight line, the second team gets its own plane flying the other way
     const a0 = T ? rr(1) * Math.PI * 2 : Math.random() * Math.PI * 2, tn = T ? T.tm | 0 : 0, a = tn === 1 ? a0 + Math.PI : tn === 2 ? a0 + Math.PI / 2 : tn === 3 ? a0 + Math.PI * 1.5 : a0, hd = [Math.sin(a), Math.cos(a)], off0 = T ? (rr(2) - 0.5) * 240 : (Math.random() - 0.5) * 240, off = tn === 1 ? -off0 * 0.6 + 40 : tn === 2 ? off0 * 0.4 - 30 : tn === 3 ? -off0 * 0.3 - 50 : off0, L = 760;
@@ -666,7 +677,7 @@ export class CombatScene {
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
       if (this.spec) { this.specTick(); this.specHud(); }
-      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); } if (this.ov) this.ov.style.display = 'none'; } }
+      if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); this.giveKit(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
       else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive || q.droid) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED
       else if (this.shared && !this.over && !this.dropping && this.sim.ready && this.t > 30 && this.R.jangTeam && this.sim.bots.length && this.sim.bots.every((q) => !q.alive) && this.hp > 0 && this.deadT <= 0 && !this.down && this.mates.size && [...this.mates.values()].every((g) => g.tm === this.R.jangTeam.tm)) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v379: a room with ONE team only (friends vs the bots): every bot dead = MISSION PASSED. With rival teams in the room the last team standing wins (bots do not count: nobody has to hunt the last bot)
