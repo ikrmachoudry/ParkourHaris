@@ -11,7 +11,7 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
@@ -397,7 +397,7 @@ export class CombatScene {
         if (!sm) { const sg = this.mkPuffs(new THREE.Group(), 12, 0x3be36a, 0x23b84e); sg.userData.sm = { H: 16, life: 5, s0: 0.8, s1: 3.4, drift: 3, a: 0.5 }; sg.position.set(CMB.x + it.x, (it.y !== undefined ? it.y : cmbH(it.x, it.z)) + 0.5, CMB.z + it.z); this.group.add(sg); sm = { g: sg, ids: new Set(), x: CMB.x + it.x, z: CMB.z + it.z }; this.dsm.set(key, sm); }
         sm.ids.add(it.id); }
       /* no light beam: PUBG items just lie there with a ring */
-      g.position.set(CMB.x + it.x, it.y !== undefined ? it.y : cmbH(it.x, it.z), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
+      g.position.set(CMB.x + it.x, it.y !== undefined ? it.y : Math.max(cmbH(it.x, it.z), cmbG(it.x, it.z)), CMB.z + it.z); g.traverse((o) => { if (o.isMesh) o.castShadow = false; }); g.visible = false; this.group.add(g); this.loot.set(it.id, { g, it, ph: Math.random() * 6 }); }   // loot casts no shadow (a tiny shadow under a gun nobody sees, but a whole extra draw)
   }
   tintDroid(grp) { grp.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINTD.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#9a2c3e')); _TINTD.set(o.material, t); } o.material = t; } }); }
   /* v459: the INTELLIDROID flies WITH you: while you are in the plane / skydiving / under the parachute a copy of your flight is shown beside you (seated next to you in the plane, jumping with you, its own parachute); when you land the real droid (the server's bot) appears right beside you and stays within ~10 m */
@@ -697,14 +697,14 @@ export class CombatScene {
       { const pb = this.R.me.body, dx = pb.x - CMB.x - l.it.x, dz = pb.z - CMB.z - l.it.z, vis = dx * dx + dz * dz < LOOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1);   // v219: items only exist on screen near you (64 guns / items over the whole island were ~45% of all triangles and draw calls)
         if (l.g.visible !== vis) l.g.visible = vis; }
     }
-    const g0 = (x, z) => cmbH(x, z);
+    const g0 = (x, z) => Math.max(cmbH(x, z), cmbG(x, z));   // v509: bots stand on the DRAWN mesh (the sim's analytic height is up to 0.4+ m below it on hills)
     { const pb = this.R.me.body, fr = (this._fr = (this._fr || 0) + 1);   // v219: bot level of detail - far bots are not drawn or animated, middle ones animate every 3rd frame (every bot was a 9000-triangle skinned model animated 60 times a second wherever it stood)
       let bi = 0;
       for (const s of sim.bots) {
         const a = this.bot(s), dx = pb.x - CMB.x - s.x, dz = pb.z - CMB.z - s.z, d2 = dx * dx + dz * dz, far = d2 > BOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1) && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500 && d2 < 420 * 420); bi++;   /* v486: a bot that is shooting at you is always drawn (up to 420 m) - he used to vanish at 190-330 m while his bullets kept coming */   // (scoped with a sniper: twice as far)
         if (s.droid && this.mates.has(-777)) { if (a.g.visible) a.g.visible = false; continue; }
         if (!s.alive && !s.droid && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }   /* v486: the droid's body never disappears */
-        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
+        a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? Math.max(s.y, g0(s.x, s.z)) : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         if (IS_ANDROID) a.m.farGun = !this.R.scoped && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && d2 > 3600;
         a.acc = (a.acc || 0) + dt; const dying = !s.alive && !a.fin; const skip = !dying && (d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0) || (IS_PHONE && d2 > 324 && d2 <= BOT_MID2 && (fr + bi) % 2 !== 0); if (!s.alive && a.fin && a.g.visible) continue; if (skip && a.g.visible) continue;   /* v481: phones: bots 18 - 40 m away are animated every 2nd frame */   // (a bot that was hidden is always updated once when it comes back)
