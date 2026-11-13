@@ -401,7 +401,8 @@ export class CombatScene {
     let a = this.bots.get(b.id); if (a) return a;
     if (b.droid) { const dm = makeSkin(4, undefined, false); this.tintDroid(dm.group); this.group.add(dm.group); a = { g: dm.group, m: dm, last: 0 }; this.bots.set(b.id, a); return a; }   // v457: INTELLIDROID = the military soldier in dark maroon camouflage
     const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
-    this.group.add(m.group); a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
+    this.group.add(m.group); if (IS_ANDROID) { const u0 = m.update.bind(m); m.update = (dt, st) => { u0(dt, st); if (m.farGun && m.ch && m.ch.gun) m.ch.gun.visible = false; }; }   /* v499 Android: beyond 60 m a bot's gun is not drawn (a gun is 1-5 draw calls) */
+    a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
   wallClip(wx, wz, dx, dz, len) { try { return rayWalls(layout(), wx - CMB.x, wz - CMB.z, dx, dz, len, 1.3); } catch (e) { return len; } }   // v486: how far a line from a world point runs before a wall
   tracer(x0, y0, z0, x1, y1, z1) {
@@ -678,7 +679,7 @@ export class CombatScene {
       const pb = this.R.me.body, dx = pb.x - sm.x, dz = pb.z - sm.z; this.stepSmoke(sm.g, dt, dx * dx + dz * dz < 67600); }
     for (const [id, l] of this.loot) {   // spin and bob the loot; remove what was taken
       if (!l.it.alive) { this.group.remove(l.g); this.loot.delete(id); continue; }
-      { const pb = this.R.me.body, dx = pb.x - CMB.x - l.it.x, dz = pb.z - CMB.z - l.it.z, vis = dx * dx + dz * dz < LOOT_VIS2 * (this.dropping ? 4 : 1);   // v219: items only exist on screen near you (64 guns / items over the whole island were ~45% of all triangles and draw calls)
+      { const pb = this.R.me.body, dx = pb.x - CMB.x - l.it.x, dz = pb.z - CMB.z - l.it.z, vis = dx * dx + dz * dz < LOOT_VIS2 * (this.dropping || this.R.scoped ? 4 : 1);   // v219: items only exist on screen near you (64 guns / items over the whole island were ~45% of all triangles and draw calls)
         if (l.g.visible !== vis) l.g.visible = vis; }
     }
     const g0 = (x, z) => cmbH(x, z);
@@ -690,6 +691,7 @@ export class CombatScene {
         if (!s.alive && !s.droid && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }   /* v486: the droid's body never disappears */
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? s.y : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
+        if (IS_ANDROID) a.m.farGun = !this.R.scoped && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && d2 > 3600;
         a.acc = (a.acc || 0) + dt; const dying = !s.alive && !a.fin; const skip = !dying && (d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0) || (IS_PHONE && d2 > 324 && d2 <= BOT_MID2 && (fr + bi) % 2 !== 0); if (!s.alive && a.fin && a.g.visible) continue; if (skip && a.g.visible) continue;   /* v481: phones: bots 18 - 40 m away are animated every 2nd frame */   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
