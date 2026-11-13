@@ -10,6 +10,7 @@ import { track, loadScreen } from './loading.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
+const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
 import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
@@ -584,6 +585,16 @@ export class CombatScene {
       if (!a.g.visible) { if (a.tg) a.tg.visible = false; continue; }
       if (!a.tg) a.tg = this.mkTag('INTELLIDROID', '#ff9aa8'); a.tg.position.set(a.g.position.x, a.g.position.y + 2.15, a.g.position.z); a.tg.visible = true;
     }
+    this.enemyMarks(T);
+  }
+  /* v498 ANDROID: on the low graphics tier a bot is a few blurry pixels in the same colours as the ground. Every living enemy 14-160 m away gets a small RED arrow over his head (it is hidden when something is in front of it, so it never shows through a wall); it grows with the distance so it stays about as big on the screen. Only the nearest 12 get one. */
+  enemyMarks(T) {
+    if (!IS_ANDROID) return; const cam = this.R.camera.position, all = []; if (!this._em) this._em = [];
+    if (!this._emTex) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'); c.beginPath(); c.moveTo(6, 8); c.lineTo(58, 8); c.lineTo(32, 56); c.closePath(); c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,.9)'; c.stroke(); c.fillStyle = '#ff2d2d'; c.fill(); this._emTex = new THREE.CanvasTexture(cv); this._emMat = new THREE.SpriteMaterial({ map: this._emTex, transparent: true, depthTest: true, depthWrite: false, fog: false }); }
+    if (!this.dropping) for (const s of this.sim.bots) { if (!s.alive || s.placed === false) continue; if (s.droid && s.dtm === T.tm) continue; const a = this.bots.get(s.id); if (!a || !a.g.visible) continue; const d = Math.hypot(a.g.position.x - cam.x, a.g.position.z - cam.z); if (d < 14 || d > 160) continue; all.push([d, a]); }
+    all.sort((x, y) => x[0] - y[0]); const n = Math.min(12, all.length);
+    for (let i = 0; i < n; i++) { const [d, a] = all[i]; let m = this._em[i]; if (!m) { m = this._em[i] = new THREE.Sprite(this._emMat); m.renderOrder = 997; m.frustumCulled = false; this.group.add(m); } const sc = Math.max(0.45, d * 0.034); m.scale.set(sc, sc, 1); m.position.set(a.g.position.x, a.g.position.y + 2.0 + sc * 0.55, a.g.position.z); m.visible = true; }
+    for (let i = n; i < this._em.length; i++) this._em[i].visible = false;
   }
   stepMates(dt) {
     const T = (this.R.jangTeam || this.soloT); if (!T) return; if (this.R.jangTeam) { this.sendMate(dt); this.mateSounds(dt); } else { this._jt = (this._jt || 0) + dt; if (this._jt >= 0.1) { this._jt = 0; this.sendJt(); } } this.tagTick();   /* solo droid: only the flight copy, no team networking */
