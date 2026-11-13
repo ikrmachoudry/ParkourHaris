@@ -6,7 +6,7 @@ const MAP = new Map(); let amb = null;
 export function potatoize(scene) {
   if (!scene) return 0; let n = 0;
   if (scene.environment) { scene.environment = null; }
-  if (!amb) { amb = new THREE.AmbientLight(0xffffff, 0.45); amb.name = 'potato-amb'; }
+  if (!amb) { amb = new THREE.AmbientLight(0xffffff, 1.0); amb.name = 'potato-amb'; }
   if (!amb.parent) scene.add(amb);
   const conv = (m) => {
     if (!m || !(m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) || Object.prototype.hasOwnProperty.call(m, 'onBeforeCompile')) return m;

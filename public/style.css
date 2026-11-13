@@ -613,7 +613,7 @@ body.standalone #b-gm { top: max(8px, env(safe-area-inset-top)); }
 body.touch #a-aim::after { content: 'AIM'; position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 900 10px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
 
 /* sniper zoom control (appears only while the scope is up): + / - buttons, level label; the wheel, trackpad pinch and the + - keys do the same */
-#scope-zoom { display: none; position: fixed; left: max(14px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); z-index: 60; flex-direction: column; align-items: center; gap: 8px; }
+#scope-zoom { display: none; position: fixed; left: max(14px, env(safe-area-inset-left)); top: 62%; transform: translateY(-50%); z-index: 60; flex-direction: column; align-items: center; gap: 8px; }
 body.scoped #scope-zoom { display: flex; }
 #scope-zoom button { width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); background: rgba(20,14,50,.6); color: #fff; font-size: 26px; font-weight: 700; line-height: 1; padding: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 #scope-zoom button:active { transform: scale(.92); }
@@ -1517,9 +1517,10 @@ body.jang-mode #bigmap-jtip { display: block; position: absolute; left: 50%; top
 
 /* v489: ONE rule for every full page: while Settings / Pause / Help / About / the guide / the victory page / the button editor is open, the in-game HUD (slots, health, scope chip, zoom, pick-up, backpack ...) is hidden so nothing sits on top of the page */
 #s-settings { z-index: 9000 !important; }
-body:has(#s-settings.active, #s-help.active, #s-about.active, #pause:not(.hidden), #pset:not(.hidden), #victory) :is(#hud, #c-hud, #c-slots, #c-hp, #c-pick, #c-use, #c-glide, #c-jump, #c-rev, #c-rvp, #c-train, #c-train-x, #c-bag, #c-dive, #c-pullup, #rscope-chip, #scope-zoom, #mm-btn, #vc, #perfro, #pinflag, #joy-lock, #zonefx, #zonenear, #zonenear-t, #minimap, #bigmap, #a-jump, #act-pad) { display: none !important; }
+body:has(#s-settings.active, #s-help.active, #s-about.active, #pause:not(.hidden), #pset:not(.hidden), #victory) :is(#hud, #c-hud, #c-slots, #c-hp, #c-pick, #c-use, #c-glide, #c-jump, #c-rev, #c-rvp, #c-train, #c-train-x, #c-bag, #c-dive, #c-pullup, #rscope-chip, #scope-zoom, #dd-line, #mm-btn, #vc, #perfro, #pinflag, #joy-lock, #zonefx, #zonenear, #zonenear-t, #minimap, #bigmap, #a-jump, #act-pad) { display: none !important; }
 /* the button editor: a slim one-row bar (tap the arrows to move it to the bottom), and the pieces you cannot move are hidden so they do not pile up on the buttons */
-body.btn-edit :is(#c-slots, #c-hp, #c-hud, #scope-zoom, #rscope-chip, #perfro, #c-pick, #c-use, #zonenear, #zonenear-t) { display: none !important; }
+body.btn-edit :is(#c-slots, #c-hp, #c-hud, #rscope-chip, #perfro, #c-pick, #c-use, #zonenear, #zonenear-t) { display: none !important; }
+body.btn-edit #scope-zoom { display: flex !important; }
 #lay-bar { padding: 4px 8px !important; min-height: 0 !important; flex-wrap: nowrap !important; gap: 4px !important; max-width: 92vw !important; width: max-content; border-radius: 12px !important; top: max(4px, env(safe-area-inset-top)) !important; opacity: .94; }
 #lay-bar.lay-bot { top: auto !important; bottom: max(4px, env(safe-area-inset-bottom)) !important; }
 #lay-bar b { font: 800 10px system-ui, sans-serif; white-space: nowrap; margin: 0 4px; }

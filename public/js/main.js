@@ -2726,7 +2726,7 @@ $('b-auto').addEventListener('click', () => { if (aaLocked()) { A.sfx.back && A.
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); openSettings('pause'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
-const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup', 'joy'];   /* v272: the MOVE pad (joystick) can be moved and resized too */
+const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup', 'joy', 'scope-zoom'];   /* v272: the MOVE pad (joystick) can be moved and resized too */
 let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') || {}; } catch (e) { LAY = {}; }
 const layApply = () => { const W = innerWidth, H = innerHeight; for (const id of LAY_IDS) { const el = document.getElementById(id); if (!el) continue; const v = LAY[id]; if (v) { el.style.translate = (v.x * W).toFixed(1) + 'px ' + (v.y * H).toFixed(1) + 'px'; el.style.scale = String(v.s || 1); el.style.opacity = v.o != null && v.o < 1 ? String(v.o) : ''; } else { el.style.translate = ''; el.style.scale = ''; el.style.opacity = ''; } } };
 const laySave = () => { try { localStorage.setItem('ph_layout', JSON.stringify(LAY)); } catch (e) { /* ignore */ } };
