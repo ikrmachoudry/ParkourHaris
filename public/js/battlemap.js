@@ -425,7 +425,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         const g = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false, curveSegments: 28 }); g.rotateX(-Math.PI / 2); g.translate(X, yL - 0.3, Z); B.add('wall', g, '#94948e', 0.03);
         { const za = Z + hz * 2.4, zb = Z + hz * 3.9, lo = Math.min(za, zb), hi = Math.max(za, zb); B.box('trim', X - 0.84, yL, za - 0.05, X + 0.84, yL + 0.035, za + 0.05, '#ffcc00', 0); B.box('trim', X - 0.84, yL, lo, X - 0.76, yL + 0.035, hi, '#ffcc00', 0); B.box('trim', X + 0.76, yL, lo, X + 0.84, yL + 0.035, hi, '#ffcc00', 0); }   // a yellow rim round the hatch
         const lh = (q.y1 - q.y0) + 1.0;
-        if (!(dm && place('ladder', q.x, q.y0 + lh / 2, q.z, 1.05, lh, 0.28, q.phi))) for (const sx of [-0.45, 0.45]) B.box('metal', q.x + sx - 0.03, q.y0, q.z - 0.03, q.x + sx + 0.03, q.y0 + lh, q.z + 0.03, '#9a9a9a', 0); } }
+        const np = Math.max(1, Math.ceil(lh / 5)), ph = lh / np; let placed = !!dm; if (dm) for (let pi = 0; pi < np; pi++) placed = place('ladder', q.x, q.y0 + ph * (pi + 0.5), q.z, 1.05, ph + 0.02, 0.28, q.phi) && placed;   /* v504: a long ladder is stacked from 5 m pieces (the rungs keep their spacing) */
+        if (!placed) for (const sx of [-0.45, 0.45]) B.box('metal', q.x + sx - 0.03, q.y0, q.z - 0.03, q.x + sx + 0.03, q.y0 + lh, q.z + 0.03, '#9a9a9a', 0); } }
     B.box('metal', X + 2.0, py, Z - 2.2, X + 2.2, py + 7.5, Z - 2.0, '#cfcfcf', 0);   // the flag mast
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex("pk"), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // v300: the spinning parachute pack + ring on the roof are gone (you walk off the ledge and free-fall, the parachute opens by itself)
