@@ -14,7 +14,7 @@ const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator
 import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
-import { propModel, hasProp, propDim } from './props.js';
+import { propModel, hasProp, propDim, preloadProps } from './props.js';
 import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
 import { zoneFx, zoneNear } from './zonefx.js';
 import { NetSim } from './netsim.js';
@@ -187,7 +187,7 @@ export class CombatScene {
   // so nothing is compiled or uploaded while you play (that was the stutter when a gun, bot or the plane first came into view)
   prepare() {
     const R = this.R;
-    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, /Android/i.test(navigator.userAgent || '') ? 8000 : 25000))]).catch(() => {}).then(() => { try { loadScreen.stage('BOTS'); this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => { if (!(this.R.isTouch && /Android/i.test(navigator.userAgent || '')) || !this.on) return; try { loadScreen.say('BUILDING THE MAP...'); loadScreen.stage('MAP'); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 60)).then(() => { try { this.ensureMap(); } catch (e) { console.warn('map build', e); } }).then(() => new Promise((res) => setTimeout(res, 60))); }).then(() => {   // (the soldiers attach their model a moment after they are created)
+    return Promise.race([Promise.all([preloadAssets('jang'), this.loadPlane()]), new Promise((r) => setTimeout(r, /Android/i.test(navigator.userAgent || '') ? 8000 : 25000))]).catch(() => {}).then(() => Promise.race([preloadProps(), new Promise((r) => setTimeout(r, 20000))])).catch(() => {}).then(() => { try { loadScreen.stage('BOTS'); this.refreshMap();   /* v503: the tower ladders and walls are part of the map: wait for the small prop files even if the big preload timed out */  this._icons = null; for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); } catch (e) { /* ignore */ }   /* v392: anything built before the item models arrived (grey stand-in boxes, blank icons) is rebuilt with the real GLB models */ try { if (this.sim && this.on) for (const s of this.sim.bots) this.bot(s); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 250)); }).then(() => { if (!(this.R.isTouch && /Android/i.test(navigator.userAgent || '')) || !this.on) return; try { loadScreen.say('BUILDING THE MAP...'); loadScreen.stage('MAP'); } catch (e) { /* ignore */ } return new Promise((res) => setTimeout(res, 60)).then(() => { try { this.ensureMap(); } catch (e) { console.warn('map build', e); } }).then(() => new Promise((res) => setTimeout(res, 60))); }).then(() => {   // (the soldiers attach their model a moment after they are created)
       try {
         if (!this.sim || !this.on) return;
         const vis = []; const show = (o) => { if (o) { vis.push([o, o.visible]); o.visible = true; } };
@@ -199,6 +199,10 @@ export class CombatScene {
         for (const [o, v] of vis) o.visible = v;
       } catch (e) { console.warn('warm-up skipped', e); }
     });
+  }
+  refreshMap() {   /* v503: the match can begin before the small prop files (ladders, walls) have arrived: the map was then built with stand-in boxes; behind the loading screen it is rebuilt once with the real models */
+    if (!this.map || this.map.propsOk || !hasProp('ladder')) return; const old = this.map, R = this.R;
+    try { this.group.remove(old.group); old.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.map = null; this.glass = null; this.ensureMap(); if (this.map && R.me && R.me.body) this.map.warm(R.me.body); } catch (e) { console.warn('map refresh', e); }
   }
   ensureMap() {   // v452: the landscape is built once; on Android it is built behind the loading screen (not at the first frame of the match, which froze weak phones at 94%)
     const R = this.R; if (this.map) return;
@@ -289,7 +293,7 @@ export class CombatScene {
     const off = () => { this._gt = 0; this._gHint = false; if (this.glideEl && this.glideEl.style.display !== 'none') this.glideUI(false); return false; };
     if (b.grounded && this.on) { const ox0 = b.x - CMB.x, oz0 = b.z - CMB.z; let on = false; for (const t of layout().towers || []) if (Math.abs(ox0 - t.x) < TW.O + 4.5 && Math.abs(oz0 - t.z) < TW.O + 4.5 && b.y > t.gy + 5) { on = true; break; } this._onTower = on; }   // v379: the paraglider is for the TOWERS only (PUBG): remember whether the last place you stood was up a tower
     if (!this._onTower) return off();
-    if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR) return off();
+    if (!this.on || this.dropping || this.down || this.hp <= 0 || this.deadT > 0 || this.over || this.gate || b.grounded || b.inWater || b.swim || this.R.drive || this.R.hang || this.R.zipR || this.R.ladR) return off();
     const ox = b.x - CMB.x, oz = b.z - CMB.z, gy = Math.max(cmbH(ox, oz), supportY(layout(), ox, oz, 0.3, b.y)), h = b.y - gy;
     if (b.vy > -4 || h < 6) return off();
     this._gt = (this._gt || 0) + dt; if (this._gt > 0.2 && !this._gHint) { this._gHint = true; this.R.toast && this.R.toast(this.R.isTouch ? 'Tap the PARAGLIDE icon to open the parafoil' : 'Press JUMP (SPACE) to deploy the parafoil', 2.5); }
@@ -877,8 +881,9 @@ export class CombatScene {
     if (it && !this.promptIt && !this.canTake(it)) { const nw = performance.now(); if (nw - (this._noT || 0) > 1800) { this._noT = nw; const nm = LOOT_NAME[it.k] || it.k.toUpperCase(); this.R.toast && this.R.toast(it.k === 'ammo' ? 'AMMO BOX - you need a gun first' : it.k === 'bat' ? 'You already have a BASEBALL BAT' : (isGunK(it.k) || CAP[it.k] === 1 ? 'ALREADY OWNED - ' + nm + (isGunK(it.k) ? ' (your ammo for it is full)' : '') : nm + ' - BACKPACK FULL (' + this.count(it.k) + '/' + (CAP[it.k] || 4) + ')'), 1.8); } }   // v247: always say WHY an item cannot be taken
     if (!this.pickBtn) { const b = document.createElement('button'); b.id = 'c-pick'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.swapPick(); }); document.body.appendChild(b); this.pickBtn = b; }
     { const b = this.R.me.body, nw = performance.now(); for (const t of layout().towers) { const dx = b.x - CMB.x - t.x, dz = b.z - CMB.z - t.z - 5.6; if (Math.abs(b.y - t.gy) < 1.5 && Math.hypot(dx, dz) < 3.2 && nw - (this._twT || 0) > 15000) { this._twT = nw; this.R.toast && this.R.toast('Walk in through the DOOR - the stairs wind up inside the tower', 3); } } }
+    { const b = this.R.me.body; let ln = null; if (!this.R.ladR && !this.R.zipR && !this.down && !this.dropping && this.hp > 0) { const ox = b.x - CMB.x, oz = b.z - CMB.z; for (const L of layout().ladders || []) { if (Math.abs(ox - L.tw.x) > 5 || Math.abs(oz - L.tw.z) > 5) continue; if (Math.abs(b.y - L.y0) < 0.7 && Math.hypot(ox - L.fx, oz - L.fz) < 1.25) { ln = { L, dir: 'up' }; break; } if (Math.abs(b.y - L.y1) < 0.7 && Math.hypot(ox - L.tx, oz - L.tz) < 1.4) { ln = { L, dir: 'down' }; break; } } } this.ladNear = ln; }   // v503: near a tower ladder (foot = climb up, hatch edge = climb down)
     { const Z = layout().zip, b = this.R.me.body; let zn = false; if (Z && !this.R.zipR && !this.down) { const ox = b.x - CMB.x, oz = b.z - CMB.z; zn = Math.hypot(ox - Z.ax, oz - Z.az) < 1.9 && Math.abs(b.y - Z.ay) < 1.3; } this.zipNear = zn; }
-    const on = (!!this.promptIt || this.zipNear) && !this.inv.isOpen(); if (on) { const tc = !!this.R.isTouch, t = this.promptIt ? (tc ? '\u21C4  TAP: SWAP FOR ' : 'F  -  SWAP FOR ') + LOOT_NAME[this.promptIt.k] : this.zipBusy() ? 'ZIP LINE IN USE' : (tc ? 'TAP: RIDE ZIP LINE' : 'F  -  RIDE ZIP LINE');   /* v435: no keyboard letter on phones */ if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
+    const on = (!!this.promptIt || this.zipNear || !!this.ladNear) && !this.inv.isOpen(); if (on) { const tc = !!this.R.isTouch, t = this.promptIt ? (tc ? '\u21C4  TAP: SWAP FOR ' : 'F  -  SWAP FOR ') + LOOT_NAME[this.promptIt.k] : this.ladNear ? (tc ? 'TAP: ' : 'F  -  ') + (this.ladNear.dir === 'up' ? 'CLIMB THE LADDER' : 'CLIMB DOWN') : this.zipBusy() ? 'ZIP LINE IN USE' : (tc ? 'TAP: RIDE ZIP LINE' : 'F  -  RIDE ZIP LINE');   /* v435: no keyboard letter on phones */ if (this.pickBtn.textContent !== t) this.pickBtn.textContent = t; } if ((this.pickBtn.style.display !== 'none') !== on) this.pickBtn.style.display = on ? 'block' : 'none';
   }
   buildZip() {   // v329: code-made placeholder (two posts, a steel cable, a handle) until the real zip line GLB arrives
     const Z = layout().zip; if (!Z) return; const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: 0x2b2f33 }), cab = new THREE.MeshLambertMaterial({ color: 0xc9ced3 });
@@ -907,6 +912,7 @@ export class CombatScene {
   zipBusy() { for (const [, g] of this.mates) if (g.ph === 4 && ((g.st | 0) & 1024)) return true; return false; }
   swapPick() {
     if (this.nearDown && this.startRevive()) return true;   // v244: F next to a downed teammate = revive him
+    if (this.ladNear && !this.promptIt) return this.R.startLadder && this.R.startLadder(this.ladNear.L, this.ladNear.dir);
     if (this.zipNear && !this.promptIt) { if (this.zipBusy()) { this.R.toast && this.R.toast('Zip line in use - wait your turn', 1.6); return true; } return this.R.startZip && this.R.startZip(); }
     const R = this.R, cb = R.wallet && R.wallet.cb, it = this.promptIt; if (!cb || !it || !it.alive || !this.active) return false;
     const held = R.weapon && cb.owned[R.weapon] && isGunK(R.weapon) ? R.weapon : this.guns()[0]; if (!held) return false;

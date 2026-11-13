@@ -417,11 +417,15 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     { let cur = gy + 2.9; for (const w of towerWins(gy, NS)) { B.add('wall', sector(S2, O, 0, Math.PI * 2, cur, w.y0 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, w.ph + w.hw, w.ph - w.hw + Math.PI * 2, w.y0, w.y1 - w.y0, 56), wc, 0.04); cur = w.y1; }   // v237: the wall with the shooting windows cut out
       B.add('wall', sector(S2, O, TW.ledge + TW.lhw, TW.ledge - TW.lhw + Math.PI * 2, cur, py + 1.2 - cur, 56), wc, 0.04); B.add('wall', sector(S2, O, TW.ledge - TW.lhw, TW.ledge + TW.lhw, cur, py - 0.3 - cur, 12), wc, 0.04);   // v251: the roof wall has a gap = the LEDGE to jump from
       B.add('wall', sector(O - 0.9, O + 0.02, TW.ledge - TW.lhw, TW.ledge + TW.lhw, py - 0.3 + 0.004, 0.02, 8), '#ffcc00', 0.03); B.add('wall', sector(O - 0.45, O + 0.03, TW.ledge - TW.lhw, TW.ledge + TW.lhw, py - 0.3 + 0.008, 0.02, 8), '#1c1c1c', 0.03);   /* v502: the yellow/black hazard stripes were 0.34 m thick blocks, but the real floor of the ledge (and its collision) is flush with the platform: they looked like a wall piece you sink into. Now thin paint ON the floor */ }   // yellow + black hazard edge
-    B.add('wall', sector(0, K, 0, Math.PI * 2, gy - 1, py - 0.3 - (gy - 1), 28), wc, 0.04);   // the round core
     for (let y = gy + 3.4; y < py; y += 3.4) { const bg = new THREE.CylinderGeometry(O + 0.06, O + 0.06, 0.22, 56, 1, true); bg.translate(X, y + 0.11, Z); B.add('trim', bg, '#8d8d87', 0); }   // bands round the shaft
     { const bg = new THREE.CylinderGeometry(O + 0.08, O + 0.08, 0.15, 56, 1, true, TW.ledge + TW.lhw, Math.PI * 2 - 2 * TW.lhw); bg.translate(X, py + 0.875, Z); B.add('trim', bg, '#8d8d87', 0); } B.box('trim', X - 1.5, gy + 2.9, Z + O - 0.05, X + 1.5, gy + 3.05, Z + O + 0.05, '#6a6a66', 0);
-    B.add('wall', sector(0, K + 0.01, 0, Math.PI * 2, py - 0.3, 0.3, 28), '#94948e', 0.03); B.add('wall', sector(K, S2 + 0.02, 0, TW.open, py - 0.3, 0.3, 28), '#94948e', 0.03);   // the roof (open over the last steps)
-    for (let i = 0; i < NS; i++) { const top = gy + (i + 1) * ST, g = sector(K - 0.02, S2 - 0.42, i * DPH, (i + 1) * DPH + 0.004, top - 0.5, 0.5, 2); B.add('wall', g, '#8a8a84', 0.05); }   // the steps: one wedge each, 0.3 m higher than the one before
+    /* v503 LADDERS: a floor with a hatch every ~6 m (the top one is the roof) and a ladder (ladder.glb, scaled to the segment + 1 m) through each hatch; the same 0.8 m cell floors as the collision. */
+    { const R = S2 + 0.3, dm = propDim('ladder'); for (const q of t.lads) {
+        const yL = q.y1, hz = q.dz, sh = new THREE.Shape(); sh.absarc(0, 0, R, 0, Math.PI * 2, false); const hp = new THREE.Path(); hp.moveTo(-0.8, -hz * 2.4); hp.lineTo(0.8, -hz * 2.4); hp.lineTo(0.8, -hz * 3.95); hp.lineTo(-0.8, -hz * 3.95); hp.closePath(); sh.holes.push(hp);
+        const g = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false, curveSegments: 28 }); g.rotateX(-Math.PI / 2); g.translate(X, yL - 0.3, Z); B.add('wall', g, '#94948e', 0.03);
+        { const za = Z + hz * 2.4, zb = Z + hz * 3.9, lo = Math.min(za, zb), hi = Math.max(za, zb); B.box('trim', X - 0.84, yL, za - 0.05, X + 0.84, yL + 0.035, za + 0.05, '#ffcc00', 0); B.box('trim', X - 0.84, yL, lo, X - 0.76, yL + 0.035, hi, '#ffcc00', 0); B.box('trim', X + 0.76, yL, lo, X + 0.84, yL + 0.035, hi, '#ffcc00', 0); }   // a yellow rim round the hatch
+        const lh = (q.y1 - q.y0) + 1.0;
+        if (!(dm && place('ladder', q.x, q.y0 + lh / 2, q.z, 1.05, lh, 0.28, q.phi))) for (const sx of [-0.45, 0.45]) B.box('metal', q.x + sx - 0.03, q.y0, q.z - 0.03, q.x + sx + 0.03, q.y0 + lh, q.z + 0.03, '#9a9a9a', 0); } }
     B.box('metal', X + 2.0, py, Z - 2.2, X + 2.2, py + 7.5, Z - 2.0, '#cfcfcf', 0);   // the flag mast
     const fl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2, 12, 6), new THREE.MeshBasicMaterial({ map: flagTex("pk"), side: THREE.DoubleSide })); fl.position.set(X + 2.2 + 1.7, py + 6.2, Z - 2.1); fl.userData.base = fl.geometry.attributes.position.array.slice(); flags.push(fl); group.add(fl);
     // v300: the spinning parachute pack + ring on the roof are gone (you walk off the ledge and free-fall, the parachute opens by itself)
@@ -558,7 +562,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); wg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); wg.setIndex(idx);
     const wm = new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.25, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); wm.name = 'wall-text'; wm.frustumCulled = false; wm.renderOrder = 2; wm.material.side = THREE.DoubleSide; group.add(wm);
   } catch (e) { /* the wall writing is decoration only */ }
-  return { group, update, warm, quality: q };
+  return { group, update, warm, quality: q, propsOk: !!propDim('ladder') };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
 const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95); return c; };

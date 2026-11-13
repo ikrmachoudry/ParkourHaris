@@ -3,10 +3,11 @@
 import * as THREE from 'three';
 import { loadGlb } from './glbactor.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'molotov', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall', 'stairs'];
+export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'molotov', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall', 'stairs', 'ladder'];
 export const PROP_FILES = PROP_NAMES.map((n) => 'models/props/' + n + '.glb');
 const S = {}, DIM = {}, PARTS = {};
-export const preloadProps = () => Promise.all(PROP_NAMES.map((n) => loadGlb('models/props/' + n + '.glb').then((g) => { S[n] = g.scene; g.scene.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g.scene); DIM[n] = b.getSize(new THREE.Vector3()); }, (e) => console.warn('prop', n, e))));
+let PP = null;
+export const preloadProps = () => PP || (PP = Promise.all(PROP_NAMES.map((n) => loadGlb('models/props/' + n + '.glb').then((g) => { S[n] = g.scene; g.scene.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g.scene); DIM[n] = b.getSize(new THREE.Vector3()); }, (e) => console.warn('prop', n, e)))));
 export const hasProp = (n) => !!S[n];
 export const propDim = (n) => DIM[n] || null;
 export function propModel(n, tint) {   // a clone that shares geometry + material (tint: a colour string multiplies the texture on a private material copy)
