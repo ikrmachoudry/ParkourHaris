@@ -1662,7 +1662,7 @@ class Race {
   }
   // the aim circle: size follows the weapon's spread, turns red when a person is under it; the AUTO AIM button shows if the lock-on is on
   xhairTick() {
-    const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished && (w !== 'sniper' || !!(this.mission && this.mission.cs && this.mission.cs.on && this.mission.cs.count('sscope') <= 0)), el = $('xhair'), bd = document.body;
+    const w = this.weapon, W = w && WEAPONS[w], show = !!W && !W.melee && !this.drive && !this.over && !this.finished, el = $('xhair')   /* v506: every gun (the sniper rifle and the AK49 too, with or without a telescope) shows the crosshair whenever the scope view is NOT up (body.scoped hides it) */, bd = document.body;
     if (bd.classList.contains('xh') !== show) bd.classList.toggle('xh', show);
     const lk = aaLocked(); if (document.body.classList.contains('aa-lock') !== lk) document.body.classList.toggle('aa-lock', lk); const ab = $('b-auto'); if (ab) { ab.classList.toggle('on', !!aaOn()); ab.classList.toggle('lock', lk); const em = ab.querySelector('em'); if (em) em.textContent = lk ? 'LOCK' : aaOn() ? 'ON' : 'OFF'; }
     if (!show || !el) return;
