@@ -127,7 +127,7 @@ function genCode() {
 
 const COMBAT_TEAMS = 4, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 4 teams of 2-4 (PUBG custom room; v418: was 3)
 let teamSeq = 1;
-function teamsOf(room) { return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, droid: !!t.droid, ids: [...t.ids] })); }
+function teamsOf(room) { for (const t of room.teams || []) if (t.droid && t.ids.size !== 1) t.droid = false; /* v507: the INTELLIDROID belongs only to a team with exactly ONE real player */ return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, droid: !!t.droid, ids: [...t.ids] })); }
 function leaveTeam(room, p) {
   if (!room || !room.teams || p.team == null) return; const t = room.teams.find((q) => q.id === p.team); p.team = null; if (!t) return; t.ids.delete(p.id);
   if (!t.ids.size) room.teams = room.teams.filter((q) => q !== t); else if (t.leader === p.id) t.leader = t.ids.values().next().value;
@@ -201,7 +201,7 @@ function prepTeams(room, ws) {
       else for (const q of loose) { const t = room.teams.filter((x) => x.ids.size < TEAM_MAX).sort((u, v) => u.ids.size - v.ids.size)[0]; if (!t) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; } put(t, q); }
     }
     if (room.teams.some((t) => t.ids.size > TEAM_MAX)) { send(ws, { t: 'err', msg: 'No free team seats.' }); return false; }
-    for (const t of room.teams) if (t.droid && (players.length < 2 || players.length > 3 || !t.ids.size)) t.droid = false;   // v457: INTELLIDROID plays with 2 or 3 real players in the room
+    for (const t of room.teams) if (t.droid && (players.length < 2 || t.ids.size !== 1)) t.droid = false;   // v507: every team with exactly ONE real player may bring its own INTELLIDROID (2+ real players in the room)
     const hasDroid = room.teams.some((t) => t.droid), small = room.teams.find((t) => t.ids.size + (t.droid ? 1 : 0) < 2 && !(hasDroid && players.length === 2));   // v460: with the droid and only 2 real players it is 1 human + droid v 1 human
     if (small) { send(ws, { t: 'err', msg: `Team ${small.name} has only 1 player. Every team needs 2 to 4 players (or the player can leave the team).` }); return false; }
     bcast(room, lobbyMsg(room));
@@ -226,7 +226,7 @@ function startRound(room) {
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN) : null;   // v245: the shared Jang match: the server runs the bots + loot
   if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
-  if (room.chost && room.players.size <= 3) { const di = (room.teams || []).findIndex((t) => t.droid); if (di >= 0) room.chost.addDroid(di); }   // v457: INTELLIDROID takes the empty seat
+  if (room.chost) (room.teams || []).forEach((t, di) => { if (t.droid && t.ids.size === 1) room.chost.addDroid(di); });   // v507: one INTELLIDROID for every team that asked for one (it takes the empty seat of a 1-player team)
   bcast(room, goMsg(room, meta));
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
@@ -428,16 +428,16 @@ wss.on('connection', (ws, req) => {
       case 'tcreate': case 'tjoin': case 'tleave': case 'tfill': {   // v274 PUBG custom room: make a team (name), join a team, leave it, FILL switch
         if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return; room.teams = room.teams || [];
         if (m.t === 'tcreate') { if (room.teams.length >= COMBAT_TEAMS) return send(ws, { t: 'err', msg: `Only ${COMBAT_TEAMS} teams fit in a match. Join one of them.` }); leaveTeam(room, p); const t = { id: teamSeq++, name: cleanName(m.name || 'Team').slice(0, 12).toUpperCase() || 'TEAM', leader: p.id, fill: false, ids: new Set([p.id]) }; room.teams.push(t); p.team = t.id; }
-        else if (m.t === 'tjoin') { const t = room.teams.find((q) => q.id === (m.team | 0)); if (!t) return; if (t.ids.has(p.id)) return; if (t.ids.size >= TEAM_MAX) return send(ws, { t: 'err', msg: 'That team is full (4 players).' }); leaveTeam(room, p); t.ids.add(p.id); p.team = t.id; }
+        else if (m.t === 'tjoin') { const t = room.teams.find((q) => q.id === (m.team | 0)); if (!t) return; if (t.ids.has(p.id)) return; if (t.ids.size >= TEAM_MAX) return send(ws, { t: 'err', msg: 'That team is full (4 players).' }); if (t.droid) return send(ws, { t: 'err', msg: 'That team plays as 1 player + INTELLIDROID. Its leader must switch the droid OFF before another player can join.' }); leaveTeam(room, p); t.ids.add(p.id); p.team = t.id; }
         else if (m.t === 'tleave') leaveTeam(room, p);
         else { const t = room.teams.find((q) => q.id === p.team); if (!t || t.leader !== p.id) return; t.fill = !!m.on; }
         bcast(room, lobbyMsg(room));
         break;
       }
-      case 'tdroid': {   // v457: INTELLIDROID: the team leader adds / removes the AI teammate (only with exactly 3 real players, one droid per room)
+      case 'tdroid': {   // v507: INTELLIDROID: the leader of a team with exactly ONE real player adds / removes his own AI teammate (every such team may have one)
         if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return;
         const t = (room.teams || []).find((q) => q.id === p.team); if (!t || t.leader !== p.id) return;
-        if (m.on) { if (room.players.size < 2 || room.players.size > 3) return send(ws, { t: 'err', msg: 'INTELLIDROID joins when 2 or 3 real players are in the room.' }); if (t.ids.size !== 1 || (room.teams || []).some((q) => q !== t && q.droid)) return send(ws, { t: 'err', msg: 'INTELLIDROID joins the team that has only 1 real player (one per match).' }); t.droid = true; } else t.droid = false;
+        if (m.on) { if (room.players.size < 2) return send(ws, { t: 'err', msg: 'INTELLIDROID needs at least 2 real players in the room.' }); if (t.ids.size !== 1) return send(ws, { t: 'err', msg: 'INTELLIDROID joins only a team that has exactly 1 real player.' }); t.droid = true; } else t.droid = false;
         bcast(room, lobbyMsg(room)); break;
       }
       case 'tshuffle': {   // v433: the host mixes everybody into new teams (team names are kept)

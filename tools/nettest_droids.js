@@ -1,0 +1,22 @@
+// v507: every team with exactly ONE real player may add its own INTELLIDROID; a team with 2+ real players cannot.  Run: PORT=3997 node server.js & node tools/nettest_droids.js
+import WebSocket from 'ws';
+const URL = 'ws://localhost:' + (process.env.PORT || 3997) + '/ws'; let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
+const mk = () => new Promise((res) => { const w = new WebSocket(URL); w.msgs = []; w.on('message', (d) => w.msgs.push(JSON.parse(d))); w.on('open', () => res(w)); });
+const send = (w, o) => w.send(JSON.stringify(o)); const wait = (ms) => new Promise((r) => setTimeout(r, ms)); const last = (w, t) => [...w.msgs].reverse().find((m) => m.t === t);
+const teams = (w) => (last(w, 'lobby') || {}).teams || [];
+const a = await mk(), b = await mk(), c = await mk();
+send(a, { t: 'create', name: 'A', char: 0, room: 'DRX', combat: true }); await wait(300);
+send(b, { t: 'join', name: 'B', char: 1, room: 'DRX', combat: true }); await wait(300);
+send(a, { t: 'tcreate', name: 'ALPHA' }); await wait(200); send(b, { t: 'tcreate', name: 'BRAVO' }); await wait(300);
+ok(teams(a).length === 2, 'two teams, one real player each');
+send(a, { t: 'tdroid', on: true }); await wait(200); send(b, { t: 'tdroid', on: true }); await wait(300);
+ok(teams(a).filter((t) => t.droid).length === 2, 'BOTH single-player teams got their own INTELLIDROID');
+send(c, { t: 'join', name: 'C', char: 2, room: 'DRX', combat: true }); await wait(300);
+const ta = teams(a)[0]; send(c, { t: 'tjoin', team: ta.id }); await wait(300);
+ok(last(c, 'err') && !teams(a)[0].ids.includes(c.msgs.find((m) => m.t === 'lobby').you || -1) && teams(a)[0].ids.length === 1, 'cannot join a team that plays with a droid');
+send(a, { t: 'tdroid', on: false }); await wait(200); send(c, { t: 'tjoin', team: teams(a)[0].id }); await wait(300);
+ok(teams(a)[0].ids.length === 2 && !teams(a)[0].droid, 'after the droid is OFF a second player joins that team');
+const n0 = a.msgs.length; send(a, { t: 'tdroid', on: true }); await wait(300);
+ok(!teams(a)[0].droid && a.msgs.slice(n0).some((m) => m.t === 'err'), 'a team with 2 real players cannot add a droid');
+send(a, { t: 'start' }); await wait(600); ok(last(a, 'go') || last(a, 'err'), 'start answered: ' + JSON.stringify((last(a, 'err') || {}).msg || 'go'));
+for (const w of [a, b, c]) w.close(); console.log(bad ? 'DROID TEAMS FAIL' : 'DROID TEAMS OK'); process.exit(bad ? 1 : 0);
