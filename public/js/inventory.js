@@ -4,16 +4,16 @@ import { WEAPONS } from './economy.js';
 
 export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, molotov: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1 };
 const ITEMS = [
-  { k: 'med', icon: '✚', name: 'FIRST AID', info: '+50 health, 4 s', key: '6', col: '#ff5c5c' },
-  { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+25 health, 3 s', key: '7', col: '#ffa94d' },
-  { k: 'inject', icon: '💉', name: 'ADRENALINE', info: '+20 health, speed boost', key: '8', col: '#5ec8ff' },
-  { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: '9', col: '#cfd6dc' },
-  { k: 'molotov', icon: '🔥', name: 'MOLOTOV', info: 'throw: fire on the ground for 8 s', key: 'N', col: '#ff9a3c' },
-  { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: '', col: '#8dff6b' },
+  { k: 'med', icon: '✚', name: 'FIRST AID', info: '+50 health, 4 s', key: 'F', col: '#ff5c5c' },
+  { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+25 health, 3 s', key: 'P', col: '#ffa94d' },
+  { k: 'inject', icon: '💉', name: 'ADRENALINE', info: '+20 health, speed boost', key: 'A', col: '#5ec8ff' },
+  { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: 'S', col: '#cfd6dc' },
+  { k: 'molotov', icon: '🔥', name: 'MOLOTOV', info: 'throw: fire on the ground for 8 s', key: 'O', col: '#ff9a3c' },
+  { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: 'G', col: '#8dff6b' },
   { k: 'sscope', icon: '🎯', name: 'TELESCOPE', info: 'Kar98 uses it by itself', key: '', col: '#7fe0ff' },
-  { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: '', col: '#9ad0ff' },
-  { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: '', col: '#b0b8c0' },
-  { k: 'scope', icon: '🔭', name: 'BINOCULARS', info: 'tap to look far, again to put away', key: '0', col: '#b48cff' },
+  { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: 'V', col: '#9ad0ff' },
+  { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: 'H', col: '#b0b8c0' },
+  { k: 'scope', icon: '🔭', name: 'BINOCULARS', info: 'tap to look far, again to put away', key: 'B', col: '#b48cff' },
 ];
 const GUN_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE' };
 
@@ -24,7 +24,7 @@ export class Inventory {
   build() {
     if (this.el) return;
     const el = document.createElement('div'); el.id = 'c-inv'; el.style.display = 'none';
-    el.innerHTML = '<div class="iv-box"><div class="iv-h"><b>BACKPACK</b><span class="iv-cap"></span><button type="button" class="iv-x" aria-label="Close">✕</button></div><div class="iv-cols"><div class="iv-col iv-hands"><h4>IN YOUR HANDS</h4><div class="iv-list" data-l="hands"></div></div><div class="iv-col"><h4>ITEMS</h4><div class="iv-list" data-l="items"></div></div></div><div class="iv-hint">I = close • 6 first aid • 7 pills • 8 adrenaline • 9 smoke • 0 telescope • E swap gun</div></div>';
+    el.innerHTML = '<div class="iv-box"><div class="iv-h"><b>BACKPACK</b><span class="iv-cap"></span><button type="button" class="iv-x" aria-label="Close">✕</button></div><div class="iv-cols"><div class="iv-col iv-hands"><h4>IN YOUR HANDS</h4><div class="iv-list" data-l="hands"></div></div><div class="iv-col"><h4>ITEMS</h4><div class="iv-list" data-l="items"></div></div></div><div class="iv-hint">TAB = open / close • F first aid • P pain pills • A adrenaline • S smoke • O molotov • G grenade • V armor • H helmet • B binoculars</div></div>';
     el.addEventListener('pointerdown', (e) => { if (e.target === el) { e.preventDefault(); this.toggle(false); } });
     el.querySelector('.iv-x').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(false); });
     document.body.appendChild(el); this.el = el;
