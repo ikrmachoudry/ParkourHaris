@@ -1518,7 +1518,7 @@ class Race {
     const cam = this.camera, o = cam.position, dv = cam.getWorldDirection(this._nd || (this._nd = new THREE.Vector3())), b = this.me.body;
     let last = null;
     for (let t = 2; t <= 70; t += 0.6) {
-      const x = o.x + dv.x * t, y = o.y + dv.y * t, z = o.z + dv.z * t, g = this.world.findGround({ x, y: y + 2, z }, y + 2, false), gy = g ? g.top : 0;
+      const x = o.x + dv.x * t, y = o.y + dv.y * t, z = o.z + dv.z * t, g = this.world.findGround({ x, y: y + 0.6, z }, y + 0.6, false), gy = g ? g.top : 0;   /* v517: was y + 2: indoors that found the ROOF above the room, the grenade was aimed at the ceiling */
       if (Math.hypot(x - b.x, z - b.z) > 38) break;
       last = { x, y: gy, z }; if (y <= gy + 0.05) return last;
     }
@@ -2085,6 +2085,8 @@ class Race {
             for (const [o, d, lo, hi] of [[ax, ex, q.x0 - M, q.x1 + M], [az, ez, q.z0 - M, q.z1 + M]]) { if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; } let u = (lo - o) / d, v = (hi - o) / d; if (u > v) { const w2 = u; u = v; v = w2; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { hit = false; break; } }
             if (hit && t0 > 0 && t0 < tm) tm = t0; } }
         if (tm < 1) { const k = Math.max(0, tm - 0.06); tx = b.x + ex * k; tz = b.z + ez * k; } } }
+    /* v517: on a roof / high floor, looking steeply DOWN leans the camera pivot forward over the edge (up to 2.6 m), so you can see the people at the foot of your own building (the camera used to sit behind you, over the roof, and the building hid them) */
+    if (this.meta.city && !this.drive && !spec && !this.scoped && this.camPitch > 0.5 && this.world.terrain) { const b9 = this.me.body, el = b9.y - this.world.terrain(b9.x, b9.z), ek = Math.max(0, Math.min(1, (el - 3) / 4)), pk = Math.max(0, Math.min(1, (this.camPitch - 0.5) / 0.7)); this._edgeK = (this._edgeK || 0) + (ek * pk - (this._edgeK || 0)) * Math.min(1, dt * 6); if (this._edgeK > 0.01) { tx -= Math.sin(this.camYaw) * 2.6 * this._edgeK; tz -= Math.cos(this.camYaw) * 2.6 * this._edgeK; } } else this._edgeK = 0;
     if (!this.camInit) { this.camTarget.set(tx, ty, tz); this.camInit = true; }
     const inPlane = (() => { const cs0 = this.mission && this.mission.cs; return !!(cs0 && cs0.dropping && cs0.drop && cs0.drop.ph === 'plane'); })();   // v222: inside the plane (34 m/s) the camera pivot is welded to the player: a smoothed pivot lagged by a metre or so and the lag changed with every frame time = the shaking
     const f = inPlane ? 1 : 1 - Math.exp(-(this.drive || spec ? 14 : 40) * dt);   // on foot the pivot follows rigidly (PUBG): a lagging pivot made the character drift across the screen while you turned
