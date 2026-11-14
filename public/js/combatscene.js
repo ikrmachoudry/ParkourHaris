@@ -57,7 +57,7 @@ const MY_DMG = 100;   // hit points of the player
 
 let TR_GEO = null, TR_MAT = null;
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), IS_ANDR = /Android/i.test(navigator.userAgent), BOT_VIS2 = (IS_ANDR ? 190 : IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = (IS_ANDR ? 40 : 70) ** 2;   /* v471: Android: bots are drawn up to 190 m and animated at a quarter of the rate beyond 40 m */   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
-const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 120) ** 2;   // loot is drawn only this close (metres, squared)
+const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 85) ** 2;   // v513: laptop 85 m (was 120): every gun on the ground is ~12 draws   // loot is drawn only this close (metres, squared)
 // Shared loot parts (v221, P4): every crate / pill / ring of the same kind uses ONE material and ONE geometry, so the phone keeps a few dozen GPU objects instead of hundreds.
 const _SH = new Map(), _TINT = new Map(), _TINTD = new Map();   // _TINT: the red enemy tint is made once per soldier material, not once per bot
 const GEO = (k, ...a) => { const id = k + a.join(','); let g = _SH.get(id); if (!g) { g = new THREE[k + 'Geometry'](...a); _SH.set(id, g); } return g; };
@@ -416,7 +416,7 @@ export class CombatScene {
     let a = this.bots.get(b.id); if (a) return a;
     if (b.droid) { const dm = makeSkin(4, undefined, false); this.tintDroid(dm.group); this.group.add(dm.group); a = { g: dm.group, m: dm, last: 0 }; this.bots.set(b.id, a); return a; }   // v457: INTELLIDROID = the military soldier in dark maroon camouflage
     const m = makeHero(b.id % 4, undefined, false); m.group.traverse((o) => { if (o.isMesh && o.material && o.material.color) { let t = _TINT.get(o.material); if (!t) { t = o.material.clone(); t.color.multiply(new THREE.Color('#e08a7a')); _TINT.set(o.material, t); } o.material = t; } });   // a reddish tint: the enemy
-    this.group.add(m.group); if (IS_ANDROID) { const u0 = m.update.bind(m); m.update = (dt, st) => { u0(dt, st); if (m.farGun && m.ch && m.ch.gun) m.ch.gun.visible = false; }; }   /* v499 Android: beyond 60 m a bot's gun is not drawn (a gun is 1-5 draw calls) */
+    this.group.add(m.group); { const u0 = m.update.bind(m); m.update = (dt, st) => { u0(dt, st); if (m.farGun && m.ch && m.ch.gun) m.ch.gun.visible = false; }; }   /* v513: on every device (laptops too) */   /* v499 Android: beyond 60 m a bot's gun is not drawn (a gun is 1-5 draw calls) */
     a = { g: m.group, m, last: 0 }; this.bots.set(b.id, a); return a;
   }
   wallClip(wx, wz, dx, dz, len) { try { return rayWalls(layout(), wx - CMB.x, wz - CMB.z, dx, dz, len, 1.3); } catch (e) { return len; } }   // v486: how far a line from a world point runs before a wall
@@ -623,7 +623,7 @@ export class CombatScene {
         else { const v = w.localToWorld(new THREE.Vector3(g.tx, -0.49, g.tz)); x = v.x; y = v.y; z = v.z; } } }
       if (g.hadCar !== undefined && (g.ph !== 5 || !show || g.vi !== g.hadCar) && this.R.mateCars) { this.R.mateCars.delete(g.hadCar); { const oc = this.R.cars[g.hadCar]; if (oc && oc.st.driver === g.id) { oc.st.driver = -1; oc.st.parked = true; oc.st.speed = 0; oc.st.vx = oc.st.vz = 0; } } g.hadCar = undefined; }   /* v299: the car he left is FREE again on my screen (it stayed 'driven' by him for ever: nobody could enter it) */   // he got out: the jeep stays where it is
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
-      if (!g.has) { g.x = x; g.y = y; g.z = z; g.has = true; } else { const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
+      if (!g.has || Math.abs(x - g.x) + Math.abs(z - g.z) > 12 || Math.abs(y - g.y) > 25) { g.x = x; g.y = y; g.z = z; g.has = true; g.vv = 0; } else {   /* v513: a teammate who respawned (or got dropped / teleported) APPEARS at the new place - the smoothing used to make him fly along the ground all the way from where he died */ const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
       if (g.m.setGear) g.m.setGear(!!(g.st & 2048), !!(g.st & 4096));
@@ -707,7 +707,8 @@ export class CombatScene {
         if (!s.alive && !s.droid && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }   /* v486: the droid's body never disappears */
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, s.y != null ? Math.max(s.y, g0(s.x, s.z)) : g0(s.x, s.z), CMB.z + s.z);
         if (far) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
-        if (IS_ANDROID) a.m.farGun = !this.R.scoped && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && d2 > 3600;
+        a.m.farGun = !this.R.scoped && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && d2 > (IS_ANDROID ? 3600 : 9000);   // v513: laptops: a bot's gun is not drawn beyond 95 m either (1-5 draws each)
+        if (!IS_ANDROID && this.R.sunCast !== false) { const fs = d2 > 6400; if (a.shFar !== fs) { a.shFar = fs; a.g.traverse((o) => { if (o.isMesh) o.castShadow = !fs; }); } }   /* v513: a bot more than 80 m away casts no shadow (its 17 parts were drawn twice) */
         a.acc = (a.acc || 0) + dt; const dying = !s.alive && !a.fin; const skip = !dying && (d2 > BOT_MID2 && (fr + bi) % (IS_ANDR ? 4 : 3) !== 0) || (IS_PHONE && d2 > 324 && d2 <= BOT_MID2 && (fr + bi) % 2 !== 0); if (!s.alive && a.fin && a.g.visible) continue; if (skip && a.g.visible) continue;   /* v481: phones: bots 18 - 40 m away are animated every 2nd frame */   // (a bot that was hidden is always updated once when it comes back)
         const adt = a.acc; a.acc = 0;
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), v, 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)

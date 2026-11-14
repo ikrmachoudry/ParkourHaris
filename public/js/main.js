@@ -112,6 +112,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   if (fps < 40 && !IS_TOUCH) {   // v447 LAPTOP SMOOTH: only a laptop that really stays under 40 fps ever gets here (a fast machine never does). A match frame in town is ~600 draw calls / ~1 million triangles, so the first thing to cut is how FAR the map is drawn (that is what an integrated GPU chokes on), then the sun shadows, only then the resolution (the picture stays sharp as long as possible)
     Q.good = 0; let did = '';
     if (Q.far > 480) { Q.far = Math.max(480, Q.far - (race && race.jang ? 220 : 110)); if (race) race.setFar(); did = 'far'; }
+    else if (Q.shadows && !Q.shHalf) { Q.shHalf = true; did = 'shadowrate'; }
     else if (Q.shadows && fps < 34) { Q.shadows = false; if (race) race.setShadows(false); did = 'shadows'; }
     else if (Q.dpr > 0.85) { Q.dpr = Math.max(0.85, Q.dpr - 0.15); resize(); did = 'dpr'; }
     else if (Q.far > 380) { Q.far = Math.max(380, Q.far - 50); if (race) race.setFar(); did = 'far'; }
@@ -128,7 +129,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
 try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } if (AUTO_LOW) { Q.low = true; Q.auto = true; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
 if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.warm = 3; }
+  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.shHalf = false; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -2186,7 +2187,8 @@ class Race {
     if (this.multi) $('hud-net').textContent = `ping ${Math.round(app.net.rtt)} ms`;
   }
 
-  render() { renderer.render(this.scene, this.camera); }
+  render() { const sm = renderer.shadowMap; if (Q.shHalf && Q.shadows) { sm.autoUpdate = false; sm.needsUpdate = ((Q.shN = (Q.shN | 0) + 1) & 1) === 0; } else if (!sm.autoUpdate) sm.autoUpdate = true;   /* v513: laptop under 40 fps: the sun's shadow map is redrawn every 2nd frame (about a third less drawing) */
+    renderer.render(this.scene, this.camera); }
 
   destroy() { document.body.classList.remove('aa-lock');
     setJangSet(false);
