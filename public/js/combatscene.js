@@ -869,6 +869,7 @@ export class CombatScene {
   autoOk(it) {   // v360 SETTINGS > PICK UP: a category switched OFF is not picked up by walking over it (take it from the BACKPACK button)
     const pk = (OPT && OPT.pk) || null; if (!pk) return true; const k = it.k;
     const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope') ? 'gear' : '';
+    if (g === 'gun' && pk['w_' + k] !== undefined && !pk['w_' + k]) return false;   // v522: each weapon has its own auto-pick-up switch (Settings > Pick Up)
     return !g || pk[g] === undefined || !!pk[g];
   }
   canTake(it) {

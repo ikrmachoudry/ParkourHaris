@@ -2688,7 +2688,7 @@ function toggleSound() { app.muted = !app.muted; A.setMuted(app.muted); const bs
 
 // ------------------------------------------------------------------ v360 SETTINGS (PUBG Mobile style): left tabs, one page of rows. Opened from the title, the lobby and the in-match menu (gear > SETTINGS)
 let setFrom = '';
-const PK_DEF = { gun: 1, ammo: 1, med: 1, armor: 1, throw: 1, gear: 1 };
+const PK_DEF = { gun: 1, ammo: 1, med: 1, armor: 1, throw: 1, gear: 1, w_pistol: 1, w_revolver: 1, w_smg: 1, w_ak: 1, w_ak49: 1, w_m4: 1, w_shotgun: 1, w_sniper: 1 };
 OPT.pk = Object.assign({}, PK_DEF, OPT.pk || {});
 function setTab(pg) {
   const nm = { basic: 'BASIC', gfx: 'GRAPHICS', audio: 'AUDIO', sens: 'SENSITIVITY', ctrl: 'CONTROLS', pick: 'PICK UP' };
