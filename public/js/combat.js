@@ -510,7 +510,7 @@ function build() {
     p.gx1 = grow('x1'); p.gx0 = grow('x0'); p.gz1 = grow('z1'); p.gz0 = grow('z0'); }
   for (const p of PADS) if (p.bld) { p.x1 += p.gx1; p.x0 -= p.gx0; p.z1 += p.gz1; p.z0 -= p.gz0; p.bld = 0; }
   // ---- forests: jittered grid, density from noise, kept off roads, buildings and the river
-  const CELL = 6; let treeN = 0;
+  const CELL = 6; let treeN = 0, treeKeep = 0;
   for (let gx = -H + 14; gx < H - 14; gx += CELL) for (let gz = -H + 14; gz < H - 14; gz += CELL) {
     const x = gx + R() * CELL, z = gz + R() * CELL, f = fbm(x * 0.011 + 5, z * 0.011 - 3, 41, 3), dr = Math.abs(x - riverX(z));
     let p = smooth(0.40, 0.60, f) * 0.95 + 0.05 + (dr > 14 && dr < 44 ? 0.2 : 0); p *= 0.14; if (R() > p) continue;
@@ -518,8 +518,8 @@ function build() {
     if (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2) continue;
     const gy = cmbH(x, z); if (gy < -0.2) continue;
     const pine = gy > 11 || f > 0.56 ? R() < 0.82 : R() < 0.3, s = (pine ? 1.5 : 1.3) + R() * 1.0;
-    const rr = R() * 6.28; if (treeN++ & 1) continue;   // v291: half the trees (every second one is skipped AFTER its random numbers are drawn, so nothing else on the map moves)
-    const tsl = Math.hypot(cmbH(x + 0.6, z) - cmbH(x - 0.6, z), cmbH(x, z + 0.6) - cmbH(x, z - 0.6)) / 1.2; trees.push({ x, z, s, pine, y: gy - Math.min(0.55, tsl * 0.5), r: rr });   /* v368: on a steep slope the trunk is sunk so its downhill side does not float */ { const hw = 0.3 + 0.13 * s; addS({ x0: x - hw, z0: z - hw, x1: x + hw, z1: z + hw, y0: gy - 0.6, y1: gy + 7, k: 'tree' }); }   /* v448: the solid trunk grows with the tree (0.47 - 0.63 m, was a fixed 0.32): characters no longer sink into the thick trunks / low branches */
+    const rr = R() * 6.28; if (treeN++ & 1) continue; if ((treeKeep++ % 5) === 4) continue;   /* v525: 20% fewer trees (every 5th of the remaining ones; decided AFTER all random draws so nothing else moves) */ const short = (treeKeep & 1) === 0;   /* v525: half of the trees are 40% shorter so they stop blocking the view */   // v291: half the trees (every second one is skipped AFTER its random numbers are drawn, so nothing else on the map moves)
+    const tsl = Math.hypot(cmbH(x + 0.6, z) - cmbH(x - 0.6, z), cmbH(x, z + 0.6) - cmbH(x, z - 0.6)) / 1.2; trees.push({ x, z, s: short ? s * 0.6 : s, pine, y: gy - Math.min(0.55, tsl * 0.5), r: rr });   /* v368: on a steep slope the trunk is sunk so its downhill side does not float */ { const hw = 0.3 + 0.13 * (short ? s * 0.6 : s); addS({ x0: x - hw, z0: z - hw, x1: x + hw, z1: z + hw, y0: gy - 0.6, y1: gy + (short ? 4.2 : 7), k: 'tree' }); }   /* v448: the solid trunk grows with the tree (0.47 - 0.63 m, was a fixed 0.32): characters no longer sink into the thick trunks / low branches */
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)
   { const CC = ['#9d9d98', '#a8a8a2', '#8f8f8b', '#b2b1aa'];
