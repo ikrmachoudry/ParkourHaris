@@ -26,11 +26,20 @@ export class CombatHost {
       else if (e.k === 'airland') out.push({ k: 'airland', n: e.n, x: q2(e.x), z: q2(e.z) });
     }
     if (out.length) this.bcast({ t: 'ce', e: out });
+    { const H = this.hist || (this.hist = []); H.push({ t: this.sim.t, p: this.sim.bots.map((b) => [b.x, b.z, b.y]) }); while (H.length > 40 || (H.length > 2 && this.sim.t - H[0].t > 1.6)) H.shift(); }   // v516: where every bot was in the last 1.5 s (lag compensation)
     if ((this.tk++ & 1) === 0) this.bcast(this.botsMsg());   // 10 times a second
   }
   // ---- what a player asks for (checked: sane numbers, close to where he really is)
   near(p, x, z, r) { return p && Number.isFinite(p.jx) && Math.hypot(p.jx - CMB.x - x, p.jz - CMB.z - z) < r; }
-  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 520) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id, 0.6, f(m.b0, -60, 300) && f(m.bs, -4, 4) && f(m.bk, 0, 60) ? { y: m.b0, sl: m.bs, k: m.bk / 1e6 } : undefined); }
+  /* v516 LAG COMPENSATION: a bullet is tested against the bots as the SHOOTER saw them (the server time of the snapshot on his screen), not where they are now - at 300-700 ms ping every bullet at a moving bot used to miss */
+  rewound(st, fn) {
+    const H = this.hist; if (!H || !H.length || !Number.isFinite(st)) return fn();
+    const T = Math.max(this.sim.t - 0.9, Math.min(this.sim.t, st)); let a = H[0], b = null; for (let i = H.length - 1; i >= 0; i--) if (H[i].t <= T) { a = H[i]; b = H[i + 1] || null; break; }
+    const k = b && b.t > a.t ? Math.max(0, Math.min(1, (T - a.t) / (b.t - a.t))) : 0, bots = this.sim.bots, keep = bots.map((q) => [q.x, q.z, q.y]);
+    bots.forEach((q, i) => { const pa = a.p[i], pb = b ? b.p[i] : pa; if (!pa || !pb || !q.alive || q.droid) return; if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) > 8) { q.x = pa[0]; q.z = pa[1]; } else { q.x = pa[0] + (pb[0] - pa[0]) * k; q.z = pa[1] + (pb[1] - pa[1]) * k; } });
+    try { return fn(); } finally { bots.forEach((q, i) => { q.x = keep[i][0]; q.z = keep[i][1]; }); }
+  }
+  shoot(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.ox, -400, 400) || !f(m.oz, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.range, 1, 520) || !f(m.dmg, 0, 6) || !this.near(p, m.ox, m.oz, 25)) return; this.rewound(m.st, () => this.sim.shoot(m.ox, m.oz, m.fx, m.fz, m.range, m.dmg, Number.isFinite(m.y) ? m.y : undefined, p.id, 0.6, f(m.b0, -60, 300) && f(m.bs, -4, 4) && f(m.bk, 0, 60) ? { y: m.b0, sl: m.bs, k: m.bk / 1e6 } : undefined)); }
   melee(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.fx, -1.01, 1.01) || !f(m.fz, -1.01, 1.01) || !f(m.reach, 0, 4.5) || !f(m.dmg, 0, 60) || !this.near(p, m.x, m.z, 15)) return; this.sim.melee(m.x, m.z, m.fx, m.fz, m.reach, m.dmg, p.id); }
   blast(p, m) { const f = (v, a, b) => Number.isFinite(v) && v >= a && v <= b; if (!f(m.x, -400, 400) || !f(m.z, -400, 400) || !f(m.r, 1, 14) || !this.near(p, m.x, m.z, 60)) return; this.sim.blast(m.x, m.z, m.r, 3.2, p.id); }
   take(p, m) { const id = m.id | 0, it = this.sim.loot.find((l) => l.id === id && l.alive); if (!it || !this.near(p, it.x, it.z, 8)) return; this.sim.take(it.x, it.z, (l) => l.id === id); }
