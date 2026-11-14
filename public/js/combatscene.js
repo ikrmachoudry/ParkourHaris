@@ -494,7 +494,7 @@ export class CombatScene {
     }
     const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r, inAir = this.dropping || (this.drop && this.drop.ph === 'plane'); this.outZone = out && !inAir; zoneFx(this.outZone && this.hp > 0 && !this.gate); { const dEdge = z.r - Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z), live = this.hp > 0 && !this.gate && !inAir && this.zw.visible; zoneNear(live && !out && dEdge < 45 ? 1 - Math.max(0, dEdge) / 45 : 0, dEdge, live && out); }   /* v440: warning glow + distance BEFORE you cross the wall, and a text while outside */   /* v434: blue lightning screen while you stand in the damaging zone */   /* v375: no zone damage / hurt sound / red HUD while you are in the plane or still dropping */
     if (inAir) { this.zt = 0; this.grace = 3; } else if (this.grace > 0) { this.grace -= dt; this.zt = 0; }   // v375: 3 s of grace after you land (landing outside the circle no longer grunts on the first frame)
-    if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this.hurt(z.dps); } } else this.zt = 0;
+    if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this._zoneHit = true; try { this.hurt(z.dps); } finally { this._zoneHit = false; } }   /* v514: the blue zone's damage does not stop a heal (PUBG: you can heal in the storm) */ } else this.zt = 0;
   }
   // ---------------------------------------------------------------- v251 the red BOMBING circle: twice per match, 115 s each, anywhere on the island (independent of the blue circle); bombs fall from the sky
   stepBomb(dt) {
@@ -623,6 +623,7 @@ export class CombatScene {
         else { const v = w.localToWorld(new THREE.Vector3(g.tx, -0.49, g.tz)); x = v.x; y = v.y; z = v.z; } } }
       if (g.hadCar !== undefined && (g.ph !== 5 || !show || g.vi !== g.hadCar) && this.R.mateCars) { this.R.mateCars.delete(g.hadCar); { const oc = this.R.cars[g.hadCar]; if (oc && oc.st.driver === g.id) { oc.st.driver = -1; oc.st.parked = true; oc.st.speed = 0; oc.st.vx = oc.st.vz = 0; } } g.hadCar = undefined; }   /* v299: the car he left is FREE again on my screen (it stayed 'driven' by him for ever: nobody could enter it) */   // he got out: the jeep stays where it is
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
+      if (!IS_ANDROID && g.has) { const cp = this.R.camera.position, fs = (g.x - cp.x) ** 2 + (g.z - cp.z) ** 2 > 6400; if (g.shFar !== fs) { g.shFar = fs; g.m.group.traverse((o) => { if (o.isMesh) o.castShadow = !fs; }); } }   // v514: a teammate / opponent more than 80 m away casts no shadow
       if (!g.has || Math.abs(x - g.x) + Math.abs(z - g.z) > 12 || Math.abs(y - g.y) > 25) { g.x = x; g.y = y; g.z = z; g.has = true; g.vv = 0; } else {   /* v513: a teammate who respawned (or got dropped / teleported) APPEARS at the new place - the smoothing used to make him fly along the ground all the way from where he died */ const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y, g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw;
@@ -772,7 +773,7 @@ export class CombatScene {
     if (this.down) { this.downT -= d * 0.5; if (this.vig) this.vig.style.opacity = 0.7; if (this.downT <= 0) this.die(); return; }   // v244: already down: more hits make you bleed out faster
     { const cb = this.R.wallet && this.R.wallet.cb; if (cb) { if (cb.vestHp > 0) { const a = Math.min(cb.vestHp, d * 0.3); cb.vestHp -= a; d -= a; if (cb.vestHp <= 0) { cb.inv.vest = 0; this.R.toast && this.R.toast('BODY ARMOR BROKE', 2); } } if (cb.helmHp > 0) { const a = Math.min(cb.helmHp, d * 0.15); cb.helmHp -= a; d -= a; if (cb.helmHp <= 0) { cb.inv.helmet = 0; this.R.toast && this.R.toast('HELMET BROKE', 2); } } } }   /* v263: PUBG armor: the vest takes 30% of every hit, the helmet 15%, until they break */
     if (sx !== undefined && d > 0) this.hitMark(sx, sz);
-    if (this.using && d > 0.5) this.cancelUse('HIT!  HEALING STOPPED  -  the item is not used up');   // v432 (PUBG): a hit interrupts healing
+    if (this.using && d > 0.5 && !this._zoneHit) this.cancelUse('HIT!  HEALING STOPPED  -  the item is not used up');   // v432 (PUBG): a hit interrupts healing
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
     A.voice.grunt(0.8);
     if (this.hp <= 0) { if (this.canDown()) this.goDown(); else if (this.teamWiped()) this.teamLost(); else this.die(); }
