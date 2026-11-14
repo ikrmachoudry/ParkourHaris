@@ -517,7 +517,7 @@ class Race {
       if (this.crouch && press.jump && !this.downed) this.crouch = false;
       if (this.drive) this.crouch = false;
       if (this.drive) this.prone = false; if (this.downed) { this.prone = true; this.crouch = false; this.fireHeld = false; this.aiming = false; this.telescope = false; if (this.weapon) this.weapon = null; b.speedMul = 0.25; } else if (this.prone) { b.speedMul = 0.3; if (press.jump) this.prone = false; } else if (this.crouch) b.speedMul = 0.45; if (this.punchT > 0) b.speedMul = Math.min(b.speedMul, 0.5); { const cs = this.mission && this.mission.cs; if (cs && cs.on) { if (cs.using) b.speedMul *= 0.7; if (cs.boostT > 0) b.speedMul *= 1.2; } }
-      if (this.jang) b.speedMul *= 0.42;   /* v516 REAL PHYSICS (Jang): jog 12 m/s and sprint 15.5 m/s were 3x a real runner (and the run clip played at 3x speed = the 'skipping' look). Now jog ~5 m/s, sprint ~6.5 m/s, crouch ~1.8, prone ~1.2 */
+      if (this.jang) b.speedMul *= b.speedMul > 1.6 ? 0.5 : 0.42;   /* v518 PUBG: Shift / the sprint lock is a real SPRINT (about 7.8 m/s vs a 5.1 m/s jog) */   /* v516 REAL PHYSICS (Jang): jog 12 m/s and sprint 15.5 m/s were 3x a real runner (and the run clip played at 3x speed = the 'skipping' look). Now jog ~5 m/s, sprint ~6.5 m/s, crouch ~1.8, prone ~1.2 */
     }
     press.jump = false; press.dive = false;
 

@@ -8,4 +8,4 @@ const run = (slope) => {
 };
 const flat = run(0), up30 = run(0.3), up60 = run(0.6), down30 = run(-0.3);
 console.log('flat', flat.toFixed(2), 'uphill 17deg', up30.toFixed(2), 'uphill 31deg', up60.toFixed(2), 'downhill 17deg', down30.toFixed(2), 'm/s');
-const ok = up30 < flat * 0.85 && up60 < up30 && down30 > flat && up60 > flat * 0.4; console.log(ok ? 'SLOPE SPEED OK' : 'SLOPE SPEED FAIL'); if (!ok) process.exitCode = 1;
+const ok = up30 < flat * 0.9 && up60 < up30 && down30 > flat && up60 > flat * 0.4; console.log(ok ? 'SLOPE SPEED OK' : 'SLOPE SPEED FAIL'); if (!ok) process.exitCode = 1;

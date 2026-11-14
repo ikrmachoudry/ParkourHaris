@@ -905,7 +905,7 @@ export class CombatSim {
       const l = Math.hypot(mx, mz);
       if (l > 0.01 && sp > 0) {
         let ux = mx / l, uz = mz / l; if (b.unst > 0) { b.unst -= dt; const sd = b.unsD || 1, px = -uz * sd, pz = ux * sd; ux = px * 0.85 + ux * 0.15; uz = pz * 0.85 + uz * 0.15; }   // stuck: slide along the obstacle for a moment
-        if (b.y == null) { const h0 = cmbH(b.x, b.z), gr = (cmbH(b.x + ux * 0.7, b.z + uz * 0.7) - h0) / 0.7, tk = gr > 0 ? Math.max(0.45, 1 - 0.8 * Math.min(gr, 0.9)) : 1 + Math.min(0.18, -gr * 0.3); b.slk = (b.slk || 1) + (tk - (b.slk || 1)) * Math.min(1, dt * 6); sp *= b.slk; }   /* v516: bots also slow down uphill */
+        if (b.y == null) { const h0 = cmbH(b.x, b.z), gr = (cmbH(b.x + ux * 0.7, b.z + uz * 0.7) - h0) / 0.7, tk = gr > 0.1 ? Math.max(0.6, 1 - 0.65 * Math.min(gr - 0.1, 0.7)) : gr > 0 ? 1 : 1 + Math.min(0.18, -gr * 0.3); b.slk = (b.slk || 1) + (tk - (b.slk || 1)) * Math.min(1, dt * 6); sp *= b.slk; }   /* v516: bots also slow down uphill */
         const ox = b.x, oz = b.z; this.step(b, ux * sp * dt, uz * sp * dt); b.speed = sp; b.idT = 0;
         /* v302: STUCK WATCH - he is trying to move but 2 s later is still within ~1.2 m: re-path and slide sideways; the 2nd time hop to a free spot a few metres away; the 4th time he goes to a fresh out-of-sight spot (never gets stuck for ever on a fence / wall / prop) */
         b.mvT = (b.mvT || 0) + dt; b.mvD = (b.mvD || 0) + Math.hypot(b.x - ox, b.z - oz); if (b.mvT === dt) { b.sx = ox; b.sz = oz; }
