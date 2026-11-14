@@ -610,7 +610,7 @@ export function hitsSolid(L, x, z, r, gy) {
 // v448: is there a roof (a building ceiling) just above this point? (the red bombs do not hurt anyone indoors)
 export function underRoof(L, x, z, y) {
   const B = L.B, i = Math.floor(x / B), j = Math.floor(z / B);
-  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = L.bucket.get((i + di) * 4099 + (j + dj)); if (!a) continue; for (const s of a) { if (s.k !== 'roof') continue; if (s.y0 < y + 1.2 || s.y0 > y + 9) continue; if (x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1) return true; } }
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { const a = L.bucket.get((i + di) * 4099 + (j + dj)); if (!a) continue; for (const s of a) { if (s.k !== 'roof' && s.k !== 'floor' && !(s.k === 'prop' && s.x1 - s.x0 > 1.5 && s.z1 - s.z0 > 1.5 && s.y1 - s.y0 < 1.6)) continue; if (s.y0 < y + 1.2 || s.y0 > y + 14) continue; if (x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3) return true; } }   /* v523: any roof, upper floor slab or wide canopy above you counts (was: only 'roof' pieces up to 9 m) */
   return false;
 }
 // the highest roof / floor / crate top under (x,z) that is at or below yTop + 0.35 (what a parachutist can land on); -1e9 when none

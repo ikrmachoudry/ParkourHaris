@@ -474,7 +474,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, this.jang ? 1.0 : 1.25); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
+    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, this.pmax()); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -1345,6 +1345,7 @@ class Race {
   // The room host simulates the pedestrians and the traffic and streams them (6 times a second); the other players show them as puppets and
   // send what they do to them (punch, shot, horn, carjack) to the host as 'ev' events. Weapons and stolen cars travel in the position snapshots.
   weaponCode() { const wn = this.drive ? null : this.weapon; const wk = wn ? wcls(wn) : wn; return (wk === 'sniper' ? 3 | 16 : wk === 'grenade' ? 16 : WNAME.indexOf(wk) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0) | (this.healing() ? (this.mission.cs.using ? HEALK[this.mission.cs.using.k] || 0 : 2) << 5 : 0); }
+  pmax() { if (!this.jang) return 1.25; const b = this.me && this.me.body; if (b && this.world && this.world.terrain && b.y - this.world.terrain(b.x, b.z) > 3) return 1.3; return 1.0; }   /* v523: Jang look-down limit ~57 deg on the ground, ~74 deg on a roof / tower so you can shoot the bot standing at the foot of your own building */
   footLift(b) {   // v516: walking UP a slope the toes dug into the hill (the body is upright, the ground leans): lift the model by the rise in front of the feet (drawing only)
     const T = this.world && this.world.terrain; let k = 0;
     if (T && this.meta.city && b.grounded && !this.drive) { const th = T(b.x, b.z); if (Math.abs(b.y - th) < 0.35) { const f = 0.5, ah = T(b.x + Math.sin(b.yaw) * f, b.z + Math.cos(b.yaw) * f); k = Math.max(0, Math.min(0.28, (ah - th) * 0.9)); } }
@@ -1475,7 +1476,7 @@ class Race {
     if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.wallet.reload(this.weapon); this.updateAmmoHud(); } }
     if (this.mflash && this.mflash.t > 0) { this.mflash.t -= dt; if (this.mflash.t <= 0) this.mflash.sp.visible = false; }
     for (const q of this.tracers) if (q.t > 0) { q.t -= dt; if (q.t <= 0) q.m.visible = false; else q.m.material.opacity = Math.min(0.9, q.t / 0.05); }
-    if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, this.jang ? 1.0 : 1.25); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
+    if (this.recoilAcc > 0.0005) { const r = this.recoilAcc * Math.min(1, dt * 3.2); this.recoilAcc -= r; if (this.fireCd <= 0) this.camPitch = clamp(this.camPitch + r * 0.6, -0.8, this.pmax()); } else this.recoilAcc = 0;   // after the burst the aim settles part of the way back
     if (this.fireHeld && this.weapon && this.weapon !== 'sniper' && isGun(this.weapon) && !(this.single && WEAPONS[this.weapon].auto)) this.fire();   // hold the fire button: AK and pistol keep firing
     { const cs = this.mission && this.mission.cs, armed = !!(this.weapon && isGun(this.weapon)); this.faceCam = !this.drive && b.stun <= 0 && !(b.swim > 0.3) && !(cs && cs.dropping) && !this.hang && Number.isFinite(this.camYaw) && (this.aimOn || armed || !!(cs && cs.on));   // PUBG: with a gun in hand (and always in the match) the body faces where the camera looks and turns with it; you strafe and back-pedal
       if (this.faceCam) { let d = this.camYaw + Math.PI - b.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); b.yaw += d * Math.min(1, dt * (this.aimOn || this.fireHeld ? 16 : 11)); } }
@@ -1523,6 +1524,10 @@ class Race {
       if (Math.hypot(x - b.x, z - b.z) > 38) break;
       last = { x, y: gy, z }; if (y <= gy + 0.05) return last;
     }
+    if (dv.y > 0.08) {   /* v523: aiming UP (a rooftop above you): the grenade is a real arc - the steeper the aim the nearer it lands - and it lands on the ROOF there */
+      const e = Math.asin(Math.min(1, dv.y)), hl = Math.hypot(dv.x, dv.z) || 1, D = Math.max(4, Math.min(34, 4 + 18 * Math.sin(2 * Math.min(e, 1.4)) + (e < 0.5 ? 6 : 0))), x = b.x + dv.x / hl * D, z = b.z + dv.z / hl * D, g = this.world.findGround({ x, y: b.y + 24, z }, b.y + 24, false);
+      const gt = g ? g.top : (this.world.terrain ? this.world.terrain(x, z) : 0); if (gt < b.y + 30) return { x, y: gt, z };
+    }
     if (last) return last;
     const x = b.x + Math.sin(b.yaw) * 30, z = b.z + Math.cos(b.yaw) * 30, g = this.world.findGround({ x, y: b.y + 3, z }, b.y + 3, false); return { x, y: g ? g.top : b.y, z };
   }
@@ -1549,7 +1554,7 @@ class Race {
         if (smk || mol ? !!(cbk && cbk.inv && cbk.inv[nk]-- > 0) : this.wallet.useNade()) {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
           const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
-          const T = clamp(0.45 + d * 0.03, 0.5, 1.5), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
+          const T = clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
           const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } this.updateAmmoHud();
           if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
@@ -1711,7 +1716,7 @@ class Race {
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
-    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, this.jang ? 1.0 : 1.25); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
+    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1); this.recoilAcc = Math.min(0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, this.pmax()); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
     let lnx = Math.cos(this.camYaw) * (this.leanV || 0) * 0.6, lnz = -Math.sin(this.camYaw) * (this.leanV || 0) * 0.6;   /* v352: the bullet leaves 0.6 m to the side (was 0.9: too far out of cover) */
