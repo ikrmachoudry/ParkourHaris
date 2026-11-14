@@ -2560,6 +2560,7 @@ function renderTeams(m) {
     d.innerHTML = h; box.appendChild(d);
   });
   box.onclick = (e) => { const b = e.target.closest && e.target.closest('button[data-a]'); if (!b) return; A.sfx.click(); const a = b.dataset.a; if (a === 'join') app.net.send({ t: 'tjoin', team: +b.dataset.t }); else if (a === 'leave') app.net.send({ t: 'tleave' }); else if (a === 'droid') { const t = (m.teams || []).find((q) => q.leader === me); app.net.send({ t: 'tdroid', on: !(t && t.droid) }); } else if (a === 'fill') { const t = (m.teams || []).find((q) => q.leader === me); app.net.send({ t: 'tfill', on: !(t && t.fill) }); } };
+  { const bd = $('b-tdroid'), mt = (m.teams || []).find((t) => t.ids.includes(me)); if (bd) { bd.style.display = m.players.length >= 2 && !(mt && mt.droid) ? 'block' : 'none'; bd.onclick = () => { A.sfx.click(); app.net.send({ t: 'tsolo' }); }; } }   // v511: one tap = my own team + my own INTELLIDROID
   $('b-tcreate').onclick = () => { A.sfx.click(); const n = $('lobby-tname').value.trim(); if (!n) { needField($('lobby-tname'), 'Enter a team name, then tap CREATE TEAM'); return; } app.net.send({ t: 'tcreate', name: n }); $('lobby-tname').value = ''; };
 }
 function renderLobby() {

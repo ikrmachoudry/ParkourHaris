@@ -434,6 +434,14 @@ wss.on('connection', (ws, req) => {
         bcast(room, lobbyMsg(room));
         break;
       }
+      case 'tsolo': {   // v511: ONE TAP: "my own team + INTELLIDROID" (leaves the current team, makes a team named after me, switches the droid on)
+        if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return; room.teams = room.teams || [];
+        if (room.players.size < 2) return send(ws, { t: 'err', msg: 'INTELLIDROID needs at least 2 real players in the room.' });
+        const cur = room.teams.find((q) => q.id === p.team);
+        if (cur && cur.ids.size === 1 && cur.leader === p.id) cur.droid = true;
+        else { if (room.teams.length - (cur && cur.ids.size === 1 ? 1 : 0) >= COMBAT_TEAMS) return send(ws, { t: 'err', msg: `Only ${COMBAT_TEAMS} teams fit in a match.` }); leaveTeam(room, p); const t = { id: teamSeq++, name: cleanName(p.name || 'Team').slice(0, 12).toUpperCase() || 'TEAM', leader: p.id, fill: false, ids: new Set([p.id]), droid: true }; room.teams.push(t); p.team = t.id; }
+        bcast(room, lobbyMsg(room)); break;
+      }
       case 'tdroid': {   // v507: INTELLIDROID: the leader of a team with exactly ONE real player adds / removes his own AI teammate (every such team may have one)
         if (!room || !room.combat || (room.phase !== 'lobby' && room.phase !== 'results')) return;
         const t = (room.teams || []).find((q) => q.id === p.team); if (!t || t.leader !== p.id) return;
