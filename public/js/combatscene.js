@@ -455,7 +455,7 @@ export class CombatScene {
   }
   /* v320: every movement the others can see (PUBG): crouch, prone, jump / fall, vault, reload, lean, punch, kick, grenade throw, camera pitch for the aim */
   poseBits(ph) { const R = this.R, b = R.me.body; if (ph !== 4) return { st: 0 };
-    const st = (R.crouch ? 1 : 0) | (R.prone ? 2 : 0) | (!b.grounded && !R.hang ? 4 : 0) | (R.vlt ? 32 : 0) | (R.reloadT > 0 ? 16 : 0) | (R.punchT > 0 && !R.kickK ? 128 : 0) | (R.punchT > 0 && R.kickK ? 256 : 0) | (R.nadeT > 0 ? 512 : 0) | (R.zipR ? 1024 : 0) | (this.gearV ? 2048 : 0) | (this.gearH ? 4096 : 0) | (this.using ? ({ med: 1, inject: 2, pills: 3 }[this.using.k] || 0) << 13 : 0);   /* v512: bits 13-14 = which heal item I am using (everybody sees the animation) */
+    const st = (R.crouch ? 1 : 0) | (R.prone ? 2 : 0) | (!b.grounded && !R.hang ? 4 : 0) | (R.vlt ? 32 : 0) | (R.reloadT > 0 ? 16 : 0) | (R.punchT > 0 && !R.kickK ? 128 : 0) | (R.punchT > 0 && R.kickK ? 256 : 0) | (R.nadeT > 0 ? 512 : 0) | (R.zipR ? 1024 : 0) | (this.gearV ? 2048 : 0) | (this.gearH ? 4096 : 0) | (this.using && !this.using.pz ? ({ med: 1, inject: 2, pills: 3 }[this.using.k] || 0) << 13 : 0);   /* v512: bits 13-14 = which heal item I am using (everybody sees the animation) */
     return { st, lv: +(R.leanV || 0).toFixed(2), rl: R.reloadT > 0 && R.reloadTot ? +Math.max(0, 1 - R.reloadT / R.reloadTot).toFixed(2) : 0, cp: +(R.camPitch || 0).toFixed(2), nt: R.nadeToss | 0, vy: +(b.vy || 0).toFixed(1) }; }
   onMate(m) {
     const T = (this.R.jangTeam || this.soloT); if (!T || m.id === T.myId || !this.on) return; let g = this.mates.get(m.id);
@@ -988,9 +988,11 @@ export class CombatScene {
     if (this.boostT > 0) this.boostT -= dt;
     const u = this.using, R = this.R, cb = R.wallet && R.wallet.cb; if (!u) { if (this.useBar && this.useBar.style.display !== 'none') this.useBar.style.display = 'none'; return; }
     if (!cb || this.hp <= 0 || R.drive) { this.using = null; return; }
-    const U = USE[u.k]; u.t += dt; const f = Math.min(1, u.t / u.dur);   /* v432 (PUBG): NOTHING is healed until the item is used up; if it is interrupted nothing is healed and nothing is used */
+    { const bd = R.me.body, spd = Math.hypot(bd.vx || 0, bd.vz || 0), busy = spd > (u.pz ? 3.0 : 3.4) || R.fireHeld || R.shootT > 0 || (!bd.grounded && !R.hang);   /* v515: running, jumping or FIRING pauses the heal (the progress is kept); when you stand, walk, crouch or lie down again it CONTINUES by itself - no need to use the item again */
+      if (busy !== !!u.pz) { u.pz = busy; if (busy && R.toast) R.toast('HEAL PAUSED  -  stop running / firing and it continues', 2); } }
+    const U = USE[u.k]; if (!u.pz) u.t += dt; const f = Math.min(1, u.t / u.dur);   /* v432 (PUBG): NOTHING is healed until the item is used up; if it is interrupted nothing is healed and nothing is used */
     if (!this.useBar) { const b = document.createElement('div'); b.id = 'c-use'; b.innerHTML = '<span></span><i></i>'; document.body.appendChild(b); this.useBar = b; }
-    this.useBar.style.display = 'block'; this.useBar.firstChild.textContent = 'USING ' + U.name + '  ' + Math.round(f * 100) + '%'; this.useBar.lastChild.style.width = (f * 100) + '%';
+    this.useBar.style.display = 'block'; this.useBar.firstChild.textContent = (u.pz ? 'PAUSED ' : 'USING ') + U.name + '  ' + Math.round(f * 100) + '%'; this.useBar.lastChild.style.width = (f * 100) + '%';
     if (u.t >= u.dur) { cb.inv[u.k] = Math.max(0, (cb.inv[u.k] | 0) - 1); this.hp = Math.min(MY_DMG, this.hp + U.hp); if (U.boost) { this.boostT = U.boost; R.toast && R.toast(U.name + ' - SPEED BOOST!'); } else R.toast && R.toast(U.name + '  +' + U.hp + ' HEALTH'); A.sfx.pickup && A.sfx.pickup(); this.using = null; this.updateHud(); if (this.inv) this.inv.render(); }
   }
   finish(msg, why) {

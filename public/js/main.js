@@ -1343,7 +1343,7 @@ class Race {
   // The room host simulates the pedestrians and the traffic and streams them (6 times a second); the other players show them as puppets and
   // send what they do to them (punch, shot, horn, carjack) to the host as 'ev' events. Weapons and stolen cars travel in the position snapshots.
   weaponCode() { const wn = this.drive ? null : this.weapon; const wk = wn ? wcls(wn) : wn; return (wk === 'sniper' ? 3 | 16 : wk === 'grenade' ? 16 : WNAME.indexOf(wk) & 3) | (this.aimOn && !this.drive ? 4 : 0) | (this.lightsOn && this.drive ? 8 : 0) | (this.healing() ? (this.mission.cs.using ? HEALK[this.mission.cs.using.k] || 0 : 2) << 5 : 0); }
-  healing() { const cs = this.mission && this.mission.cs; return !!(cs && (cs.using || cs.reviving) && !this.drive); }
+  healing() { const cs = this.mission && this.mission.cs; return !!(cs && ((cs.using && !cs.using.pz) || cs.reviving) && !this.drive); }   // v515: a heal that is PAUSED (you ran / fired) is not 'healing' - you move and shoot normally
   get downed() { const cs = this.mission && this.mission.cs; return !!(cs && cs.on && cs.down); }   // v396: knocked down: crawl on the knees only
   get simHost() { return !this.multi || !app.room || app.room.hostId === this.localId; }
   evt(o) { if (this.multi && !this.simHost) app.net.send({ t: 'ev', ...o }); }
