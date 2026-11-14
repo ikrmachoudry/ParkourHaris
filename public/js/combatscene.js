@@ -206,7 +206,7 @@ export class CombatScene {
   }
   ensureMap() {   // v452: the landscape is built once; on Android it is built behind the loading screen (not at the first frame of the match, which froze weak phones at 94%)
     const R = this.R; if (this.map) return;
-    const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group);
+    const t0 = performance.now(); this.map = buildBattleMap(R.isTouch ? 0 : 2); this.buildMs = Math.round(performance.now() - t0); this.group.add(this.map.group); try { R.setFar && R.setFar(); } catch { /* noop */ }
     try { this.glass = new Glass(this.map.group, layout().buildings, R.isTouch ? 0 : 2, R.camera, R.particles); } catch (e) { this.glass = null; }
   }
   /* v501 LATE-LIFE KIT (solo): a life that starts when the match is already old no longer comes back empty-handed into 10+ bots. More than 10 min left: nothing (loot as usual). 5-10 min left: a pistol + 2 bandages. 5 min or less: an M4 + a pistol, ammo, 3 bandages, vest, helmet, 2 grenades. */

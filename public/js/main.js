@@ -111,7 +111,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   const fps = Q.frames / Q.t; Q.t = 0; Q.frames = 0;
   if (fps < 40 && !IS_TOUCH) {   // v447 LAPTOP SMOOTH: only a laptop that really stays under 40 fps ever gets here (a fast machine never does). A match frame in town is ~600 draw calls / ~1 million triangles, so the first thing to cut is how FAR the map is drawn (that is what an integrated GPU chokes on), then the sun shadows, only then the resolution (the picture stays sharp as long as possible)
     Q.good = 0; let did = '';
-    if (Q.far > 480) { Q.far = Math.max(480, Q.far - 110); if (race) race.setFar(); did = 'far'; }
+    if (Q.far > 480) { Q.far = Math.max(480, Q.far - (race && race.jang ? 220 : 110)); if (race) race.setFar(); did = 'far'; }
     else if (Q.shadows && fps < 34) { Q.shadows = false; if (race) race.setShadows(false); did = 'shadows'; }
     else if (Q.dpr > 0.85) { Q.dpr = Math.max(0.85, Q.dpr - 0.15); resize(); did = 'dpr'; }
     else if (Q.far > 380) { Q.far = Math.max(380, Q.far - 50); if (race) race.setFar(); did = 'far'; }
@@ -768,7 +768,8 @@ class Race {
   }
   // draw distance: the fog closes in just before it and the far parts of the city (map chunks, cars) are not drawn at all
   setFar() {
-    const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); if (!this.meta.city) return;
+    const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); try { const jm = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm && jm.setRange && !IS_TOUCH) jm.setRange(0.55 + 0.45 * Math.max(0, Math.min(1, (f - 480) / 620))); } catch { /* noop */ }   // v510: Jang on a laptop - the automatic draw-distance step really shortens the Jang map's view now
+    if (!this.meta.city) return;
     // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
     const D = this.jang ? (IS_TOUCH ? 420 : 760) : f; this.scene.fog.far = D; this.scene.fog.near = D * 0.85;
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }

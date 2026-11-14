@@ -519,12 +519,12 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   const NC = Math.ceil(2 * H / GR.cell);
 
   // ================================================================ per-frame: wind, draw-distance culling, grass streaming
-  let tAcc = 0, fAcc = 0, fN = 0, ov = null;
+  let tAcc = 0, fAcc = 0, fN = 0, ov = null, RK = 1;   // v510: RK scales the draw distance (the laptop's automatic 'ease the graphics' used to change Q.far, which this map never read)
   const stats = (dt) => { fAcc += dt; fN++; if (fAcc < 0.5) return; const r = window.__ph && window.__ph.rend, on = /[?&]stats/.test(location.search) || window.__showStats; if (on) { if (!ov) { ov = document.createElement('div'); ov.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px monospace;color:#0f0;background:#0008;padding:3px 6px;pointer-events:none;white-space:pre'; document.body.appendChild(ov); } ov.textContent = (fN / fAcc).toFixed(0) + ' fps  ' + (fAcc / fN * 1000).toFixed(1) + ' ms' + (r ? '\n' + (r.info.render.triangles / 1000).toFixed(0) + 'k tris  ' + r.info.render.calls + ' calls' : ''); } else if (ov) { ov.remove(); ov = null; } fAcc = 0; fN = 0; };
   const update = (dt, camPos) => {
     uni.time.value += dt; stats(dt); for (const ic of ICONS) { ic.rotation.y += dt * 1.3; ic.position.y = ic.userData.y0 + Math.sin(uni.time.value * 2) * 0.12; } for (const f of flags) { const p = f.geometry.attributes.position, b0 = f.userData.base, tt = uni.time.value; for (let i = 0; i < p.count; i++) { const bx = b0[i * 3], k2 = (bx + 1.7) / 3.4; p.setZ(i, Math.sin(bx * 2.6 - tt * 4.2) * 0.14 * k2); p.setY(i, b0[i * 3 + 1] - Math.sin(bx * 2.1 - tt * 3.3) * 0.04 * k2); } p.needsUpdate = true; } const cx = camPos.x - CMB.x, cz = camPos.z - CMB.z; tAcc += dt;
-    for (const m of VEG) { const c = m.userData.c, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < m.userData.cull && d >= (m.userData.near || 0); }
-    for (const m of meshes) { const c = m.userData.chunk, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < (q === 0 ? 300 : 460) + CH; }
+    for (const m of VEG) { const c = m.userData.c, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < m.userData.cull * RK && d >= (m.userData.near || 0); }
+    for (const m of meshes) { const c = m.userData.chunk, d = Math.hypot(c[0] - cx, c[1] - cz); m.visible = d < (q === 0 ? 300 : 460) * RK + CH; }
     const ci0 = Math.floor((cx - GR.range + H) / GR.cell), ci1 = Math.floor((cx + GR.range + H) / GR.cell), cj0 = Math.floor((cz - GR.range + H) / GR.cell), cj1 = Math.floor((cz + GR.range + H) / GR.cell);
     for (const [k, v] of GR.done) { if (!v) continue; const [ci, cj] = k.split(',').map(Number), mx = -H + (ci + 0.5) * GR.cell, mz = -H + (cj + 0.5) * GR.cell; v.visible = Math.hypot(mx - cx, mz - cz) < GR.range + GR.cell * 0.75; }
     let made = 0;
@@ -565,7 +565,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); wg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); wg.setIndex(idx);
     const wm = new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ map: tx, transparent: true, alphaTest: 0.25, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); wm.name = 'wall-text'; wm.frustumCulled = false; wm.renderOrder = 2; wm.material.side = THREE.DoubleSide; group.add(wm);
   } catch (e) { /* the wall writing is decoration only */ }
-  return { group, update, warm, quality: q, propsOk: !!propDim('ladder') };
+  return { group, update, warm, quality: q, propsOk: !!propDim('ladder'), setRange: (k) => { RK = Math.max(0.5, Math.min(1, k)); } };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
 const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95); return c; };
