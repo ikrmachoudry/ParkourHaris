@@ -55,8 +55,11 @@ export class HeroActor {
       else if (name === 'run' || name === 'walk') { const p = name === 'walk' ? 'walk' : 'run'; if (f < -0.4) name = p + 'Back'; else if (Math.abs(r) > 0.6 && f < 0.55) name = p + side; }
     }
     if (st.crouch && w && !st.seated && (wc === 'ak' || wc === 'sniper') && (name === 'rifleIdle' || name === 'rifleWalk' || name === 'rifleAim')) name = sp > 0.25 ? 'rifleCrouchWalk' : st.aiming ? 'rifleCrouchAim' : 'rifleCrouchIdle';   // kneeling with the rifle (real Mixamo crouch clips)
+    if (st.crouch && w && !st.seated && !st.swim && !st.prone && st.grounded !== false) {   // v512: crouching with ANY gun (pistol too) and crouch-walking sideways / backwards shows the crouch clips (the standing clips used to play)
+      const pf = wc === 'pistol' ? 'pistol' : (wc === 'ak' || wc === 'sniper') ? 'rifle' : null;
+      if (pf) { const m = /^(rifle|pistol)(Back|StrafeL|StrafeR)$/.exec(name); if (m) name = pf + 'Crouch' + (m[2] === 'Back' ? 'Back' : m[2] === 'StrafeL' ? 'L' : 'R'); else if (pf === 'pistol' && (name === 'pistolIdle' || name === 'pistolWalk' || name === 'pistolAim')) name = sp > 0.25 ? 'pistolCrouchWalk' : 'pistolCrouchIdle'; } }
     if (st.reload > 0 && w && !st.seated && !st.swim && wc !== 'bat') { name = 'reloadR'; t = st.reload; if (sp > 0.25 && st.grounded && !st.crouch && !st.prone) name = sp > 3 ? 'reloadRun' : 'reloadWalk'; }   // v224: reloading on the move keeps the legs running / walking (no gliding)   // the real Mixamo reload
-    if (name === 'idle' && st.heal && !st.seated && !st.swim) { name = st.kneel ? 'reviveInj' : HEALPOSE[st.heal] || name; t = st.healT || this.t; }   // v393: syringe / pills / first aid each have their own motion
+    if ((name === 'idle' || name === 'crouch') && st.heal && !st.seated && !st.swim) { name = st.kneel ? 'reviveInj' : HEALPOSE[st.heal] || name; t = st.healT || this.t; }   // v393: syringe / pills / first aid each have their own motion
     else if (name === 'idle' && st.gesture) name = st.gesture;
     if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }
     if (st.skydive) { name = st.skydive === 2 ? 'chute' : 'skydive'; t = this.t; }

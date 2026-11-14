@@ -14,7 +14,7 @@ export class NetSim extends CombatSim {
   applyBots(arr, snap) {
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;
       b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i; b.y = a[8] == null ? null : a[8]; b.stn = a[9] | 0; b.thr = a[10] || 0; b.droid = a[11] ? 1 : 0; b.dtm = (a[11] | 0) - 1;   /* v457 INTELLIDROID */
-      if (was && !b.alive) b.dieT = 0; this.tgt[i] = { x: a[0], z: a[1], yaw: a[2] };
+      if (was && !b.alive) b.dieT = 0; { const pg = this.tgt[i]; let vx = 0, vz = 0; if (!snap && was && b.alive && pg && pg.at !== undefined) { const dtp = this.t - pg.at; if (dtp > 0.03 && dtp < 0.6) { vx = (a[0] - pg.rx) / dtp; vz = (a[1] - pg.rz) / dtp; if (vx * vx + vz * vz > 64) vx = vz = 0; else { vx = (pg.vx || 0) * 0.4 + vx * 0.6; vz = (pg.vz || 0) * 0.4 + vz * 0.6; } } } this.tgt[i] = { x: a[0], z: a[1], yaw: a[2], rx: a[0], rz: a[1], at: this.t, vx, vz, ex: 0 }; }   /* v512: remember the speed too: between two snapshots (10 / s) the bot keeps moving at it, so it does not step */
       if (snap || !was || Math.hypot(a[0] - b.x, a[1] - b.z) > 8) { b.x = a[0]; b.z = a[1]; b.yaw = a[2]; } }
   }
   onEvents(list, myId) {
@@ -28,7 +28,7 @@ export class NetSim extends CombatSim {
   tick(dt) {
     this.t += dt; this.helloT += dt; if (!this.ready && this.helloT > 2) this.hello();
     const f = Math.min(1, dt * 12);
-    for (let i = 0; i < this.bots.length; i++) { const b = this.bots[i], g = this.tgt[i]; if (!b.alive) { b.dieT += dt; } if (b.flash > 0) b.flash -= dt; if (!g) continue; b.x += (g.x - b.x) * f; b.z += (g.z - b.z) * f; b.yaw += Math.atan2(Math.sin(g.yaw - b.yaw), Math.cos(g.yaw - b.yaw)) * f; }
+    for (let i = 0; i < this.bots.length; i++) { const b = this.bots[i], g = this.tgt[i]; if (!b.alive) { b.dieT += dt; } if (b.flash > 0) b.flash -= dt; if (!g) continue; if ((g.vx || g.vz) && g.ex < 0.3) { g.ex += dt; g.x += g.vx * dt; g.z += g.vz * dt; } b.x += (g.x - b.x) * f; b.z += (g.z - b.z) * f; b.yaw += Math.atan2(Math.sin(g.yaw - b.yaw), Math.cos(g.yaw - b.yaw)) * f; }
   }
   hurt(b, d) { if (!b.alive) return; b.flash = 0.15; }   // only a hit marker here: hp and kills come from the server
   take(px, pz, can) {
