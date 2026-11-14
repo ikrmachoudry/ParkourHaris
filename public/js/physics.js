@@ -57,9 +57,9 @@ export function stepBody(w, b, dt, inp) {
   // ---- horizontal control
   if (ctrl) {
     let sp = P.RUN * (b.boost > 0 ? 1.45 : 1) * (b.speedMul || 1) * (1 - 0.34 * sw);
-    if (w.terrain && hasIn && b.grounded && !sw) {   // v516 REAL PHYSICS: uphill is slower (steep: about half), downhill a little faster - for the player in every mode that has hills
+    if (w.terrain && hasIn && b.grounded && !sw && b.slopeOn) {   // v519 (Jang only, mild uphill slow-down); v516 REAL PHYSICS: uphill is slower (steep: about half), downhill a little faster - for the player in every mode that has hills
       const th = w.terrain(b.x, b.z);
-      if (Math.abs(b.y - th) < 0.45) { const ml = Math.hypot(inp.mx, inp.mz) || 1, L = 0.7, gr = (w.terrain(b.x + inp.mx / ml * L, b.z + inp.mz / ml * L) - th) / L, tk = gr > 0.1 ? Math.max(0.6, 1 - 0.65 * Math.min(gr - 0.1, 0.7)) : gr > 0 ? 1 : 1 + Math.min(0.18, -gr * 0.3); b.slk = (b.slk || 1) + (tk - (b.slk || 1)) * Math.min(1, dt * 6); } else b.slk = 1;
+      if (Math.abs(b.y - th) < 0.45) { const ml = Math.hypot(inp.mx, inp.mz) || 1, L = 0.7, gr = (w.terrain(b.x + inp.mx / ml * L, b.z + inp.mz / ml * L) - th) / L, tk = gr > 0.12 ? Math.max(0.82, 1 - 0.3 * Math.min(gr - 0.12, 0.6)) : 1; b.slk = (b.slk || 1) + (tk - (b.slk || 1)) * Math.min(1, dt * 6); } else b.slk = 1;
       sp *= b.slk;
     }
     if (hasIn) {
