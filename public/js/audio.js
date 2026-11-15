@@ -85,9 +85,10 @@ function loadBank() {
 // v220: resolves when every recorded sample is decoded (or after maxMs): the loading screen waits for it, so no sound is missing during the match
 export function bankReady(maxMs = 20000) { return new Promise((res) => { if (!bankStarted) return res(); const t0 = performance.now(), iv = setInterval(() => { if (bankLeft <= 0 || performance.now() - t0 > maxMs) { clearInterval(iv); res(); } }, 120); }); }
 // play a recorded sample. pan -1..1 (a far-away sound is quieter and duller)
-export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 0) {
+export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 0, bk = 0) {   // bk 0..1: how far BEHIND the listener the sound is (duller + a bit quieter)
   const b = bank[name]; if (!ctx || !b) return false;
   const s = ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+  if (bk > 0.05) { lp = Math.min(lp || 9000, 9000 - 7400 * bk); vol *= 1 - 0.3 * bk; }
   const g = ctx.createGain(); g.gain.value = vol; let n = g;
   if (lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; s.connect(f); f.connect(g); } else s.connect(g);
   if (rev && revIn) { const r = ctx.createGain(); r.gain.value = rev; g.connect(r); r.connect(revIn); }

@@ -474,7 +474,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; this.camYaw -= dx * 0.0024 * zk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * (OPT.sy || 0.6), -0.8, this.pmax()); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
+    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; const sk = this.scoped ? (OPT.ss || 1) : 1; this.camYaw -= dx * 0.0024 * zk * sk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * sk * (OPT.sy || 0.6), -0.8, this.pmax()); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -2902,7 +2902,7 @@ async function boot() {
   // volume sliders (title settings + pause menu): music and sound effects, remembered between visits
   { const V = A.getVolumes(), sl = (cls, v) => document.querySelectorAll(cls).forEach((e) => { e.value = Math.round(v * 100); });
     sl('.vol-m', V.music); sl('.vol-s', V.sfx);
-    for (const [c, k] of [['.sens-x', 'sx'], ['.sens-y', 'sy']]) document.querySelectorAll(c).forEach((e) => { e.value = Math.round((OPT[k] || (k === 'sx' ? 1 : 0.6)) * 100); e.oninput = () => { OPT[k] = e.value / 100; saveOpts(); document.querySelectorAll(c).forEach((q) => { q.value = e.value; }); }; });   // v237: camera speed (turn / up-down) for every player, laptop and phone
+    for (const [c, k] of [['.sens-x', 'sx'], ['.sens-y', 'sy'], ['.sens-s', 'ss']]) document.querySelectorAll(c).forEach((e) => { e.value = Math.round((OPT[k] || (k === 'sy' ? 0.6 : 1)) * 100); e.oninput = () => { OPT[k] = e.value / 100; saveOpts(); document.querySelectorAll(c).forEach((q) => { q.value = e.value; }); }; });   // v237: camera speed (turn / up-down) for every player, laptop and phone
     document.querySelectorAll('.vol-m').forEach((e) => { e.oninput = () => { A.initAudio(); A.setMusicVolume(e.value / 100); sl('.vol-m', e.value / 100); }; });
     document.querySelectorAll('.vol-m, .vol-s').forEach(touchSlider);
     document.querySelectorAll('.vol-s').forEach((e) => { e.oninput = () => { A.initAudio(); A.setSfxVolume(e.value / 100); sl('.vol-s', e.value / 100); }; e.onchange = () => A.sfx.shot(0, 0.5); }); }
