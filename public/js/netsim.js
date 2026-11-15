@@ -12,6 +12,7 @@ export class NetSim extends CombatSim {
     this.applyBots(m.b, true); this.loot = []; for (const a of m.l || []) this.addLoot(a); this.ready = true; }
   addLoot(a) { const [id, k, x, z, spot, am, al, gold, yy] = a; let it = this.loot.find((l) => l.id === id); if (!it) { it = { id }; this.loot.push(it); } Object.assign(it, { k, x, z, y: yy === null || yy === undefined ? undefined : yy, spot: -1, am: Array.isArray(am) ? { mag: am[0], res: am[1] } : undefined, alive: !!al, gold: gold | 0 }); return it; }
   applyBots(arr, snap) {
+    this.lastBotsAt = this.t;
     for (let i = 0; i < arr.length && i < this.bots.length; i++) { const a = arr[i], b = this.bots[i], was = b.alive;
       b.hp = a[3]; b.alive = !!a[4]; b.speed = a[5]; b.walk = !!a[6]; b.weapon = a[7] ? 'ak' : 'pistol'; b.id = i; b.y = a[8] == null ? null : a[8]; b.stn = a[9] | 0; b.thr = a[10] || 0; b.droid = a[11] ? 1 : 0; b.dtm = (a[11] | 0) - 1;   /* v457 INTELLIDROID */
       if (was && !b.alive) b.dieT = 0; { const pg = this.tgt[i]; let vx = 0, vz = 0; if (!snap && was && b.alive && pg && pg.at !== undefined) { const dtp = this.t - pg.at; if (dtp > 0.03 && dtp < 0.6) { vx = (a[0] - pg.rx) / dtp; vz = (a[1] - pg.rz) / dtp; if (vx * vx + vz * vz > 64) vx = vz = 0; else { vx = (pg.vx || 0) * 0.4 + vx * 0.6; vz = (pg.vz || 0) * 0.4 + vz * 0.6; } } } this.tgt[i] = { x: a[0], z: a[1], yaw: a[2], rx: a[0], rz: a[1], at: this.t, vx, vz, ex: 0 }; }   /* v512: remember the speed too: between two snapshots (10 / s) the bot keeps moving at it, so it does not step */
@@ -40,7 +41,7 @@ export class NetSim extends CombatSim {
     Promise.resolve().then(() => this.net.send({ t: 'cdrop', sid: this.sid, k, x: +x.toFixed(2), z: +z.toFixed(2), am: it.am && typeof it.am === 'object' ? { mag: it.am.mag | 0, res: it.am.res | 0 } : 0, cid, g: gold ? 1 : 0, y: Number.isFinite(it.y) ? +it.y.toFixed(2) : undefined }));   // (the caller sets it.am right after this call)
     return it;
   }
-  shoot(ox, oz, fx, fz, range, dmg, y, bal) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y, undefined, undefined, bal); this.net.send({ t: 'cshoot', st: this.srvT, ...(bal ? { b0: +bal.y.toFixed(2), bs: +bal.sl.toFixed(4), bk: +(bal.k * 1e6).toFixed(2) } : null), ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: Math.min(500, range), dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }
+  shoot(ox, oz, fx, fz, range, dmg, y, bal) { const r = super.shoot(ox, oz, fx, fz, range, dmg, y, undefined, undefined, bal); this.net.send({ t: 'cshoot', st: this.srvT + Math.max(0, Math.min(0.3, this.t - (this.lastBotsAt || this.t))), ...(bal ? { b0: +bal.y.toFixed(2), bs: +bal.sl.toFixed(4), bk: +(bal.k * 1e6).toFixed(2) } : null), ox: +ox.toFixed(2), oz: +oz.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), range: Math.min(500, range), dmg, y: Number.isFinite(y) ? +y.toFixed(2) : undefined }); return r; }
   melee(x, z, fx, fz, reach, dmg) { const r = super.melee(x, z, fx, fz, reach, dmg); this.net.send({ t: 'cmelee', x: +x.toFixed(2), z: +z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), reach, dmg }); return r; }
   blast(x, z, r, dmg) { super.blast(x, z, r, dmg); this.net.send({ t: 'cblast', x: +x.toFixed(2), z: +z.toFixed(2), r }); }
   addSmoke(x, z) { this.net.send({ t: 'csmoke', x: +x.toFixed(2), z: +z.toFixed(2) }); }
