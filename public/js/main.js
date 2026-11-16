@@ -48,6 +48,20 @@ const IS_DESKTOP = typeof matchMedia === 'function' && matchMedia('(pointer: fin
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
 const IS_IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (/Macintosh/i.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1));   // v476: iPhone / iPad also download everything
 const IS_TOUCH = !IS_DESKTOP && ((typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || ((typeof navigator !== 'undefined' && navigator.maxTouchPoints) || 0) > 0);
+/* v535: nothing on a phone may drag the page around: a touch that starts outside a scrollable panel (or on a panel that cannot scroll) is swallowed; pinch / double-tap zoom is off too */
+if (IS_TOUCH && typeof document !== 'undefined') {
+  const scrollable = (n) => { while (n && n !== document.body && n.nodeType === 1) { const cs = getComputedStyle(n); if ((/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1) || (/(auto|scroll)/.test(cs.overflowX) && n.scrollWidth > n.clientWidth + 1)) return n; n = n.parentNode; } return null; };
+  let sy = 0;
+  document.addEventListener('touchstart', (e) => { sy = e.touches[0] ? e.touches[0].clientY : 0; }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) { e.preventDefault(); return; }
+    const t = e.target; if (t && t.tagName && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    const sc = scrollable(t); if (!sc) { if (e.cancelable) e.preventDefault(); return; }
+    const dy = (e.touches[0] ? e.touches[0].clientY : sy) - sy;   // at the top / bottom end of a list, pulling further must not drag the page
+    if ((dy > 0 && sc.scrollTop <= 0) || (dy < 0 && sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1)) { if (e.cancelable) e.preventDefault(); }
+  }, { passive: false });
+  for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault());
+}
 const touch = { x: 0, y: 0, jump: false, grab: false, sl: 0, sr: 0, gas: 0, brk: 0, hb: 0, bs: 0 };
 let sprintLock = false;   // v213: PUBG-style SPRINT LOCK on a phone: push the stick all the way up into the lock icon and let go - the character keeps sprinting forward until you touch the stick again
 function setSprintLock(on) {
