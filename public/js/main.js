@@ -66,7 +66,8 @@ const MEDAL = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
 const canvas = $('c');
 let renderer;
 // v390: BUDGET PHONES START ON LOW (they used to start on full settings and only slowly step down). Only Android phones with a weak GPU / little memory are detected; laptops and iPhones are never touched by this.
-const GPU_NAME = (() => { try { const c = document.createElement('canvas'), g = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!g) return ''; const e = g.getExtension('WEBGL_debug_renderer_info'), r = e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; const l = g.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); return r; } catch { return ''; } })();
+const GPU_NAME = (() => { try { if (!/Android/i.test(navigator.userAgent || '')) return '';   /* v532: the probe context is only needed to spot weak ANDROID GPUs; iPhones / laptops skip it (one GL context less - iOS refuses new contexts when memory is short) */
+  const c = document.createElement('canvas'), g = c.getContext('webgl') || c.getContext('experimental-webgl'); if (!g) return ''; const e = g.getExtension('WEBGL_debug_renderer_info'), r = e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; const l = g.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); return r; } catch { return ''; } })();
 const AUTO_LOW = (() => { try {
   if (localStorage.getItem('ph_low') !== null || !IS_TOUCH) return false;   // the player's own choice (menu GFX button) always wins; desktops are never auto-lowered
   const ua = navigator.userAgent || ''; if (/iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return false;   // iPhone / iPad: never
@@ -76,11 +77,16 @@ const AUTO_LOW = (() => { try {
   return weakGpu || (navigator.deviceMemory || 8) <= 4;
 } catch { return false; } })();
 const LOW0 = (() => { try { return localStorage.getItem('ph_low') === '1'; } catch { return false; } })() || AUTO_LOW;
-try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW0, powerPreference: 'high-performance' });   // v390: no multisampling on LOW (costly on a phone GPU)
-} catch (e) {
-  document.querySelector('#loader p').textContent = 'WebGL is not available in this browser. Please use a recent Chrome / Edge / Firefox.';
-  throw e;
+{
+  /* v532: iPhone Chrome / Safari can refuse the first WebGL context ("Error creating WebGL context") when memory is short (many tabs open) or the full-quality options are too much. Try the full options first, then plainer ones, then reload once by itself. */
+  const tries = [{ antialias: !LOW0, powerPreference: 'high-performance' }, { antialias: false }, { antialias: false, alpha: false, stencil: false, depth: true, precision: 'mediump' }]; let le = null;
+  for (const o of tries) { try { renderer = new THREE.WebGLRenderer({ canvas, ...o }); le = null; break; } catch (e) { le = e; } }
+  if (!renderer) {
+    let again = false; try { again = sessionStorage.getItem('ph_glretry') !== '1'; if (again) sessionStorage.setItem('ph_glretry', '1'); } catch { /* ignore */ }
+    const lp = document.querySelector('#loader p'); if (lp) lp.textContent = again ? 'Starting 3D graphics again...' : 'Your phone refused to start 3D graphics (usually low memory). Close other tabs and apps, then reload.';
+    if (again) setTimeout(() => location.reload(), 900);
+    window.__glFail = true; throw le;
+  } else { try { sessionStorage.removeItem('ph_glretry'); } catch { /* ignore */ } }
 }
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
