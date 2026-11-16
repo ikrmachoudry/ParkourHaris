@@ -154,7 +154,7 @@ export class CombatScene {
     if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { if (g.tg) this.group.remove(g.tg); this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
-    if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } this.airs = null; } this._bk = -1; this._bmsg = 0;
+    if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } A.planeSound(null); this.airs = null; } this._bk = -1; this._bmsg = 0;
     zoneFx(false); zoneNear(0, 0, false); if (this.zw) { this.group.remove(this.zw); this.zw = null; } if (this.zl) { this.group.remove(this.zl); this.zl = null; } this.Z = null; this.z = null; if (this.R.minimap) { this.R.minimap.zone = null; this.R.minimap.bomb = null; this.R.minimap.air = null; }
     this.endDrop(); this.sim = null; this.on = false; this.group.visible = false; if (this.R.world && this.R.world.group) this.R.world.group.visible = !this.R.jang; this.showHud(false); document.body.classList.remove('jang-fight'); this._fight = null; if (this.slotEl) this.slotEl.style.display = 'none'; if (this.tipEl) { this.tipEl.style.display = 'none'; this._tipOn = false; } A.setCommentary(OPT.punjabi !== false);
   }
@@ -531,6 +531,14 @@ export class CombatScene {
     const THR = THREE, g = new THR.Group(), body = SM('#8d9aa6', 0.6), dark = SM('#4a5560', 0.7);
     const fu = new THR.Mesh(new THR.CylinderGeometry(1.5, 1.2, 20, 10), body); fu.rotation.x = Math.PI / 2; const wing = new THR.Mesh(new THR.BoxGeometry(26, 0.35, 3.6), body), tail = new THR.Mesh(new THR.BoxGeometry(7, 0.3, 2.2), body), fin = new THR.Mesh(new THR.BoxGeometry(0.3, 3.4, 2.4), dark); wing.position.z = 1; tail.position.z = -9.5; fin.position.set(0, 1.8, -9.4); g.add(fu, wing, tail, fin); g.scale.setScalar(1.25); return g;
   }
+  planeAudio(dt) {   // v536: the loot plane is HEARD when it flies near (up to ~520 m): louder as it comes closer, from its side, Doppler up when it comes at you and down when it leaves
+    let best = null, bd = 1e18; const c = this.R.camera.position;
+    if (this.airs && !this.dropping) for (const a of this.airs) { if (!a.plane.visible) continue; const p = a.plane.position, d2 = (p.x - c.x) ** 2 + (p.y - c.y) ** 2 + (p.z - c.z) ** 2; if (d2 < bd) { bd = d2; best = a; } }
+    const d = Math.sqrt(bd);
+    if (!best || d > 520) { if (this._paOn) { this._paOn = false; this._pd = null; A.planeSound(null); } return; }
+    const p = best.plane.position, prev = this._pd == null ? d : this._pd; this._pd = d; this._pv = (this._pv || 0) * 0.92 + Math.max(-90, Math.min(90, (prev - d) / Math.max(dt, 0.008))) * 0.08; this._paOn = true;
+    A.planeSound(Math.pow(1 - d / 520, 1.7), this.panOf(p.x, p.z), 1 + this._pv / 340, d);
+  }
   airCrate() {   // v263: the real PUBG airdrop box + the real parachute models
     const THR = THREE, g = new THR.Group(), cr = propModel('airdrop'); if (cr) { cr.scale.setScalar(1.5 / 1.8); g.add(cr); }
     const ch = new THR.Group(), cm = propModel('chute'); if (cm) { cm.scale.setScalar(1.25); cm.position.y = 1.15; ch.add(cm); } g.add(ch); g.userData.ch = ch;
@@ -556,6 +564,7 @@ export class CombatScene {
   stepAir(dt) {
     if (this.train) return;
     { const pf = this._pf; if (pf && this.plane) { if (!this.plane.visible || pf.t > 60 || this.dropping) this._pf = null; else { pf.t += dt; this.plane.position.x += pf.hd[0] * pf.v * dt; this.plane.position.z += pf.hd[1] * pf.v * dt; if (this.planeProps) for (const pv of this.planeProps) { pv.rotation.z += dt * 38; pv.visible = true; } if (pf.t > 55) { this.plane.visible = false; this._pf = null; } } } }   /* v300: the transport plane did not stand still in the sky after you landed: it flies on at its speed and leaves */
+    this.planeAudio(dt);
     if (!this.airs) return; const tp = AIR.back / AIR.v;
     for (let i = this.airs.length - 1; i >= 0; i--) { const a = this.airs[i]; a.t += dt;
       const sx = a.x - a.hd[0] * AIR.back, sz = a.z - a.hd[1] * AIR.back, tt = Math.min(a.t, 2 * tp + 6);

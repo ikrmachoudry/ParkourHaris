@@ -529,3 +529,26 @@ export function swimSet(on, speed = 0) {
   swimV.g.gain.setTargetAtTime(0.18 + 0.1 * Math.min(1, speed / 4), ctx.currentTime, 0.2);
 }
 try { window.__aud = { get ctx() { return ctx; }, get master() { return master; }, bank }; } catch { /* no window */ }
+
+// ---- v536: the AIRDROP PLANE: a built-in twin-prop / turbine drone (no sound file needed) that follows the plane: louder as it gets near, from its side, higher when it comes at you and lower when it leaves (Doppler), duller from far away
+let pln = null;
+export function planeSound(vol, pan = 0, rate = 1, dist = 0) {   // vol null / 0 = stop
+  if (!ctx || !sfxG) return;
+  if (!(vol > 0.004)) { if (pln) { const p = pln; pln = null; try { p.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.25); } catch { /* noop */ } setTimeout(() => { try { p.o.forEach((o) => o.stop()); p.n.stop(); } catch { /* noop */ } }, 1200); } return; }
+  const t = ctx.currentTime;
+  if (!pln) {
+    if (!noiseBuf) return;
+    const g = ctx.createGain(); g.gain.value = 0.0001; const am = ctx.createGain(); am.gain.value = 0.8; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.7;
+    const st = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    const o = [['sawtooth', 74, 0.5], ['sawtooth', 77.3, 0.45], ['square', 148.6, 0.14], ['sawtooth', 222, 0.08]].map(([ty, f, v]) => { const x = ctx.createOscillator(); x.type = ty; x.frequency.value = f; const gg = ctx.createGain(); gg.gain.value = v; x.connect(gg); gg.connect(am); x.start(); x._f = f; return x; });
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true; const nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = 1100; nb.Q.value = 0.5; const ng = ctx.createGain(); ng.gain.value = 0.22; n.connect(nb); nb.connect(ng); ng.connect(am); n.start();
+    const lf = ctx.createOscillator(); lf.frequency.value = 17; const lg = ctx.createGain(); lg.gain.value = 0.22; lf.connect(lg); lg.connect(am.gain); lf.start(); o.push(lf);   // the propeller "chop"
+    am.connect(lp); lp.connect(g); if (st) { g.connect(st); st.connect(sfxG); } else g.connect(sfxG);
+    pln = { g, lp, st, o, n, nb };
+  }
+  const k = Math.max(0.6, Math.min(1.5, rate));
+  pln.o.forEach((x, i) => { if (i < 4) x.frequency.setTargetAtTime(x._f * k, t, 0.15); });
+  pln.lp.frequency.setTargetAtTime(Math.max(380, 2600 - dist * 4.5), t, 0.2);
+  pln.g.gain.setTargetAtTime(Math.min(0.9, vol) * 0.8, t, 0.2);
+  if (pln.st) pln.st.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.1);
+}
