@@ -781,11 +781,12 @@ class Race {
     const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); try { const jm = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm && jm.setRange && !IS_TOUCH) jm.setRange(0.55 + 0.45 * Math.max(0, Math.min(1, (f - 480) / 620))); } catch { /* noop */ }   // v510: Jang on a laptop - the automatic draw-distance step really shortens the Jang map's view now
     if (!this.meta.city) return;
     // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
-    const D = this.jang ? (IS_TOUCH ? 420 : 760) : f; this.scene.fog.far = D; this.scene.fog.near = D * 0.85;
+    const D = this.jang ? (IS_TOUCH && !(this.scoped && !Q.low2 && !(IS_ANDROID && Q.dpr < 0.95)) ? 420 : 760) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = D * 0.85;
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }
   cullFar(dt) {
+    if (this.jang && this._farSc !== !!this.scoped) { this._farSc = !!this.scoped; this.setFar(); }
     this.cullT = (this.cullT || 0) - dt; if (this.cullT > 0 || !this.world.chunks) return; this.cullT = 0.25;
     const p = this.camera.position, f = Q.far; for (const c of this.world.chunks) { const dx = c.x - p.x, dz = c.z - p.z, R = f + c.r; c.m.visible = dx * dx + dz * dz < R * R; }
   }
