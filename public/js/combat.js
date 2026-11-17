@@ -934,6 +934,8 @@ export class CombatSim {
               if (b.stk >= (b.droid ? 1 : 2)) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
               if (b.stk >= 4 && !b.droid) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
           else b.stk = Math.max(0, (b.stk || 0) - 1); b.mvT = 0; b.mvD = 0; }
+        /* v542: DITHER WATCH - a bot that keeps walking but after 14 s is still within 3 m of where it started (re-planning back and forth, circling a prop) is sent to a fresh spot far away, so no bot stays in one place for ever */
+        b.lwT = (b.lwT || 0) + dt; if (b.lwT === dt) { b.lwx = ox; b.lwz = oz; } if (b.lwT >= 20) { if (Math.hypot(b.x - b.lwx, b.z - b.lwz) < 10 && !sees && !(b.alert > 0) && !(b.droid && b.mate)) { b.stk = Math.max(b.stk || 0, 2); b.path = null; b.think = 0; b.hide = 0; b.cov = null; if (!b.droid) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; this.events.push({ k: 'bot', id: b.id }); } } } b.lwT = 0; }
       } else { b.speed = 0; b.idT = (b.idT || 0) + dt; if (b.idT > 0.25) { b.mvT = 0; b.mvD = 0; } }   // v482: ONE still tick (a fresh path starts with one) no longer resets the stuck watch - a bot that re-plans often could stay stuck on a prop for ever
     }
   }

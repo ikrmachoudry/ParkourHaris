@@ -2699,7 +2699,7 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') press.jump = true;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyF') press.dive = true;
-  if (voiceOn() && voice && voice.ptt && e.code === 'KeyT') { if (e.repeat) { keys.delete(e.code); return; } if (!voice.want) voice.setMic(true).then(() => voiceUI()); voice.setHeld(true); voiceUI(); keys.delete(e.code); return; }   // v386: hold T to talk (push to talk)
+  if (voiceOn() && voice && voice.ptt && e.code === 'KeyT') { if (e.repeat) { keys.delete(e.code); return; } if (!voice.want) setTimeout(() => { if (voice.held || !voice.want) voice.setMic(true).then(() => voiceUI()).catch(() => {}); }, 60); voice.setHeld(true); voiceUI(); keys.delete(e.code); return; }   // v386: hold T to talk (push to talk)
   if (voiceOn() && !e.repeat && (e.code === 'KeyT' || e.code === 'KeyL')) { $(e.code === 'KeyT' ? 'vc-mic' : 'vc-spk').click(); keys.delete(e.code); return; }   // v236: T = talk (mic on/off), L = loud speaker (hear teammates on/off); V is the weapon swap again
   if (e.code === 'KeyM') { if (race && !race.over && race.meta.city) race.toggleMap(); else toggleSound(); }
   if (e.code === 'Tab' && race && race.meta.city) { e.preventDefault(); const csT = race.mission && race.mission.cs; if (csT && csT.on && csT.inv) { if (!e.repeat && !race.menuOpen && !race.over) csT.inv.toggle(); } else race.toggleMap(); return; }   /* v526: TAB opens / closes the BACKPACK in Jang (the map stays on M) */
