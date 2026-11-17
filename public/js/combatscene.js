@@ -702,7 +702,7 @@ export class CombatScene {
       if (P.alive && !this.dropping && !this.down) { const it = sim.take(P.x, P.z, (q) => this.canTake(q) && this.autoOk(q), b.y); if (it) this.pickup(it); this.promptTick(P); this.useTick(dt); if (this.train) this.trainTick(); } else this.promptIt = null;
       sim.tick(dt, P); this.vehHits(dt, P);
       for (const e of sim.drain()) this.event(e, b);
-      if (this.spec) { this.specTick(); this.specHud(); }
+      if (this.spec) { this.specTick(); this.specHud(); { const mb = this.R.me.body; mb.stun = 9; mb.vx = 0; mb.vz = 0; } }   /* v539: a dead player who spectates stays put (after the 4 s death stun the keys moved the corpse around) */
       if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.hp = MY_DMG; this.down = false; this.respawn(); if (this.soloTeam()) { R.prone = false; this.startDrop(); R.toast && R.toast('LIFE ' + (4 - this.lives) + ' OF 3 - JUMP FROM THE PLANE', 4); } if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); this.giveKit(); } if (this.ov) this.ov.style.display = 'none'; } }
       if (this.time <= 0) this.finish();
       else if (!this.shared && !this.over && !this.dropping && this.sim.bots.length && this.sim.bots.every((q) => !q.alive || q.droid) && this.hp > 0 && this.deadT <= 0 && !this.down) { this.R.toast && this.R.toast('ALL BOTS ELIMINATED', 3); this.finish('', 'win'); }   // v378: solo: every bot dead before time is up = MISSION PASSED

@@ -640,7 +640,7 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
 // v258: can a bullet fly from the bot (ground ay) to the player (height py) without crossing ANY solid (walls, pillars, floors, roofs)? 3D: samples the sloped line every 0.5 m
 export function shotClear(L, ax, az, bx, bz, ay, by) {
   /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
-  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.8) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = new Set();
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.3) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = new Set();
   for (let k = 0; k <= n; k++) {
     const t = Math.min(1, k * ST / d), px = ax + dx * t, pz = az + dz * t, ci = Math.floor(px / B), cj = Math.floor(pz / B);
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
@@ -652,7 +652,7 @@ export function shotClear(L, ax, az, bx, bz, ay, by) {
         if (Math.abs(dz) < 1e-9) { if (az < s.z0 || az > s.z1) continue; } else { let p = (s.z0 - az) / dz, q = (s.z1 - az) / dz; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
         if (t0 > t1) continue;
         if (Math.abs(dy) < 1e-9) { if (y0 < s.y0 - 0.05 || y0 > s.y1 + 0.05) continue; } else { let p = (s.y0 - 0.05 - y0) / dy, q = (s.y1 + 0.05 - y0) / dy; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
-        if (t0 > t1 || t1 * d < 0.45 || t0 * d > d - 0.45) continue;
+        if (t0 > t1 || t1 * d < 0.12 || t0 * d > d - 0.12) continue;   /* v539: (also: shots shorter than 0.8 m were always 'clear' - a bot and a player on the two sides of a thin wall are less than 0.8 m apart) was 0.45 m at BOTH ends: a player standing against a wall (or a bot hugging it from outside) had the whole 0.3 m wall inside the ignored zone, so bullets passed through it */
         return false;
       }
     }
