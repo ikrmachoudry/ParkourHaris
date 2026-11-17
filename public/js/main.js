@@ -1718,6 +1718,11 @@ class Race {
   }
   toggleFireMode() { const w = this.weapon, W = w && WEAPONS[w]; if (!W || !W.auto) { this.toast('Single shot only on this weapon'); return; } this.single = !this.single; this.toast(this.single ? 'FIRE MODE: SINGLE' : 'FIRE MODE: AUTO'); const b = $('a-fmode'); if (b) b.classList.toggle('on', !!this.single); }
   // the point the crosshair (screen centre) looks at: along the camera ray, down to the ground when it points down, 40+ m ahead otherwise
+  attRecoil(w, W) {   // v538: what the attached parts do to the recoil (1 = nothing attached). this.att = { grip, muzzle, stock } is filled by the attachment system; the numbers follow PUBG
+    const a = this.att || null; let v = 1, h = 1; if (!a) return { v, h };
+    const G = { vertical: [0.85, 1.0], angled: [1.0, 0.82], half: [0.9, 0.9], thumb: [0.93, 0.95] }[a.grip], M = { comp: [0.85, 0.85], flash: [0.93, 0.93], sup: [0.96, 0.96], brake: [0.88, 0.9] }[a.muzzle], S = { tactical: [0.92, 0.92], cheek: [0.9, 0.9] }[a.stock];
+    for (const q of [G, M, S]) if (q) { v *= q[0]; h *= q[1]; } return { v, h };
+  }
   spreadK() {   // v289 PUBG: bullets go where the crosshair is when you aim down the sights; hip fire is a wide cone, moving opens it, crouching / lying closes it
     const b = this.me.body, mv = Math.hypot(b.vx || 0, b.vz || 0); let k = this.aiming ? 0.18 : 0.5; if (mv > 1.2) k *= 1.35; if (this.prone) k *= 0.55; else if (this.crouch) k *= 0.75; return k;
   }
@@ -1739,7 +1744,14 @@ class Race {
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
-    this.wallet.shoot(w); { const rc = (W.recoil || 0.01) * (this.crouch ? 0.7 : 1) * (this.aiming ? 0.8 : 1) * (W.auto && !W.scope ? 0.65 : 1) * (this.prone ? 0.55 : 1); this.recoilAcc = Math.min(W.auto ? 0.16 : 0.25, (this.recoilAcc || 0) + rc); this.camPitch = clamp(this.camPitch - rc, -0.8, this.pmax()); this.camYaw += (Math.random() - 0.5) * rc * 0.8; } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
+    this.wallet.shoot(w); {   /* v538 PUBG-style recoil: the FIRST shots kick little, a long spray climbs (about +55% by the 10th bullet), the sideways sway keeps a direction for ~7 shots then may flip, standing > crouching > lying, aiming down the sights steadies it, and the attachments (grips / muzzle / stock) scale it */
+    const nw = performance.now(); if (nw - (this._rcT || 0) > 380) this._rcN = 0; this._rcT = nw; const n = this._rcN = (this._rcN || 0) + 1;
+    if (n === 1 || n % 7 === 0) this._rcDir = Math.random() < 0.5 ? -1 : 1;
+    const A = this.attRecoil(w, W), ramp = W.auto ? 0.8 + 0.45 * Math.min(1, (n - 1) / 10) : 1, st = (this.prone ? 0.6 : this.crouch ? 0.8 : 1) * (this.aiming ? 0.85 : 1);
+    const rv = (W.recoil || 0.01) * (W.auto && !W.scope ? 0.7 : 1) * ramp * st * A.v, rh = (W.recoil || 0.01) * st * A.h;
+    this.recoilAcc = Math.min(W.auto ? 0.17 : 0.25, (this.recoilAcc || 0) + rv); this.camPitch = clamp(this.camPitch - rv, -0.8, this.pmax());
+    this.camYaw += (this._rcDir * 0.35 + (Math.random() - 0.5) * 0.7) * rh * (W.auto ? 0.9 : 0.6);
+  } this.fireCd = W.rate; this.shootT = 0.55; this.aimT = 1.8; this.updateAmmoHud();
     const b = this.me.body; if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     const aimP = this.crosshairPoint(W.range), mz = this.muzzleWorld();
     let lnx = Math.cos(this.camYaw) * (this.leanV || 0) * 0.6, lnz = -Math.sin(this.camYaw) * (this.leanV || 0) * 0.6;   /* v352: the bullet leaves 0.6 m to the side (was 0.9: too far out of cover) */
