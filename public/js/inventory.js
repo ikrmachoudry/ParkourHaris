@@ -4,9 +4,9 @@ import { WEAPONS } from './economy.js';
 
 export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, molotov: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1 };
 const ITEMS = [
-  { k: 'med', icon: '✚', name: 'FIRST AID', info: '+50 health, 4 s', key: 'F', col: '#ff5c5c' },
-  { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+25 health, 3 s', key: 'P', col: '#ffa94d' },
-  { k: 'inject', icon: '💉', name: 'ADRENALINE', info: '+20 health, speed boost', key: 'A', col: '#5ec8ff' },
+  { k: 'med', icon: '✚', name: 'FIRST AID', info: 'up to 75 health, 4 s', key: 'F', col: '#ff5c5c' },
+  { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+60 boost, 5 s', key: 'P', col: '#ffa94d' },
+  { k: 'inject', icon: '💉', name: 'ADRENALINE', info: '+100 boost, 4 s', key: 'A', col: '#5ec8ff' },
   { k: 'smoke', icon: '☁', name: 'SMOKE BOMB', info: 'throw: cover for 15 s', key: 'S', col: '#cfd6dc' },
   { k: 'molotov', icon: '🔥', name: 'MOLOTOV', info: 'throw: fire on the ground for 8 s', key: 'O', col: '#ff9a3c' },
   { k: 'grenade', icon: '💣', name: 'GRENADE', info: 'hold, then throw', key: 'G', col: '#8dff6b' },

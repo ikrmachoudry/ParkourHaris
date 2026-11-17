@@ -638,9 +638,20 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs) {
   return best;
 }
 // v258: can a bullet fly from the bot (ground ay) to the player (height py) without crossing ANY solid (walls, pillars, floors, roofs)? 3D: samples the sloped line every 0.5 m
+// v540: a bullet can never pass through a hill / mountain / bank: from (ax,az) at height ya to (bx,bz) at height yb the ground is sampled every 2 m (the first 2.5 m and the last 1.5 m are skipped); if the ground rises above the bullet line it is stopped. Grass is not a solid (as in PUBG); trees and walls are handled by the wall test.
+export function terrainBlocked(ax, az, ya, bx, bz, yb) {
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 5) return false; const n = Math.min(60, Math.ceil(d / 2));
+  for (let k = 1; k < n; k++) { const t = k / n, dd = t * d; if (dd < 2.5 || dd > d - 1.5) continue; const x = ax + dx * t, z = az + dz * t; if (cmbH(x, z) > ya + (yb - ya) * t - 0.05) return true; }
+  return false;
+}
+// the distance at which a bullet (starting at map-local ox,oz heading fx,fz with height line y(a)) hits the ground, or Infinity
+export function terrainStop(ox, oz, fx, fz, range, yAt) {
+  for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) - 0.05) return a; return Infinity;
+}
 export function shotClear(L, ax, az, bx, bz, ay, by) {
   /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
   const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.3) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + 1.3, y1 = (by === undefined ? cmbH(bx, bz) : by) + 1.3, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = new Set();
+  if (terrainBlocked(ax, az, y0, bx, bz, y1)) return false;
   for (let k = 0; k <= n; k++) {
     const t = Math.min(1, k * ST / d), px = ax + dx * t, pz = az + dz * t, ci = Math.floor(px / B), cj = Math.floor(pz / B);
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
@@ -659,7 +670,7 @@ export function shotClear(L, ax, az, bx, bz, ay, by) {
   }
   return true;
 }
-export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.01) return true; return rayWalls(L, ax, az, dx / d, dz / d, d, 1.4) >= d - 0.05; }
+export function los(L, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.01) return true; if (d > 6 && terrainBlocked(ax, az, cmbH(ax, az) + 1.4, bx, bz, cmbH(bx, bz) + 1.4)) return false; return rayWalls(L, ax, az, dx / d, dz / d, d, 1.4) >= d - 0.05; }
 
 
 // v254 VAULT (PUBG): only the low broken walls / sandbag rows can be climbed over. From (x,z) [map-local] heading (dx,dz) look up to 1.3 m ahead for such a piece; it must be crossed
@@ -798,7 +809,8 @@ export class CombatSim {
   friendly(b, by) { return !!(b.droid && (!b.placed || (this.soloDroid ? by === undefined : this.ptm && this.ptm[by] === b.dtm))); }   // a bullet / blast of the droid's own team never hurts it
   shoot(ox, oz, fx, fz, range, dmg, yAbs, by, slack, bal) {   /* v298: slack = extra hit radius the SERVER gives remote shooters: the bot they saw was ~0.3 s old (ping), so a moving bot was a metre away from where the sniper aimed */
     let yW = yAbs; if (yAbs !== undefined) { const g0 = cmbH(ox, oz); if (yAbs < g0 + 1.05) yW = bal && Number.isFinite(bal.y) ? Math.max(yAbs, Math.min(bal.y, g0 + 1.55)) : g0 + 1.3;   /* v444: a crouching shooter's camera sees (and shoots) over a 0.95 m window sill */ }   /* v414: a PRONE / crouching shooter fires along the CAMERA line (it sees over a window sill, a low wall...): the wall test used his belly height, so the sill ate every bullet and a bot in the window could not be hit */
-    const wall = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yW); let best = null, bd = Math.min(range, wall), bhead = false; const DF = DIFFS[this.diff] || DIFFS.medium;
+    const wall0 = rayWalls(this.L, ox, oz, fx, fz, range, 1.3, yW), yAt = bal && Number.isFinite(bal.y) ? (a) => bal.y + bal.sl * a - bal.k * a * a : (() => { const yy = yW !== undefined ? yW : cmbH(ox, oz) + 1.3; return () => yy; })(), tstop = terrainStop(ox, oz, fx, fz, range, yAt), wall = Math.min(wall0, tstop);   /* v540: hills stop bullets */
+    let best = null, bd = Math.min(range, wall), bhead = false; const DF = DIFFS[this.diff] || DIFFS.medium;
     for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > DF.R + (slack || 0)) continue;
       let head = false; if (bal) { const gy = b.y != null ? b.y : onDeck(b.x, b.z) ? BRIDGE.y : cmbH(b.x, b.z), H = STH[b.stn | 0], rel = bal.y + bal.sl * a - bal.k * a * a - gy; if (rel < -0.1 || rel > H + 0.1) continue; head = rel >= H - 0.3 && pr < DF.R * 0.8 + (slack || 0); }   /* v331: the bullet must pass through the bot (feet to head, lower when he crouches or lies down); the top 30 cm is the head */
       best = b; bd = a; bhead = head; }
