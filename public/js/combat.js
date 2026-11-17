@@ -867,7 +867,8 @@ export class CombatSim {
           if (b.cl.t >= 1) { b.y = si.fy + si.rise; b.bld = b.cl.B; b.cl = null; b.path = null; b.x = si.top.x; b.z = si.top.z; } else if (b.cl.t <= 0) { b.y = null; b.bld = null; b.x = si.foot.x; b.z = si.foot.z; b.cl = null; b.path = null; } }
         continue;
       }
-      if (zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 2) { b.zt = (b.zt || 0) + dt; if (b.zt >= 1) { b.zt -= 1; this.hurt(b, zn.dps * 0.7, 0, 0, -2); if (!b.alive) continue; } } else b.zt = 0;   // v251: bots take the blue-circle damage too
+      if (zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 2) { b.zt = (b.zt || 0) + dt; if (b.zt >= 1) { b.zt -= 1; this.hurt(b, zn.dps * 0.7, 0, 0, -2); if (!b.alive) continue; } } else b.zt = 0;   /* v543: a bot OUTSIDE the blue circle re-plans every 2.5 s straight into it (it used to keep its old plan: up to half of them stood in the storm late in the match) */
+      if (zn && !b.cl && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 3) { b.zo = (b.zo || 0) + dt; if (b.zo > 2.5) { b.zo = 0; b.think = 0; b.hide = 0; b.cov = null; } } else b.zo = 0;   // v251: bots take the blue-circle damage too
       let CL = this.droidBot ? this.candsFor(b, PL) : PL; let P = CL.length ? CL[0] : { x: b.x, z: b.z, alive: false, id: -1 }; if (CL.length > 1) { let bd = 1e18; for (const q of CL) { const dd = (q.x - b.x) ** 2 + (q.z - b.z) ** 2 + (q.alive ? 0 : 1e6); if (dd < bd) { bd = dd; P = q; } } }   // v245: the nearest living player
       const dx = P.x - b.x, dz = P.z - b.z, d = Math.hypot(dx, dz) || 1;
       /* v524 DEAD-END WATCHDOG: a hunting bot that walked into a room and then stands there (more than 14 m from his target, not shooting, not on the stairs) for 8 s gets a fresh route; the second time he is put just outside the building on the side of his target - he can never sit in a room for ever */
@@ -920,7 +921,7 @@ export class CombatSim {
             else if (b.bld) { b.cl = { B: b.bld, t: 1, dir: -1 }; continue; }
             else { b.y = null; } } }
         if (b.y == null && !dir3 && b.path && b.pi < b.path.length) {
-          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = b.alert > 0 || b.farMate || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; if (b.droid && (b.mateD || 0) > 8 && !(b.alert > 0 && d < 70)) sp = Math.min(8, 5 + ((b.mateD || 0) - 8) * 0.5);   /* v482: the droid RUNS to catch up (4.2 m/s was slower than your sprint: it fell 40 m behind and was then teleported = 'gone, then suddenly back') */ b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
+          const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; sp = zn && Math.hypot(b.x - zn.x, b.z - zn.z) > zn.r + 3 ? 5.4 : b.alert > 0 || b.farMate || (zn && Math.hypot(b.x - zn.nx, b.z - zn.nz) > zn.nr) ? 4.2 : 2.2; if (b.droid && (b.mateD || 0) > 8 && !(b.alert > 0 && d < 70)) sp = Math.min(8, 5 + ((b.mateD || 0) - 8) * 0.5);   /* v482: the droid RUNS to catch up (4.2 m/s was slower than your sprint: it fell 40 m behind and was then teleported = 'gone, then suddenly back') */ b.walk = b.alert <= 0; const want = Math.atan2(ex, ez); const da = Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)); b.yaw += da * Math.min(1, dt * 8); }
         }
       }
       const l = Math.hypot(mx, mz);
