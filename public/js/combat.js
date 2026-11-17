@@ -646,7 +646,7 @@ export function terrainBlocked(ax, az, ya, bx, bz, yb) {
 }
 // the distance at which a bullet (starting at map-local ox,oz heading fx,fz with height line y(a)) hits the ground, or Infinity
 export function terrainStop(ox, oz, fx, fz, range, yAt) {
-  for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) - 0.05) return a; return Infinity;
+  for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) + 0.12) return a; return Infinity;
 }
 export function shotClear(L, ax, az, bx, bz, ay, by) {
   /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
