@@ -724,7 +724,7 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'sscope'];
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
 export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
 export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
 
@@ -734,7 +734,7 @@ const BOT = { pistol: { cd: 0.55, dmg: 14, acc: 0.5 }, ak: { cd: 0.17, dmg: 11, 
 export const BOTS_BY_DIFF = { easy: 12, medium: 22, hard: 32 };   // v378: how many bots a match has (solo and multiplayer)
 export const BOTS_PHONE = { easy: 12, medium: 16, hard: 20 };   // v379: phones run fewer bots on the bigger levels (32 bots cost ~2.5x the CPU of 12)
 export const botCount = (d, phone) => (phone ? BOTS_PHONE : BOTS_BY_DIFF)[d] || BOTS_BY_DIFF.medium;
-export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.42, bm: 0.75, hm: 0.75 }, hard: { R: 0.32, bm: 0.55, hm: 0.6 } };
+export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.48, bm: 0.9, hm: 0.9 }, hard: { R: 0.4, bm: 0.72, hm: 0.8 } };
 const STH = [1.8, 1.25, 0.6];   // standing / crouching / prone: how tall the hit box is
 export class CombatSim {
   constructor(seed = 1, nBots = 8) {
