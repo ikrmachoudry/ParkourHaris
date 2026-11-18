@@ -646,7 +646,7 @@ export function terrainBlocked(ax, az, ya, bx, bz, yb) {
 }
 // the distance at which a bullet (starting at map-local ox,oz heading fx,fz with height line y(a)) hits the ground, or Infinity
 export function terrainStop(ox, oz, fx, fz, range, yAt) {
-  for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) + 0.12) return a; return Infinity;
+  for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) + 0.3) return a; return Infinity;
 }
 export function shotClear(L, ax, az, bx, bz, ay, by) {
   /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
@@ -734,7 +734,7 @@ const BOT = { pistol: { cd: 0.55, dmg: 14, acc: 0.5 }, ak: { cd: 0.17, dmg: 11, 
 export const BOTS_BY_DIFF = { easy: 12, medium: 22, hard: 32 };   // v378: how many bots a match has (solo and multiplayer)
 export const BOTS_PHONE = { easy: 12, medium: 16, hard: 20 };   // v379: phones run fewer bots on the bigger levels (32 bots cost ~2.5x the CPU of 12)
 export const botCount = (d, phone) => (phone ? BOTS_PHONE : BOTS_BY_DIFF)[d] || BOTS_BY_DIFF.medium;
-export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.48, bm: 0.9, hm: 0.9 }, hard: { R: 0.4, bm: 0.72, hm: 0.8 } };
+export const DIFFS = { easy: { R: 0.56, bm: 1, hm: 1 }, medium: { R: 0.6, bm: 0.9, hm: 0.9 }, hard: { R: 0.52, bm: 0.72, hm: 0.8 } };
 const STH = [1.8, 1.25, 0.6];   // standing / crouching / prone: how tall the hit box is
 export class CombatSim {
   constructor(seed = 1, nBots = 8) {

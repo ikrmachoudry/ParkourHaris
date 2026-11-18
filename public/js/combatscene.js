@@ -1076,7 +1076,7 @@ export class CombatScene {
     if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill' || !!q.h); if (q.h) this.R.toast && this.R.toast('HEADSHOT', 0.8); break; } } }   // solo: the hit is known at once
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
-      for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
+      for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.95 + Math.min(0.5, a * 0.004)) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
       if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(75, PVP_DMG[w] !== undefined ? PVP_DMG[w] : dmg * 12).toFixed(1), w: String(w || '').slice(0, 11) }); return hd; }
     }
     return d;
