@@ -512,22 +512,31 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   { const gp = (n) => { const ps = propParts(n); return ps && ps[0] ? ps[0] : null; }, tuft = gp('tuft'), reed = gp('reeds');
     const mkGrass = (part, items, cull, sh) => { if (!part || !items.length) return; const mat = part.mat.clone(); mat.vertexColors = false; mat.side = THREE.DoubleSide; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.roughness = 1; mat.metalness = 0; const geo = part.geo;
       makeInst(geo, mat, items, cull, false, (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.82 + k * 0.4, 0.9 + (1 - k) * 0.25, 0.7 + k * 0.2); }); };
-    const rg = rngS(564), tIt = [], rIt = [], nT = q === 0 ? 120 : 240, nR = q === 0 ? 24 : 48;
-    for (let tries = 0; tries < 9000 && (tIt.length < nT || rIt.length < nR); tries++) {
-      const x = (rg() * 2 - 1) * (H - 30), z = (rg() * 2 - 1) * (H - 30), y = cmbH(x, z), rv = Math.abs(x - riverX(z)), a1 = rg(), a2 = rg(), a3 = rg();
+    /* v570 MORE GRASS: laptops get 5x grass in the hiding patches and 4x everywhere else; phones / the low tier get 3x and 2.5x. The base layer is exactly the old grass (same places, same draw distance); the extra layers are drawn only closer to you (70 % of the distance), so far away the cost is the same as before and the extra tufts only exist where you can see them. */
+    const weak = q === 0 || /Android|iPhone|iPad|Mobile/i.test(typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''), MP = weak ? 3 : 5, MO = weak ? 2.5 : 4;
+    const pickT = (rg, out, n, maxTries) => { for (let tries = 0; tries < maxTries && out.length < n; tries++) {
+      const x = (rg() * 2 - 1) * (H - 30), z = (rg() * 2 - 1) * (H - 30), y = cmbH(x, z), a1 = rg(), a2 = rg(), a3 = rg();
       if (distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) || conc(x, z) > 0.2) continue; const dx = cmbH(x + 1.5, z) - y, dz = cmbH(x, z + 1.5) - y; if (Math.hypot(dx, dz) > 0.6) continue;
-      if (y < 0.5 || y > 30 || tIt.length >= nT) continue; if (fbm(x * 0.05 + 7, z * 0.05 - 2, 64, 2) < 0.42) continue;
-      tIt.push({ x, y: y - 0.03, z, s: 0.9 + a1 * 0.6, sy: 0.55 + a2 * 0.3, r: a3 * 6.28 }); }   /* a tuft model is 1.1 m wide and 1.0 m tall; s scales every axis, sy only the height: 0.5 - 1.2 m tall */
-    for (let tries = 0; tries < 6000 && rIt.length < nR; tries++) {   /* reed clumps: picked ALONG the river banks (a random spot on the map almost never lands in the 5 - 30 m band) */
+      if (y < 0.5 || y > 30) continue; if (fbm(x * 0.05 + 7, z * 0.05 - 2, 64, 2) < 0.42) continue;
+      out.push({ x, y: y - 0.03, z, s: 0.9 + a1 * 0.6, sy: 0.55 + a2 * 0.3, r: a3 * 6.28 }); } };   /* a tuft model is 1.1 m wide and 1.0 m tall; s scales every axis, sy only the height: 0.5 - 1.2 m tall */
+    const pickR = (rg, out, n, maxTries) => { for (let tries = 0; tries < maxTries && out.length < n; tries++) {   /* reed clumps: picked ALONG the river banks (a random spot on the map almost never lands in the 5 - 30 m band) */
       const z = (rg() * 2 - 1) * (H - 30), x = riverX(z) + (rg() < 0.5 ? -1 : 1) * (5 + rg() * 25), y = cmbH(x, z), a1 = rg(), a2 = rg(), a3 = rg(); if (Math.abs(x) > H - 30 || y < -0.2 || y > 1.7 || distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) ) continue;
-      if (Math.hypot(cmbH(x + 1.5, z) - y, cmbH(x, z + 1.5) - y) > 0.6) continue; rIt.push({ x, y: y - 0.05, z, s: 0.4 + a1 * 0.25, sy: 0.85 + a2 * 0.3, r: a3 * 6.28 }); }
+      if (Math.hypot(cmbH(x + 1.5, z) - y, cmbH(x, z + 1.5) - y) > 0.6) continue; out.push({ x, y: y - 0.05, z, s: 0.4 + a1 * 0.25, sy: 0.85 + a2 * 0.3, r: a3 * 6.28 }); } };
+    const rg = rngS(564), tIt = [], rIt = [], nT = q === 0 ? 120 : 240, nR = q === 0 ? 24 : 48;
+    pickT(rg, tIt, nT, 9000); pickR(rg, rIt, nR, 6000);
     mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160);
+    { const rx = rngS(570), tX = [], rX = []; pickT(rx, tX, Math.round(nT * (MO - 1)), 45000); pickR(rx, rX, Math.round(nR * (MO - 1)), 20000); mkGrass(tuft, tX, (q === 0 ? 70 : 110) * 0.7); mkGrass(reed, rX, (q === 0 ? 110 : 160) * 0.7); }
     /* v565 TALL-GRASS PATCHES (L.grass, made in combat.js): dense waist-high clumps of the same grass model, ~1 m tall so a prone or crouching player disappears in it */
     { const rp = rngS(565), pIt = [], per = q === 0 ? 100 : 175;
       for (const g of L.grass || []) for (let i = 0, tr = 0; i < per && tr < per * 4; tr++) {
         const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
         const y = cmbH(x, z); if (y < 0.3) continue; i++; pIt.push({ x, y: y - 0.05, z, s: 1.0 + rp() * 0.3, sx: 1.9 + rp() * 0.5, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
-      mkGrass(tuft, pIt, q === 0 ? 60 : 95); } }
+      mkGrass(tuft, pIt, q === 0 ? 60 : 95);
+      { const rq = rngS(571), pX = [], perX = Math.round(per * (MP - 1));   /* the extra layer: the same places, 4x (laptop) / 2x (phone) more tufts, drawn up to 70 % of the distance */
+        for (const g of L.grass || []) for (let i = 0, tr = 0; i < perX && tr < perX * 4; tr++) {
+          const a = rq() * 6.283, rr = Math.sqrt(rq()) * g.r * 0.98, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rq() < (rr / g.r) ** 3 * 0.7 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
+          const y = cmbH(x, z); if (y < 0.3) continue; i++; pX.push({ x, y: y - 0.05, z, s: 0.85 + rq() * 0.25, sx: 1.25 + rq() * 0.6, sy: 0.8 + rq() * 0.2, r: rq() * 6.28 });   /* the extra tufts are a little smaller (0.8 - 1.0 m tall, 1.2 - 2 m wide): a dense carpet, but a prone camera is not walled in by one huge leaf */ }
+        mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7); } } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);
