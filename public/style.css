@@ -1629,3 +1629,108 @@ body.big-map #nade-cancel, body.m-open #nade-cancel { display: none !important; 
 .tmh.phone em { font-size: 7px; }
 .tmh.phone u { flex-basis: 9px; height: 9px; }
 .tmh.phone .hb { height: 3px; margin-bottom: 2px; }
+
+/* ===== v571 PUBG-STYLE UI: every menu / page button, panel, card, chip, input and tab. CSS ONLY (no ids, classes or handlers changed). Smaller everywhere (sizes follow the screen HEIGHT so a phone and a laptop both get compact controls), dark glass with cut corners, thin light borders, PUBG yellow for the main action and the selected item. In-game touch controls are NOT touched. ===== */
+:root { --pg: #f5b301; --pg2: #ffd24a; --pgink: #14161a; --pgmute: #9aa3ad; --glass: rgba(14,16,20,.88); --crim: #f5b301; --crim2: #b57f00; --cut: 6px; }
+/* buttons: base (dark, cut corners, thin border) */
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.btn:not(#home-pick .btn) { font: 800 clamp(10px, 1.9vh, 12.5px)/1.15 var(--ui) !important; letter-spacing: .1em !important; text-transform: uppercase; text-shadow: none !important; padding: clamp(5px, 1.05vh, 8px) clamp(10px, 1.5vw, 14px) !important; min-height: 0; border: 0 !important; border-radius: 0 !important;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); background: linear-gradient(180deg, rgba(60,66,76,.92), rgba(28,32,39,.95)) !important; color: #eef1f4 !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), inset 0 1px 0 rgba(255,255,255,.1), inset 3px 0 0 var(--pg) !important; backdrop-filter: none; transition: background .12s, box-shadow .12s; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.btn:not(#home-pick .btn):hover { background: linear-gradient(180deg, rgba(245,179,1,.3), rgba(245,179,1,.12)) !important; color: #fff !important; box-shadow: inset 0 0 0 1px var(--pg), inset 3px 0 0 var(--pg) !important; transform: none !important; filter: none !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.btn:not(#home-pick .btn):active { transform: translateY(1px) !important; background: rgba(245,179,1,.4) !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.btn:not(#home-pick .btn):disabled { opacity: .4; }
+/* the main action = PUBG yellow */
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.green:not(#home-pick .btn) { background: linear-gradient(180deg, #ffd84f, #f5b301) !important; color: var(--pgink) !important; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.55) !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.green:not(#home-pick .btn):hover { background: linear-gradient(180deg, #ffe785, #ffc21f) !important; color: #000 !important; box-shadow: inset 0 0 0 1px #fff !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.green:not(#home-pick .btn) small { color: rgba(20,22,26,.8) !important; opacity: 1 !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.green:not(#home-pick .btn):hover small { color: #000 !important; }
+/* sizes */
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.big:not(#home-pick .btn) { font-size: clamp(11px, 2.15vh, 14px) !important; padding: clamp(6px, 1.2vh, 9px) clamp(10px, 1.6vw, 14px) !important; gap: 1px; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.big:not(#home-pick .btn) small { font: 600 clamp(8px, 1.45vh, 10px)/1.2 var(--ui) !important; letter-spacing: .05em !important; text-transform: none; opacity: .78; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.small:not(#home-pick .btn) { font-size: clamp(9px, 1.6vh, 11px) !important; padding: clamp(4px, .85vh, 6px) 10px !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .row.end .btn.btn:not(#home-pick .btn) { text-align: center; }
+/* panels and containers: dark glass, cut top-left / bottom-right corner, yellow tick marks in the other two corners */
+#ui .panel.panel.panel, #ui #s-about .panel.about.about { border-radius: 0 !important; border: 1px solid rgba(255,255,255,.14) !important; border-top: 1px solid rgba(255,255,255,.14) !important; box-shadow: none !important;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  background: linear-gradient(var(--pg), var(--pg)) right top / 22px 2px no-repeat, linear-gradient(var(--pg), var(--pg)) right top / 2px 22px no-repeat, linear-gradient(var(--pg), var(--pg)) left bottom / 22px 2px no-repeat, linear-gradient(var(--pg), var(--pg)) left bottom / 2px 22px no-repeat, linear-gradient(135deg, rgba(26,29,36,.93), rgba(11,13,17,.95)) !important; }
+#ui .panel.panel.panel { padding: clamp(10px, 2.2vh, 18px) clamp(12px, 2vw, 20px) !important; }
+#ui .panel h2, #ui #s-settings h2, #ui .lobby h2 { font: 800 clamp(13px, 2.5vh, 17px)/1.1 var(--ui) !important; letter-spacing: .2em !important; margin: 0 0 clamp(4px, 1vh, 8px) !important; text-align: left; color: #fff; }
+#ui #pause .panel h2, #ui #pset .panel h2 { text-align: center; }
+#ui .panel h2::after, #ui #s-settings h2::after, #ui .lobby h2::after, #ui #s-profile .panel h2::after { width: 28px !important; height: 2px !important; margin-top: 5px !important; background: var(--pg) !important; }
+#ui .note, #ui .panel .note { font-size: clamp(10px, 1.8vh, 12.5px) !important; line-height: 1.35; }
+#ui .field, #ui #s-profile .field { font-size: clamp(8px, 1.5vh, 10px) !important; letter-spacing: .2em; }
+/* inputs */
+#ui .panel input:not([type=range]):not([type=checkbox]), #ui .panel .field input, #ui #s-profile .field input { font: 700 clamp(12px, 2.3vh, 15px)/1.2 var(--ui) !important; letter-spacing: .08em; padding: clamp(5px, 1vh, 8px) 10px !important; border-radius: 0 !important; background: rgba(255,255,255,.06) !important; border: 1px solid rgba(255,255,255,.22) !important; border-bottom: 2px solid rgba(255,255,255,.3) !important; }
+#ui .panel input:not([type=range]):focus, #ui #s-profile .field input:focus { border-color: var(--pg) !important; background: rgba(245,179,1,.08) !important; outline: none; }
+/* difficulty / segmented chips */
+#ui .dsel { gap: 4px; margin: 2px 0; }
+#ui .dsel span { font: 700 clamp(8px, 1.45vh, 10px) var(--ui); letter-spacing: .16em; color: var(--pgmute); opacity: 1; }
+#ui .dsel button { border: 0; border-radius: 0; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); color: #dfe3e8; font: 800 clamp(9px, 1.7vh, 11.5px) var(--ui); letter-spacing: .1em; padding: clamp(4px, .9vh, 7px) 4px; }
+#ui .dsel button:hover { box-shadow: inset 0 0 0 1px var(--pg); }
+#ui .dsel button.on { background: linear-gradient(180deg, #ffd84f, #f5b301); color: var(--pgink); box-shadow: none; }
+#ui .dsel button[data-d="hard"].on { background: linear-gradient(180deg, #ff6b5c, #e0392b); color: #fff; }
+#ui #solo-dsel button small, #ui .dsel button small { font: 600 clamp(7px, 1.3vh, 9px) var(--ui); opacity: .75; }
+/* cards (characters, levels) */
+#ui .card.card.card { border: 0 !important; border-radius: 0 !important; background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16) !important; clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px); }
+#ui .card.card.card:hover { background: rgba(255,255,255,.12) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.4) !important; }
+#ui .card.card.card.sel { background: rgba(245,179,1,.14) !important; box-shadow: inset 0 0 0 1px var(--pg), inset 0 -3px 0 var(--pg) !important; }
+#ui .card b, #ui .cards.levels .card h4 { letter-spacing: .1em; }
+#ui .cards.levels .card { min-height: clamp(96px, 26vh, 132px) !important; padding: clamp(6px, 1.2vh, 10px) !important; }
+#ui .cards.levels .card h4 { font-size: clamp(12px, 2.3vh, 16px) !important; }
+#ui .cards.levels .card .stars { font-size: clamp(11px, 2vh, 15px); color: var(--pg2); }
+#ui .cards.levels .card .meta { font-size: clamp(9px, 1.6vh, 11px); } #ui .cards.levels .card .blurb { font-size: clamp(8px, 1.45vh, 10px); }
+/* lobby */
+#ui #s-lobby .lobby-block, #ui #s-lobby .code-box { border-radius: 0 !important; background: rgba(14,16,20,.82) !important; border: 1px solid rgba(255,255,255,.16) !important; border-top: 2px solid var(--pg) !important; }
+#ui #s-lobby .code-box { border-left: 1px solid rgba(255,255,255,.16) !important; border-top: 2px solid var(--pg) !important; }
+#ui .lobby-block h3 { font: 800 clamp(9px, 1.7vh, 11px) var(--ui); letter-spacing: .2em; color: var(--pg); }
+#ui .slot { border-left: 3px solid var(--pg); border-radius: 0; background: rgba(255,255,255,.07); }
+#ui .slot .you { background: var(--pg) !important; color: var(--pgink) !important; border-radius: 0; font-weight: 800; }
+#ui .pv-b { border-radius: 0; background: rgba(255,255,255,.07); border: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); }
+#ui .pv-b:hover { box-shadow: inset 0 0 0 1px var(--pg); background: rgba(245,179,1,.14); }
+#ui .pv-b.on { background: linear-gradient(180deg, #ffd84f, #f5b301); color: var(--pgink); box-shadow: none; }
+/* settings page */
+#ui #s-settings .ps-tab.on { background: rgba(245,179,1,.14); border-left-color: var(--pg); color: #fff; }
+#ui #s-settings .ps-tab { font-size: clamp(10px, 1.9vh, 12px); letter-spacing: .18em; padding: clamp(9px, 2vh, 14px) 16px; }
+#ui #s-settings .seg button { border-radius: 0; font-size: clamp(10px, 1.8vh, 12px); padding: clamp(6px, 1.3vh, 9px) 14px; }
+#ui #s-settings .seg button.on { background: linear-gradient(180deg, #ffd84f, #f5b301); border-color: var(--pg); color: var(--pgink); }
+#ui #s-settings .ps-btn { background: linear-gradient(180deg, #ffd84f, #f5b301); color: var(--pgink); font-size: clamp(10px, 1.8vh, 12px); padding: clamp(7px, 1.4vh, 10px) 16px; letter-spacing: .14em; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+#ui #s-settings .ps-btn[disabled] { background: #3a3f48; color: rgba(255,255,255,.45); }
+#ui #s-settings #b-settings-close { width: clamp(30px, 6vh, 38px); height: clamp(30px, 6vh, 38px); font-size: 16px; border-radius: 0; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+#ui #s-settings .qrow.on .sw, #ui :is(#quick, #quick2, #quick3) .qrow.on .sw { background: var(--pg) !important; border-color: var(--pg); }
+#ui #s-settings .qrow.on .sw::after { background: var(--pgink); }
+#ui #s-settings .ps-row input[type=range], #ui input[type=range] { accent-color: var(--pg) !important; }
+/* title page: game tiles, badges, accents */
+#ui #s-title.mode-home .menu { width: min(540px, 76vw) !important; }
+#ui #s-title.mode-home #home-pick { gap: 14px; }
+#ui #s-title.mode-home #home-pick .btn { height: clamp(58px, 16vh, 92px) !important; padding: 8px 12px 10px !important; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)); border: 0 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.28) !important; }
+#ui #s-title.mode-home #home-pick .btn:hover { box-shadow: inset 0 0 0 2px var(--pg) !important; }
+#ui #s-title.mode-home #home-pick .btn b { font-size: clamp(12px, 2.7vh, 18px) !important; letter-spacing: .14em; }
+#ui #s-title.mode-home #home-pick .btn small { font-size: clamp(8px, 1.5vh, 10px) !important; }
+#ui #s-title.mode-home #home-pick .btn em { background: var(--pg); color: var(--pgink); font-size: clamp(8px, 1.4vh, 10px); padding: 3px 10px 3px 12px; font-weight: 800; }
+#ui #s-title.mode-home #home-pick .btn::after { background: var(--pg); height: 3px; }
+#ui #s-title.mode-home .logo-main::after, #ui #s-title.mode-gta .logo-main::after { width: 40px; height: 2px; background: var(--pg); }
+#ui #s-title .verbadge { background: var(--pg); color: var(--pgink); padding: 3px 9px; font-size: 10px; clip-path: polygon(5px 0, 100% 0, 100% 100%, 0 100%, 0 5px); }
+#ui #s-title .dev { border-bottom-color: var(--pg); }
+#ui #s-about h3 { color: var(--pg); } #ui #s-about .ab-head img { border-bottom-color: var(--pg); }
+#ui #pv-name::after { background: var(--pg); }
+#loader .bar i { background: linear-gradient(90deg, #b57f00, #f5b301); box-shadow: 0 0 10px rgba(245,179,1,.55); } .ld-t span { color: #f5b301; } .ld-s::before { background: #f5b301; }
+/* pause menu: same look; the resume button is the yellow main action (the rules above) */
+#ui #pause .btn.btn.btn:not(#home-pick .btn) { text-align: center; }
+
+/* v571b: finger-size padding (a bit taller than the first pass), back / leave button, MUTE MUSIC pill, short wide screens (phones in landscape) */
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.btn:not(#home-pick .btn):not(.big):not(.small) { padding-top: clamp(6px, 1.4vh, 9px) !important; padding-bottom: clamp(6px, 1.4vh, 9px) !important; }
+#ui :is(#s-title, #s-profile, #s-levels, #s-cmb, #s-mp, #s-lobby, #s-results, #s-about, #s-help, #pause, #pset) .btn.btn.small:not(#home-pick .btn) { padding-top: clamp(5px, 1.1vh, 7px) !important; padding-bottom: clamp(5px, 1.1vh, 7px) !important; }
+#ui .btn.navback.navback.navback { font: 800 clamp(10px, 1.9vh, 12px)/1 var(--ui) !important; padding: clamp(7px, 1.5vh, 10px) 14px !important; letter-spacing: .12em !important; }
+#mm-btn { font: 800 clamp(9px, 1.7vh, 11px)/1 var(--ui, system-ui, sans-serif) !important; letter-spacing: .12em !important; padding: clamp(6px, 1.4vh, 9px) 12px !important; border: 0 !important; border-radius: 0 !important; background: linear-gradient(180deg, rgba(60,66,76,.92), rgba(28,32,39,.95)) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 3px 0 0 #f5b301 !important;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size: clamp(9px, 1.7vh, 11px) !important; }
+#mm-btn.off { background: linear-gradient(180deg, #d34a3f, #a3221a) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), inset 3px 0 0 #fff !important; }
+@media (max-height: 470px) and (min-width: 560px) {
+  #s-cmb .panel { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 8px; row-gap: 5px; width: min(760px, 94vw); max-height: 96vh; overflow: visible; }
+  #s-cmb .panel > h2, #s-cmb .panel > .note, #s-cmb .panel > .dsel, #s-cmb .panel > .row.end, #s-cmb #b-cmb-team { grid-column: 1 / -1; }
+  #s-cmb .panel > .note { margin: 0 !important; }
+  #s-cmb .panel .btn { margin: 0 !important; }
+  #s-cmb .btn.big small { display: none; }
+  #s-cmb .btn.big { padding-top: clamp(7px, 1.8vh, 9px) !important; padding-bottom: clamp(7px, 1.8vh, 9px) !important; }
+}
+#ui #s-settings .ps-side h2 { margin: 0 18px clamp(8px, 2vh, 14px) !important; }

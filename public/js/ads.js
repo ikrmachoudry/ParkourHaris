@@ -24,16 +24,17 @@ const fingers = (p, x, y, n, w, dx, dy, rot, h = 40) => {
 };
 
 
-/* the red-dot sight itself (full size again, v569: only the red ring + dot are smaller than before) */
-const sight = (p, trim, lens) => `<path d="M398 568 H602 L628 612 H372 Z" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
-<path fill-rule="evenodd" d="M348 332 h304 a48 48 0 0 1 48 48 v148 a48 48 0 0 1 -48 48 h-304 a48 48 0 0 1 -48 -48 v-148 a48 48 0 0 1 48 -48Z M345 372 h310 a28 28 0 0 1 28 28 v100 a28 28 0 0 1 -28 28 h-310 a28 28 0 0 1 -28 -28 v-100 a28 28 0 0 1 28 -28Z" fill="url(#${p}M)" stroke="${trim || '#06080b'}" stroke-width="${trim ? 6 : 4}"/>
-<rect x="306" y="338" width="388" height="232" rx="43" fill="none" stroke="#6a727e" stroke-opacity=".55" stroke-width="1.6"/>
-<rect x="436" y="306" width="128" height="30" rx="7" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>${Array.from({ length: 9 }, (_, i) => `<path d="M${440 + i * 15} 308 v18" stroke="#05070a" stroke-width="2.4"/>`).join('')}
-<rect x="700" y="394" width="40" height="112" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/><rect x="740" y="402" width="26" height="96" rx="7" fill="#15181d" stroke="#05070a" stroke-width="3"/>
-<rect x="260" y="414" width="40" height="64" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
-<circle cx="333" cy="356" r="7" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/><circle cx="667" cy="356" r="7" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/>
-<path d="M345 372 h310 a28 28 0 0 1 28 28 v100 a28 28 0 0 1 -28 28 h-310 a28 28 0 0 1 -28 -28 v-100 a28 28 0 0 1 28 -28Z" fill="url(#${p}L)" stroke="${lens || '#020304'}" stroke-width="7"/>
-<path d="M352 380 L402 380 L352 440Z" fill="#fff" fill-opacity=".1"/>
+/* v572: the red-dot sight drawn like the PUBG one: a tall black housing with a big ARCHED (dome-top) clear window, a thick block under the window, small side knobs.
+   Window: x 350..650, y 340..556 (dome on top); the red ring + dot stay exactly at 500,450 so bullets go where the dot is. */
+const sight = (p, trim, lens, label, labCol) => `<path fill-rule="evenodd" d="M310 650 V440 A190 128 0 0 1 690 440 V650 Q690 664 676 664 H324 Q310 664 310 650Z M350 540 V440 A150 98 0 0 1 650 440 V540 Q650 556 634 556 H366 Q350 556 350 540Z" fill="url(#${p}M)" stroke="${trim || '#06080b'}" stroke-width="${trim ? 6 : 4}"/>
+<path d="M318 440 A182 120 0 0 1 682 440" fill="none" stroke="#7b8490" stroke-opacity=".5" stroke-width="2"/>
+<path d="M318 582 H682 M318 640 H682" stroke="#05070a" stroke-width="3"/><path d="M322 586 H678" stroke="#59616c" stroke-opacity=".45" stroke-width="1.6"/>
+<rect x="690" y="470" width="34" height="92" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/><rect x="724" y="480" width="22" height="72" rx="7" fill="#15181d" stroke="#05070a" stroke-width="3"/>
+<rect x="276" y="486" width="34" height="62" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
+<circle cx="332" cy="614" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/><circle cx="668" cy="614" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/>
+${label ? `<text x="500" y="620" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" letter-spacing="2" fill="${labCol || '#fff'}" fill-opacity=".72">${label}</text>` : ''}
+<path d="M350 540 V440 A150 98 0 0 1 650 440 V540 Q650 556 634 556 H366 Q350 556 350 540Z" fill="url(#${p}L)" stroke="${lens || '#020304'}" stroke-width="7"/>
+<path d="M366 470 A136 88 0 0 1 430 372" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="7" stroke-linecap="round"/>
 <circle cx="500" cy="450" r="16" fill="none" stroke="#ff2b22" stroke-width="2.2" stroke-opacity=".92"/><circle cx="500" cy="450" r="11" fill="url(#${p}R)"/><circle cx="500" cy="450" r="2.6" fill="#ff3b30"/>`;
 
 /* the gun body from under the sight to the bottom edge; fill = gradient id letter, trim = edge colour, rails = tick lines */
@@ -70,15 +71,15 @@ const wrapSvg = (cls, p, inner) => `<svg class="k-${cls}" viewBox="0 0 1000 900"
 
 /* AK-47: wooden handguard, steel gas tube, the hand wraps over the wood */
 const ak = () => { const p = 'a1'; let grain = ''; for (let i = 0; i < 7; i++) grain += `<path d="M${470 + i * 10} 590 C${468 + i * 11} 700 ${456 + i * 14} 800 ${440 + i * 20} 900" stroke="#2c1a0a" stroke-opacity=".35" stroke-width="2" fill="none"/>`;
-  return wrapSvg('ak', p, `${body(p, 'W', '#1f1208', [638, 700, 770, 850], '')}${grain}<path d="M484 566 L516 566 L${500 + 26} 900 L${500 - 26} 900Z" fill="url(#${p}T)" fill-opacity=".85" stroke="#05070a" stroke-width="2"/><text x="500" y="650" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="21" letter-spacing="1" fill="#ffe0a8" fill-opacity=".8">AK-47</text>${sight(p)}${handWrap(p)}`); };
+  return wrapSvg('ak', p, `${body(p, 'W', '#1f1208', [638, 700, 770, 850], '')}${grain}<path d="M484 566 L516 566 L${500 + 26} 900 L${500 - 26} 900Z" fill="url(#${p}T)" fill-opacity=".85" stroke="#05070a" stroke-width="2"/>${sight(p, '', '', 'AK-47', '#ffe0a8')}${handWrap(p)}`); };
 /* AK-49 (rare): black body with gold trim, gold sight ring, a vertical grip in a fist */
 const ak49 = () => { const p = 'a2'; let st = ''; for (const o of [-34, 34]) st += `<path d="M${500 + o * 0.9} 590 L${500 + o * 2.3} 900" stroke="url(#${p}Y)" stroke-width="7" fill="none"/>`;
-  return wrapSvg('ak49', p, `${body(p, 'B', '#d9a91c', [640, 702, 776, 858], 'AK-49', '#ffd23f')}${st}${sight(p, '#d9a91c', '#e8bb2c')}${handFist(p, '#d9a91c')}`); };
+  return wrapSvg('ak49', p, `${body(p, 'B', '#d9a91c', [640, 702, 776, 858], 'AK-49', '#ffd23f')}${st}${sight(p, '#d9a91c', '#e8bb2c', 'AK-49', '#ffd23f')}${handFist(p, '#d9a91c')}`); };
 /* M4: black quad rail (many ticks), a tan hand guard, the hand clamps from the side */
-const m4 = () => { const p = 'a3'; return wrapSvg('m4', p, `${body(p, 'B', '#06070a', [616, 640, 664, 690, 718, 748, 780, 814, 850, 888], 'M4', '#d8c9a0')}<path d="M${500 - hw(740)} 740 L${500 + hw(740)} 740 L${500 + hw(900)} 900 L${500 - hw(900)} 900Z" fill="#8c7c58" fill-opacity=".55" stroke="#2c2616" stroke-width="2"/>${sight(p)}${handClamp(p)}`); };
+const m4 = () => { const p = 'a3'; return wrapSvg('m4', p, `${body(p, 'B', '#06070a', [616, 640, 664, 690, 718, 748, 780, 814, 850, 888], 'M4', '#d8c9a0')}<path d="M${500 - hw(740)} 740 L${500 + hw(740)} 740 L${500 + hw(900)} 900 L${500 - hw(900)} 900Z" fill="#8c7c58" fill-opacity=".55" stroke="#2c2616" stroke-width="2"/>${sight(p, '', '', 'M4', '#d8c9a0')}${handClamp(p)}`); };
 /* SMG: short wide body, round heat-shroud holes, a yellow stripe, a fist round the vertical grip */
 const smg = () => { const p = 'a4'; let holes = ''; for (let r = 0; r < 4; r++) for (let c = -2; c <= 2; c++) { const y = 610 + r * 22, x = 500 + c * (10 + r * 4.5); holes += `<ellipse cx="${x}" cy="${y}" rx="${2.4 + r * 0.5}" ry="${1.8 + r * 0.35}" fill="#030405"/>`; }
-  return wrapSvg('smg', p, `${body(p, 'M', '#06070a', [706, 774, 852], 'SMG', '#ffd23f', 1.28)}${holes}<path d="M${500 - hw(700) * 1.28 + 6} 700 H${500 + hw(700) * 1.28 - 6}" stroke="#ffd23f" stroke-width="6"/>${sight(p)}${handWrap(p)}`); };
+  return wrapSvg('smg', p, `${body(p, 'M', '#06070a', [706, 774, 852], 'SMG', '#ffd23f', 1.28)}${holes}<path d="M${500 - hw(700) * 1.28 + 6} 700 H${500 + hw(700) * 1.28 - 6}" stroke="#ffd23f" stroke-width="6"/>${sight(p, '', '', 'SMG', '#ffd23f')}${handWrap(p)}`); };
 
 /* pistol / revolver: iron sights, slide, two gloved hands */
 const pistol = () => {
