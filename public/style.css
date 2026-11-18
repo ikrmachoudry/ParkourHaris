@@ -1564,3 +1564,17 @@ body.acog #scope b { display: block !important; position: absolute; left: 50%; t
 body.acog #scope b::before { content: ""; position: absolute; left: 20.9vmin; top: -4.5vmin; width: 3.6vmin; height: 9vmin; border-radius: 0 1vmin 1vmin 0; background: repeating-linear-gradient(0deg, #14171b 0 .45vmin, #2e343c .45vmin .9vmin); box-shadow: inset -.5vmin 0 .7vmin rgba(0,0,0,.55), 0 .3vmin .6vmin rgba(0,0,0,.5); }
 body.acog #scope b::after { content: ""; position: absolute; left: -4.8vmin; top: -19.9vmin; width: 9.6vmin; height: 3.7vmin; border-radius: 1vmin 1vmin 0 0; background: repeating-linear-gradient(90deg, #14171b 0 .45vmin, #2e343c .45vmin .9vmin); box-shadow: inset 0 .5vmin .7vmin rgba(255,255,255,.08), 0 .2vmin .5vmin rgba(0,0,0,.5); }
 body.acog #scope::before { background: radial-gradient(circle at 75% 46%, #3b4149 0 1.9vmin, #1b1e23 2vmin 2.9vmin, rgba(0,0,0,0) 3vmin), radial-gradient(circle at 14% 22%, #4a5058 0 .5vmin, rgba(0,0,0,0) .6vmin), radial-gradient(circle at 86% 22%, #4a5058 0 .5vmin, rgba(0,0,0,0) .6vmin), linear-gradient(rgba(255,255,255,.10) 0 .35vmin, rgba(0,0,0,0) .4vmin), linear-gradient(#171a1f, #07080a) !important; }
+
+/* v553: SNIPER scope view like PUBG: a thick dark metal tube ring with a bright lip, turret knobs (elevation on top, windage right, parallax left), a soft glass glare; the mil-dot reticle stays */
+body.scoped:not(.acog):not(.binoc) #scope { background:
+  radial-gradient(circle at calc(50% - 13vmin) calc(50% - 15vmin), rgba(255,255,255,.075) 0, rgba(255,255,255,0) 15vmin),
+  radial-gradient(circle at calc(50% + 20vmin) calc(50% + 18vmin), rgba(255,255,255,.035) 0, rgba(255,255,255,0) 12vmin),
+  repeating-linear-gradient(0deg, #12151a 0 .5vmin, #333a43 .5vmin 1vmin) calc(50% + 40.4vmin) 50% / 6.5vmin 16vmin no-repeat,
+  repeating-linear-gradient(90deg, #12151a 0 .5vmin, #333a43 .5vmin 1vmin) 50% calc(50% - 40.4vmin) / 16vmin 6.5vmin no-repeat,
+  repeating-linear-gradient(0deg, #12151a 0 .5vmin, #333a43 .5vmin 1vmin) calc(50% - 40.4vmin) 50% / 6.5vmin 12vmin no-repeat,
+  radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 34.2vmin, #07090c 34.4vmin, #1b1f25 35.4vmin, #4a515c 36vmin, #20252b 36.7vmin, #0e1013 38vmin, #2c323a 39.2vmin, #08090b 40.4vmin, rgba(0,0,0,.5) 41.6vmin, rgba(0,0,0,.2) 46vmin, rgba(0,0,0,.08) 60vmin); }
+
+/* v554: sniper - the world stays visible outside the tube (no black screen); the reticle posts stop at the tube edge. Red-dot sights get a left knob too. */
+body.scoped:not(.acog):not(.binoc) #scope i { width: 69vmin; margin-left: -34.5vmin; background: linear-gradient(#000, #000) left center / 22.5vmin 6px no-repeat, linear-gradient(#000, #000) right center / 22.5vmin 6px no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 24vmin 1px no-repeat; }
+body.scoped:not(.acog):not(.binoc) #scope b { height: 69vmin; margin-top: -34.5vmin; background: linear-gradient(#000, #000) center top / 6px 22.5vmin no-repeat, linear-gradient(#000, #000) center bottom / 6px 22.5vmin no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 1px 24vmin no-repeat; }
+body.acog #scope i::before { content: ""; position: absolute; left: 50%; top: 50%; margin: -4vmin 0 0 -24.6vmin; width: 3.6vmin; height: 8vmin; border-radius: 1vmin 0 0 1vmin; background: repeating-linear-gradient(0deg, #14171b 0 .45vmin, #2e343c .45vmin .9vmin); box-shadow: inset .5vmin 0 .7vmin rgba(0,0,0,.55), 0 .3vmin .6vmin rgba(0,0,0,.5); }
