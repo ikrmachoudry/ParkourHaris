@@ -40,6 +40,7 @@ import { preloadAssets } from './preload.js';
 import './guide.js';
 import { throwModel } from './weaponmodels.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
+import { ADS_HTML, ADS_KIND, ADS_FOV } from './ads.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
@@ -494,7 +495,7 @@ class Race {
 
   now() { return this.multi ? app.net.now() : performance.now(); }
   look(dx, dy) {
-    const zk = this.scoped ? clamp((this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; const sk = this.scoped ? (OPT.ss || 1) : 1; this.camYaw -= dx * 0.0024 * zk * sk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * sk * (OPT.sy || 0.6), -0.8, this.pmax()); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
+    const zk = this.scoped ? clamp((this.acog ? (ADS_FOV[this.weapon] || ACOG_FOV) : SCOPE_FOV[this.scopeLvl || 0]) / 62, 0.07, 0.6) : 1; const sk = this.scoped ? (OPT.ss || 1) : 1; this.camYaw -= dx * 0.0024 * zk * sk * (OPT.sx || 1); this.camPitch = clamp(this.camPitch + dy * 0.0021 * zk * sk * (OPT.sy || 0.6), -0.8, this.pmax()); if (!this.paxMode || Math.abs(dx) + Math.abs(dy) > 3) this.lookT = this.paxMode ? 2.0 : 1.6;   /* v280: a passenger sees the driver's view; dragging detaches the camera to look around, 2 s after he lets go it eases back */
   }
 
   update(dt) {
@@ -1562,9 +1563,47 @@ class Race {
       for (const a of [0, Math.PI / 2]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.12), mat); bar.rotation.z = a; g.add(bar); }
       g.add(ring, ring2); g.rotation.x = -Math.PI / 2; g.renderOrder = 999; g.visible = false; this.scene.add(g); this.nadeMark = g;
     }
-    const mk = this.nadeMark; if (!on) { mk.visible = false; return; }
+    const mk = this.nadeMark; if (!on) { mk.visible = false; this.nadeArc(null); return; }
     const t = this.nadeTarget(), pulse = 1 + Math.sin(performance.now() / 160) * 0.08, R = WEAPONS.grenade.radius;
-    mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7));
+    mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7)); this.nadeArc(t);
+  }
+  /* v564 PUBG throw bar: a red ribbon arc from the hand to the landing sign (the SAME flight formula as the real throw), an orange diamond with the fuse seconds over the grenade (held, then flying), and a CANCEL button on touch screens */
+  nadeArc(t) {
+    const N = 28;
+    if (!this.arcMesh) {
+      const geo = new THREE.BufferGeometry(), pos = new Float32Array((N + 1) * 6), idx = []; for (let i = 0; i < N; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setIndex(idx);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ff3b2f', transparent: true, opacity: 0.88, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+      m.frustumCulled = false; m.renderOrder = 998; m.visible = false; this.scene.add(m); this.arcMesh = m;
+      const cb = document.createElement('button'); cb.id = 'nade-cancel'; cb.textContent = 'Cancel'; cb.style.display = 'none'; document.body.appendChild(cb);
+      const cx = (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.weapon === 'grenade') race.equip('fist'); }; cb.addEventListener('pointerdown', cx); this.arcCancel = cb;
+    }
+    const m = this.arcMesh, cb = this.arcCancel, kind = this.heldThrow || 'grenade';
+    if (!t) { if (m.visible) m.visible = false; if (cb.style.display !== 'none') cb.style.display = 'none'; this.fuseTag(0, null); return; }
+    const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
+    const x0 = b.x + fx * 0.55, y0 = b.y + (this.crouch ? 1.05 : 1.55), z0 = b.z + fz * 0.55, dx = t.x - x0, dz = t.z - z0, d = Math.max(1.5, Math.hypot(dx, dz));
+    const T = clamp(0.45 + d * 0.03 + Math.max(0, t.y - y0) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (t.y + 0.07 - y0 + 0.5 * 18 * T * T) / T;
+    const hl = Math.hypot(vx, vz) || 1, sx = -vz / hl, sz = vx / hl, cp = this.camera.position, P = m.geometry.attributes.position.array;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N * T, x = x0 + vx * u, y = y0 + vy * u - 9 * u * u, z = z0 + vz * u, dc = Math.hypot(x - cp.x, y - cp.y, z - cp.z), w = Math.min(0.2, 0.012 + dc * 0.0085) * (i === 0 ? 0.4 : 1);
+      P[i * 6] = x - sx * w; P[i * 6 + 1] = y; P[i * 6 + 2] = z - sz * w; P[i * 6 + 3] = x + sx * w; P[i * 6 + 4] = y; P[i * 6 + 5] = z + sz * w;
+    }
+    m.geometry.attributes.position.needsUpdate = true; m.visible = true;
+    if (IS_TOUCH && cb.style.display !== 'block') cb.style.display = 'block';
+    this.fuseTag(0, kind === 'grenade' ? { x: x0 + vx * 0.12, y: y0 + vy * 0.12 - 0.13 + 0.35, z: z0 + vz * 0.12, s: Math.round(WEAPONS.grenade.fuse) } : null);
+  }
+  fuseTag(i, p) {   /* the orange fuse diamond i (0 = the held grenade, 1.. = the flying ones): p = {x,y,z,s} or null to hide it */
+    const a = this.fuseTags || (this.fuseTags = []); let el = a[i];
+    if (!p) { if (el && el.style.display !== 'none') el.style.display = 'none'; return; }
+    if (!el) { el = a[i] = document.createElement('div'); el.className = 'nade-fuse'; el.innerHTML = '<b></b><i>s</i>'; document.body.appendChild(el); }
+    const v = (this._fv || (this._fv = new THREE.Vector3())).set(p.x, p.y, p.z).project(this.camera);
+    if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
+    if (el.style.display !== 'block') el.style.display = 'block';
+    const txt = String(Math.max(0, p.s)).padStart(2, '0'); if (el._t !== txt) { el._t = txt; el.firstChild.textContent = txt; }
+    el.style.transform = 'translate(' + ((v.x * 0.5 + 0.5) * innerWidth - 20).toFixed(0) + 'px,' + ((0.5 - v.y * 0.5) * innerHeight - 20).toFixed(0) + 'px)';
+  }
+  fuseTagsFlying() {   /* the countdown diamonds over the grenades in the air */
+    let k = 1; for (const n of this.nades || []) { if (n.smoke || n.molo || k > 4) continue; this.fuseTag(k++, { x: n.x, y: n.y + 0.4, z: n.z, s: Math.ceil(Math.max(0, n.t)) }); } for (; k <= 4; k++) this.fuseTag(k, null);
   }
   updateNades(dt, b) {
     this.nadeMarkTick(); this.smokeTick(dt); this.fireTick(dt);
@@ -1585,7 +1624,7 @@ class Race {
       }
       if (this.nadeT >= 1) { this.nadeT = 0; this.nadeRel = false; if (this.weapon === 'grenade' && this.heldCount() <= 0) { this.weapon = null; this.heldThrow = null; this.syncAct(); } this.updateAmmoHud(); }
     }
-    if (!this.nades || !this.nades.length) return;
+    this.fuseTagsFlying(); if (!this.nades || !this.nades.length) return;
     for (let i = this.nades.length - 1; i >= 0; i--) {
       const n = this.nades[i]; n.t -= dt;
       let steps = Math.max(1, Math.ceil(dt / 0.02)), h = dt / steps;
@@ -1602,7 +1641,7 @@ class Race {
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
   fireBoom(x, y, z, mine = true, bot = false) {
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
-    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.blast(x, y, z, 3.4, true); fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
     const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
@@ -1620,13 +1659,18 @@ class Race {
   smokeTick(dt) { if (this._fxs) this._fxs.update(dt, this.camera); }   // v416: smoke + fire visuals live in fire.js
   grenadeBoom(x, y, z, mine = true) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
-    this.particles.emit(x, y + 0.4, z, 46, { color: '#ffb347', speed: 9, up: 5, life: 0.7, size: 0.9, gravity: 6, spread: 1.2 }); this.particles.emit(x, y + 0.3, z, 30, { color: '#3a3a3a', speed: 5, up: 4, life: 1.3, size: 1.2, gravity: -1, spread: 1 }); this.particles.emit(x, y + 0.2, z, 22, { color: '#c9b79c', speed: 11, up: 2, life: 0.5, size: 0.25, gravity: 12, spread: 1.5 });
-    if (this.fxP) this.fxP.emit(x, y + 0.6, z, 16, { color: '#ffe08a', speed: 5, up: 3, life: 0.35, size: 1.1, spread: 0.8 });
+    { const fx = this.fxs(); fx.blast(x, y, z, R); }   /* v564: fireball + smoke column + dust ring + shockwave + sparks + scorch (fire.js) */
+    this.particles.emit(x, y + 0.2, z, 14, { color: '#8a7a66', speed: 10, up: 3.5, life: 0.9, size: 0.2, gravity: 14, spread: 1.4 });   // flying dirt and chips
+    this.boomFlash(dd);
     A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassBlast) cs.glassBlast(x, y, z, R); }   /* v351: JANG: the blast shatters nearby windows */
     if (mine) this.nadeDamage(x, z, R, W);
     if (mine && this.copGhosts && this.multi) for (const h of this.copGhosts.near(x, z, R)) this.hitGhostCop(h, h.k === 'c' ? 8 * (1 - h.d / (R + 2)) : W.dmg * (1 - 0.55 * h.d / R), false, true);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
+  }
+  boomFlash(dd) {   /* v564: a white-orange flash over the screen when a blast goes off close to you (a plain CSS fade: no lights, nothing to recompile) */
+    if (!(dd < 16)) return; let el = this._bfl; if (!el) { el = this._bfl = document.createElement('div'); el.id = 'boomflash'; document.body.appendChild(el); }
+    el.style.setProperty('--bf', (0.78 * (1 - dd / 16)).toFixed(2)); el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   }
   // a blast wrecks the vehicles around it: the close ones are destroyed at once, the farther ones are badly damaged; every damaged one smokes and blows up a few seconds later
   nadeCars(x, z, R, crime) {
@@ -1744,7 +1788,7 @@ class Race {
     if (OPT.ammo && this.wallet.s && !this.wallet.cb) { const s = this.wallet.s; s.mag[w] = W.mag; if (!(s.ammo[w] > 0)) s.ammo[w] = W.ammoPack || 30; }   // unlimited ammo switch
     if (this.fireCd > 0 || this.reloadT > 0) return false;
     if (this.wallet.mag(w) <= 0) { if (this.wallet.reserve(w) > 0) { this.reloadT = this.reloadTot = 1.3; A.sfx.click(); this.updateAmmoHud(); } else { this.fireCd = 0.3; A.sfx.empty && A.sfx.empty(); } return false; }
-    this.wallet.shoot(w); {   /* v538 PUBG-style recoil: the FIRST shots kick little, a long spray climbs (about +55% by the 10th bullet), the sideways sway keeps a direction for ~7 shots then may flip, standing > crouching > lying, aiming down the sights steadies it, and the attachments (grips / muzzle / stock) scale it */
+    this._adsKick = 1; this.wallet.shoot(w); {   /* v538 PUBG-style recoil: the FIRST shots kick little, a long spray climbs (about +55% by the 10th bullet), the sideways sway keeps a direction for ~7 shots then may flip, standing > crouching > lying, aiming down the sights steadies it, and the attachments (grips / muzzle / stock) scale it */
     const nw = performance.now(); if (nw - (this._rcT || 0) > 380) this._rcN = 0; this._rcT = nw; const n = this._rcN = (this._rcN || 0) + 1;
     if (n === 1 || n % 7 === 0) this._rcDir = Math.random() < 0.5 ? -1 : 1;
     const A = this.attRecoil(w, W), ramp = W.auto ? 0.8 + 0.45 * Math.min(1, (n - 1) / 10) : 1, st = (this.prone ? 0.6 : this.crouch ? 0.8 : 1) * (this.aiming ? 0.85 : 1);
@@ -2065,13 +2109,15 @@ class Race {
     const speed = Math.hypot(b.vx, b.vz);
     { const cs9 = this.mission && this.mission.cs, noSc = !!(cs9 && cs9.on && cs9.count('sscope') <= 0);   // v238 Jang: the Kar98 only zooms when you carry a TELESCOPE (without one: open iron sights)
       if (noSc && this.weapon === 'sniper' && this.aiming && !(this._nsT > performance.now())) { this._nsT = performance.now() + 4000; this.toast && this.toast('NO SCOPE - find a TELESCOPE (blue item) and the Kar98 uses it by itself'); }
-      const rsc = !!(this.jang && RSCOPE.has(this.weapon) && !(this.scopeOff && this.scopeOff[this.weapon])), acogW = rsc && this.aiming && !this.telescope;   // v481: AK-47 / AK-49 / M4 with the scope on: AIM looks through it
+      const rsc = !!(this.jang && RSCOPE.has(this.weapon) && !(this.scopeOff && this.scopeOff[this.weapon])), acogW = !!(this.jang && ADS_KIND[this.weapon] && this.aiming && !this.telescope);   /* v564: EVERY gun except the sniper aims through the PUBG hand + gun + sight picture (js/ads.js) */ const adsK = acogW ? (RSCOPE.has(this.weapon) && !rsc ? 'iron' : ADS_KIND[this.weapon]) : (this._adsK || '');   // v481: AK-47 / AK-49 / M4 with the scope on: AIM looks through it
       { const k = (this.jang && RSCOPE.has(this.weapon) && !this.drive && !this.over ? this.weapon : '') + (rsc ? '1' : '0'); if (k !== this._rsK) { this._rsK = k; let ch = $('rscope-chip'); if (!ch) { ch = document.createElement('button'); ch.id = 'rscope-chip'; document.body.appendChild(ch); const tg = (e) => { e.preventDefault(); e.stopPropagation(); if (race) race.toggleRScope(); }; ch.addEventListener('pointerdown', tg); } ch.style.display = k.length > 1 ? 'block' : 'none'; ch.textContent = rsc ? 'SCOPE ON' : 'SCOPE OFF'; ch.classList.toggle('off', !rsc); } }
       const want = !!(((this.weapon === 'sniper' && this.aiming && !noSc) || (this.telescope && this.weapon !== 'sniper') || acogW) && !this.drive && !this.over && !(this.mission && this.mission.freeze));   // !! matters: classList.toggle(x, undefined) FLIPS the class every frame - that was the flashing
       if (want === !!this.scoped) this._scW = 0; else this._scW = (this._scW || 0) + dt;   // v173: a scope change must hold for 0.6 s before it shows, so nothing can make the view flash on and off
       const scoped = this._scW >= 0.1 || (want === !!this.scoped) ? want : !!this.scoped; if (scoped && !this.scoped) this.scopeLvl = this.mission && this.mission.mission === 'snipe' && this.mission.phase === 'run' ? 1 : this.telescope ? 1 : 0; this.scoped = scoped; this.acog = scoped && (want === scoped ? acogW : !!this.acog);   /* v562: while the scope change is being held (0.1 s) the OLD scope kind stays: releasing right-click with an AK used to show the SNIPER scope for a moment (acog dropped at once, 'scoped' only later) */   // sniper scope: dark rim and crosshair; every time you raise the rifle it starts WIDE (level 0) and you zoom in yourself (wheel, + - buttons, pinch)
-      if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? (this.acog ? ACOG_FOV : SCOPE_FOV[this.scopeLvl || 0]) : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 18 : 12)));
-      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); if (document.body.classList.contains('acog') !== !!this.acog) document.body.classList.toggle('acog', !!this.acog); { const bn = scoped && !!this.telescope && this.weapon !== 'sniper'; if (document.body.classList.contains('binoc') !== bn) document.body.classList.toggle('binoc', bn); } this.camera.updateProjectionMatrix(); }
+      if (scoped && (this.scopeLvl || 0) > this.scopeMax()) this.scopeLvl = this.scopeMax(); this.camera.fov = lerp(this.camera.fov, scoped ? (this.acog ? (ADS_FOV[this.weapon] || ACOG_FOV) : SCOPE_FOV[this.scopeLvl || 0]) : (NO_TEXT && !this.drive ? 54 + clamp(speed - 4, 0, 6) * 0.8 : 62) + (NO_TEXT && !this.drive ? 0 : clamp(speed - 10, 0, 12) * 0.9), Math.min(1, dt * (scoped ? 18 : 12)));
+      if (document.body.classList.contains('scoped') !== scoped) document.body.classList.toggle('scoped', scoped); if (document.body.classList.contains('acog') !== !!this.acog) document.body.classList.toggle('acog', !!this.acog);
+      { this._adsK = adsK; let ad = this._adsEl || (this._adsEl = document.getElementById('ads')); if (!ad) { ad = this._adsEl = document.createElement('div'); ad.id = 'ads'; ad.innerHTML = ADS_HTML; const sc0 = document.getElementById('scope'); if (sc0 && sc0.parentNode) sc0.parentNode.insertBefore(ad, sc0.nextSibling); else document.body.appendChild(ad); } if (ad.dataset.k !== (adsK || '')) ad.dataset.k = adsK || ''; const on = !!this.acog && !!adsK; if (document.body.classList.contains('ads') !== on) document.body.classList.toggle('ads', on); }   /* v564: the hand + gun + sight picture */
+      { const bn = scoped && !!this.telescope && this.weapon !== 'sniper'; if (document.body.classList.contains('binoc') !== bn) document.body.classList.toggle('binoc', bn); } this.camera.updateProjectionMatrix(); }
     let dist = this.camDist; if (this.camPitch < 0 && !this.drive) dist *= Math.max(0.35, 1 + this.camPitch * 0.85);
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive) {   // v211: inside a tower's stair shaft the camera comes close behind the player (it would sit in the wall otherwise)
         const b0 = this.me.body, Lm = cmbLayout(); let tw = false;
@@ -2186,6 +2232,7 @@ class Race {
     {
       if (this.me && this.me.model) this.me.model.group.rotation.z = this.leanV * 0.06; }
     { const sc = this._scEl || (this._scEl = document.getElementById('scope')); if (sc) { const r = fpScope ? (this.leanV || 0) * 11.5 : 0; if (r !== this._scR) { this._scR = r; sc.style.rotate = r ? r.toFixed(2) + 'deg' : ''; } } }
+    { const ad = this._adsEl; if (ad && this.acog) { const k = this._adsKick = Math.max(0, (this._adsKick || 0) - dt * 7), r = (this.leanV || 0) * 11.5, t = 'translateY(' + (k * k * 22).toFixed(1) + 'px) rotate(' + r.toFixed(2) + 'deg) scale(' + (1 + k * 0.025).toFixed(3) + ')'; if (t !== this._adsT) { this._adsT = t; ad.style.transform = t; } } }   /* v564: the sight picture kicks up when you fire and tilts when you peek */
     if (fpScope) { const cc = this.camera.position; this.camera.lookAt(cc.x - Math.sin(this.camYaw) * cp * 20, cc.y - sp * 20, cc.z - Math.cos(this.camYaw) * cp * 20); this.camera.rotateZ(-(this.leanV || 0) * 0.2); }   /* v500 PUBG: peeking while scoped TILTS the whole scope view (about 11 degrees) */   // v314: first-person scope: look ALONG the view (the old look-at-the-pivot pointed at the sky from 5 cm away = a solid blue scope)
     else { /* v356 STAIR CAMERA: when a wall / ceiling pulls the camera in close to the head (stairwells!) the old "look at the pivot" from a few centimetres away swung up to the sky and every little step moved it. Near the head the view now simply looks ALONG the aim direction (yaw + pitch), blended in as the camera gets closer */
       const cc = this.camera.position, tx0 = this.camTarget.x - cc.x, ty0 = this.camTarget.y + 0.2 - cc.y, tz0 = this.camTarget.z - cc.z, dl = Math.hypot(tx0, ty0, tz0) || 1, bx = -Math.sin(this.camYaw) * cp, by = -sp, bz = -Math.cos(this.camYaw) * cp;
@@ -2249,7 +2296,7 @@ class Race {
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.setInGame(false);
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc', 'acog'); { const ch = $('rscope-chip'); if (ch) ch.style.display = 'none'; } document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc', 'acog', 'ads'); try { this.nadeArc && this.nadeArc(null); } catch (e) { /* not built yet */ } { const ch = $('rscope-chip'); if (ch) ch.style.display = 'none'; } document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);

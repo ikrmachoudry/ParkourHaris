@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { loadGlb } from './glbactor.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'molotov', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall', 'stairs', 'ladder'];
+export const PROP_NAMES = ['ammo', 'medkit', 'pills', 'syringe', 'grenade', 'molotov', 'scope', 'smgscope', 'vest', 'helmet', 'goldbox', 'airdrop', 'chute', 'tank', 'barrel', 'crate', 'sandbags', 'sandwall', 'stairs', 'ladder', 'wtower', 'reeds', 'tuft'];
 export const PROP_FILES = PROP_NAMES.map((n) => 'models/props/' + n + '.glb');
 const S = {}, DIM = {}, PARTS = {};
 let PP = null;

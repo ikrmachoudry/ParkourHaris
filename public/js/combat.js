@@ -360,7 +360,8 @@ for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'],
 
 export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
 export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
-export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; return false; };
+export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; for (const t of WTPOS) { const dx = x - t.x, dz = z - t.z, lx = dx * t.c + dz * t.s, lz = -dx * t.s + dz * t.c; if (lx > -2.4 - m && lx < 2.4 + m && lz > -2.2 - m && lz < 4.3 + m) return true; } return false; };   // v564: the watch towers count as building sites (no trees / blocks in them)
+const WTPOS = [];
 // ---- Dr. Ikrma's house: hospital on the ground floor (reception, admission rooms, operation theatre, wards), the family home upstairs (a big lobby with five bedrooms round it), a roof terrace with a water tank
 { const CL = { w: 28, d: 20 }, cand = []; for (let x = -200; x <= 230; x += 8) for (let z = -190; z <= 220; z += 8) cand.push([x, z]); cand.sort((p, q) => Math.hypot(p[0] - 50, p[1] - 30) - Math.hypot(q[0] - 50, q[1] - 30));
   const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
@@ -495,6 +496,38 @@ function build() {
     for (let r = 10; r <= 160; r += 10) for (let k = 0; k < 16; k++) { const px = Math.round(x + Math.cos(k * Math.PI / 8) * r), pz = Math.round(z + Math.sin(k * Math.PI / 8) * r); if (free(px, pz)) return [px, pz]; }
     return [x, z]; };
   const towers = [tower(...towerSpot(116, -186), 'pk'), tower(...towerSpot(212, -128), 'us'), tower(...towerSpot(0, -120), 'ps'), tower(128, -110, 'pk', 240, BASE_Y)];   // v335: the 4th tower: the TALLEST (240 steps = 72 m, ten turns) on the military hill; the zip line starts from its roof ledge
+  /* v564 WATCH TOWERS (the user's watch_tower.glb): a 5.7 m tower, a cabin on four pillars, a steep stair to the doorway (the door is removed), open windows with a 1.14 m sill. You climb the stair, step in, crouch behind the sill to hide, or stand and shoot out of the windows. Placed on flat open ground away from roads, houses, fields and the river with their own seeded random numbers. Local frame: origin = the middle of the cabin at ground level, the stair runs towards +z; rot 0..3 turns it by 90 degrees (every solid stays an axis aligned box). */
+  const wtowers = [];
+  WTPOS.length = 0; { const RT = seeded(5640), cabin = (x, z, rot, gy) => {
+      const th = rot * Math.PI / 2, c = Math.round(Math.cos(th)), sn = Math.round(Math.sin(th)), out = [];
+      const sol = (lx0, lz0, lx1, lz1, y0, y1, k, ex) => { const xs = [lx0, lx1].flatMap((a) => [lz0, lz1].map((b) => [x + a * c - b * sn, z + a * sn + b * c])), o = { x0: Math.min(...xs.map((q) => q[0])), x1: Math.max(...xs.map((q) => q[0])), z0: Math.min(...xs.map((q) => q[1])), z1: Math.max(...xs.map((q) => q[1])), y0: gy + y0, y1: gy + y1, k, wt: 1, ...ex }; out.push(o); return o; };
+      const HX = 1.35, HZ = 1.09, FL = 3.06, SILL = 4.2, LIN = 5.2, TOP = 5.4, T = 0.2;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) sol(sx > 0 ? HX - T : -HX, sz > 0 ? HZ - T : -HZ, sx > 0 ? HX : -HX + T, sz > 0 ? HZ : -HZ + T, -0.6, FL - 0.2, 'wall');   // the four pillars
+      sol(-HX, -HZ, HX, HZ, FL - 0.21, FL, 'floor');   // the cabin floor
+      // low walls (the sill) all round, except the doorway (x 0.05 .. 1.15) in the front wall
+      sol(-HX, HZ - T, 0.05, HZ, FL, SILL, 'wall'); sol(1.15, HZ - T, HX, HZ, FL, SILL, 'wall');   // front
+      sol(-HX, -HZ, HX, -HZ + T, FL, SILL, 'wall'); sol(-HX, -HZ, -HX + T, HZ, FL, SILL, 'wall'); sol(HX - T, -HZ, HX, HZ, FL, SILL, 'wall');   // back and the two sides
+      // window posts (sill to lintel); the windows between them are open: you see and shoot through them
+      for (const [a0, a1] of [[-HX, -1.15], [-0.25, 0.05], [1.15, HX]]) { sol(a0, HZ - T, a1, HZ, SILL, LIN, 'wall'); sol(a0, -HZ, a1, -HZ + T, SILL, LIN, 'wall'); }
+      for (const sx of [-1, 1]) for (const [a0, a1] of [[-HZ, -0.79], [0.81, HZ]]) sol(sx > 0 ? HX - T : -HX, a0, sx > 0 ? HX : -HX + T, a1, SILL, LIN, 'wall');
+      for (const [a0, b0, a1, b1] of [[-HX, HZ - T, HX, HZ], [-HX, -HZ, HX, -HZ + T], [-HX, -HZ, -HX + T, HZ], [HX - T, -HZ, HX, HZ]]) sol(a0, b0, a1, b1, LIN, TOP, 'wall');   // the lintel band: a ring round the cabin (no solid over the open middle)
+      sol(-1.61, -1.39, 1.61, 1.39, TOP, 5.67, 'roof', { flat: 1 });   // the roof slab (nobody can stand on it: no way up)
+      // the stair: 14 treads, rise 0.2, run ~0.14 (a 0.18 foot step in front), up to the doorway sill
+      const zF = (i) => 1.5 - 0.1408 * i + 1.92, last = 13;
+      sol(0.01, 3.42, 1.11, 3.66, -0.4, 0.18, 'step');
+      for (let i = 0; i <= last; i++) sol(0.01, i === last ? HZ : zF(i) - 0.1408, 1.11, zF(i), -0.4, 0.36 + 0.2 * i, 'step');
+      return out; };
+    const sameM = (x, z) => BUILDINGS.some((o) => Math.abs(o.x - x) < o.w / 2 + 11 && Math.abs(o.z - z) < o.d / 2 + 11);
+    for (let tries = 0; tries < 6000 && wtowers.length < 9; tries++) {
+      const x = Math.round((RT() * 2 - 1) * (H - 70)), z = Math.round((RT() * 2 - 1) * (H - 70)), rot = Math.floor(RT() * 4), th = rot * Math.PI / 2, c = Math.round(Math.cos(th)), sn = Math.round(Math.sin(th));
+      const cx = x - 1.0 * sn, cz = z + 1.0 * c;   // the middle of tower + stair
+      if (distRoad(cx, cz) < 12 || Math.abs(cx - riverX(cz)) < 34 || inField(cx, cz, 16) || sameM(cx, cz)) continue;
+      if (cx > FB.x0 - 14 && cx < FB.x1 + 14 && cz > FB.z0 - 14 && cz < FB.z1 + 14) continue; if (cx > BRIDGE.xb - 20 && cx < BRIDGE.xa + 20 && Math.abs(cz - BRIDGE.z) < 24) continue;
+      if ([[116, -186], [212, -128], [0, -120], [128, -110]].some(([tx, tz]) => Math.hypot(tx - cx, tz - cz) < 28) || wtowers.some((o) => Math.hypot(o.x - x, o.z - z) < 70)) continue;
+      const h0 = rawH(x, z); if (h0 < 2 || h0 > 20) continue; let flat = true; for (const [a, b] of [[-2, -1.6], [2, -1.6], [-2, 4], [2, 4], [0, 1.2], [0, 6]]) { const X = x + a * c - b * sn, Z = z + a * sn + b * c; if (Math.abs(rawH(X, Z) - h0) > 0.9) flat = false; } if (!flat) continue;
+      const gy = Math.round(h0 * 10) / 10; { const q = [[-2.4, -2.2], [2.4, 4.3]].map(([a, b]) => [x + a * c - b * sn, z + a * sn + b * c]); padRect(Math.min(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][0], q[1][0]), Math.max(q[0][1], q[1][1]), gy); }
+      WTPOS.push({ x, z, c, s: sn }); wtowers.push({ x, z, rot, gy, fy: gy + 3.06, solids: cabin(x, z, rot, gy) }); }
+    for (const t of wtowers) for (const q of t.solids) addS(q); }
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
@@ -575,6 +608,7 @@ function build() {
     if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; const s2 = b.stairRect2; if (s2 && x > b.x + s2.x0 - 2 && x < b.x + s2.x1 + 2 && z > b.z + s2.z0 - 2 && z < b.z + s2.z1 + 2) continue; addY(x, z, y2); } }
     if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
   }
+  for (const t of wtowers) spots.push({ x: t.x, z: t.z, y: t.fy, w: 1 });   /* v564: every watch tower cabin holds a weapon (a rifle, a sniper...) */
   { const T4 = towers[3]; if (T4) { const rr = 2.7; [[62, 'sniper'], [90, 'sscope'], [118, 'ammo']].forEach(([deg, f]) => { const ph = deg * Math.PI / 180, x = T4.x + Math.sin(ph) * rr, z = T4.z + Math.cos(ph) * rr; spots.push({ x, z, y: T4.py, force: f }); }); } }   /* v444: the TALLEST tower always has a sniper rifle, its telescope and ammo on the roof */
   { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4], [-7, 3], [7, 3], [-7, 6], [7, 6]]) { if (n >= 2) break; const f = ['sniper', 'med'][n];   /* v356: the Sada Ghar roof holds only a sniper rifle and a first aid kit */ if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
   const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
@@ -589,6 +623,7 @@ function build() {
   let nav = null;
   const L = {
     headFix,
+    wtowers,
     zip, ladders: towers.flatMap((t) => t.lads.map((q) => ({ ...q, tw: t }))), solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, cbucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }

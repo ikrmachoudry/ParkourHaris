@@ -16,7 +16,7 @@ function canvasTex(w, h, fn) {
 }
 
 export class FireSmokeFX {
-  constructor(scene, touch) { this.scene = scene; this.touch = !!touch; this.fires = []; this.smokes = []; this.T = null; this._v = new THREE.Vector3(); }
+  constructor(scene, touch) { this.scene = scene; this.touch = !!touch; this.fires = []; this.smokes = []; this.blasts = []; this.T = null; this._v = new THREE.Vector3(); }
   tex() {
     if (this.T) return this.T; const T = { flame: [], puff: [], glow: null, dark: null };
     for (let k = 0; k < 3; k++) T.flame.push(canvasTex(64, 128, (u, y, o) => {   // a flame tongue: wide at the foot, pointed and ragged at the tip, white-yellow core, orange-red edge
@@ -49,8 +49,10 @@ export class FireSmokeFX {
       let a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R * 0.55); if (this.clip) r = Math.min(r, Math.max(0, this.clip(x, z, Math.cos(a), Math.sin(a), r + 1.2) - 1.2)); const m = mk(T.puff[i % 4], THREE.NormalBlending, { color: new THREE.Color().setHSL(0.06, 0.05, 0.1 + rnd() * 0.07), opacity: 0, rotation: rnd() * 6.283 }), sp = new THREE.Sprite(m); g.add(sp);
       smoke.push({ sp, m, x: Math.cos(a) * r, z: Math.sin(a) * r, per: 2.6 + rnd() * 1.4, off: rnd() * 4, sw: rnd() * 6.283, spin: (rnd() - 0.5) * 0.4 });
     }
+    const embers = [];   /* v564: glowing embers drifting up out of the flames */
+    for (let i = 0; i < (this.touch ? 4 : 10); i++) { const a = rnd() * 6.283, r = Math.sqrt(rnd()) * (R - 0.5), m = mk(T.glow, THREE.AdditiveBlending, { opacity: 0, color: new THREE.Color(1, 0.72, 0.3) }), sp = new THREE.Sprite(m); g.add(sp); embers.push({ sp, m, x: Math.cos(a) * r, z: Math.sin(a) * r, per: 1.3 + rnd() * 1.5, off: rnd() * 3, sw: rnd() * 6.283 }); }
     g.position.set(x, y, z); this.scene.add(g);
-    const f = { g, scorch, glow, flash, tongues, smoke, t: 0, life, R, x, y, z }; this.fires.push(f); return f;
+    const f = { g, scorch, glow, flash, tongues, smoke, embers, t: 0, life, R, x, y, z }; this.fires.push(f); return f;
   }
   fireAnim(f, dt, cam) {
     f.t += dt; const t = f.t, fin = Math.min(1, t / 0.6), fout = cl((f.life - t) / 1.8), K = fin * fout, cp = cam.position, flick = 0.85 + 0.15 * Math.sin(t * 23) * Math.sin(t * 9.7 + 1.3);
@@ -67,9 +69,70 @@ export class FireSmokeFX {
       q.sp.position.set(q.x + ph * 0.8 + Math.sin(t * 0.5 + q.sw) * 0.3, Math.max(y, s * 0.4), q.z + Math.cos(t * 0.45 + q.sw) * 0.3); q.sp.scale.set(s, s, 1); q.m.rotation += q.spin * dt;
       const dx = q.sp.position.x + f.x - cp.x, dz = q.sp.position.z + f.z - cp.z, dy = q.sp.position.y + f.y - cp.y, near = cl((Math.hypot(dx, dy, dz) - 1.6) / 3); q.m.opacity = 0.5 * Math.sin(Math.PI * Math.min(1, ph * 1.15)) * cl(t / 1.2) * cl((f.life + 1.5 - t) / 2.5) * near;
     }
+    for (const q of f.embers) { const ph = (((t + q.off) / q.per) % 1 + 1) % 1, s = 0.2 * (1 - ph * 0.6); q.sp.position.set(q.x + Math.sin(t * 2.2 + q.sw) * 0.5 + ph * 0.6, 0.4 + ph * 4.6, q.z + Math.cos(t * 1.9 + q.sw) * 0.5); q.sp.scale.set(s, s, 1); q.m.opacity = (1 - ph) * K * (0.55 + 0.45 * Math.sin(t * 31 + q.sw)); }
     return t < f.life + 1.5;
   }
   fireEnd(f) { this.scene.remove(f.g); f.g.traverse((o) => { if (o.material) o.material.dispose(); if (o.isMesh && o.geometry) o.geometry.dispose(); }); const i = this.fires.indexOf(f); if (i >= 0) this.fires.splice(i, 1); }
+
+  // ------------------------------------------------------------------ BLAST (v564): a grenade explosion / the burst of a breaking molotov
+  //   white flash -> expanding FIREBALL (additive glow puffs that cool from white-yellow to deep red) -> a rolling black SMOKE COLUMN that rises ~8 m -> a ring of DUST thrown out along the ground,
+  //   a SHOCKWAVE ring, glowing SPARKS that fly and fall, and a black scorch mark that stays.  Sprites only (no lights, nothing recompiles); the touch version has about half as many.
+  blast(x, y, z, R = 7, molo = false) {
+    const T = this.tex(), g = new THREE.Group(), tch = this.touch, sc = R / 7; sd = (Math.floor(Math.abs(x * 13 + z * 7) * 100) % 2147483) + 23;
+    const mk = (map, blending, extra) => new THREE.SpriteMaterial(Object.assign({ map, transparent: true, depthWrite: false, fog: true, blending }, extra));
+    const flash = new THREE.Sprite(mk(T.glow, THREE.AdditiveBlending, { opacity: 0, color: new THREE.Color(1, 0.92, 0.7) })); flash.center.set(0.5, 0.4); g.add(flash);
+    const fb = [], smoke = [], dust = [], sparks = [];
+    const nF = molo ? (tch ? 5 : 8) : (tch ? 7 : 12), nS = molo ? (tch ? 3 : 5) : (tch ? 8 : 13), nD = molo ? 0 : (tch ? 5 : 9), nK = molo ? (tch ? 6 : 10) : (tch ? 9 : 18);
+    for (let i = 0; i < nF; i++) {
+      const a = rnd() * 6.283, el = molo ? 0.1 + rnd() * 0.35 : 0.25 + rnd() * 1.0, sp = molo ? 5 + rnd() * 4 : (4 + rnd() * 8) * sc, m = mk(T.glow, THREE.AdditiveBlending, { opacity: 0 }), sprite = new THREE.Sprite(m); sprite.center.set(0.5, 0.45); g.add(sprite);
+      fb.push({ sp: sprite, m, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp * (molo ? 0.8 : 1.1) + 1.2 * sc, vz: Math.sin(a) * Math.cos(el) * sp, life: 0.5 + rnd() * 0.4, s1: molo ? 3.2 + rnd() * 1.2 : (3.6 + rnd() * 2.6) * sc, spin: (rnd() - 0.5) * 2 });
+    }
+    for (let i = 0; i < nS; i++) {
+      const a = rnd() * 6.283, r = rnd() * 1.4 * sc, m = mk(T.puff[i % 4], THREE.NormalBlending, { opacity: 0, color: new THREE.Color().setHSL(0.07, 0.12, 0.1 + rnd() * 0.1), rotation: rnd() * 6.283 }), sprite = new THREE.Sprite(m); g.add(sprite);
+      smoke.push({ sp: sprite, m, x: Math.cos(a) * r, z: Math.sin(a) * r, t0: 0.12 + i / nS * 0.9, up: (molo ? 3.5 : 6 + rnd() * 3.4) * (molo ? 1 : sc * 0.8 + 0.2), drift: (rnd() - 0.5) * 2.4, dz: (rnd() - 0.5) * 2.4, s1: (molo ? 2.6 : 3.2 + rnd() * 2.8) * (0.6 + 0.4 * sc), life: (molo ? 2.4 : 3.6) + rnd() * 1.2, spin: (rnd() - 0.5) * 0.5 });
+    }
+    for (let i = 0; i < nD; i++) {
+      const a = (i / nD) * 6.283 + rnd() * 0.5, m = mk(T.puff[(i + 1) % 4], THREE.NormalBlending, { opacity: 0, color: new THREE.Color().setHSL(0.09, 0.22, 0.52 + rnd() * 0.1), rotation: rnd() * 6.283 }), sprite = new THREE.Sprite(m); g.add(sprite);
+      dust.push({ sp: sprite, m, dx: Math.cos(a), dz: Math.sin(a), sp0: (7 + rnd() * 4) * sc, s1: (2.4 + rnd() * 1.6) * sc, life: 0.9 + rnd() * 0.5, spin: (rnd() - 0.5) * 0.6 });
+    }
+    for (let i = 0; i < nK; i++) {
+      const a = rnd() * 6.283, el = 0.2 + rnd() * 1.2, sp = (molo ? 3 + rnd() * 5 : 7 + rnd() * 9) * sc, m = mk(T.glow, THREE.AdditiveBlending, { opacity: 0, color: new THREE.Color(1, 0.75 + rnd() * 0.2, 0.35) }), sprite = new THREE.Sprite(m); g.add(sprite);
+      sparks.push({ sp: sprite, m, x: 0, y: 0.3, z: 0, vx: Math.cos(a) * Math.cos(el) * sp, vy: Math.sin(el) * sp + 2, vz: Math.sin(a) * Math.cos(el) * sp, life: 0.55 + rnd() * 0.7, sz: 0.2 + rnd() * 0.22 });
+    }
+    let ring = null, ring2 = null;
+    if (!molo) {
+      ring = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 40), new THREE.MeshBasicMaterial({ color: '#ffe9c0', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.12; g.add(ring);
+      ring2 = new THREE.Mesh(new THREE.RingGeometry(0.55, 1, 40), new THREE.MeshBasicMaterial({ color: '#b59a74', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })); ring2.rotation.x = -Math.PI / 2; ring2.position.y = 0.1; g.add(ring2);
+    }
+    const scorch = new THREE.Mesh(new THREE.CircleGeometry(R * (molo ? 0.9 : 0.5), 24), new THREE.MeshBasicMaterial({ map: T.dark, transparent: true, depthWrite: false, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.04; g.add(scorch);
+    g.position.set(x, y, z); this.scene.add(g); const b = { g, flash, fb, smoke, dust, sparks, ring, ring2, scorch, t: 0, life: molo ? 6 : 16, R, x, y, z, molo }; this.blasts.push(b); return b;
+  }
+  blastAnim(b, dt, cam) {
+    b.t += dt; const t = b.t, R = b.R, cp = cam.position, sc = R / 7, ox = b.x - cp.x, oy = b.y - cp.y, oz = b.z - cp.z;
+    { const k = cl(t / (b.molo ? 0.3 : 0.2)); b.flash.visible = k < 1; const s = (b.molo ? 3 : 7) * sc * (0.6 + 0.9 * k); b.flash.scale.set(s, s, 1); b.flash.material.opacity = 0.95 * (1 - k) * (1 - k); }
+    for (const q of b.fb) {
+      const k = t / q.life; if (k >= 1) { q.sp.visible = false; continue; } const drag = Math.exp(-2.4 * t), px = q.vx * (1 - drag) / 2.4, py = q.vy * (1 - drag) / 2.4 + 0.6 * t * (1 + k), pz = q.vz * (1 - drag) / 2.4, s = q.s1 * (0.3 + 0.7 * Math.sqrt(k + 0.04));
+      q.sp.position.set(px, Math.max(py, s * 0.2), pz); q.sp.scale.set(s, s, 1); q.m.rotation += q.spin * dt;
+      q.m.color.setRGB(1, 0.95 - 0.62 * k, 0.72 - 0.7 * k); const dx = px + ox, dy = py + oy, dz = pz + oz, near = cl((Math.hypot(dx, dy, dz) - 1.0) / 2.5); q.m.opacity = Math.min(1, t / 0.04) * (1 - k * k) * 0.95 * near;
+    }
+    for (const q of b.smoke) {
+      const a = t - q.t0; if (a < 0) { q.sp.visible = false; continue; } q.sp.visible = true; const k = Math.min(1, a / q.life), e = 1 - Math.pow(1 - cl(a / 1.6), 3), s = (0.9 + q.s1 * e) * (1 + 0.35 * k), px = q.x + q.drift * e + t * 0.18, py = Math.max(0.5 + q.up * e + a * 0.5, s * 0.4), pz = q.z + q.dz * e;
+      q.sp.position.set(px, py, pz); q.sp.scale.set(s, s * 0.95, 1); q.m.rotation += q.spin * dt; const near = cl((Math.hypot(px + ox, py + oy, pz + oz) - 1.4) / 3);
+      q.m.opacity = 0.72 * Math.min(1, a * 3) * (1 - k * k) * near;
+    }
+    for (const q of b.dust) {
+      const k = t / q.life; if (k >= 1) { q.sp.visible = false; continue; } const r = q.sp0 * (1 - Math.exp(-3 * t)) / 1.4, s = q.s1 * (0.5 + 0.9 * k), px = q.dx * r, pz = q.dz * r;
+      q.sp.position.set(px, s * 0.32 + 0.2, pz); q.sp.scale.set(s, s * 0.7, 1); q.m.rotation += q.spin * dt; q.m.opacity = 0.55 * (1 - k) * Math.min(1, t * 8) * cl((Math.hypot(px + ox, oy, pz + oz) - 1.2) / 3);
+    }
+    for (const q of b.sparks) {
+      const k = t / q.life; if (k >= 1) { q.sp.visible = false; continue; } q.vy -= 14 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt; if (q.y < 0.05) { q.y = 0.05; q.vy *= -0.3; q.vx *= 0.6; q.vz *= 0.6; }
+      q.sp.position.set(q.x, q.y, q.z); const s = q.sz * (1 - k * 0.6); q.sp.scale.set(s, s, 1); q.m.opacity = (1 - k) * (0.7 + 0.3 * Math.sin(t * 60 + q.sz * 40));
+    }
+    if (b.ring) { const k = cl(t / 0.38), s = 0.4 + (R * 1.2) * (1 - Math.pow(1 - k, 2.2)); b.ring.visible = k < 1; b.ring.scale.set(s, s, 1); b.ring.material.opacity = 0.75 * (1 - k) * (1 - k); const k2 = cl(t / 0.9), s2 = 0.5 + R * 1.05 * (1 - Math.pow(1 - k2, 2)); b.ring2.visible = k2 < 1; b.ring2.scale.set(s2, s2, 1); b.ring2.material.opacity = 0.28 * (1 - k2); }
+    b.scorch.material.opacity = 0.88 * Math.min(1, t / 0.3) * cl((b.life - t) / 3); b.scorch.visible = b.scorch.material.opacity > 0.01;
+    return t < b.life;
+  }
+  blastEnd(b) { this.scene.remove(b.g); b.g.traverse((o) => { if (o.material) o.material.dispose(); if (o.isMesh && o.geometry) o.geometry.dispose(); }); const i = this.blasts.indexOf(b); if (i >= 0) this.blasts.splice(i, 1); }
   // ------------------------------------------------------------------ SMOKE
   smoke(x, y, z, life = 15) {
     const T = this.tex(), g = new THREE.Group(), n = this.touch ? 15 : 28; sd = (Math.floor(Math.abs(x * 13 + z * 7) * 100) % 2147483) + 11; const puffs = [];
@@ -96,5 +159,6 @@ export class FireSmokeFX {
   update(dt, cam) {
     for (let i = this.smokes.length - 1; i >= 0; i--) if (!this.smokeAnim(this.smokes[i], dt, cam)) this.smokeEnd(this.smokes[i]);
     for (let i = this.fires.length - 1; i >= 0; i--) if (!this.fireAnim(this.fires[i], dt, cam)) this.fireEnd(this.fires[i]);
+    for (let i = this.blasts.length - 1; i >= 0; i--) if (!this.blastAnim(this.blasts[i], dt, cam)) this.blastEnd(this.blasts[i]);
   }
 }

@@ -473,6 +473,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     for (const [x, z] of poles) { const y = cmbH(x, z); B.box('wood', x - 0.13, y - 0.4, z - 0.13, x + 0.13, y + 12, z + 0.13, '#5a4630', 0.05); B.box('wood', x - 1.3, y + 11.4, z - 0.07, x + 1.3, y + 11.55, z + 0.07, '#4a3a28', 0.05); }
     for (let i = 0; i + 1 < poles.length; i++) { const [ax, az] = poles[i], [bx, bz] = poles[i + 1]; if (Math.hypot(bx - ax, bz - az) > 70) continue; for (const o of [-1.2, 0, 1.2]) { let px = ax, py = cmbH(ax, az) + 11.5 , pz = az; for (let k = 1; k <= 6; k++) { const t = k / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t, y = cmbH(ax, az) * (1 - t) + cmbH(bx, bz) * t + 11.5 - 1.4 * Math.sin(Math.PI * t);   /* v351: the lines are 11.5 m up (were 8): they no longer cross the view through doors and windows */ wireP.push(px + o, py, pz, x + o, y, z); px = x; py = y; pz = z; } } }
     if (wireP.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wireP, 3)); const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#22252a' })); l.frustumCulled = false; group.add(l); } }
+  /* v564 WATCH TOWERS (combat.js builds the collision: pillars, floor, sill walls, window posts, the stair): the user's model (door removed), turned by the tower's rotation; if the file did not load, the solids are drawn as plain boxes so a tower is never invisible */
+  for (const t of L.wtowers || []) { const dm = propDim('wtower'); if (!(dm && place('wtower', t.x, t.gy, t.z, dm.x, dm.y, dm.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); }
   meshes.push(...B.finish(group, true));
 
   // ================================================================ instanced vegetation
@@ -505,6 +507,19 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   makeInst(pineG, matInst({ flatShading: false }, FADE.v), L.trees.filter((t) => t.pine).map((t) => ({ ...t, s: t.s * 0.95, r: t.r })), treeCull, true, (c, it) => c.setScalar(0.85 + ((it.x * 12.9898 + it.z * 78.233) % 1 + 1) % 1 * 0.3), farPine, farMatT, farCull);
   makeInst(oakG, matInst({}, FADE.v), L.trees.filter((t) => !t.pine).map((t) => ({ ...t, s: t.s * 0.9 })), treeCull, true, (c, it) => { const k = ((it.x * 3.1 + it.z * 7.7) % 1 + 1) % 1; c.setRGB(0.85 + k * 0.3, 0.85 + (1 - k) * 0.25, 0.8 + k * 0.1); }, farOak, farMatT, farCull);
   // no boulders and no bushes: concrete barriers (combat.js) are the cover
+
+  /* v564 GRASS + REEDS (the user's grass models, instanced and distance culled like the trees): tufts of long grass in the meadows (more where the ground is soft and damp-looking), tall reed clumps along the river banks; nothing grows on roads, building sites, fields, concrete or steep slopes. Own seeded random numbers: nothing else in the map moves. */
+  { const gp = (n) => { const ps = propParts(n); return ps && ps[0] ? ps[0] : null; }, tuft = gp('tuft'), reed = gp('reeds');
+    const mkGrass = (part, items, cull, sh) => { if (!part || !items.length) return; const mat = part.mat.clone(); mat.vertexColors = false; mat.side = THREE.DoubleSide; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.roughness = 1; mat.metalness = 0; const geo = part.geo;
+      makeInst(geo, mat, items, cull, false, (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.82 + k * 0.4, 0.9 + (1 - k) * 0.25, 0.7 + k * 0.2); }); };
+    const rg = rngS(564), tIt = [], rIt = [], nT = q === 0 ? 120 : 240, nR = q === 0 ? 24 : 48;
+    for (let tries = 0; tries < 9000 && (tIt.length < nT || rIt.length < nR); tries++) {
+      const x = (rg() * 2 - 1) * (H - 30), z = (rg() * 2 - 1) * (H - 30), y = cmbH(x, z), rv = Math.abs(x - riverX(z)), a1 = rg(), a2 = rg(), a3 = rg();
+      if (distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) || conc(x, z) > 0.2) continue; const dx = cmbH(x + 1.5, z) - y, dz = cmbH(x, z + 1.5) - y; if (Math.hypot(dx, dz) > 0.6) continue;
+      if (rv > 5 && rv < 30 && y > -0.2 && y < 1.7) { if (rIt.length < nR) rIt.push({ x, y: y - 0.05, z, s: 0.8 + a1 * 0.5, sy: 0.9 + a2 * 0.5, r: a3 * 6.28 }); continue; }
+      if (y < 0.5 || y > 30 || tIt.length >= nT) continue; if (fbm(x * 0.05 + 7, z * 0.05 - 2, 64, 2) < 0.42) continue;
+      tIt.push({ x, y: y - 0.03, z, s: 0.9 + a1 * 0.9, sy: 0.8 + a2 * 0.7, r: a3 * 6.28 }); }
+    mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160); }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);
