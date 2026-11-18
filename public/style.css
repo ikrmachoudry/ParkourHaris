@@ -1605,3 +1605,30 @@ body.big-map #nade-cancel, body.m-open #nade-cancel { display: none !important; 
 #boomflash { position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 244, 214, 1), rgba(255, 170, 70, .85) 55%, rgba(255, 120, 30, .5)); }
 #boomflash.go { animation: boomfl .55s ease-out; }
 @keyframes boomfl { 0% { opacity: var(--bf, .5); } 100% { opacity: 0; } }
+
+/* v565 PUBG Mobile squad bars (top-left, under the minimap): number badge, name, thin health bar, mic icon while talking.  Phones: shorter and see-through so the view is never blocked. */
+.tmh { position: fixed; left: max(12px, env(safe-area-inset-left), 2vw); z-index: 12; pointer-events: none; display: none; width: clamp(150px, 13vw, 210px); font-family: "Arial Narrow", "Roboto Condensed", system-ui, Arial, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; }
+.tmh .tmr { display: flex; align-items: stretch; margin: 0 0 5px; height: 34px; border-radius: 2px; background: linear-gradient(90deg, rgba(20, 22, 26, .66), rgba(20, 22, 26, .34)); overflow: hidden; }
+.tmh .n { flex: 0 0 24px; display: flex; align-items: center; justify-content: center; font: 900 15px system-ui, sans-serif; text-shadow: 0 1px 1px rgba(0, 0, 0, .6); }
+.tmh .bx { flex: 1; min-width: 0; padding: 3px 6px 0 7px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.tmh .l1 { display: flex; align-items: center; gap: 5px; line-height: 1; height: 15px; }
+.tmh .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; font-size: 13px; letter-spacing: .2px; text-transform: uppercase; }
+.tmh em { font: 900 9px system-ui, sans-serif; font-style: normal; color: #fca5a5; letter-spacing: .5px; }
+.tmh u { flex: 0 0 13px; height: 13px; text-decoration: none; display: block; }
+.tmh .mic { color: #4ade80; filter: drop-shadow(0 0 3px rgba(74, 222, 128, .8)); animation: tmmic .5s ease-in-out infinite alternate; }
+.tmh .pin { color: #f5b82e; opacity: .95; }
+@keyframes tmmic { from { opacity: .55; transform: scale(.92); } to { opacity: 1; transform: scale(1.08); } }
+.tmh .hb { height: 4px; margin-bottom: 4px; border-radius: 1px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.tmh .hb i { display: block; height: 100%; transition: width .25s; }
+.tmh .dn .hb i { background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, .28) 0 3px, transparent 3px 6px); }
+.tmh .out { opacity: .5; filter: grayscale(.8); }
+.tmh .me { background: linear-gradient(90deg, rgba(40, 34, 18, .72), rgba(40, 34, 18, .38)); }
+.tmh.phone { width: clamp(92px, 15vmin, 124px); opacity: .88; }
+.tmh.phone .tmr { height: 21px; margin-bottom: 3px; }
+.tmh.phone .n { flex-basis: 15px; font-size: 10px; }
+.tmh.phone .bx { padding: 2px 4px 0 5px; gap: 2px; }
+.tmh.phone .l1 { height: 10px; gap: 3px; }
+.tmh.phone .nm { font-size: 9px; }
+.tmh.phone em { font-size: 7px; }
+.tmh.phone u { flex-basis: 9px; height: 9px; }
+.tmh.phone .hb { height: 3px; margin-bottom: 2px; }
