@@ -167,7 +167,7 @@ const carFlagBits = (i) => ((i & 15) << 9) | (((i >> 4) & 1) << 24) | (((i >> 5)
 const LOCALCAR = 67108864;   // net flag: driving a car taken from the traffic (it exists only in that player's game; the model id travels in 'vm')
 const WNAME = [null, 'bat', 'pistol', 'ak'];
 const wnameOf = (w) => ((w & 16) && !(w & 3) ? 'grenade' : (w & 3) === 3 && (w & 16) ? 'sniper' : WNAME[w & 3]);   // (bit 16 with no weapon bits = a grenade in the hand)   // the wire code: 2 bits of weapon, bit 16 turns the rifle slot into the sniper
-const RSCOPE = new Set(['ak', 'ak49', 'm4']), ACOG_FOV = 20;   // v481: the rifle scope (ACOG): one fixed zoom of about 3x, far less than the Kar98 telescope
+const RSCOPE = new Set(['ak', 'ak49', 'm4']), ACOG_FOV = 46;   /* v547: red-dot sight: about 1.3x (PUBG), not the 3x ACOG */   // v481: the rifle scope (ACOG): one fixed zoom of about 3x, far less than the Kar98 telescope
 const SCOPE_FOV = [40, 26, 16, 10, 6];   // sniper zoom levels (field of view in degrees): wide -> very tight
 const isGun = (w) => !!w && w !== 'bat' && w !== 'grenade' && !!WEAPONS[w] && !WEAPONS[w].melee;
 const PAX = 33554432;   // net flag: riding as a passenger (the vehicle index is in the same bits as for a driver)

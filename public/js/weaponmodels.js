@@ -55,14 +55,12 @@ const glbGun = (kind) => GLB[kind] || (GLB[kind] = (typeof document === 'undefin
 export const GUN_KINDS = ['pistol', 'revolver', 'smg', 'ak', 'm4', 'shotgun', 'sniper'];
 // v391: the ACOG scope ("ACOG Scope" by Mateusz Wolinski, Sketchfab, CC BY-NC) on the M4 and the AK-49. models/guns/acog.glb is the file cut down for phones (one scope, 256 px textures, ~3.7k triangles). It is turned so its optical axis (back lens -> front lens) is the gun's +z, centred and 1 m long; each gun then scales / places it.
 let SCOPE = null;
-const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/guns/acog.glb'), (g) => {
-  const sc = g.scene; sc.updateMatrixWorld(true); let pf = null, pb = null;
-  sc.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()); if (/glass.front/i.test(o.name)) pf = c; if (/glass.back/i.test(o.name)) pb = c; } });
-  if (!pf || !pb) { res(null); return; }
-  const inner = new THREE.Group(); inner.add(sc); inner.quaternion.setFromUnitVectors(pf.clone().sub(pb).normalize(), new THREE.Vector3(0, 0, 1)); inner.updateMatrixWorld(true);
-  const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()); inner.position.sub(bb.getCenter(new THREE.Vector3())); const w = new THREE.Group(); w.add(inner); w.userData.len = sz.z; res(w);
+const scopeProto = () => SCOPE || (SCOPE = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/guns/reddot.glb'), (g) => {
+  /* v547: the RED-DOT sight (Aimpoint style, your GLB; models/guns/reddot.glb is already turned so the lens frame faces the shooter at -z, the body points along the gun's +z, centred and 1 m long, 256 px textures, 636 triangles) replaces the ACOG on the AK / AK-49 / M4 */
+  const sc = g.scene; sc.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m && m.map) m.map.colorSpace = THREE.SRGBColorSpace; if (m && m.metalness > 0.6) m.metalness = 0.6; if (m && m.emissiveMap) m.emissiveMap.colorSpace = THREE.SRGBColorSpace; }); } });
+  const w = new THREE.Group(); w.add(sc); w.userData.len = 1; res(w);
 }, undefined, () => res(null))));
-const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.15 }, ak49: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' }, ak: { y: 0.126, z: 0.2, s: 0.15, hide: 'Scope' } };   /* v481: the AK-47 carries the same scope */   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
+const SCOPED = { m4: { y: 0.104, z: 0.105, s: 0.13 }, ak49: { y: 0.126, z: 0.2, s: 0.13, hide: 'Scope' }, ak: { y: 0.126, z: 0.2, s: 0.13, hide: 'Scope' } };   /* v481: the AK-47 carries the same scope */   // y / z: where the scope's centre sits in the gun frame (on the top rail); hide: the AK's own built-in optic
 // v392: the real M67 grenade / molotov (your GLB files in models/props) for the grenade in the HAND and the grenade in FLIGHT (both were a code-built olive ball)
 const PGLB = {};
 const propGlb = (n) => PGLB[n] || (PGLB[n] = typeof document === 'undefined' ? Promise.resolve(null) : new Promise((res) => mkLoader().load(av('models/props/' + n + '.glb'), (g) => { g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); res(g.scene); }, undefined, () => res(null))));
