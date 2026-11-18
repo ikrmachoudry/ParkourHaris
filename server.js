@@ -58,6 +58,7 @@ app.get('/api/pack', (q, r) => {   // v476: ?lite=1 (Android) = the light models
   try { for (const f of fs.readdirSync(path.join(pubDir, 'img'))) files.push({ u: 'img/' + f, s: fs.statSync(path.join(pubDir, 'img', f)).size }); } catch { /* no pictures */ }
   r.set('Cache-Control', 'no-store').json({ v, files, bytes: files.reduce((a, f) => a + f.s, 0) });
 });
+app.get('/api/ver', (_q, r) => { let v = ''; try { v = (/VERSION (v\d+)/.exec(fs.readFileSync(path.join(pubDir, 'index.html'), 'utf8')) || [])[1] || ''; } catch { /* none */ } r.set('Cache-Control', 'no-store').json({ v }); });   // v560: the page asks which version is live and offers an update
 app.get(['/', '/index.html'], (_q, r) => {
   try {
     const v = Math.max(fs.statSync(path.join(pubDir, 'game.js')).mtimeMs, fs.statSync(path.join(pubDir, 'style.css')).mtimeMs) | 0;

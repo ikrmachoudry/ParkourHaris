@@ -814,7 +814,7 @@ export class CombatSim {
     for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const dx = b.x - ox, dz = b.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > bd) continue; const pr = Math.abs(-dx * fz + dz * fx); if (pr > DF.R + (slack || 0)) continue;
       let head = false; if (bal) { const gy = b.y != null ? b.y : onDeck(b.x, b.z) ? BRIDGE.y : cmbH(b.x, b.z), H = STH[b.stn | 0], rel = bal.y + bal.sl * a - bal.k * a * a - gy; if (rel < -0.1 || rel > H + 0.1) continue; head = rel >= H - 0.3 && pr < DF.R * 0.8 + (slack || 0); }   /* v331: the bullet must pass through the bot (feet to head, lower when he crouches or lies down); the top 30 cm is the head */
       best = b; bd = a; bhead = head; }
-    if (best) { best.lastHead = bhead; this.hurt(best, dmg * 34 * (bhead ? 2.3 * DF.hm : DF.bm), ox, oz, by); } return best ? bd : (wall < range ? wall : -1);
+    this.lastBest = best; if (best) { best.lastHead = bhead; this.hurt(best, dmg * 34 * (bhead ? 2.3 * DF.hm : DF.bm), ox, oz, by); } return best ? bd : (wall < range ? wall : -1);
   }
   bldIn(x, z) { const a = this.L.buildings; for (let i = 0; i < a.length; i++) { const B = a[i]; if (B.w && B.kind !== 'tower' && Math.abs(x - B.x) < B.w / 2 && Math.abs(z - B.z) < B.d / 2) return i; } return -1; }   // v414: which building footprint a point is inside (-1 = outside)
   melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg * (DIFFS[this.diff] || DIFFS.medium).bm, x, z, by); n++; } return n; }

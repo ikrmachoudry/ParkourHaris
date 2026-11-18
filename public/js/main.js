@@ -3119,3 +3119,11 @@ window.__ph = { renderer, potatoize, Q, P, bld: () => cmbLayout().buildings, cli
 
 // v471: Android: a service worker keeps the big versioned files (models, sounds, animations, the game script) on the phone after the first visit
 try { if ((IS_ANDROID || IS_IOS) && 'serviceWorker' in navigator) window.addEventListener('load', () => { setTimeout(() => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }, 4000); }); } catch (e) { /* no service worker: fine */ }
+
+// v560: a page that is older than the live game (a long-open tab, a friend who has not reloaded) shows a small "NEW VERSION - TAP TO UPDATE" bar; on the title screen it simply reloads. It never reloads by itself in a lobby or a match.
+(() => {
+  const bd = document.querySelector('.verbadge'), mine = bd ? (/v\d+/.exec(bd.textContent) || [])[0] : ''; if (!mine) return; let bn = null;
+  const show = (v) => { try { if (app.screen === 'title' && !race) { location.reload(); return; } if (bn) { bn.textContent = 'NEW VERSION ' + v + ' - TAP TO UPDATE'; return; } bn = document.createElement('div'); bn.textContent = 'NEW VERSION ' + v + ' - TAP TO UPDATE'; bn.style.cssText = 'position:fixed;left:50%;top:max(4px,env(safe-area-inset-top));transform:translateX(-50%);z-index:9998;padding:4px 10px;border-radius:8px;background:rgba(14,116,144,.92);color:#fff;font:800 10px system-ui,sans-serif;letter-spacing:.4px;cursor:pointer;touch-action:manipulation;white-space:nowrap'; bn.onclick = () => location.reload(); document.body.appendChild(bn); } catch (e) { /* never break the game */ } };
+  const ask = async () => { try { const r = await fetch('/api/ver', { cache: 'no-store' }), j = await r.json(); if (j && j.v && j.v !== mine) show(j.v); } catch (e) { /* offline */ } };
+  setInterval(ask, 45000); document.addEventListener('visibilitychange', () => { if (!document.hidden) ask(); });
+})();
