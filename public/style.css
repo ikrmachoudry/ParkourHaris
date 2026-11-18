@@ -1578,3 +1578,10 @@ body.scoped:not(.acog):not(.binoc) #scope { background:
 body.scoped:not(.acog):not(.binoc) #scope i { width: 69vmin; margin-left: -34.5vmin; background: linear-gradient(#000, #000) left center / 22.5vmin 6px no-repeat, linear-gradient(#000, #000) right center / 22.5vmin 6px no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 24vmin 1px no-repeat; }
 body.scoped:not(.acog):not(.binoc) #scope b { height: 69vmin; margin-top: -34.5vmin; background: linear-gradient(#000, #000) center top / 6px 22.5vmin no-repeat, linear-gradient(#000, #000) center bottom / 6px 22.5vmin no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 1px 24vmin no-repeat; }
 body.acog #scope i::before { content: ""; position: absolute; left: 50%; top: 50%; margin: -4vmin 0 0 -24.6vmin; width: 3.6vmin; height: 8vmin; border-radius: 1vmin 0 0 1vmin; background: repeating-linear-gradient(0deg, #14171b 0 .45vmin, #2e343c .45vmin .9vmin); box-shadow: inset .5vmin 0 .7vmin rgba(0,0,0,.55), 0 .3vmin .6vmin rgba(0,0,0,.5); }
+
+/* v555: red-dot like PUBG: a bigger lens and the sight body runs DOWN to the bottom of the screen (it no longer floats in mid-screen) */
+body.acog #scope i { width: 52vmin; height: 38vmin; margin: -19vmin 0 0 -26vmin; border-radius: 7vmin 7vmin 5vmin 5vmin; }
+body.acog #scope i::before { margin-left: -30.6vmin; }
+body.acog #scope b::before { left: 26.9vmin; }
+body.acog #scope b::after { top: -23.9vmin; }
+body.acog #scope::before { top: calc(50% + 19.2vmin); height: calc(50% - 17.4vmin); width: 50vmin; margin-left: -25vmin; clip-path: polygon(0 0, 100% 0, 94% 100%, 6% 100%); border-radius: 2.5vmin 2.5vmin 0 0; background: radial-gradient(circle at 76% 6vmin, #3b4149 0 2.2vmin, #1b1e23 2.3vmin 3.3vmin, rgba(0,0,0,0) 3.4vmin), radial-gradient(circle at 12% 2.6vmin, #4a5058 0 .55vmin, rgba(0,0,0,0) .65vmin), radial-gradient(circle at 88% 2.6vmin, #4a5058 0 .55vmin, rgba(0,0,0,0) .65vmin), linear-gradient(rgba(255,255,255,.10) 0 .35vmin, rgba(0,0,0,0) .4vmin), linear-gradient(#171a1f, #050607) !important; }
