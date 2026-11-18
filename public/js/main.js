@@ -2320,6 +2320,7 @@ function show(name) {
   for (const s of screens) { const el = $('s-' + s); el.classList.toggle('active', s === name); el.classList.remove('hidden'); }
   if (name === 'title') homeMode('home');
   { const was = app.screen; if (name === 'lobby' && was !== 'lobby') { try { A.blockMenuMusic(true); } catch (e) { /* noop */ } if (window.phGuide) window.phGuide.voiceHint(); } else if (was === 'lobby' && name !== 'lobby') { try { A.blockMenuMusic(false); } catch (e) { /* noop */ } } }   /* v429: no menu music in the lobby: it would leak into the voice chat */
+  if (name === 'cmb' && stage) { try { stage.setTitle(app.char); stage.setPreview(app.char, app.skin); } catch (e) { /* stage not ready */ } }   /* v574: the combat menu shows YOUR player on the left, the buttons on the right (like the choose-player page) */
   app.screen = name; document.body.classList.toggle('in-lobby', name === 'lobby'); try { voiceUI(); } catch (e) { /* voice not ready yet */ }
   try { musicBtn(name); } catch (e) { /* noop */ }
 }
@@ -2798,7 +2799,7 @@ function paintSettings() {
   document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => r.classList.toggle('on', !!OPT.pk[r.dataset.pk]));
   $('set-mm').classList.toggle('on', A.isMusicMuted()); $('set-snd').classList.toggle('on', !app.muted);
   document.querySelectorAll('#set-gfx button').forEach((b) => b.classList.toggle('on', (b.dataset.q === 'low') === !!Q.low));
-  const inMatch = !!race && !race.over, b = $('set-cust'); b.disabled = !inMatch; $('set-cust-note').style.display = inMatch ? 'none' : 'block';
+  const inMatch = !!race && !race.over, b = $('set-cust'); b.disabled = false; b.classList.toggle('idle', !inMatch); $('set-cust-note').style.display = inMatch ? 'none' : 'block';
 }
 function openSettings(from, tab) {
   setFrom = from || 'title'; paintSettings(); setTab(tab || 'basic');
@@ -2871,7 +2872,8 @@ window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply
   hit($('lay-r'), () => { LAY = {}; laySave(); layApply(); mark(null); });
   const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; openSettings('pause', 'ctrl'); };
   hit($('lay-d'), stop);
-  $('set-cust').onclick = () => { A.sfx.click(); const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); document.body.classList.remove('set-open'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
+  $('set-cust').onclick = () => { A.sfx.click(); if (!(race && !race.over)) { const nt = $('set-cust-note'); nt.style.display = 'block'; nt.classList.remove('nudge'); void nt.offsetWidth; nt.classList.add('nudge'); return; }   /* v574: the button looks ready on the menu too; outside a match it only flashes the hint (the layout editor needs the match buttons on screen) */
+    const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); document.body.classList.remove('set-open'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
    bar().classList.remove('hidden'); };
 }
 $('p-resume').onclick = () => { A.sfx.click(); closePause(); };

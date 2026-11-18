@@ -1726,7 +1726,7 @@ body.big-map #nade-cancel, body.m-open #nade-cancel { display: none !important; 
 body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size: clamp(9px, 1.7vh, 11px) !important; }
 #mm-btn.off { background: linear-gradient(180deg, #d34a3f, #a3221a) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), inset 3px 0 0 #fff !important; }
 @media (max-height: 470px) and (min-width: 560px) {
-  #s-cmb .panel { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 8px; row-gap: 5px; width: min(760px, 94vw); max-height: 96vh; overflow: visible; }
+  #s-cmb .panel { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 8px; row-gap: 5px; max-height: 96vh; overflow: visible; }
   #s-cmb .panel > h2, #s-cmb .panel > .note, #s-cmb .panel > .dsel, #s-cmb .panel > .row.end, #s-cmb #b-cmb-team { grid-column: 1 / -1; }
   #s-cmb .panel > .note { margin: 0 !important; }
   #s-cmb .panel .btn { margin: 0 !important; }
@@ -1734,3 +1734,14 @@ body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size:
   #s-cmb .btn.big { padding-top: clamp(7px, 1.8vh, 9px) !important; padding-bottom: clamp(7px, 1.8vh, 9px) !important; }
 }
 #ui #s-settings .ps-side h2 { margin: 0 18px clamp(8px, 2vh, 14px) !important; }
+
+/* v574: Combat Mission page: your player on the LEFT, every option button on the RIGHT (same split as the choose-player page) */
+#s-cmb { justify-content: flex-end !important; padding-right: max(14px, env(safe-area-inset-right)) !important; }
+#ui #s-cmb .panel.panel.panel { width: min(540px, 56vw) !important; }
+@media (max-height: 470px) and (min-width: 560px) { #ui #s-cmb .panel.panel.panel { width: min(520px, 58vw) !important; } }
+/* settings: CUSTOMIZE is a light green container (it looked grey / dead before) */
+#ui #s-settings #set-cust, #ui #s-settings #set-cust[disabled], #ui #s-settings #set-cust.idle { background: linear-gradient(180deg, #c6f78a, #8fdc4a) !important; color: #10250a !important; opacity: 1 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), 0 0 10px rgba(143,220,74,.35) !important; cursor: pointer; }
+#ui #s-settings #set-cust:hover { background: linear-gradient(180deg, #dcffa8, #a4ee62) !important; }
+#ui #s-settings #set-cust:active { transform: translateY(1px); }
+#set-cust-note.nudge { animation: nudgeNote .9s ease 1; }
+@keyframes nudgeNote { 0%, 100% { color: inherit; } 20%, 60% { color: #c6f78a; text-shadow: 0 0 8px rgba(143,220,74,.7); } }
