@@ -1588,7 +1588,7 @@ body.acog #scope::before { top: calc(50% + 19.2vmin); height: calc(50% - 17.4vmi
 body.ads #ads { display: block; }
 body.ads #scope { display: none !important; }
 #ads svg { display: none; position: absolute; left: 50%; top: 0; height: 100%; width: auto; aspect-ratio: 10 / 9; transform: translateX(-50%); filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .55)); }
-#ads[data-k="dot"] .k-dot, #ads[data-k="pistol"] .k-pistol, #ads[data-k="iron"] .k-iron { display: block; }
+#ads[data-k="ak"] .k-ak, #ads[data-k="ak49"] .k-ak49, #ads[data-k="m4"] .k-m4, #ads[data-k="smg"] .k-smg, #ads[data-k="pistol"] .k-pistol, #ads[data-k="revolver"] .k-revolver, #ads[data-k="shotgun"] .k-shotgun, #ads[data-k="iron"] .k-iron { display: block; }   /* v569: one picture per gun */
 
 /* v564 throw bar (PUBG): fuse diamond over the grenade + CANCEL button */
 .nade-fuse { display: none; position: fixed; left: 0; top: 0; width: 40px; height: 40px; z-index: 6; pointer-events: none; will-change: transform; }
