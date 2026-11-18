@@ -214,6 +214,7 @@ const goMsg = (room, meta) => ({
   ...(room.combat ? { teamOf: Object.fromEntries([...room.players.values()].map((p) => [p.id, Math.max(0, (room.teams || []).findIndex((t) => t.id === p.team))])), teamNames: (room.teams || []).map((t) => t.name) } : null),
 });
 
+function addDroids(room) { if (room.chost) (room.teams || []).forEach((t, di) => { if (t.droid && t.ids.size === 1) room.chost.addDroid(di); }); }   // v507: one INTELLIDROID for every team that asked for one (it takes the empty seat of a 1-player team); v560: one place, also used when the host's bot count rebuilds the match
 function startRound(room) {
   const meta = LEVEL_META[room.level];
   room.cresDone = null; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); room.csGone = []; for (const q of room.players.values()) q.csSnap = null; for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
@@ -227,7 +228,7 @@ function startRound(room) {
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
   room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN) : null;   // v245: the shared Jang match: the server runs the bots + loot
   if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
-  if (room.chost) (room.teams || []).forEach((t, di) => { if (t.droid && t.ids.size === 1) room.chost.addDroid(di); });   // v507: one INTELLIDROID for every team that asked for one (it takes the empty seat of a 1-player team)
+  addDroids(room);
   bcast(room, goMsg(room, meta));
   clearTimers(room);
   room.timers.push(setTimeout(() => { if (room.phase === 'countdown') room.phase = 'race'; }, meta.city ? 0 : COUNTDOWN_MS));
@@ -360,7 +361,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastJr || 0) < 500) return; p.lastJr = t;
         send(q.ws, { t: 'jr', from: p.id }); break;
       }
-      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); for (const q of room.players.values()) room.chost.init(q.id); } } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
+      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.filter((x) => !x.droid).length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); addDroids(room); for (const q of room.players.values()) room.chost.init(q.id); } /* v560: the rebuilt match used to LOSE every INTELLIDROID (the new host had no droids and the count test counted them as bots) */ } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
       case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': {
         if (!room || !room.chost || room.phase !== 'race') return;
