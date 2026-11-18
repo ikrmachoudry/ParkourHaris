@@ -369,7 +369,7 @@ export class CombatScene {
     if (!this.chute) { this.chute = this.mkChute(); this.group.add(this.chute); } if (gl && !this.glider) { this.glider = this.mkGlider(); this.group.add(this.glider); }
     const o = gl ? this.glider : this.chute; this.chute.visible = on && !gl; if (this.glider) this.glider.visible = on && gl; if (!on) return;
     d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
-    if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else o.rotation.set(0, b.yaw, Math.sin(this.t * 1.3) * 0.04);
+    if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else { const mg = this.R.me && this.R.me.model && this.R.me.model.group; o.rotation.set(0, mg ? mg.rotation.y : b.yaw, 0); }   /* v549: the harness / canopy turn EXACTLY with the soldier's body (they used b.yaw, the body turns smoothly: the harness swung left / right while the player stayed, and a z-sway about the feet moved the canopy but not him) */
   }
   endDrop(landed) { if (landed && this.practice && !this._pracPlaced && this.sim && !this.shared) this.placePracticeBots(); if (landed && window.phGuide && !this.train && this.practice) window.phGuide.maybeStart(this);   /* v443: the animated guide only from the HOW TO PLAY button, never in a normal solo / team match */ this.diveHint = false; if (window.phVoiceUI) window.phVoiceUI(); if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.chute) this.chute.visible = false; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
@@ -660,7 +660,7 @@ export class CombatScene {
       else if (g.ph === 6) {   // v242: he rides along as a passenger: seated in his seat of the jeep
         const car = this.R.cars[g.vi]; if (car) { g.m.group.visible = true; this.R.seatModel(g.m.group, car, true, g.ps | 0); g.x = car.st.x; g.y = car.st.y; g.z = car.st.z; } else g.m.group.visible = false; }
       else g.ry = undefined;
-      g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.r; }
+      g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.m.group.rotation.y; }   /* v549: same yaw as his body */
     }
   }
   // v269: VEHICLE HITS: any car / jeep / Civic that moves faster than ~14 km/h hurts whoever it runs into: bots, enemy players (PvP), and ME when somebody else's car hits me. Damage grows with the speed (about 22 m/s kills).
