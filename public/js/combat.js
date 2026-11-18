@@ -360,7 +360,7 @@ for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'],
 
 export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
 export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
-export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; for (const t of WTPOS) { const dx = x - t.x, dz = z - t.z, lx = dx * t.c + dz * t.s, lz = -dx * t.s + dz * t.c; if (lx > -2.4 - m && lx < 2.4 + m && lz > -2.2 - m && lz < 4.3 + m) return true; } return false; };   // v564: the watch towers count as building sites (no trees / blocks in them)
+export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x - o.w / 2 - m && x < o.x + o.w / 2 + m && z > o.z - o.d / 2 - m && z < o.z + o.d / 2 + m) return true; for (const t of WTPOS) { const dx = x - t.x, dz = z - t.z, lx = dx * t.c + dz * t.s, lz = -dx * t.s + dz * t.c; if (lx > -2.4 - m && lx < 2.4 + m && lz > -2.2 - m && lz < 8.3 + m) return true; } return false; };   // v564: the watch towers count as building sites (no trees / blocks in them)
 const WTPOS = [];
 // ---- Dr. Ikrma's house: hospital on the ground floor (reception, admission rooms, operation theatre, wards), the family home upstairs (a big lobby with five bedrooms round it), a roof terrace with a water tank
 { const CL = { w: 28, d: 20 }, cand = []; for (let x = -200; x <= 230; x += 8) for (let z = -190; z <= 220; z += 8) cand.push([x, z]); cand.sort((p, q) => Math.hypot(p[0] - 50, p[1] - 30) - Math.hypot(q[0] - 50, q[1] - 30));
@@ -497,11 +497,12 @@ function build() {
     return [x, z]; };
   const towers = [tower(...towerSpot(116, -186), 'pk'), tower(...towerSpot(212, -128), 'us'), tower(...towerSpot(0, -120), 'ps'), tower(128, -110, 'pk', 240, BASE_Y)];   // v335: the 4th tower: the TALLEST (240 steps = 72 m, ten turns) on the military hill; the zip line starts from its roof ledge
   /* v564 WATCH TOWERS (the user's watch_tower.glb): a 5.7 m tower, a cabin on four pillars, a steep stair to the doorway (the door is removed), open windows with a 1.14 m sill. You climb the stair, step in, crouch behind the sill to hide, or stand and shoot out of the windows. Placed on flat open ground away from roads, houses, fields and the river with their own seeded random numbers. Local frame: origin = the middle of the cabin at ground level, the stair runs towards +z; rot 0..3 turns it by 90 degrees (every solid stays an axis aligned box). */
-  const wtowers = [];
+  const wtowers = [], WTD = 5.67;   /* v566: the whole tower is TWICE as tall (11.3 m): the cabin + upper stair of the model are lifted by WTD, four legs with cross beams carry it, the stair goes on down to the ground (about 7.6 m long), banisters on both sides */
   WTPOS.length = 0; { const RT = seeded(5640), cabin = (x, z, rot, gy) => {
-      const th = rot * Math.PI / 2, c = Math.round(Math.cos(th)), sn = Math.round(Math.sin(th)), out = [];
+      const th = rot * Math.PI / 2, c = Math.round(Math.cos(th)), sn = Math.round(Math.sin(th)), out = [], vis = [];
+      const vb = (lx0, lz0, lx1, lz1, y0, y1, col) => { const xs = [lx0, lx1].flatMap((a) => [lz0, lz1].map((b) => [x + a * c - b * sn, z + a * sn + b * c])); vis.push([Math.min(...xs.map((q) => q[0])), gy + y0, Math.min(...xs.map((q) => q[1])), Math.max(...xs.map((q) => q[0])), gy + y1, Math.max(...xs.map((q) => q[1])), col]); };   // a drawn-only box (legs, beams, banister)
       const sol = (lx0, lz0, lx1, lz1, y0, y1, k, ex) => { const xs = [lx0, lx1].flatMap((a) => [lz0, lz1].map((b) => [x + a * c - b * sn, z + a * sn + b * c])), o = { x0: Math.min(...xs.map((q) => q[0])), x1: Math.max(...xs.map((q) => q[0])), z0: Math.min(...xs.map((q) => q[1])), z1: Math.max(...xs.map((q) => q[1])), y0: gy + y0, y1: gy + y1, k, wt: 1, ...ex }; out.push(o); return o; };
-      const HX = 1.35, HZ = 1.09, FL = 3.06, SILL = 4.2, LIN = 5.2, TOP = 5.4, T = 0.2;
+      const D = WTD, HX = 1.35, HZ = 1.09, FL = 3.06 + D, SILL = 4.2 + D, LIN = 5.2 + D, TOP = 5.4 + D, T = 0.2;
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) sol(sx > 0 ? HX - T : -HX, sz > 0 ? HZ - T : -HZ, sx > 0 ? HX : -HX + T, sz > 0 ? HZ : -HZ + T, -0.6, FL - 0.2, 'wall');   // the four pillars
       sol(-HX, -HZ, HX, HZ, FL - 0.21, FL, 'floor');   // the cabin floor
       // low walls (the sill) all round, except the doorway (x 0.05 .. 1.15) in the front wall
@@ -511,22 +512,31 @@ function build() {
       for (const [a0, a1] of [[-HX, -1.15], [-0.25, 0.05], [1.15, HX]]) { sol(a0, HZ - T, a1, HZ, SILL, LIN, 'wall'); sol(a0, -HZ, a1, -HZ + T, SILL, LIN, 'wall'); }
       for (const sx of [-1, 1]) for (const [a0, a1] of [[-HZ, -0.79], [0.81, HZ]]) sol(sx > 0 ? HX - T : -HX, a0, sx > 0 ? HX : -HX + T, a1, SILL, LIN, 'wall');
       for (const [a0, b0, a1, b1] of [[-HX, HZ - T, HX, HZ], [-HX, -HZ, HX, -HZ + T], [-HX, -HZ, -HX + T, HZ], [HX - T, -HZ, HX, HZ]]) sol(a0, b0, a1, b1, LIN, TOP, 'wall');   // the lintel band: a ring round the cabin (no solid over the open middle)
-      sol(-1.61, -1.39, 1.61, 1.39, TOP, 5.67, 'roof', { flat: 1 });   // the roof slab (nobody can stand on it: no way up)
-      // the stair: 14 treads, rise 0.2, run ~0.14 (a 0.18 foot step in front), up to the doorway sill
-      const zF = (i) => 1.5 - 0.1408 * i + 1.92, last = 13;
-      sol(0.01, 3.42, 1.11, 3.66, -0.4, 0.18, 'step');
-      for (let i = 0; i <= last; i++) sol(0.01, i === last ? HZ : zF(i) - 0.1408, 1.11, zF(i), -0.4, 0.36 + 0.2 * i, 'step');
+      sol(-1.61, -1.39, 1.61, 1.39, TOP, 5.67 + D, 'roof', { flat: 1 });   // the roof slab (nobody can stand on it: no way up)
+      // the stair: the model's own 14 treads (rise 0.2, run 0.14, a 0.18 foot step in front) now start at height D, 28 more treads carry it down to the ground; a banister on both sides
+      const zF = (i) => 1.5 - 0.1408 * i + 1.92, last = 13, RUN = 0.1408, treads = [];   // treads: [z0, z1, top] of every step, the top one first
+      sol(0.01, 3.42, 1.11, 3.66, -0.4, 0.18 + D, 'step'); treads.push([3.42, 3.66, 0.18 + D]);
+      for (let i = 0; i <= last; i++) { const z0 = i === last ? HZ : zF(i) - RUN, top = 0.36 + 0.2 * i + D; sol(0.01, z0, 1.11, zF(i), -0.4, top, 'step'); treads.push([z0, zF(i), top]); }
+      for (let j = 1; j <= 28; j++) { const z0 = 3.66 + RUN * (j - 1), z1 = 3.66 + RUN * j, top = D + 0.18 - 0.2 * j; sol(0.01, z0, 1.11, z1, -0.4, top, 'step'); treads.push([z0, z1, top]); }
+      treads.sort((a, b) => a[0] - b[0]);
+      for (const [xa, xb] of [[-0.1, 0.01], [1.11, 1.22]]) for (const [z0, z1, top] of treads) sol(xa, z0, xb, z1, top - 0.15, top + 1.05, 'wall', { rail: 1 });   // banister: you cannot walk off the side of the stair
+      for (const [z0, z1, top] of treads) if (top < D) { vb(0.01, z0, 1.11, z1 + 0.01, top - 0.07, top, '#7a5c3c'); vb(-0.02, z0, 0.1, z1 + 0.01, top - 0.34, top - 0.05, '#5d4630'); vb(1.02, z0, 1.13, z1 + 0.01, top - 0.34, top - 0.05, '#5d4630'); }   // the new lower treads + two side boards (the model draws the upper ones)
+      for (const [xa, xb] of [[-0.1, 0], [1.12, 1.22]]) for (let i = 0; i < treads.length; i += 2) { const [z0, , top] = treads[i], [, z1, tl] = treads[Math.min(i + 1, treads.length - 1)]; vb(xa, z0, xb, z1, tl + 0.96, top + 1.06, '#8a6a46'); vb(xa, z0, xb, z1, tl + 0.48, top + 0.55, '#8a6a46'); if (i % 4 === 0) vb(xa - 0.01, z0 + 0.02, xb + 0.01, z0 + 0.12, top - 0.3, top + 1.06, '#6d5236'); }   // banister: a stepped hand rail + a mid rail, a post every 4 treads
+      // the four legs and the cross beams under the cabin (the model's own legs now stand at height D)
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) vb(sx > 0 ? HX - 0.22 : -HX + 0.02, sz > 0 ? HZ - 0.22 : -HZ + 0.02, sx > 0 ? HX - 0.02 : -HX + 0.22, sz > 0 ? HZ - 0.02 : -HZ + 0.22, -0.3, D + 0.08, '#6d5236');
+      for (const f of [0.34, 0.68]) { const y = D * f; vb(-HX + 0.02, HZ - 0.2, HX - 0.02, HZ - 0.05, y, y + 0.14, '#7a5c3c'); vb(-HX + 0.02, -HZ + 0.05, HX - 0.02, -HZ + 0.2, y, y + 0.14, '#7a5c3c'); vb(-HX + 0.05, -HZ + 0.02, -HX + 0.2, HZ - 0.02, y, y + 0.14, '#7a5c3c'); vb(HX - 0.2, -HZ + 0.02, HX - 0.05, HZ - 0.02, y, y + 0.14, '#7a5c3c'); }
+      out.vis = vis;
       return out; };
     const sameM = (x, z) => BUILDINGS.some((o) => Math.abs(o.x - x) < o.w / 2 + 11 && Math.abs(o.z - z) < o.d / 2 + 11);
     for (let tries = 0; tries < 6000 && wtowers.length < 9; tries++) {
       const x = Math.round((RT() * 2 - 1) * (H - 70)), z = Math.round((RT() * 2 - 1) * (H - 70)), rot = Math.floor(RT() * 4), th = rot * Math.PI / 2, c = Math.round(Math.cos(th)), sn = Math.round(Math.sin(th));
-      const cx = x - 1.0 * sn, cz = z + 1.0 * c;   // the middle of tower + stair
-      if (distRoad(cx, cz) < 12 || Math.abs(cx - riverX(cz)) < 34 || inField(cx, cz, 16) || sameM(cx, cz)) continue;
+      const cx = x - 3.0 * sn, cz = z + 3.0 * c;   // the middle of tower + (now longer) stair
+      if (distRoad(cx, cz) < 12 || Math.abs(cx - riverX(cz)) < 34 || inField(cx, cz, 16) || sameM(cx, cz) || sameM(x - 6.5 * sn, z + 6.5 * c)) continue;
       if (cx > FB.x0 - 14 && cx < FB.x1 + 14 && cz > FB.z0 - 14 && cz < FB.z1 + 14) continue; if (cx > BRIDGE.xb - 20 && cx < BRIDGE.xa + 20 && Math.abs(cz - BRIDGE.z) < 24) continue;
       if ([[116, -186], [212, -128], [0, -120], [128, -110]].some(([tx, tz]) => Math.hypot(tx - cx, tz - cz) < 28) || wtowers.some((o) => Math.hypot(o.x - x, o.z - z) < 70)) continue;
-      const h0 = rawH(x, z); if (h0 < 2 || h0 > 20) continue; let flat = true; for (const [a, b] of [[-2, -1.6], [2, -1.6], [-2, 4], [2, 4], [0, 1.2], [0, 6]]) { const X = x + a * c - b * sn, Z = z + a * sn + b * c; if (Math.abs(rawH(X, Z) - h0) > 0.9) flat = false; } if (!flat) continue;
-      const gy = Math.round(h0 * 10) / 10; { const q = [[-2.4, -2.2], [2.4, 4.3]].map(([a, b]) => [x + a * c - b * sn, z + a * sn + b * c]); padRect(Math.min(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][0], q[1][0]), Math.max(q[0][1], q[1][1]), gy); }
-      WTPOS.push({ x, z, c, s: sn }); wtowers.push({ x, z, rot, gy, fy: gy + 3.06, solids: cabin(x, z, rot, gy) }); }
+      const h0 = rawH(x, z); if (h0 < 2 || h0 > 20) continue; let flat = true; for (const [a, b] of [[-2, -1.6], [2, -1.6], [-2, 4], [2, 4], [0, 1.2], [0, 6], [0, 8], [1, 8.2], [-1, 8.2]]) { const X = x + a * c - b * sn, Z = z + a * sn + b * c; if (Math.abs(rawH(X, Z) - h0) > 0.9) flat = false; } if (!flat) continue;
+      const gy = Math.round(h0 * 10) / 10; { const q = [[-2.4, -2.2], [2.4, 8.3]].map(([a, b]) => [x + a * c - b * sn, z + a * sn + b * c]); padRect(Math.min(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][0], q[1][0]), Math.max(q[0][1], q[1][1]), gy); }
+      WTPOS.push({ x, z, c, s: sn }); { const so = cabin(x, z, rot, gy); wtowers.push({ x, z, rot, gy, fy: gy + 3.06 + WTD, dy: WTD, solids: so, vis: so.vis }); } }
     for (const t of wtowers) for (const q of t.solids) addS(q); }
   /* v565 TALL-GRASS PATCHES (PUBG hiding grass): ~12 round patches of waist-high grass on gentle meadow ground; a CROUCHING or PRONE player inside one is hard to see (the grass is drawn in battlemap.js, the bots see a prone player in it only from a few metres: see grassHide).  Own random numbers. */
   const grass = []; { const RG = seeded(5641);

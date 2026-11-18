@@ -21,7 +21,7 @@ const fingers = (p, x, y, n, w, dx, dy, rot, h = 40) => {
 
 /* rifle / SMG with a red-dot sight */
 const dot = () => {
-  const p = 'ad', hw = (y) => 70 + (y - 590) / 310 * 120;
+  const p = 'ad', hw = (y) => 64 + (y - 520) * 0.33;   // v566: the red-dot sight is HALF the size it was (the housing, knobs, lens and reticle are scaled round the centre); the gun body starts right under the smaller mount
   let rails = '';
   for (const y of [624, 656, 694, 738, 790, 852]) { const h = hw(y) - 9; rails += `<path d="M${500 - h} ${y} H${500 + h}" stroke="#05070a" stroke-width="${3 + (y - 590) / 70}"/><path d="M${500 - h} ${y + 4 + (y - 590) / 120} H${500 + h}" stroke="#4a525d" stroke-opacity=".55" stroke-width="1.6"/>`; }
   let knurl = '';
@@ -29,9 +29,10 @@ const dot = () => {
   let knurl2 = '';
   for (let i = 0; i < 9; i++) knurl2 += `<path d="M${440 + i * 15} 308 v18" stroke="#05070a" stroke-width="2.4"/>`;
   return `<svg class="k-dot" viewBox="0 0 1000 900" preserveAspectRatio="xMidYMin meet">${DEFS(p)}
-<path d="M430 566 L570 566 L${500 + hw(900)} 900 L${500 - hw(900)} 900 Z" fill="url(#${p}B)" stroke="#06070a" stroke-width="3"/>
-<path d="M500 566 V900" stroke="#05070a" stroke-opacity=".55" stroke-width="4"/>${rails}
-<path d="M432 566 L${500 - hw(900) + 2} 900" stroke="#59616c" stroke-opacity=".5" stroke-width="2"/>
+<path d="M436 520 L564 520 L${500 + hw(900)} 900 L${500 - hw(900)} 900 Z" fill="url(#${p}B)" stroke="#06070a" stroke-width="3"/>
+<path d="M500 520 V900" stroke="#05070a" stroke-opacity=".55" stroke-width="4"/>${rails}
+<path d="M438 520 L${500 - hw(900) + 2} 900" stroke="#59616c" stroke-opacity=".5" stroke-width="2"/>
+<g transform="translate(500 450) scale(.5) translate(-500 -450)">
 <path d="M398 568 H602 L628 612 H372 Z" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
 <path fill-rule="evenodd" d="M348 332 h304 a48 48 0 0 1 48 48 v148 a48 48 0 0 1 -48 48 h-304 a48 48 0 0 1 -48 -48 v-148 a48 48 0 0 1 48 -48Z M345 372 h310 a28 28 0 0 1 28 28 v100 a28 28 0 0 1 -28 28 h-310 a28 28 0 0 1 -28 -28 v-100 a28 28 0 0 1 28 -28Z" fill="url(#${p}M)" stroke="#06080b" stroke-width="4"/>
 <rect x="306" y="338" width="388" height="232" rx="43" fill="none" stroke="#6a727e" stroke-opacity=".55" stroke-width="1.6"/>
@@ -41,7 +42,8 @@ const dot = () => {
 <circle cx="333" cy="356" r="7" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/><circle cx="667" cy="356" r="7" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/>
 <path d="M345 372 h310 a28 28 0 0 1 28 28 v100 a28 28 0 0 1 -28 28 h-310 a28 28 0 0 1 -28 -28 v-100 a28 28 0 0 1 28 -28Z" fill="url(#${p}L)" stroke="#020304" stroke-width="7"/>
 <path d="M352 380 L402 380 L352 440Z" fill="#fff" fill-opacity=".1"/>
-<circle cx="500" cy="450" r="44" fill="none" stroke="#ff2b22" stroke-width="3.4" stroke-opacity=".92"/><circle cx="500" cy="450" r="30" fill="url(#${p}R)"/><circle cx="500" cy="450" r="4.5" fill="#ff3b30"/>
+<circle cx="500" cy="450" r="44" fill="none" stroke="#ff2b22" stroke-width="5" stroke-opacity=".92"/><circle cx="500" cy="450" r="30" fill="url(#${p}R)"/><circle cx="500" cy="450" r="7" fill="#ff3b30"/>
+</g>
 <path d="M120 900 C128 800 188 748 262 728 L330 800 L300 900Z" fill="url(#${p}S)" stroke="#12160f" stroke-width="3"/>
 <path d="M246 770 C292 704 436 690 524 718 C594 742 640 822 622 900 L262 900 C232 862 228 806 246 770Z" fill="url(#${p}G)" stroke="#050607" stroke-width="3.5"/>
 ${fingers(p, 430, 742, 4, 150, 0, 36, -14)}
