@@ -25,16 +25,16 @@ const fingers = (p, x, y, n, w, dx, dy, rot, h = 40) => {
 
 
 /* v572: the red-dot sight drawn like the PUBG one: a tall black housing with a big ARCHED (dome-top) clear window, a thick block under the window, small side knobs.
-   Window: x 350..650, y 340..556 (dome on top); the red ring + dot stay exactly at 500,450 so bullets go where the dot is. */
-const sight = (p, trim, lens, label, labCol) => `<path fill-rule="evenodd" d="M310 650 V440 A190 128 0 0 1 690 440 V650 Q690 664 676 664 H324 Q310 664 310 650Z M350 540 V440 A150 98 0 0 1 650 440 V540 Q650 556 634 556 H366 Q350 556 350 540Z" fill="url(#${p}M)" stroke="${trim || '#06080b'}" stroke-width="${trim ? 6 : 4}"/>
-<path d="M318 440 A182 120 0 0 1 682 440" fill="none" stroke="#7b8490" stroke-opacity=".5" stroke-width="2"/>
-<path d="M318 582 H682 M318 640 H682" stroke="#05070a" stroke-width="3"/><path d="M322 586 H678" stroke="#59616c" stroke-opacity=".45" stroke-width="1.6"/>
-<rect x="690" y="470" width="34" height="92" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/><rect x="724" y="480" width="22" height="72" rx="7" fill="#15181d" stroke="#05070a" stroke-width="3"/>
-<rect x="276" y="486" width="34" height="62" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
-<circle cx="332" cy="614" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/><circle cx="668" cy="614" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/>
-${label ? `<text x="500" y="620" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" letter-spacing="2" fill="${labCol || '#fff'}" fill-opacity=".72">${label}</text>` : ''}
-<path d="M350 540 V440 A150 98 0 0 1 650 440 V540 Q650 556 634 556 H366 Q350 556 350 540Z" fill="url(#${p}L)" stroke="${lens || '#020304'}" stroke-width="7"/>
-<path d="M366 470 A136 88 0 0 1 430 372" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="7" stroke-linecap="round"/>
+   Window (v575, bigger): x 290..710, y 298..556 (dome on top); the red ring + dot stay exactly at 500,450 so bullets go where the dot is. */
+const sight = (p, trim, lens, label, labCol) => `<path fill-rule="evenodd" d="M254 654 V410 A246 146 0 0 1 746 410 V654 Q746 668 732 668 H268 Q254 668 254 654Z M290 538 V410 A210 112 0 0 1 710 410 V538 Q710 556 692 556 H308 Q290 556 290 538Z" fill="url(#${p}M)" stroke="${trim || '#06080b'}" stroke-width="${trim ? 6 : 4}"/>
+<path d="M262 410 A238 138 0 0 1 738 410" fill="none" stroke="#7b8490" stroke-opacity=".5" stroke-width="2"/>
+<path d="M262 586 H738 M262 646 H738" stroke="#05070a" stroke-width="3"/><path d="M266 590 H734" stroke="#59616c" stroke-opacity=".45" stroke-width="1.6"/>
+<rect x="746" y="470" width="34" height="100" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/><rect x="780" y="480" width="22" height="80" rx="7" fill="#15181d" stroke="#05070a" stroke-width="3"/>
+<rect x="220" y="486" width="34" height="68" rx="9" fill="url(#${p}M)" stroke="#05070a" stroke-width="3"/>
+<circle cx="280" cy="619" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/><circle cx="720" cy="619" r="6" fill="#0a0c0f" stroke="#59616c" stroke-width="1.5"/>
+${label ? `<text x="500" y="624" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" letter-spacing="2" fill="${labCol || '#fff'}" fill-opacity=".72">${label}</text>` : ''}
+<path d="M290 538 V410 A210 112 0 0 1 710 410 V538 Q710 556 692 556 H308 Q290 556 290 538Z" fill="url(#${p}L)" stroke="${lens || '#020304'}" stroke-width="7"/>
+<path d="M308 470 A196 106 0 0 1 392 322" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="8" stroke-linecap="round"/>
 <circle cx="500" cy="450" r="16" fill="none" stroke="#ff2b22" stroke-width="2.2" stroke-opacity=".92"/><circle cx="500" cy="450" r="11" fill="url(#${p}R)"/><circle cx="500" cy="450" r="2.6" fill="#ff3b30"/>`;
 
 /* the gun body from under the sight to the bottom edge; fill = gradient id letter, trim = edge colour, rails = tick lines */
