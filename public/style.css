@@ -1745,3 +1745,7 @@ body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size:
 #ui #s-settings #set-cust:active { transform: translateY(1px); }
 #set-cust-note.nudge { animation: nudgeNote .9s ease 1; }
 @keyframes nudgeNote { 0%, 100% { color: inherit; } 20%, 60% { color: #c6f78a; text-shadow: 0 0 8px rgba(143,220,74,.7); } }
+
+/* v577: two-line character names (first name, last name under it) */
+#s-profile .card b { line-height: 1.25; }
+#pv-name { line-height: 1.12 !important; }

@@ -2353,7 +2353,7 @@ function charCards(container, opts) {
   container.innerHTML = '';
   SKINS.filter((c) => opts.jang ? c.jang : c.skin !== 8).forEach((c) => {
     const d = document.createElement('div'); d.className = 'card'; d.dataset.id = c.skin;
-    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.skin] || ''}"><b style="color:${c.color}">${c.name}</b>`;
+    d.innerHTML = `<img alt="${c.name}" src="${thumbs[c.skin] || ''}"><b style="color:${c.color}">${c.name.replace(" ", "<br>")}</b>`;   /* v577: last name under the first name */
     d.onclick = () => opts.onPick(c.skin);
     container.appendChild(d);
   });
@@ -2408,7 +2408,7 @@ function openProfile(mode) {
   $('inp-name').value = app.name;
   $('profile-title').textContent = 'Choose your player';
   $('s-profile').classList.toggle('mode-jang', jang);
-  const pvName = () => { const c = SKINS.find((k) => k.skin === app.skin); $('pv-name').textContent = c ? c.name : ''; $('pv-name').style.setProperty('--c', c ? c.color : '#fff'); };
+  const pvName = () => { const c = SKINS.find((k) => k.skin === app.skin); $('pv-name').innerHTML = c ? c.name.replace(' ', '<br>') : ''; $('pv-name').style.setProperty('--c', c ? c.color : '#fff'); };
   charCards($('char-cards'), { jang, onPick: (skin) => { const old = app.char; app.skin = skin; app.char = skin % 4; markChars($('char-cards'), skin); stage.setPreview(app.char, skin); if (old !== app.char) stage.chars[old].show = false; pvName(); A.sfx.select(); } });
   markChars($('char-cards'), app.skin);
   stage.setTitle(app.char); stage.setPreview(app.char, app.skin); pvName(); setZomBtn();

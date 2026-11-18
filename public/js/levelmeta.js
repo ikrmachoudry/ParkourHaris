@@ -14,7 +14,7 @@ const GTA_NAMES = ['Lionel Messi', 'Lamine Yamal', 'Cristiano Ronaldo', 'Kylian 
 // every look a player can pick: 0..3 = the four GTA heroes, 4..7 = the four Jang soldiers (also allowed in GTA). char = the slot (0..3) the game logic uses.
 export const SKINS = [
   ...CHARACTERS.map((c) => ({ skin: c.id, name: GTA_NAMES[c.id] || c.name, color: c.color, char: c.id, jang: false })),   // Punjabi GTA heroes (the Jang soldiers keep their own names)
-  { skin: 4, name: 'Agent', color: '#cfd6dd', char: 0, jang: true }, { skin: 5, name: 'Laaal Banda', color: '#e0313d', char: 1, jang: true },
+  { skin: 4, name: 'Wadda Kaka', color: '#cfd6dd', char: 0, jang: true }, { skin: 5, name: 'Laaal Banda', color: '#e0313d', char: 1, jang: true },
   { skin: 6, name: 'Tut Paina', color: '#f59e0b', char: 2, jang: true }, { skin: 7, name: 'Kala Pai', color: '#9aa4ae', char: 3, jang: true },
   { skin: 8, name: 'Full Harami', color: '#8a9a5b', char: 0, jang: true },   // the camo soldier (the first FBX character), now also a Jang soldier
 ];
