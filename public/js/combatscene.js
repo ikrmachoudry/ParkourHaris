@@ -633,9 +633,17 @@ export class CombatScene {
     for (let i = 0; i < n; i++) { const [d, a] = all[i]; let m = this._em[i]; if (!m) { m = this._em[i] = new THREE.Sprite(this._emMat); m.renderOrder = 997; m.frustumCulled = false; this.group.add(m); } const sc = Math.max(0.45, d * 0.034); m.scale.set(sc, sc, 1); m.position.set(a.g.position.x, a.g.position.y + 2.0 + sc * 0.55, a.g.position.z); m.visible = true; }
     for (let i = n; i < this._em.length; i++) this._em[i].visible = false;
   }
+  downTick(now) {   // v551: teammates who are DOWN: a red warning line with the seconds left (40 s like your own bleed-out), and a pin on the map
+    const l = []; for (const [, g] of this.mates) if (g.dnAt && g.has) l.push({ x: g.x, z: g.z, nm: g.nm || 'TEAMMATE', left: Math.max(0, 40 - (now - g.dnAt) / 1000) });
+    if (this.R.minimap) this.R.minimap.downs = l;
+    let e = this._dnEl; if (!l.length) { if (e) e.style.display = 'none'; return; }
+    if (!e) { e = this._dnEl = document.createElement('div'); e.id = 'dn-warn'; e.style.cssText = 'position:fixed;left:50%;top:78px;transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:900 15px Arial,sans-serif;letter-spacing:1px;color:#fff;text-shadow:0 1px 3px #000;display:none'; document.body.appendChild(e); }
+    const tx = l.map((q) => '\u26A0 ' + q.nm + ' IS DOWN - ' + Math.ceil(q.left) + ' s').join('   |   '); if (tx !== this._dnTx) { this._dnTx = tx; e.innerHTML = ''; for (const q of l) { const d = document.createElement('div'); d.style.cssText = 'background:rgba(190,20,20,.88);border:2px solid #fff;border-radius:10px;padding:5px 14px;margin:3px auto;width:max-content;animation:dnpulse .9s ease-in-out infinite alternate'; d.textContent = '\u26A0 ' + q.nm + ' IS DOWN - ' + Math.ceil(q.left) + ' s'; e.appendChild(d); } }
+    e.style.display = 'block'; if (!document.getElementById('dn-css')) { const st = document.createElement('style'); st.id = 'dn-css'; st.textContent = '@keyframes dnpulse{from{opacity:.75}to{opacity:1}}'; document.head.appendChild(st); }
+  }
   stepMates(dt) {
     const T = (this.R.jangTeam || this.soloT); if (!T) return; if (this.R.jangTeam) { this.sendMate(dt); this.mateSounds(dt); } else { this._jt = (this._jt || 0) + dt; if (this._jt >= 0.1) { this._jt = 0; this.sendJt(); } } this.tagTick();   /* solo droid: only the flight copy, no team networking */
-    const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now();
+    const w = this.plane && this.plane.visible && this.plane.children[0], now = performance.now(); this.downTick(now);
     for (const [, g] of this.mates) {
       const inP = g.ph <= 1; let x = g.tx, y = g.ty, z = g.tz, show = now - g.at < 9000; if (g.ph === 4 && (g.vx || g.vz)) { const ex = Math.min(0.25, (now - g.at) / 1000); x += g.vx * ex; z += g.vz * ex; }   // v512
       if (inP) { if (g.tm !== T.tm || !w || !this.drop) show = false; else { this.plane.updateMatrixWorld(true); const sd = w.userData.seat;
@@ -660,6 +668,7 @@ export class CombatScene {
       else if (g.ph === 6) {   // v242: he rides along as a passenger: seated in his seat of the jeep
         const car = this.R.cars[g.vi]; if (car) { g.m.group.visible = true; this.R.seatModel(g.m.group, car, true, g.ps | 0); g.x = car.st.x; g.y = car.st.y; g.z = car.st.z; } else g.m.group.visible = false; }
       else g.ry = undefined;
+      { const dn = g.ph === 7 && !g.dd && g.id !== -777 && g.tm === T.tm && g.has; if (dn) { if (!g.dnAt) { g.dnAt = now; this.R.toast && this.R.toast('\u26A0 ' + (g.nm || 'TEAMMATE') + ' IS DOWN - run to revive him!', 4); try { A.sfx.click(); } catch (e) { /* noop */ } } } else g.dnAt = 0; }   /* v551: a teammate who goes down: warning line + pin + time left */
       g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.m.group.rotation.y; }   /* v549: same yaw as his body */
     }
   }
