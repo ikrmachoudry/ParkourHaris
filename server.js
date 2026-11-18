@@ -379,7 +379,7 @@ wss.on('connection', (ws, req) => {
         if (!room || !room.combat || room.phase !== 'race') return;
         const q = room.players.get(m.to); if (!q || q === p || !q.ws) return;
         const t = Date.now(); if (t - (p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] || 0) < (m.t === 'cpv' ? 40 : 800)) return; p[m.t === 'cpv' ? 'lastPv' : 'lastPk'] = t;
-        if (m.t === 'cpv') { if (!num(m.d, 0, 60) || p.jtm === q.jtm || !q.jal || !p.jal || !Number.isFinite(p.jx) || !Number.isFinite(q.jx) || Math.hypot(p.jx - q.jx, p.jz - q.jz) > 320) return; send(q.ws, { t: 'cpv', from: p.id, d: m.d, w: typeof m.w === 'string' && m.w.length < 12 ? m.w : '' }); }
+        if (m.t === 'cpv') { if (!num(m.d, 0, 80) || p.jtm === q.jtm || !q.jal || !p.jal || !Number.isFinite(p.jx) || !Number.isFinite(q.jx) || Math.hypot(p.jx - q.jx, p.jz - q.jz) > 320) return; send(q.ws, { t: 'cpv', from: p.id, d: m.d, w: typeof m.w === 'string' && m.w.length < 12 ? m.w : '' }); }
         else send(q.ws, { t: 'cpk' });
         break;
       }

@@ -55,7 +55,9 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   vest: ['BODY ARMOR', 'Takes 30% of every hit until its 100 points run out. Picked up, it is worn automatically.'],
   helmet: ['HELMET', 'Takes 15% of every hit (and headshots hurt less) until its 60 points run out. Worn automatically.'],
 };
-const MY_DMG = 100;   // hit points of the player
+const MY_DMG = 100;
+/* v558: PLAYER-vs-PLAYER damage per bullet (100 hp). PUBG-like: the AK used to do 35 (3 shots); now ~6 shots to kill, the sniper 2-3, a shotgun blast close up 2-3 */
+const PVP_DMG = { pistol: 13, revolver: 28, smg: 10, m4: 15, ak: 17, ak49: 22, shotgun: 40, sniper: 72 };   // hit points of the player
 
 let TR_GEO = null, TR_MAT = null;
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), IS_ANDR = /Android/i.test(navigator.userAgent), BOT_VIS2 = (IS_ANDR ? 190 : IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = (IS_ANDR ? 40 : 70) ** 2;   /* v471: Android: bots are drawn up to 190 m and animated at a quarter of the rate beyond 40 m */   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
@@ -643,8 +645,9 @@ export class CombatScene {
   }
   // v556: TEAM HEALTH PANEL (left, under the minimap): one small row per teammate, name + health bar; DOWN / OUT when knocked or dead
   teamHp(now) {
-    if (now - (this._thAt || 0) < 250) return; this._thAt = now; const T = this.R.jangTeam, rows = [];
-    if (T && this.on && !this.over) for (const [id, g] of this.mates) { if (g.tm !== T.tm) continue; const out = !!g.dd, dn = g.ph === 7 && !g.dd, hp = out ? 0 : dn ? 0 : id === -777 ? 100 : (g.hpv === undefined ? 100 : g.hpv); rows.push({ nm: g.nm || 'MATE', hp, st: out ? 'OUT' : dn ? 'DOWN' : '' }); }
+    if (now - (this._thAt || 0) < 250) return; this._thAt = now; const T = this.R.jangTeam || this.soloT, rows = [];
+    if (T && this.on && !this.over) for (const [id, g] of this.mates) { if (g.tm !== T.tm || id === -777) continue; const out = !!g.dd, dn = g.ph === 7 && !g.dd, hp = out ? 0 : dn ? 0 : id === -777 ? 100 : (g.hpv === undefined ? 100 : g.hpv); rows.push({ nm: g.nm || 'MATE', hp, st: out ? 'OUT' : dn ? 'DOWN' : '' }); }
+    if (T && this.on && !this.over && this.sim && this.sim.bots) { const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (D) rows.push({ nm: 'INTELLIDROID', hp: D.alive ? Math.max(1, Math.min(100, Math.round(D.hp / 2.6))) : 0, st: D.alive ? '' : 'OUT' }); }   /* v558: the droid is a server bot after landing (not a mate), so it gets its own row; its max health is 260 */
     let e = this._thEl; if (!e) { e = this._thEl = document.createElement('div'); e.id = 'tm-hp'; const tc = !!this.R.isTouch || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches); e.style.cssText = 'position:fixed;left:max(12px,env(safe-area-inset-left),2vw);top:calc(max(10px,env(safe-area-inset-top),2vh) + ' + (tc ? 'clamp(78px,17vmin,112px)' : 'clamp(88px,19vmin,142px)') + ' + 6px);z-index:12;pointer-events:none;display:none;width:' + (tc ? 'clamp(54px,11vmin,70px)' : 'clamp(66px,11vmin,88px)') + ';font:800 ' + (tc ? 7 : 8) + 'px system-ui,Arial,sans-serif;color:#fff;text-shadow:0 1px 2px #000;opacity:.9'; document.body.appendChild(e); }
     const sig = rows.map((q) => q.nm + q.st + Math.round(q.hp / 4)).join('|'); if (sig === this._thSig) return; this._thSig = sig;
     if (!rows.length) { e.style.display = 'none'; return; } e.style.display = 'block';
@@ -1074,11 +1077,11 @@ export class CombatScene {
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.7) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
-      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(60, dmg * 22).toFixed(1), w: String(w || '').slice(0, 11) }); return hd; }
+      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(75, PVP_DMG[w] !== undefined ? PVP_DMG[w] : dmg * 12).toFixed(1), w: String(w || '').slice(0, 11) }); return hd; }
     }
     return d;
   }
-  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(60, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
+  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(80, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
   onKillCredit() { this.kills++; this.stRec('ply', this.myW); this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
