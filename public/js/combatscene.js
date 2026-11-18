@@ -11,7 +11,7 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof, gunDamage, zoneOf, GUNS } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
@@ -33,7 +33,7 @@ const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope',
 // v523: a small corner chip (red-zone warning: shows for about a second and fades out; same on laptop and phone)
 function cornerChip(id, text, ms) { try { let e = document.getElementById(id); if (!e) { e = document.createElement('div'); e.id = id; e.style.cssText = 'position:fixed;left:max(150px,calc(2vw + 140px));top:max(10px,2vh);z-index:9;padding:5px 10px;border-radius:8px;background:rgba(190,20,10,.88);color:#fff;font:800 12px system-ui,sans-serif;letter-spacing:.4px;pointer-events:none;opacity:0;transition:opacity .25s'; document.body.appendChild(e); } e.textContent = text; e.style.opacity = '1'; clearTimeout(e._t); e._t = setTimeout(() => { e.style.opacity = '0'; }, ms || 1000); } catch (er) { /* noop */ } }
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
-const USE = { med: { dur: 4, hp: 75, cap: 75, name: 'FIRST AID' }, pills: { dur: 5, hp: 0, name: 'PAIN PILLS', boost: 60 }, inject: { dur: 4, hp: 0, name: 'ADRENALINE', boost: 100 } };   /* v540 PUBG: first aid heals up to 75 HP; painkillers / adrenaline fill the BOOST bar (+60 / +100) which heals you slowly and, when high, makes you run faster */
+const USE = { med: { dur: 6, hp: 75, cap: 75, name: 'FIRST AID' }, pills: { dur: 6, hp: 0, name: 'PAIN PILLS', boost: 60 }, inject: { dur: 8, hp: 0, name: 'ADRENALINE', boost: 100 } };   /* v540 PUBG: first aid heals up to 75 HP; painkillers / adrenaline fill the BOOST bar (+60 / +100) which heals you slowly and, when high, makes you run faster */
 const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to use it]
   pistol: ['PISTOL', '12 rounds per magazine. Accurate and quiet, weak damage. Single shot: one click, one bullet. A good first gun.'],
   revolver: ['REVOLVER', '6 heavy rounds per magazine. Hits much harder than the pistol but fires slowly and reloads slowly. Aim for the body.'],
@@ -52,12 +52,12 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   molotov: ['MOLOTOV', 'Throw it to start a fire on the ground that burns anyone standing in it. Great for pushing people out of a room. Press 5 or N (or 3 / 4 / G to cycle) to take it in hand, then FIRE.'],
   scope: ['BINOCULARS', 'Press 0 to look far away with zoom (mouse wheel zooms). A separate item: it cannot be used on the sniper rifle.'],
   sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
-  vest: ['BODY ARMOR', 'Takes 30% of every hit until its 100 points run out. Picked up, it is worn automatically.'],
-  helmet: ['HELMET', 'Takes 15% of every hit (and headshots hurt less) until its 60 points run out. Worn automatically.'],
+  vest: ['BODY ARMOR', 'PUBG Level 2 vest: takes 40% of every body shot until its 220 points run out. Worn automatically.'],
+  helmet: ['HELMET', 'PUBG Level 2 helmet: takes 40% of every headshot until its 150 points run out. Worn automatically.'],
 };
 const MY_DMG = 100;
 /* v558: PLAYER-vs-PLAYER damage per bullet (100 hp). PUBG-like: the AK used to do 35 (3 shots); now ~6 shots to kill, the sniper 2-3, a shotgun blast close up 2-3 */
-const PVP_DMG = { pistol: 13, revolver: 28, smg: 10, m4: 15, ak: 17, ak49: 22, shotgun: 40, sniper: 72 };   // hit points of the player
+const PVP_SCALE = 1;   /* v563 PUBG damage model: a player hit takes the real PUBG numbers (AKM 48 body / 113 head, M416 40 / 94 ...) from GUNS in combat.js; this is the ONE knob to scale player-vs-player damage if it feels too strong */
 
 let TR_GEO = null, TR_MAT = null;
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), IS_ANDR = /Android/i.test(navigator.userAgent), BOT_VIS2 = (IS_ANDR ? 190 : IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = (IS_ANDR ? 40 : 70) ** 2;   /* v471: Android: bots are drawn up to 190 m and animated at a quarter of the rate beyond 40 m */   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
@@ -218,7 +218,7 @@ export class CombatScene {
     const R = this.R, cb = R.wallet && R.wallet.cb, left = this.time; if (!cb || !(left < 600)) return; const full = left <= 300;
     const gun = (w, packs) => { const S = WEAPONS[w]; if (!S) return false; cb.owned[w] = true; cb.mag[w] = S.mag; cb.ammo[w] = Math.max(90, (S.ammoPack || 30) * packs); return true; };
     const got = [];
-    if (full) { if (gun('m4', 2)) got.push('M4'); if (gun('pistol', 1)) got.push('PISTOL'); cb.inv.med = 3; cb.inv.vest = Math.max(1, cb.inv.vest | 0); cb.vestHp = 100; cb.inv.helmet = Math.max(1, cb.inv.helmet | 0); cb.helmHp = 60; cb.nades = 2; got.push('3 BANDAGES', 'VEST', 'HELMET', '2 GRENADES'); }
+    if (full) { if (gun('m4', 2)) got.push('M4'); if (gun('pistol', 1)) got.push('PISTOL'); cb.inv.med = 3; cb.inv.vest = Math.max(1, cb.inv.vest | 0); cb.vestHp = 220; cb.inv.helmet = Math.max(1, cb.inv.helmet | 0); cb.helmHp = 60; cb.nades = 2; got.push('3 BANDAGES', 'VEST', 'HELMET', '2 GRENADES'); }
     else { if (gun('pistol', 2)) got.push('PISTOL'); cb.inv.med = 2; got.push('2 BANDAGES'); }
     const first = full ? 'm4' : 'pistol'; if (cb.owned[first]) R.equip && R.equip(first);
     R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); this.updateHud(); if (this.inv) this.inv.render && this.inv.render();
@@ -506,7 +506,7 @@ export class CombatScene {
     }
     const b = R.me.body, out = Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z) > z.r, inAir = this.dropping || (this.drop && this.drop.ph === 'plane'); this.outZone = out && !inAir; zoneFx(this.outZone && this.hp > 0 && !this.gate); { const dEdge = z.r - Math.hypot(b.x - CMB.x - z.x, b.z - CMB.z - z.z), live = this.hp > 0 && !this.gate && !inAir && this.zw.visible; zoneNear(live && !out && dEdge < 45 ? 1 - Math.max(0, dEdge) / 45 : 0, dEdge, live && out); }   /* v440: warning glow + distance BEFORE you cross the wall, and a text while outside */   /* v434: blue lightning screen while you stand in the damaging zone */   /* v375: no zone damage / hurt sound / red HUD while you are in the plane or still dropping */
     if (inAir) { this.zt = 0; this.grace = 3; } else if (this.grace > 0) { this.grace -= dt; this.zt = 0; }   // v375: 3 s of grace after you land (landing outside the circle no longer grunts on the first frame)
-    if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this._zoneHit = true; try { this.hurt(z.dps); } finally { this._zoneHit = false; } }   /* v514: the blue zone's damage does not stop a heal (PUBG: you can heal in the storm) */ } else this.zt = 0;
+    if (this.outZone && !(this.grace > 0) && this.hp > 0 && this.deadT <= 0 && !this.gate) { this.zt = (this.zt || 0) + dt; if (this.zt >= 1) { this.zt -= 1; this._zoneHit = true; try { this.hurt(z.dps, undefined, undefined, 'zone'); } finally { this._zoneHit = false; } }   /* v514: the blue zone's damage does not stop a heal (PUBG: you can heal in the storm) */ } else this.zt = 0;
   }
   // ---------------------------------------------------------------- v251 the red BOMBING circle: twice per match, 115 s each, anywhere on the island (independent of the blue circle); bombs fall from the sky
   stepBomb(dt) {
@@ -526,7 +526,7 @@ export class CombatScene {
       if (q.t <= 0) { q.on = false; q.m.visible = false; const d = Math.hypot(b.x - wx, b.z - wz), dc = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
         if (this.glass) this.glass.blast(q.x, gy + 1.2, q.z, 9); R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
         if (dc < 140) { A.sfx.boom && A.sfx.boom(Math.max(0.12, 1 - dc / 140)); if (R.shake !== undefined && dc < 40) R.shake = Math.max(R.shake, 0.5 * (1 - dc / 40)); }
-        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down && !underRoof(layout(), b.x - CMB.x, b.z - CMB.z, b.y)) this.hurt(Math.round(48 * (1 - d / 9)) + 6);   /* v448: nobody indoors is hurt by a red-circle bomb */ } }
+        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down && !underRoof(layout(), b.x - CMB.x, b.z - CMB.z, b.y)) this.hurt(Math.round(48 * (1 - d / 9)) + 6, undefined, undefined, 'zone');   /* v448: nobody indoors is hurt by a red-circle bomb */ } }
   }
   // ---------------------------------------------------------------- v251 the AIRDROP (PUBG care package): a plane crosses the island, a crate falls on a parachute, red smoke shows where, the loot is gold
   airKit() {
@@ -776,7 +776,7 @@ export class CombatScene {
       const sNow = performance.now(), sOk = !IS_PHONE || sNow - (this._shS || 0) > (cd > 80 ? 220 : 70);   // v480: Android: a firefight of many bots made dozens of sounds per second; near shots at most ~14 / s, far ones ~4 / s
       if (cd < 160 && sOk) { this._shS = sNow; const v = Math.max(0.22, 1 - cd / 160), pn = this.panOf(wx, wz); e.w === 'ak' ? A.sfx.akShot && A.sfx.akShot(pn, v) : e.w === 'sniper' && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v); }   // v239: pan + a longer hearing range
       if (!e.hit && cd < 90 && A.sfx.whiz && (!IS_PHONE || sNow - (this._shW || 0) > 250)) { this._shW = sNow; const pn = this.panOf(wx, wz); setTimeout(() => A.sfx.whiz(pn * 0.6, Math.max(0.35, 1 - cd / 90)), Math.min(250, cd * 2.5)); }   // the bullets that miss fly past you
-      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz); }
+      if (mine && e.hit && this.hp > 0 && this.deadT <= 0) { this.lastHit = { who: b && b.droid ? 'INTELLIDROID' : 'BOT ' + ((b && b.id != null ? b.id : 0) + 1), w: e.w, d: Math.hypot(wx - R.me.body.x, wz - R.me.body.z), at: performance.now() }; this.hurt(e.dmg, wx, wz, e.z | 0); }
     } else if (e.k === 'kill') {
       this._lastKillAt = performance.now();
       if (e.by !== -2 && e.by !== -3 && (!this.shared || e.by === (R.jangTeam && R.jangTeam.myId))) { this.kills++;   /* v421: a bot the ZONE killed (by -2) is not your kill */ this.stRec('bots', this.myW); R.toast && R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'BOT ' + ((e.id | 0) + 1), true); } else if (this.shared && this.myW === 'sniper' && e.by !== -2 && e.by !== -3 && performance.now() - (this.shotAt || 0) < 2500) this.hitX(true);   /* v487: a sniper kill that lands late (bullet flight + ping) still shows the red cross */
@@ -807,7 +807,7 @@ export class CombatScene {
     this.hitArr.push({ e, x: sx, z: sz, t: 2 }); if (this.hitArr.length > (IS_PHONE ? 3 : 6)) { const o = this.hitArr.shift(); o.e.remove(); } }
   hitUpd(dt) { const a = this.hitArr; if (!a || !a.length) return; const R = this.R, b = R.me.body, yw = R.camYaw || 0, fx = -Math.sin(yw), fz = -Math.cos(yw), rx = Math.cos(yw), rz = -Math.sin(yw);
     for (let i = a.length - 1; i >= 0; i--) { const h = a[i]; h.t -= dt; if (h.t <= 0) { h.e.remove(); a.splice(i, 1); continue; } const dx = h.x - b.x, dz = h.z - b.z; h.e.style.transform = 'rotate(' + Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz) + 'rad)'; h.e.style.opacity = Math.min(1, h.t / 0.8); } }
-  hurt(d, sx, sz) {
+  hurt(d, sx, sz, zone) {
     if (this.gate) return;   // v296: nothing (and no hurt sound) while the loading screen is up
     if (this.guideOn) return;   // v426: nothing can hurt you while the first-time guide is open
     if (this.over || this.R.over || this.R.finished || this.R.victory > 0) return;   // v401: after the match is over / at the victory place nothing hurts you any more (the damage sound kept coming back during the dance)
@@ -815,7 +815,7 @@ export class CombatScene {
     if (this.safeUntil && this.t < this.safeUntil) return;   // v251: 4 s of protection after you respawn
     if (this.down && sx !== undefined && d > 0) this.hitMark(sx, sz);
     if (this.down) { this.downT -= d * 0.5; if (this.vig) this.vig.style.opacity = 0.7; if (this.downT <= 0) this.die(); return; }   // v244: already down: more hits make you bleed out faster
-    { const cb = this.R.wallet && this.R.wallet.cb; if (cb) { if (cb.vestHp > 0) { const a = Math.min(cb.vestHp, d * 0.3); cb.vestHp -= a; d -= a; if (cb.vestHp <= 0) { cb.inv.vest = 0; this.R.toast && this.R.toast('BODY ARMOR BROKE', 2); } } if (cb.helmHp > 0) { const a = Math.min(cb.helmHp, d * 0.15); cb.helmHp -= a; d -= a; if (cb.helmHp <= 0) { cb.inv.helmet = 0; this.R.toast && this.R.toast('HELMET BROKE', 2); } } } }   /* v263: PUBG armor: the vest takes 30% of every hit, the helmet 15%, until they break */
+    { const cb = this.R.wallet && this.R.wallet.cb; if (cb) { if (zone !== 'zone' && zone !== 2) { if (zone !== 1 && cb.vestHp > 0) { const a = Math.min(cb.vestHp, d * 0.4); cb.vestHp -= a; d -= a; if (cb.vestHp <= 0) { cb.inv.vest = 0; this.R.toast && this.R.toast('BODY ARMOR BROKE', 2); } } else if (zone === 1 && cb.helmHp > 0) { const a = Math.min(cb.helmHp, d * 0.4); cb.helmHp -= a; d -= a; if (cb.helmHp <= 0) { cb.inv.helmet = 0; this.R.toast && this.R.toast('HELMET BROKE', 2); } } } } }   /* v563 PUBG armor: Level 2 = 40% of the hit is absorbed (vest on the body, helmet on the head, none on legs, none against the blue zone); the armor loses what it absorbed */
     if (sx !== undefined && d > 0) this.hitMark(sx, sz);
     if (this.using && d > 0.5 && !this._zoneHit) this.cancelUse('HIT!  HEALING STOPPED  -  the item is not used up');   // v432 (PUBG): a hit interrupts healing
     this.hp -= d; if (this.vig) this.vig.style.opacity = Math.min(1, 0.4 + d / 20); if (this.R.shake !== undefined) this.R.shake = Math.max(this.R.shake, 0.25);
@@ -1005,7 +1005,7 @@ export class CombatScene {
     else if (k === 'bat') { cb.owned.bat = true; if (!R.weapon) R.equip('bat'); A_('PICKED UP BASEBALL BAT'); }
     else if (k === 'grenade') { cb.nades = (cb.nades | 0) + 1; A_('PICKED UP GRENADE  x' + cb.nades + '  (BACKPACK)'); }
     else if (k === 'ammo') { let n = 0; if (!Object.keys(cb.owned).some((w) => cb.owned[w] && WEAPONS[w] && WEAPONS[w].mag)) { cb.spare = (cb.spare | 0) + 1; A_('AMMO BOX picked up - it goes to your first gun'); R.updateAmmoHud && R.updateAmmoHud(); this.updateHud(); if (this.inv) this.inv.render(); return; } for (const w of Object.keys(cb.owned)) if (WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]) { cb.ammo[w] = (cb.ammo[w] || 0) + WEAPONS[w].ammoPack; n++; } A_(n ? 'AMMO BOX  -  ammo for ' + Object.keys(cb.owned).filter((w) => WEAPONS[w] && WEAPONS[w].mag && cb.owned[w]).map((w) => LOOT_NAME[w] || w.toUpperCase()).join(', ') : 'AMMO BOX - FIND A GUN FIRST'); }
-    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; if (k === 'vest') cb.vestHp = 100; if (k === 'helmet') cb.helmHp = 60; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
+    else if (ITEM_K.includes(k)) { cb.inv[k] = (cb.inv[k] | 0) + 1; if (k === 'vest') cb.vestHp = 220; if (k === 'helmet') cb.helmHp = 150; A_('PICKED UP ' + LOOT_NAME[k] + '  x' + cb.inv[k] + '  (BACKPACK)'); }
     R.updateAmmoHud && R.updateAmmoHud(); R.syncAct && R.syncAct(); this.updateHud(); if (this.inv) this.inv.render();
   }
   // use something from the backpack: heals take a few seconds (you walk slower and the hand goes to the face), a smoke bomb is thrown, the telescope zooms
@@ -1014,7 +1014,7 @@ export class CombatScene {
     if (k === 'sscope') { if (have <= 0) { R.toast && R.toast('NO TELESCOPE'); return false; } if (!cb.owned.sniper) { R.toast && R.toast('You need the SNIPER RIFLE (Kar98) first - the scope clips onto it', 3); return false; } R.equip('sniper'); R.toast && R.toast('SCOPE FITTED to the Kar98 - hold AIM (right mouse / AIM button) to look through it; the mouse wheel or the + / - buttons on screen zoom', 4.5); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO BINOCULARS'); return false; } if (R.weapon === 'sniper') { R.toast && R.toast('BINOCULARS are a separate item - they cannot be used on the Kar98 (it has its own TELESCOPE). Put the rifle away first.', 3.5); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'BINOCULARS  -  mouse wheel / the + - buttons zoom' : 'BINOCULARS AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.heldThrow = 'grenade'; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
-    if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 30% of every hit' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 15% of every hit') : 'NONE', 2.5); return false; }
+    if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 40% of every body shot' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 40% of every headshot') : 'NONE', 2.5); return false; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
     if (k === 'smoke' || k === 'molotov') { R.nadeKind = k; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
     const U = USE[k]; if (!U) return false; if (this.using) { this.using = null; R.toast && R.toast('CANCELLED'); return false; }
@@ -1073,16 +1073,16 @@ export class CombatScene {
   showWin(m) { this.winScene(m, 0); }
   // ---------------------------------------------------------------- the player's attacks (called by main.js; coordinates are world coordinates)
   shoot(ox, oz, fx, fz, range, dmg, w, y, bal) {
-    if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal); const T = this.R.jangTeam;
+    if (!this.active) return -1; this.myW = w; this.shotAt = performance.now(); const ev0 = this.sim.events ? this.sim.events.length : 0; let d = this.sim.shoot(ox - CMB.x, oz - CMB.z, fx, fz, range, dmg, y, undefined, undefined, bal, w); const T = this.R.jangTeam;
     if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill' || !!q.h); if (q.h) this.R.toast && this.R.toast('HEADSHOT', 0.8); break; } } }   // solo: the hit is known at once
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
       for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.95 + Math.min(0.5, a * 0.004)) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
-      if (hit) { T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(75, PVP_DMG[w] !== undefined ? PVP_DMG[w] : dmg * 12).toFixed(1), w: String(w || '').slice(0, 11) }); return hd; }
+      if (hit) { const rel = bal ? bal.y + bal.sl * hd - bal.k * hd * hd - hit.y : undefined, zn = zoneOf(rel, 1.75), dm = GUNS[w] ? gunDamage(w, hd, zn, rel, 1.75) * PVP_SCALE : dmg * 12; T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(250, dm).toFixed(1), z: zn, w: String(w || '').slice(0, 11) }); return hd; }
     }
     return d;
   }
-  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(80, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined); } }   // v246: shot by a player of the other team
+  hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(250, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined, (m.z | 0) & 3); } }   // v246: shot by a player of the other team
   onKillCredit() { this.kills++; this.stRec('ply', this.myW); this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
   blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
