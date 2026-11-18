@@ -866,11 +866,33 @@ export class CombatSim {
   /* v457 INTELLIDROID: an AI soldier that is a TEAMMATE of one real team (3 real players: 2 + 1 + the droid = 2 v 2). Hard setting: tough (150 hp), better aim, faster reactions, frag grenades; it follows its human teammate, kills the regular bots AND the other team (never its own team) and the regular bots shoot at it too. Server only (shared match). */
   addDroid(tm) {
     const b = this.newBot(this.bots.length); b.droid = true; b.dtm = tm | 0; b.hp = 260; b.thw = true; b.gr = 2; b.mo = 0; b.weapon = 'ak'; b.nadeCd = 5; b.placed = false; b.x = b.z = 9999; this.bots.push(b);   /* waits off the map (not shot, not drawn) until its human teammate has landed */ this.droidBot = b; (this.droids = this.droids || []).push(b);   /* v507: one droid per team that asked for one */ this.ptm = this.ptm || {}; return b; }
+  /* v568 INTELLIDROID REVIVES YOU: when its human teammate is DOWN (q.dn) and the droid has time (nobody within 38 m, not hit in the last seconds, not throwing, on the ground) it runs to him, kneels beside him and after 7 s he gets up (event drev). Under fire it fights first. Returns true when it took the whole tick. */
+  droidRv(b, PL, dt) {
+    if (b.rvCd > 0) b.rvCd -= dt;
+    let M = null; for (const q of PL) if (q.dn && q.tm === b.dtm) { M = q; break; }
+    if (!M || b.y != null || b.cl || b.pendN || b.retT > 0 || b.hurtT > 0) { b.rvP = 0; b.rv = 0; b.rvT = 0; return false; }
+    const R2 = 38 * 38; for (const q of PL) if (q.tm !== b.dtm && q.alive && (q.x - b.x) ** 2 + (q.z - b.z) ** 2 < R2) { b.rvP = 0; b.rv = 0; return false; }
+    for (const e of this.bots) if (e !== b && !e.droid && e.alive && (e.x - b.x) ** 2 + (e.z - b.z) ** 2 < R2) { b.rvP = 0; b.rv = 0; return false; }
+    const L = this.L, dx = M.x - b.x, dz = M.z - b.z, d = Math.hypot(dx, dz) || 1;
+    if (b.rvCd > 0) { b.speed = 0; b.stn = 1; return true; }
+    if (d > 1.6) {
+      b.rvP = 0; b.rv = 0; b.stn = 0; b.walk = false; b.rvT = (b.rvT || 0) + dt;
+      if (b.rvT > 22) { b.rvT = 0; for (let k = 0; k < 30; k++) { const a = this.R() * 6.283, r = 1.4 + this.R() * 1.6, x = M.x + Math.cos(a) * r, z = M.z + Math.sin(a) * r; if (!hitsSolid(L, x, z, 0.55) && cmbH(x, z) > -0.3) { b.x = x; b.z = z; b.path = null; break; } } return true; }   /* last resort: stuck for 22 s */
+      b.think -= dt; if (!b.path || b.pi >= b.path.length || b.think <= 0) { b.path = findPath(L, b.x, b.z, M.x, M.z); b.pi = 0; b.think = 0.8; }
+      let mx = dx / d, mz = dz / d; if (b.path && b.pi < b.path.length) { const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; } }
+      const sp = 6.5, want = Math.atan2(mx, mz); b.yaw += Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)) * Math.min(1, dt * 8);
+      this.step(b, mx * sp * dt, mz * sp * dt); b.speed = sp; return true;
+    }
+    b.speed = 0; b.walk = false; b.stn = 1; b.path = null; b.rvT = 0; b.yaw += Math.atan2(Math.sin(Math.atan2(dx, dz) - b.yaw), Math.cos(Math.atan2(dx, dz) - b.yaw)) * Math.min(1, dt * 8);
+    b.rvP = (b.rvP || 0) + dt; b.rv = Math.min(1, b.rvP / 7);
+    if (b.rvP >= 7) { b.rvP = 0; b.rv = 0; b.rvCd = 4; this.events.push({ k: 'drev', to: M.id }); }
+    return true;
+  }
   droidFollow(PL) { for (const D of this.droids || []) this.droidFollow1(PL, D); }
   droidFollow1(PL, D) {   // v458: the droid starts next to its human teammate and stays within ~10 m of him (it is teleported back to a free spot beside him only if it falls 60 m behind)
     if (!D || !D.alive) return; let q0 = null, qd = 1e18; for (const q of PL) { if (q.tm !== D.dtm || !q.alive) continue; const dd = (q.x - D.x) ** 2 + (q.z - D.z) ** 2; if (dd < qd) { qd = dd; q0 = q; } } if (!q0) { D.farMate = false; return; }
     const d = Math.sqrt(qd); D.farMate = d > 12; D.mateD = d; D.mate = q0;
-    if (!D.placed || d > 60) for (let k = 0; k < 40; k++) {   /* v482: 60 m (was 40) - with the faster run the jump back to you is a last resort */ const a = this.R() * 6.283, r = 3 + this.R() * (k < 16 ? 4 : 9), x = q0.x + Math.cos(a) * r, z = q0.z + Math.sin(a) * r; if (!hitsSolid(this.L, x, z, 0.55) && cmbH(x, z) > -0.3) { D.x = x; D.z = z; D.y = null; D.cl = null; D.bld = null; D.path = null; D.placed = true; D.seen = false; D.alert = 0; break; } } }
+    if (!D.placed || (d > 60 && !q0.rd)) for (let k = 0; k < 40; k++) {   /* v568: after YOUR respawn parachute (q0.rd) it is never teleported to you: it stays where it is and walks to you */   /* v482: 60 m (was 40) - with the faster run the jump back to you is a last resort */ const a = this.R() * 6.283, r = 3 + this.R() * (k < 16 ? 4 : 9), x = q0.x + Math.cos(a) * r, z = q0.z + Math.sin(a) * r; if (!hitsSolid(this.L, x, z, 0.55) && cmbH(x, z) > -0.3) { D.x = x; D.z = z; D.y = null; D.cl = null; D.bld = null; D.path = null; D.placed = true; D.seen = false; D.alert = 0; break; } } }
   pseudo(e) { const q = e._ps || (e._ps = { bt: e, id: -10 - e.id }); q.x = e.x; q.z = e.z; q.y = e.y == null ? undefined : e.y; q.alive = e.alive; q.hp = e.hp; q.mv = e.speed || 0; q.stn = e.stn | 0; q.tm = e.droid ? e.dtm : -1; return q; }
   candsFor(b, PL) {   // who this bot may shoot: normal bots = every player + the droid; the droid = the players of the OTHER teams + the normal bots
     const DS = this.droids || []; if (!DS.length) return PL;
@@ -932,6 +954,7 @@ export class CombatSim {
       if (b.droid && !b.placed) { b.speed = 0; continue; }
       if (!b.alive) { b.dieT += dt; b.respawn -= dt; if (b.respawn <= 0 && !this.noRespawn) { const w = b.weapon, p = this.respawnPoint(PL, zn, b); if (!p) { b.respawn = 1.2; continue; } Object.assign(b, this.newBot(b.id), { x: p.x, z: p.z, weapon: w }); this.events.push({ k: 'bot', id: b.id }); } continue; }
       if (b.flash > 0) b.flash -= dt; if (b.alert > 0) b.alert -= dt;
+      if (b.droid && this.droidRv(b, PL, dt)) continue;   /* v568 */
       if (b.cl) {   // on the stairs: walk the flight up (or down) along its line, the height follows
         const si = this.stairInfo(b.cl.B); if (!si) { b.cl = null; } else { b.cl.t += b.cl.dir * dt * 2.3 / Math.max(1, si.len); const t = Math.max(0, Math.min(1, b.cl.t));
           if (si.sp) { const ph = t * si.ang, c = Math.cos(ph), sn = Math.sin(ph); b.x = si.sp.x + sn * si.r; b.z = si.sp.z + c * si.r; b.y = si.fy + si.rise * t; b.yaw = Math.atan2(c, -sn) + (b.cl.dir > 0 ? 0 : Math.PI); b.speed = 3.2; b.walk = false; } else

@@ -10,7 +10,7 @@ export class CombatHost {
   addDroid(tm) { this.sim.addDroid(tm); }   // v457: INTELLIDROID
   init(id) { this.sendTo(id, { ...this.botsMsg(), t: 'cinit', l: this.sim.loot.filter((it) => it.alive).map((it) => this.lootItem(it)) }); }
   tick(dt, players) {   // players: [{id, x, z, al}] in world coordinates
-    const PL = players.map((p) => ({ id: p.id, x: p.x - CMB.x, y: p.y, z: p.z - CMB.z, hp: p.al ? 100 : 0, alive: !!p.al, mv: p.mv, stn: p.stn, tm: p.tm }));
+    const PL = players.map((p) => ({ id: p.id, x: p.x - CMB.x, y: p.y, z: p.z - CMB.z, hp: p.al ? 100 : 0, alive: !!p.al, mv: p.mv, stn: p.stn, tm: p.tm, dn: !!p.dn, rd: !!p.rd }));
     if (this.sim.droidBot) { const T = (this.sim.ptm = this.sim.ptm || {}); for (const p of players) T[p.id] = p.tm; }
     this.sim.tick(dt, PL.length ? PL : [{ id: 0, x: 9999, z: 9999, hp: 0, alive: false }]);
     const ev = this.sim.drain(), out = [];
@@ -23,6 +23,7 @@ export class CombatHost {
       else if (e.k === 'nbang') out.push({ k: 'nbang', x: q2(e.x), z: q2(e.z), tp: e.tp, dmg: e.dmg });
       else if (e.k === 'lootgone') out.push({ k: 'lootgone', id: e.id });
       else if (e.k === 'airplane') out.push({ k: 'airplane', n: e.n, x: q2(e.x), z: q2(e.z), hd: [q2(e.hd[0]), q2(e.hd[1])] });
+      else if (e.k === 'drev') { if (e.to !== undefined) this.sendTo(e.to, { t: 'jr', from: -777 }); }   /* v568: the INTELLIDROID revived him */
       else if (e.k === 'airland') out.push({ k: 'airland', n: e.n, x: q2(e.x), z: q2(e.z) });
     }
     if (out.length) this.bcast({ t: 'ce', e: out });

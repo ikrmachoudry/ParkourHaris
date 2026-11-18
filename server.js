@@ -352,7 +352,7 @@ wss.on('connection', (ws, req) => {
         if (!room || !room.combat || (room.phase !== 'race' && room.phase !== 'countdown')) return;
         const t = Date.now(); if (t - (p.lastJt || 0) < 60) return; p.lastJt = t;
         if (!num(m.x, -2000, 2000) || !num(m.y, -300, 600) || !num(m.z, -2000, 2000) || !num(m.r, -1e4, 1e4)) return;
-        p.jx = m.x; p.jy = m.y; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 3; p.jsp = num(m.sp, 0, 100) ? m.sp : 0; p.jst = (m.st | 0) & 3;   // v245: where I am and whether the bots may shoot me
+        p.jx = m.x; p.jy = m.y; p.jz = m.z; p.jal = (m.ph | 0) >= 4 && m.al ? 1 : 0; p.jtm = m.tm & 3; p.jsp = num(m.sp, 0, 100) ? m.sp : 0; p.jst = (m.st | 0) & 3; p.jdn = (m.ph | 0) === 7 && !m.dd ? 1 : 0; p.jrd = m.rd ? 1 : 0;   /* v568: I am DOWN (the droid may revive me) / I came down on a respawn parachute (the droid never teleports to me) */   // v245: where I am and whether the bots may shoot me
         bcast(room, { t: 'jt', id: p.id, ph: m.ph & 7, x: m.x, y: m.y, z: m.z, r: m.r, sp: num(m.sp, 0, 100) ? m.sp : 0, c: p.char | 0, sk: (p.skin | 0) & 15, nm: p.name, tm: m.tm & 3, vi: (m.vi | 0) & 15, ps: m.ps & 3, wp: typeof m.wp === 'string' && m.wp.length < 12 ? m.wp : '', ai: m.ai ? 1 : 0, hn: m.hn ? 1 : 0, rv: m.rv ? 1 : 0, al: m.al ? 1 : 0, dd: m.dd ? 1 : 0, hp: num(m.hp, 0, 100) ? m.hp | 0 : 100, st: (m.st | 0) & 32767, lv: num(m.lv, -1, 1) ? m.lv : 0, rl: num(m.rl, 0, 1) ? m.rl : 0, cp: num(m.cp, -2, 2) ? m.cp : 0, nt: (m.nt | 0) & 3, vy: num(m.vy, -60, 60) ? m.vy : 0, iv: typeof m.iv === 'string' && m.iv.length < 160 && /^[\w,]*$/.test(m.iv) ? m.iv : undefined }, p.id); break;
       }
       case 'jr': {   // v244: a teammate revives me (relay only)
@@ -622,7 +622,7 @@ setInterval(() => {
 setInterval(() => {
   for (const room of rooms.values()) {
     const h = room.chost; if (!h || room.phase !== 'race') continue;
-    const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, tm: q.jtm & 3, x: q.jx, y: q.jy, z: q.jz, al: q.jal, mv: q.jsp || 0, stn: q.jst === 2 ? 2 : q.jst === 1 ? 1 : 0 });
+    const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, tm: q.jtm & 3, x: q.jx, y: q.jy, z: q.jz, al: q.jal, mv: q.jsp || 0, stn: q.jst === 2 ? 2 : q.jst === 1 ? 1 : 0, dn: q.jdn ? 1 : 0, rd: q.jrd ? 1 : 0 });
     try { h.tick(0.05, pl); } catch (e) { console.error('combat tick', e); }
   }
 }, 50);

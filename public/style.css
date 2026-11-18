@@ -1513,9 +1513,6 @@ body.acog #scope i, body.acog #scope b { display: none; }
 body.acog #scope::after { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -1px 0 0 -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 13px solid #ff2020; filter: drop-shadow(0 0 2px rgba(255,40,40,.9)); }
 body.acog #scope::before { content: ""; position: absolute; left: 50%; top: calc(50% + 14px); width: 2px; height: 9vmin; margin-left: -1px; background: rgba(10,10,10,.85); }
 body.acog #scope-zoom { display: none !important; }
-#rscope-chip { display: none; position: fixed; left: max(8px, env(safe-area-inset-left)); top: 40%; z-index: 30; padding: 6px 9px; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.75); background: rgba(16,22,34,.55); color: #fff; font: 900 10px system-ui, sans-serif; letter-spacing: .5px; pointer-events: auto; touch-action: manipulation; cursor: pointer; }
-#rscope-chip.off { opacity: .6; border-style: dashed; }
-body.scoped #rscope-chip, body.big-map #rscope-chip, body.m-open #rscope-chip { display: none !important; }
 
 /* v482 Jang map pins (PUBG): tap = drop, tap the pin again or the REMOVE PIN button = take it off */
 #bigmap-unpin, #bigmap-jtip { display: none; }
@@ -1528,7 +1525,7 @@ body.jang-mode #bigmap-jtip { display: block; position: absolute; left: 50%; top
 #s-settings { z-index: 9000 !important; }
 body:has(#s-settings.active, #s-help.active, #s-about.active, #pause:not(.hidden), #pset:not(.hidden), #victory) :is(#hud, #c-hud, #c-slots, #c-hp, #c-pick, #c-use, #c-glide, #c-jump, #c-rev, #c-rvp, #c-train, #c-train-x, #c-bag, #c-dive, #c-pullup, #rscope-chip, #scope-zoom, #dd-line, #mm-btn, #vc, #perfro, #pinflag, #joy-lock, #zonefx, #zonenear, #zonenear-t, #minimap, #bigmap, #a-jump, #act-pad) { display: none !important; }
 /* the button editor: a slim one-row bar (tap the arrows to move it to the bottom), and the pieces you cannot move are hidden so they do not pile up on the buttons */
-body.btn-edit :is(#c-slots, #c-hp, #c-hud, #rscope-chip, #perfro, #c-pick, #c-use, #zonenear, #zonenear-t) { display: none !important; }
+body.btn-edit :is(#c-slots, #c-hp, #c-hud, #perfro, #c-pick, #c-use, #zonenear, #zonenear-t) { display: none !important; }
 body.btn-edit #scope-zoom { display: flex !important; }
 #lay-bar { padding: 4px 8px !important; min-height: 0 !important; flex-wrap: nowrap !important; gap: 4px !important; max-width: 92vw !important; width: max-content; border-radius: 12px !important; top: max(4px, env(safe-area-inset-top)) !important; opacity: .94; }
 #lay-bar.lay-bot { top: auto !important; bottom: max(4px, env(safe-area-inset-bottom)) !important; }
