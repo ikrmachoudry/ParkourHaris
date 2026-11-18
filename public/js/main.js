@@ -1547,8 +1547,8 @@ class Race {
       if (Math.hypot(x - b.x, z - b.z) > 38) break;
       last = { x, y: gy, z }; if (y <= gy + 0.05) return last;
     }
-    if (dv.y > 0.08) {   /* v523: aiming UP (a rooftop above you): the grenade is a real arc - the steeper the aim the nearer it lands - and it lands on the ROOF there */
-      const e = Math.asin(Math.min(1, dv.y)), hl = Math.hypot(dv.x, dv.z) || 1, D = Math.max(4, Math.min(34, 4 + 18 * Math.sin(2 * Math.min(e, 1.4)) + (e < 0.5 ? 6 : 0))), x = b.x + dv.x / hl * D, z = b.z + dv.z / hl * D, g = this.world.findGround({ x, y: b.y + 24, z }, b.y + 24, false);
+    if (dv.y > 0.04) {   /* v550: aiming up keeps the marker at the FULL throw range (34 m) up to 45 degrees (it jumped back to ~13 m as soon as you raised the aim past the horizon, so you could never throw farther) and only comes nearer for a steep lob; v523: aiming UP (a rooftop above you): the grenade is a real arc - the steeper the aim the nearer it lands - and it lands on the ROOF there */
+      const e = Math.asin(Math.min(1, dv.y)), hl = Math.hypot(dv.x, dv.z) || 1, D = Math.max(4, e <= 0.78 ? 34 : 34 * Math.sin(2 * Math.min(e, 1.4))), x = b.x + dv.x / hl * D, z = b.z + dv.z / hl * D, g = this.world.findGround({ x, y: b.y + 24, z }, b.y + 24, false);
       const gt = g ? g.top : (this.world.terrain ? this.world.terrain(x, z) : 0); if (gt < b.y + 30) return { x, y: gt, z };
     }
     if (last) return last;
