@@ -528,6 +528,14 @@ function build() {
       const gy = Math.round(h0 * 10) / 10; { const q = [[-2.4, -2.2], [2.4, 4.3]].map(([a, b]) => [x + a * c - b * sn, z + a * sn + b * c]); padRect(Math.min(q[0][0], q[1][0]), Math.min(q[0][1], q[1][1]), Math.max(q[0][0], q[1][0]), Math.max(q[0][1], q[1][1]), gy); }
       WTPOS.push({ x, z, c, s: sn }); wtowers.push({ x, z, rot, gy, fy: gy + 3.06, solids: cabin(x, z, rot, gy) }); }
     for (const t of wtowers) for (const q of t.solids) addS(q); }
+  /* v565 TALL-GRASS PATCHES (PUBG hiding grass): ~12 round patches of waist-high grass on gentle meadow ground; a CROUCHING or PRONE player inside one is hard to see (the grass is drawn in battlemap.js, the bots see a prone player in it only from a few metres: see grassHide).  Own random numbers. */
+  const grass = []; { const RG = seeded(5641);
+    for (let tries = 0; tries < 5000 && grass.length < 12; tries++) {
+      const r = 8 + RG() * 4, x = Math.round((RG() * 2 - 1) * (H - 45)), z = Math.round((RG() * 2 - 1) * (H - 45)), h0 = rawH(x, z);
+      if (h0 < 0.8 || h0 > 24 || distRoad(x, z) < r + 4 || Math.abs(x - riverX(z)) < r + 24 || inField(x, z, r + 6) || onPad(x, z, r + 3) || (x > FB.x0 - r - 8 && x < FB.x1 + r + 8 && z > FB.z0 - r - 8 && z < FB.z1 + r + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
+      let flat = true; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (Math.abs(rawH(x + a * r * 0.7, z + b * r * 0.7) - h0) > 2.2) flat = false; if (!flat) continue;
+      if ([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => fbm((x + a * r * 0.7) * 0.013 + 40, (z + b * r * 0.7) * 0.013 - 17, 91, 3) > 0.45)) continue;   /* only on GREEN ground (the map paints grey concrete where this noise is high) */
+      if (grass.some((o) => Math.hypot(o.x - x, o.z - z) < 40)) continue; grass.push({ x, z, r }); } }
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
   round(-198, 52, 3.2, 13, '#b8bcc2', 'silo'); round(-128, 84, 2.4, 14, '#d8d0c0', 'windmill');
@@ -624,6 +632,7 @@ function build() {
   const L = {
     headFix,
     wtowers,
+    grass, grassHide(x, z, stn) { if (!(stn >= 1)) return Infinity; for (const g of grass) { const dx = x - g.x, dz = z - g.z; if (dx * dx + dz * dz < g.r * g.r * 0.8) return stn === 2 ? 7 : 20; } return Infinity; },   // v565: how far a bot can see this player: Infinity = the normal range; lying / crouching in tall grass = only a few metres
     zip, ladders: towers.flatMap((t) => t.lads.map((q) => ({ ...q, tw: t }))), solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, cbucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
@@ -928,7 +937,7 @@ export class CombatSim {
       if (b.alert > 0 && b.y == null && P.alive && d > 14 && !(b.hide > 0) && !(b.stT > 0) && !(b.droid && b.mate)) { const bi = this.bldIn(b.x, b.z); if (bi >= 0) { if (b.wx === undefined || Math.hypot(b.x - b.wx, b.z - b.wz) > 0.8) { b.wx = b.x; b.wz = b.z; b.wt = 0; } else b.wt += dt;
           if (b.wt > 8) { b.wt = 0; b.wn = (b.wn || 0) + 1; b.path = null; b.think = 0; b.blockT = 0; b.hide = 0;
             if (b.wn >= 2) { const Bd = L.buildings[bi], sx = dx > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1, cand = [[Bd.x + sx * (Bd.w / 2 + 2.5), b.z], [b.x, Bd.z + sz * (Bd.d / 2 + 2.5)], [Bd.x - sx * (Bd.w / 2 + 2.5), b.z], [b.x, Bd.z - sz * (Bd.d / 2 + 2.5)]]; for (const c of cand) if (!hitsSolid(L, c[0], c[1], 0.4)) { b.x = c[0]; b.z = c[1]; b.wn = 0; break; } } } } else { b.wt = 0; b.wx = undefined; } } else { b.wt = 0; b.wx = undefined; }
-      const lv3 = b.y != null || (P.y !== undefined && P.y > cmbH(P.x, P.z) + 2.2); let sees = P.alive && d < (b.alert > 0 ? 70 : 48) && (lv3 ? shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y) : los(L, b.x, b.z, P.x, P.z)) && !this.smoked(b.x, b.z, P.x, P.z) && !(b.blockT > 0) && !(!lv3 && P.alive && this.bldIn(P.x, P.z) >= 0 && this.bldIn(P.x, P.z) !== this.bldIn(b.x, b.z) && d > 5);   /* v414: a bot whose shot was blocked (window sill, wall) walks round / in for 6 s instead of standing outside the window */
+      const lv3 = b.y != null || (P.y !== undefined && P.y > cmbH(P.x, P.z) + 2.2); const gh = L.grassHide ? L.grassHide(P.x, P.z, P.stn | 0) : Infinity; let sees = P.alive && d < Math.min(b.alert > 0 ? 70 : 48, b.alert > 0 && gh < 1e9 ? gh * 2 : gh) && (lv3 ? shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y) : los(L, b.x, b.z, P.x, P.z)) && !this.smoked(b.x, b.z, P.x, P.z) && !(b.blockT > 0) && !(!lv3 && P.alive && this.bldIn(P.x, P.z) >= 0 && this.bldIn(P.x, P.z) !== this.bldIn(b.x, b.z) && d > 5);   /* v414: a bot whose shot was blocked (window sill, wall) walks round / in for 6 s instead of standing outside the window */
       if (b.blockT > 0) b.blockT -= dt;
       if (sees && b.alert <= 0) { let da = Math.atan2(dx, dz) - b.yaw; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); if (da > 1.9 && d > 10) sees = false; }
       if (sees) b.lastSeen = this.t; else if (b.seen && P.alive && this.t - (b.lastSeen || -9) < 0.9 && !(b.blockT > 0) && d < 40 && shotClear(L, b.x, b.z, P.x, P.z, b.y == null ? undefined : b.y, P.y)) sees = true;   /* v537: in a room the line of sight flickers at door frames / furniture; every flicker restarted the 0.5-1 s reaction wait, so a bot inside a room could stand there never firing. Keep seeing for 0.9 s while a real shot line is still clear */

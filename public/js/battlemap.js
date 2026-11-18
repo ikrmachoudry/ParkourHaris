@@ -516,10 +516,18 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     for (let tries = 0; tries < 9000 && (tIt.length < nT || rIt.length < nR); tries++) {
       const x = (rg() * 2 - 1) * (H - 30), z = (rg() * 2 - 1) * (H - 30), y = cmbH(x, z), rv = Math.abs(x - riverX(z)), a1 = rg(), a2 = rg(), a3 = rg();
       if (distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) || conc(x, z) > 0.2) continue; const dx = cmbH(x + 1.5, z) - y, dz = cmbH(x, z + 1.5) - y; if (Math.hypot(dx, dz) > 0.6) continue;
-      if (rv > 5 && rv < 30 && y > -0.2 && y < 1.7) { if (rIt.length < nR) rIt.push({ x, y: y - 0.05, z, s: 0.8 + a1 * 0.5, sy: 0.9 + a2 * 0.5, r: a3 * 6.28 }); continue; }
       if (y < 0.5 || y > 30 || tIt.length >= nT) continue; if (fbm(x * 0.05 + 7, z * 0.05 - 2, 64, 2) < 0.42) continue;
-      tIt.push({ x, y: y - 0.03, z, s: 0.9 + a1 * 0.9, sy: 0.8 + a2 * 0.7, r: a3 * 6.28 }); }
-    mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160); }
+      tIt.push({ x, y: y - 0.03, z, s: 0.9 + a1 * 0.6, sy: 0.55 + a2 * 0.3, r: a3 * 6.28 }); }   /* a tuft model is 1.1 m wide and 1.0 m tall; s scales every axis, sy only the height: 0.5 - 1.2 m tall */
+    for (let tries = 0; tries < 6000 && rIt.length < nR; tries++) {   /* reed clumps: picked ALONG the river banks (a random spot on the map almost never lands in the 5 - 30 m band) */
+      const z = (rg() * 2 - 1) * (H - 30), x = riverX(z) + (rg() < 0.5 ? -1 : 1) * (5 + rg() * 25), y = cmbH(x, z), a1 = rg(), a2 = rg(), a3 = rg(); if (Math.abs(x) > H - 30 || y < -0.2 || y > 1.7 || distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) ) continue;
+      if (Math.hypot(cmbH(x + 1.5, z) - y, cmbH(x, z + 1.5) - y) > 0.6) continue; rIt.push({ x, y: y - 0.05, z, s: 0.4 + a1 * 0.25, sy: 0.85 + a2 * 0.3, r: a3 * 6.28 }); }
+    mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160);
+    /* v565 TALL-GRASS PATCHES (L.grass, made in combat.js): dense waist-high clumps of the same grass model, ~1 m tall so a prone or crouching player disappears in it */
+    { const rp = rngS(565), pIt = [], per = q === 0 ? 100 : 175;
+      for (const g of L.grass || []) for (let i = 0, tr = 0; i < per && tr < per * 4; tr++) {
+        const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
+        const y = cmbH(x, z); if (y < 0.3) continue; i++; pIt.push({ x, y: y - 0.05, z, s: 1.0 + rp() * 0.3, sx: 1.9 + rp() * 0.5, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
+      mkGrass(tuft, pIt, q === 0 ? 60 : 95); } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);
