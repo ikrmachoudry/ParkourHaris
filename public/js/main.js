@@ -2993,7 +2993,7 @@ async function boot() {
     document.body.classList.toggle('helpjang', !!jang);
     if (jang) { const g = $('jang-help'); g.innerHTML = JHELP.map(([id, nm, key, ds, em]) => { const el = document.getElementById(id), sv = el && el.querySelector && el.querySelector('svg'); const ic = em || (sv ? sv.outerHTML : nm[0]); return '<div class="gr"><span class="gi">' + ic + '</span><div><b>' + nm + '</b><small>' + key + (ds ? '<br>' + ds : '') + '</small></div></div>'; }).join(''); }
     $('s-help').classList.remove('hidden'); $('s-help').classList.add('active'); $('s-help').scrollTop = 0; };
-  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); openHelp(false); };
+  $('b-help').onclick = () => { A.initAudio(); A.sfx.click(); openHelp(true); };   /* v592: the home-screen HOW TO PLAY shows the Jang guide (icon + key for every button); GTA keeps its own list from its pause menu CONTROLS */
   $('p-help').onclick = () => { A.sfx.click(); openHelp(!!(race && race.jang)); };
   { const so = () => { A.initAudio(); A.sfx.click(); $('s-about').classList.remove('hidden'); $('s-about').classList.add('active'); }; $('b-dev').onclick = so; $('b-dev').addEventListener('touchend', (e) => { e.preventDefault(); so(); }); $('b-about-close').onclick = () => { A.sfx.back(); $('s-about').classList.remove('active'); $('s-about').classList.add('hidden'); }; }
   $('b-help-close').onclick = () => { A.sfx.back(); document.body.classList.remove('helpjang'); $('s-help').classList.remove('active'); $('s-help').classList.add('hidden'); };
