@@ -82,6 +82,9 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     rock: { m: std({ map: T.rock, bumpMap: T.rock, bumpScale: 2, roughness: 1 }), uvs: 3 },
   };
   const B = new Batches(MATS), meshes = [];
+  const placeWT = (x, y, z, ry) => {   // v578: the watch tower model with its door + stair stretched 1 m wider (every vertex right of x 0.6 moves 1 m right: the same map as MX in combat.js)
+    const parts = propParts('wtower'); if (!parts) return false; _q.setFromAxisAngle(_up, ry); _m4.compose(_v3.set(x, y, z), _q, _s3.set(1, 1, 1));
+    parts.forEach((pt, i) => { const g = pt.geo.clone(), p = g.attributes.position; for (let k = 0; k < p.count; k++) { const px = p.getX(k); if (px > 0.6) p.setX(k, px + 1.0); } g.applyMatrix4(_m4); B.addRaw('glb:wtower:' + i, pt.mat, g); }); return true; };
   const place = (name, x, y, z, w, h, d, ry = 0, uni = false) => {   // one copy of a GLB model scaled to a w x h x d box (origin = bottom centre)
     const parts = propParts(name), dim = propDim(name); if (!parts || !dim) return false;
     const sx = w / dim.x, sy = h / dim.y, sz = d / dim.z; _q.setFromAxisAngle(_up, ry); _m4.compose(_v3.set(x, y, z), _q, uni ? _s3.set(sy, sy, sy) : _s3.set(sx, sy, sz));
@@ -474,7 +477,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     for (let i = 0; i + 1 < poles.length; i++) { const [ax, az] = poles[i], [bx, bz] = poles[i + 1]; if (Math.hypot(bx - ax, bz - az) > 70) continue; for (const o of [-1.2, 0, 1.2]) { let px = ax, py = cmbH(ax, az) + 11.5 , pz = az; for (let k = 1; k <= 6; k++) { const t = k / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t, y = cmbH(ax, az) * (1 - t) + cmbH(bx, bz) * t + 11.5 - 1.4 * Math.sin(Math.PI * t);   /* v351: the lines are 11.5 m up (were 8): they no longer cross the view through doors and windows */ wireP.push(px + o, py, pz, x + o, y, z); px = x; py = y; pz = z; } } }
     if (wireP.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wireP, 3)); const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#22252a' })); l.frustumCulled = false; group.add(l); } }
   /* v564 WATCH TOWERS (combat.js builds the collision: pillars, floor, sill walls, window posts, the stair): the user's model (door removed), turned by the tower's rotation; if the file did not load, the solids are drawn as plain boxes so a tower is never invisible */
-  for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && place('wtower', t.x, t.gy + t.dy, t.z, dm.x, dm.y, dm.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
+  for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && placeWT(t.x, t.gy + t.dy, t.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
   meshes.push(...B.finish(group, true));
 
   // ================================================================ instanced vegetation

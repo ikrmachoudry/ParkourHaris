@@ -1749,3 +1749,22 @@ body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size:
 /* v577: two-line character names (first name, last name under it) */
 #s-profile .card b { line-height: 1.25; }
 #pv-name { line-height: 1.12 !important; }
+
+/* v578: (1) the three difficulty chips are yellow containers that fade from strong yellow to see-through; the chosen one is solid yellow */
+#ui#ui .dsel button, #ui#ui #solo-dsel button { background: linear-gradient(90deg, rgba(245,179,1,.62), rgba(245,179,1,.12)) !important; box-shadow: inset 0 0 0 1px rgba(245,179,1,.7) !important; color: #fff3c4 !important; }
+#ui#ui .dsel button:hover, #ui#ui #solo-dsel button:hover { background: linear-gradient(90deg, rgba(255,205,60,.8), rgba(245,179,1,.22)) !important; box-shadow: inset 0 0 0 1px #ffd84f !important; color: #fff !important; }
+#ui#ui .dsel button.on, #ui#ui .dsel button[data-d="hard"].on, #ui#ui #solo-dsel button.on { background: linear-gradient(180deg, #ffd84f, #f5b301) !important; color: var(--pgink) !important; box-shadow: inset 0 0 0 1px #fff, 0 0 10px rgba(245,179,1,.45) !important; }
+/* (2) every BACK / LEAVE / DONE button is a yellow fading container like the other yellow ones */
+#ui#ui#ui .btn.navback.navback.navback, #ui#ui#ui #b-leave.btn, #ui#ui#ui #b-about-close.btn, #ui#ui#ui #b-help-close.btn { background: linear-gradient(180deg, #ffd84f, #f5b301) !important; color: var(--pgink) !important; box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.55) !important; border: 0 !important; }
+#ui#ui#ui .btn.navback.navback.navback:hover { background: linear-gradient(180deg, #ffe785, #ffc21f) !important; color: #000 !important; box-shadow: inset 0 0 0 1px #fff !important; }
+#ui#ui#ui .btn.navback.navback.navback:active { background: linear-gradient(180deg, #f5b301, #d99c00) !important; }
+/* (3) every SETTINGS button is a light-orange tinted container */
+#ui#ui#ui #b-settings.btn, #ui#ui#ui #p-settings.btn, #ui#ui#ui #b-lobby-set.btn { background: linear-gradient(180deg, #ffc58a, #ff9f4a) !important; color: #3a1a00 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.15) !important; }
+#ui#ui#ui #b-settings.btn:hover, #ui#ui#ui #p-settings.btn:hover, #ui#ui#ui #b-lobby-set.btn:hover { background: linear-gradient(180deg, #ffd6a8, #ffb066) !important; color: #000 !important; box-shadow: inset 0 0 0 1px #fff !important; }
+#b-gm { background: linear-gradient(180deg, #ffc58a, #ff9f4a) !important; border-color: #ffe0c0 !important; color: #3a1a00 !important; }
+/* (4) while the SETTINGS page is open nothing of the match HUD may show through or sit over it */
+body.set-open :is(.tmh, #tm-hp, #c-hud, #c-hp, #c-bag, #c-train, #c-train-x, #c-slots, #a-reload, #b-gm, #b-full, #b-auto, #mm-btn, #minimap, #mm, .ls-x, #c-kill, #c-feed, #c-zone, #c-alive, #c-ping, #c-comp, #c-dive) { visibility: hidden !important; pointer-events: none !important; }
+body.set-open #sz-chip, body.set-open body > div[style*="max(44px, 7vh)"], body.set-open div[style*="max(44px, 7vh)"] { visibility: hidden !important; pointer-events: none !important; }
+
+/* v578: the sniper scope view uses the round bezel of YOUR scope.glb (rendered to models/ads/scope-ring.png); the opening stays 36vmin, black outside the ring */
+body.scoped:not(.acog):not(.binoc) #scope { background: url("models/ads/scope-ring.png") 50% 50% / 94vmin 94vmin no-repeat, radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 35.5vmin, #000 36.5vmin, #000 100%) !important; }
