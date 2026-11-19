@@ -370,7 +370,7 @@ export class CombatScene {
   chuteVis(on, b, dt) {
     const d = this.drop, gl = !!(d && d.tw);
     if (!this.chute) { this.chute = this.mkChute(); this.group.add(this.chute); } if (gl && !this.glider) { this.glider = this.mkGlider(); this.group.add(this.glider); }
-    const o = gl ? this.glider : this.chute; this.chute.visible = on && !gl; if (this.glider) this.glider.visible = on && gl; if (!on) return;
+    const hid = !!(this.R && this.R._airSc), o = gl ? this.glider : this.chute; this.chute.visible = on && !gl && !hid; if (this.glider) this.glider.visible = on && gl && !hid; if (!on) return;   /* v586: looking through a scope in the air you are inside the soldier's head: your own canopy / ropes / glider are hidden */
     d.ch = Math.min(1, d.ch + dt * (gl ? 2 : 2.5)); o.scale.setScalar(0.25 + 0.75 * d.ch); o.position.set(b.x, b.y, b.z);
     if (gl) o.rotation.set(0.12, d.gh, -d.bank * 0.4 + Math.sin(this.t * 1.1) * 0.03, 'YXZ'); else { const mg = this.R.me && this.R.me.model && this.R.me.model.group; o.rotation.set(0, mg ? mg.rotation.y : b.yaw, 0); }   /* v549: the harness / canopy turn EXACTLY with the soldier's body (they used b.yaw, the body turns smoothly: the harness swung left / right while the player stayed, and a z-sway about the feet moved the canopy but not him) */
   }
