@@ -1840,3 +1840,9 @@ body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absol
   #credits-pg .panel { padding: 10px 16px 12px; }
 }
 #credits-pg .btn { background: linear-gradient(180deg, #ffd84f, #f5b301) !important; color: #111 !important; font: 800 14px var(--ui, system-ui) !important; letter-spacing: .12em !important; padding: 11px 18px !important; border: 0 !important; border-radius: 2px !important; width: 100%; cursor: pointer; }
+
+/* v594: CUSTOMIZE outside a match = the match buttons on a dark backdrop (body.lay-prev) */
+body.lay-prev::before { content: ""; position: fixed; inset: 0; z-index: 9; background: radial-gradient(ellipse at 50% 40%, #1f3a2c 0%, #0c1610 75%); }
+body.lay-prev::after { content: 'Your fight screen: drag a button to move it'; position: fixed; left: 50%; top: 46%; transform: translateX(-50%); z-index: 9; color: rgba(255,255,255,.28); font: 800 clamp(12px, 3.4vh, 20px) system-ui, sans-serif; letter-spacing: .06em; text-align: center; pointer-events: none; white-space: nowrap; }
+body.lay-prev #touch { pointer-events: none !important; }
+body.lay-prev :is(#minimap, #b-gm, #b-full, #kb-hint, #hud-obj, #mm-btn, #rotate) { display: none !important; }

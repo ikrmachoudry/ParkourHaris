@@ -522,13 +522,13 @@ export class CombatScene {
     if (!this.dropping) { const m = Math.max(0, Math.ceil(bz.warn ? bz.tl : 0)); if (bz.warn && !this._bmsg) { this._bmsg = 1; R.toast && R.toast('BOMBING ZONE (RED CIRCLE) in ' + m + ' s - stay out of it!', 4); A.sfx.click && A.sfx.click(); } else if (!bz.warn && this._bmsg !== 2) { this._bmsg = 2; R.toast && R.toast('AIR RAID! bombs are falling in the red circle for ' + Math.round(bz.left) + ' s - GET OUT', 4); } }
     if (bz.warn) return;
     const k = Math.floor((this.t - bz.t0) / 0.8);   // one bomb every 0.8 s: the same spot on every phone
-    if (k !== this._bk) { this._bk = k; const sp = bombSpot(Z, bz, k), q = this.bombs.find((o) => !o.on); if (q) { q.on = true; q.x = sp.x; q.z = sp.z; q.t = 1.7; q.m.visible = true; } }
+    if (k !== this._bk) { this._bk = k; const sp = bombSpot(Z, bz, k), q = this.bombs.find((o) => !o.on); if (q) { q.on = true; q.x = sp.x; q.z = sp.z; q.t = 1.7; q.m.visible = true; { const sy = supportY(layout(), sp.x, sp.z, 0.5, 1e4); q.gy = Math.max(cmbH(sp.x, sp.z), sy > -1e8 ? sy : -1e9); }   /* v594: the bomb lands on the highest roof / floor / canopy over this spot (house, tower, silo...), never through it */ } }
     const b = R.me.body;
-    for (const q of this.bombs) { if (!q.on) continue; q.t -= dt; const wx = CMB.x + q.x, wz = CMB.z + q.z, gy = cmbH(q.x, q.z), f = Math.max(0, q.t / 1.7); q.m.position.set(wx, gy + 0.3 + f * f * 130, wz); q.m.rotation.x = Math.PI / 2 * 0 + 1.2;
+    for (const q of this.bombs) { if (!q.on) continue; q.t -= dt; const wx = CMB.x + q.x, wz = CMB.z + q.z, gy = q.gy !== undefined ? q.gy : cmbH(q.x, q.z), f = Math.max(0, q.t / 1.7); q.m.position.set(wx, gy + 0.3 + f * f * 130, wz); q.m.rotation.x = Math.PI / 2 * 0 + 1.2;
       if (q.t <= 0) { q.on = false; q.m.visible = false; const d = Math.hypot(b.x - wx, b.z - wz), dc = Math.hypot(wx - R.camera.position.x, wz - R.camera.position.z);
         if (this.glass) this.glass.blast(q.x, gy + 1.2, q.z, 9); R.particles && R.particles.emit(wx, gy + 1, wz, 14, { color: '#ff9a3c', speed: 6, up: 5, life: 0.7, size: 0.7 }); R.particles && R.particles.emit(wx, gy + 1.5, wz, 8, { color: '#444', speed: 3, up: 4, life: 1.2, size: 1.0 });
         if (dc < 140) { A.sfx.boom && A.sfx.boom(Math.max(0.12, 1 - dc / 140)); if (R.shake !== undefined && dc < 40) R.shake = Math.max(R.shake, 0.5 * (1 - dc / 40)); }
-        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down && !underRoof(layout(), b.x - CMB.x, b.z - CMB.z, b.y)) this.hurt(Math.round(48 * (1 - d / 9)) + 6, undefined, undefined, 'zone');   /* v448: nobody indoors is hurt by a red-circle bomb */ } }
+        if (d < 9 && !this.dropping && this.hp > 0 && this.deadT <= 0 && !this.down && b.y > gy - 1.6 && b.y < gy + 3.4 && !underRoof(layout(), b.x - CMB.x, b.z - CMB.z, b.y, 80)) this.hurt(Math.round(48 * (1 - d / 9)) + 6, undefined, undefined, 'zone');   /* v448: nobody indoors is hurt by a red-circle bomb; v594: nor anybody under any roof / floor of a house or tower (the bomb bursts ON the roof, the blast only reaches what is at its own level) */ } }
   }
   // ---------------------------------------------------------------- v251 the AIRDROP (PUBG care package): a plane crosses the island, a crate falls on a parachute, red smoke shows where, the loot is gold
   airKit() {

@@ -36,4 +36,4 @@ export const ADS_HTML = ak() + ak49() + m4() + smg() + pistol() + revolver() + s
 /* which sight picture each gun uses (one picture per gun; 'iron' = a rifle with its red dot switched off), and how far the camera zooms in (vertical FOV; the normal view is 62) */
 export const ADS_KIND = { ak: 'ak', ak49: 'ak49', m4: 'm4', smg: 'smg', pistol: 'pistol', revolver: 'revolver', shotgun: 'shotgun' };
 export const ADS_KINDS = ['ak', 'ak49', 'm4', 'smg', 'pistol', 'revolver', 'shotgun', 'iron'];
-export const ADS_FOV = { ak: 46, ak49: 46, m4: 44, smg: 50, pistol: 54, revolver: 52, shotgun: 52 };
+export const ADS_FOV = { ak: 46, ak49: 46, m4: 44, smg: 46, pistol: 54, revolver: 52, shotgun: 52 };

@@ -2826,7 +2826,7 @@ function paintSettings() {
   document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => r.classList.toggle('on', !!OPT.pk[r.dataset.pk]));
   $('set-mm').classList.toggle('on', A.isMusicMuted()); $('set-snd').classList.toggle('on', !app.muted);
   document.querySelectorAll('#set-gfx button').forEach((b) => b.classList.toggle('on', (b.dataset.q === 'low') === !!Q.low));
-  const inMatch = !!race && !race.over, b = $('set-cust'); b.disabled = false; b.classList.toggle('idle', !inMatch); $('set-cust-note').style.display = inMatch ? 'none' : 'block';
+  const b = $('set-cust'); b.disabled = false; b.classList.remove('idle');
 }
 function openSettings(from, tab) {
   setFrom = from || 'title'; paintSettings(); setTab(tab || 'basic');
@@ -2904,9 +2904,19 @@ window.phApplyLayout = layApply; layApply(); addEventListener('resize', layApply
   hit($('lay-mv'), () => { bar().classList.toggle('lay-bot'); });   // v489: the editor bar can jump to the bottom so it never covers the button you want to move
   hit($('lay-rot'), () => { if (!sel) { gtoast('Tap a button first'); return; } if (sel.id !== 'scope-zoom') { gtoast('ROTATE is for the scope + / - buttons'); return; } const v = LAY[sel.id] = LAY[sel.id] || { x: 0, y: 0, s: 1 }; v.h = !v.h; layApply(); laySave(); });   // v500: the scope +/- can lie flat (horizontal) or stand (vertical)
   hit($('lay-r'), () => { LAY = {}; laySave(); layApply(); mark(null); });
-  const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; openSettings('pause', 'ctrl'); };
+  let prev = null;   /* v594: CUSTOMIZE outside a match (lobby, home, any page): the match buttons are shown over a dark backdrop for editing; DONE puts the page back exactly as it was */
+  const prevOff = () => { if (!prev) return; const p = prev; prev = null; const b = document.body; b.classList.remove('lay-prev'); for (const c of p.cls) b.classList.remove(c); if (p.hud) $('hud').classList.add('hidden'); if (p.dummy) p.dummy.remove(); for (const sc of p.scr) sc.classList.add('active'); layApply(); return p.from; };
+  const stop = () => { document.body.classList.remove('btn-edit'); bar().classList.add('hidden'); mark(null); drag = null; const f = prevOff(); openSettings(f || 'pause', 'ctrl'); };
   hit($('lay-d'), stop);
-  $('set-cust').onclick = () => { A.sfx.click(); if (!(race && !race.over)) { const nt = $('set-cust-note'); nt.style.display = 'block'; nt.classList.remove('nudge'); void nt.offsetWidth; nt.classList.add('nudge'); return; }   /* v574: the button looks ready on the menu too; outside a match it only flashes the hint (the layout editor needs the match buttons on screen) */
+  $('set-cust').onclick = () => { A.sfx.click();
+    if (!(race && !race.over)) {   /* v594: works on every page: no match needed */
+      const b = document.body, from = setFrom || 'title'; try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {}
+      closeSettings(); prev = { from, cls: [], scr: [...document.querySelectorAll('.screen.active')], hud: $('hud').classList.contains('hidden'), dummy: null };
+      for (const c of ['touch', 'in-race', 'city-mode', 'jang-mode', 'jang-fight']) if (!b.classList.contains(c)) { b.classList.add(c); prev.cls.push(c); }
+      for (const sc of prev.scr) sc.classList.remove('active'); $('hud').classList.remove('hidden');
+      if (!$('c-bag')) { const d = document.createElement('button'); d.id = 'c-bag'; d.type = 'button'; d.setAttribute('aria-label', 'Backpack'); d.innerHTML = '\u{1F392}'; b.appendChild(d); prev.dummy = d; }
+      b.classList.add('lay-prev', 'btn-edit'); layApply(); setTimeout(layApply, 60); setTimeout(layApply, 400); bar().classList.remove('hidden'); return;
+    }
     const cs = race && race.mission && race.mission.cs; if (cs && cs.diveUI) cs.diveUI(false); layApply(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} $('s-settings').classList.remove('active'); $('s-settings').classList.add('hidden'); document.body.classList.remove('set-open'); document.body.classList.add('btn-edit');   /* v247: mouse was pointer-locked to the game canvas so every click went to the canvas, not DONE */
    bar().classList.remove('hidden'); };
 }
