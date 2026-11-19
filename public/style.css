@@ -1795,3 +1795,7 @@ body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absol
   #ui #s-profile.mode-jang .card img { height: 27vh !important; max-height: none !important; width: 100% !important; max-width: 100% !important; aspect-ratio: auto !important; object-fit: contain; }
   #ui #s-profile.mode-jang .card b { font-size: 11px !important; }
 }
+
+/* v587: hovering the JANG card on the home screen turned its text near-black (the generic .btn:hover colour) on the dark picture = the word JANG vanished */
+#ui #s-title.mode-home #b-go-jang:hover, #ui #s-title.mode-home #b-go-jang:hover b, #ui #s-title.mode-home #b-go-jang:hover small { color: #fff !important; }
+#ui #s-title.mode-home #b-go-jang:hover em { color: #0b0d0f !important; }
