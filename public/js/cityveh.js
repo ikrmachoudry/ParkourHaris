@@ -206,7 +206,7 @@ export function bumpBoxes(c, track, spec, geo) {
   return ev;
 }
 function terrain(c, dt, track, spec, geo) {
-  const T = track.terrain; let ev = bumpBoxes(c, track, spec, geo);
+  const T0 = track.terrain, T = (x, z) => T0(x, z, c.y); let ev = bumpBoxes(c, track, spec, geo);   // v579: the car's own height goes along (a car under a bridge must not be lifted onto it)
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   // the island edge and the sea
   const E = track.edge || TD_EDGE; if (Math.abs(c.x) > E) { c.x = Math.sign(c.x) * E; c.vx *= -0.3; } if (Math.abs(c.z) > E) { c.z = Math.sign(c.z) * E; c.vz *= -0.3; }

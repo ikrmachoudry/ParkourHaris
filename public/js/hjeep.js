@@ -6,6 +6,7 @@ import { JEEP_DATA as D } from './jeepdata.js';
 export const JEEP = { L: 4.1, w: 1.8, wb: 2.54, seatX: -0.3, seatR: 0.4, seatTop: 0.9 };
 const dec = (b64, C) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new C(u.buffer); };
 const cache = new Map();
+let PHOTO = null; const FRAME = new THREE.MeshBasicMaterial({ color: '#15171a' });
 const geo = (key, d) => {
   if (cache.has(key)) return cache.get(key);
   const q = dec(d.p, Int16Array), pos = new Float32Array(q.length); for (let i = 0; i < q.length; i++) pos[i] = q[i] / 8000;
@@ -21,6 +22,12 @@ export function buildJeep({ paint = '#4f6b3a', detail = 'hi' } = {}) {
   const g = new THREE.Group();
   const add = (m, parent) => { m.castShadow = true; parent.add(m); return m; };
   for (const k of ['paint', 'dark', 'glass', 'head', 'tail', 'tire', 'rim']) if (D.parts[k]) add(new THREE.Mesh(geo(k, D.parts[k]), mats[k]), g);
+  /* v579: Haris's photo on the back of every jeep (a framed square on the plain panel next to the spare wheel; the rear face is at x = -2.06, the picture faces backwards = -x) */
+  if (typeof document !== 'undefined') {
+    if (!PHOTO) { PHOTO = new THREE.TextureLoader().load('models/props/jeep-back.jpg'); PHOTO.colorSpace = THREE.SRGBColorSpace; PHOTO.anisotropy = 4; }
+    const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), FRAME), pic = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), new THREE.MeshBasicMaterial({ map: PHOTO }));
+    for (const [m, x] of [[fr, -2.082], [pic, -2.092]]) { m.rotation.y = -Math.PI / 2; m.position.set(x, 1.2, 0.42); m.name = 'jeepPhoto'; g.add(m); }
+  }
   const wheels = [];
   D.wheels.forEach((w, i) => {
     const steer = new THREE.Group(), spin = new THREE.Group(); steer.position.set(w.x, w.y, w.z); steer.add(spin); g.add(steer);

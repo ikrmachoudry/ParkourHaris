@@ -747,7 +747,7 @@ class Race {
       if (hero) for (const [dx, dz] of [[lx * 2.4, lz * 2.4], [-lx * 2.4, -lz * 2.4], [Math.sin(st.yaw) * 3.6, Math.cos(st.yaw) * 3.6], [-Math.sin(st.yaw) * 3.6, -Math.cos(st.yaw) * 3.6]]) { if (this.spotFree(st.x + dx, st.z + dz, c)) { ox = st.x + dx; oz = st.z + dz; break; } }
       let oy = this.world.terrain ? this.world.terrain(ox, oz) + 0.05 : 0.05;
       /* v306: out of a car ON THE BRIDGE you stand on the deck (the ground under it is the river bed: you used to be put at the bottom of the bridge), kept inside the rails */
-      if (this.jang && !boatV && cmbOnDeck(st.x - CMB.x, st.z - CMB.z)) { const zl = Math.max(BRIDGE.z - BRIDGE.w / 2 + 0.8, Math.min(BRIDGE.z + BRIDGE.w / 2 - 0.8, oz - CMB.z)); oz = CMB.z + zl; if (cmbOnDeck(ox - CMB.x, oz - CMB.z)) oy = BRIDGE.y + 0.05; }
+      if (this.jang && !boatV && cmbOnDeck(st.x - CMB.x, st.z - CMB.z) && !(st.y < BRIDGE.y - 1.7)) { const zl = Math.max(BRIDGE.z - BRIDGE.w / 2 + 0.8, Math.min(BRIDGE.z + BRIDGE.w / 2 - 0.8, oz - CMB.z)); oz = CMB.z + zl; if (cmbOnDeck(ox - CMB.x, oz - CMB.z)) oy = BRIDGE.y + 0.05; }
       if (boatV) {   // off a boat: onto the pier / quay if there is one beside it, otherwise into the water
         const bg = STYLE_GEO[cityVeh(st.id).style], fx = Math.sin(st.yaw), fz = Math.cos(st.yaw), rx = -fz, rz = fx, bxs = (this.info.track && this.info.track.boxes) || [];
         let found = null;
@@ -1544,10 +1544,14 @@ class Race {
   nadeTarget() {
     const cam = this.camera, o = cam.position, dv = cam.getWorldDirection(this._nd || (this._nd = new THREE.Vector3())), b = this.me.body;
     let last = null;
-    for (let t = 2; t <= 70; t += 0.6) {
+    /* v579: the ray starts at the PLAYER, not at the camera: PRONE (or crouched in a hollow) the camera sits a few centimetres over the ground, 6-8 m BEHIND you, so the ray hit the ground right there and the target sign (and the whole arc) pointed back at you. Hits behind the body are skipped; if the crosshair ground point is closer than 3 m in front of a prone player it is pushed out to 3 m along the look direction. */
+    const hzv = Math.hypot(dv.x, dv.z) || 1, tBody = ((b.x - o.x) * dv.x + (b.z - o.z) * dv.z) / (hzv * hzv), tStart = Math.max(2, tBody + 0.3);
+    for (let t = tStart; t <= 70; t += 0.6) {
       const x = o.x + dv.x * t, y = o.y + dv.y * t, z = o.z + dv.z * t, g = this.world.findGround({ x, y: y + 0.6, z }, y + 0.6, false), gy = g ? g.top : 0;   /* v517: was y + 2: indoors that found the ROOF above the room, the grenade was aimed at the ceiling */
       if (Math.hypot(x - b.x, z - b.z) > 38) break;
-      last = { x, y: gy, z }; if (y <= gy + 0.05) return last;
+      last = { x, y: gy, z }; if (y <= gy + 0.05) {
+        if (this.prone && Math.hypot(x - b.x, z - b.z) < 3) { const fx = b.x + dv.x / hzv * 3, fz = b.z + dv.z / hzv * 3, g2 = this.world.findGround({ x: fx, y: b.y + 1.2, z: fz }, b.y + 1.2, false); return { x: fx, y: g2 ? g2.top : b.y, z: fz }; }
+        return last; }
     }
     if (dv.y > 0.04) {   /* v550: aiming up keeps the marker at the FULL throw range (34 m) up to 45 degrees (it jumped back to ~13 m as soon as you raised the aim past the horizon, so you could never throw farther) and only comes nearer for a steep lob; v523: aiming UP (a rooftop above you): the grenade is a real arc - the steeper the aim the nearer it lands - and it lands on the ROOF there */
       const e = Math.asin(Math.min(1, dv.y)), hl = Math.hypot(dv.x, dv.z) || 1, D = Math.max(4, e <= 0.78 ? 34 : 34 * Math.sin(2 * Math.min(e, 1.4))), x = b.x + dv.x / hl * D, z = b.z + dv.z / hl * D, g = this.world.findGround({ x, y: b.y + 24, z }, b.y + 24, false);
@@ -1582,7 +1586,7 @@ class Race {
     const m = this.arcMesh, cb = this.arcCancel, kind = this.heldThrow || 'grenade';
     if (!t) { if (m.visible) m.visible = false; if (cb.style.display !== 'none') cb.style.display = 'none'; this.fuseTag(0, null); return; }
     const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
-    const x0 = b.x + fx * 0.55, y0 = b.y + (this.crouch ? 1.05 : 1.55), z0 = b.z + fz * 0.55, dx = t.x - x0, dz = t.z - z0, d = Math.max(1.5, Math.hypot(dx, dz));
+    const x0 = b.x + fx * 0.55, y0 = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z0 = b.z + fz * 0.55, dx = t.x - x0, dz = t.z - z0, d = Math.max(1.5, Math.hypot(dx, dz));
     const T = clamp(0.45 + d * 0.03 + Math.max(0, t.y - y0) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (t.y + 0.07 - y0 + 0.5 * 18 * T * T) / T;
     const hl = Math.hypot(vx, vz) || 1, sx = -vz / hl, sz = vx / hl, cp = this.camera.position, P = m.geometry.attributes.position.array;
     for (let i = 0; i <= N; i++) {
@@ -1616,7 +1620,7 @@ class Race {
         const nk = this.nadeKind, smk = nk === 'smoke', mol = nk === 'molotov', cbk = this.wallet.cb; this.nadeKind = null;
         if (smk || mol ? !!(cbk && cbk.inv && cbk.inv[nk]-- > 0) : this.wallet.useNade()) {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
-          const x = b.x + fx * 0.55, y = b.y + (this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
+          const x = b.x + fx * 0.55, y = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
           const T = clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
           const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } this.updateAmmoHud();
           if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
@@ -2174,6 +2178,14 @@ class Race {
             for (const [o, d, lo, hi] of [[ax, ex, q.x0 - M, q.x1 + M], [az, ez, q.z0 - M, q.z1 + M]]) { if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; } let u = (lo - o) / d, v = (hi - o) / d; if (u > v) { const w2 = u; u = v; v = w2; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { hit = false; break; } }
             if (hit && t0 > 0 && t0 < tm) tm = t0; } }
         if (tm < 1) { const k = Math.max(0, tm - 0.06); tx = b.x + ex * k; tz = b.z + ez * k; } } }
+    /* v579 ROOT CAUSE of 'close to a wall, turn the camera and you see inside the room': the pass above only stops the shoulder pivot when the BODY starts OUTSIDE the wall's 0.3 m fat box. A player standing against the wall (inside the fat box) got no limit at all, so turning the camera swung the 0.62 m shoulder pivot INTO or THROUGH the wall and the camera looked from inside the room / the wall box. Now: the pivot may never be inside a wall's 0.2 m fat box and never cross the wall itself (largest safe fraction by bisection; the body itself always stays valid). Fighting camera angles are untouched whenever no wall is within 0.8 m. */
+    { const cs8 = this.mission && this.mission.cs; if (cs8 && cs8.on && !cs8.dropping && !this.drive && !spec && (tx !== b.x || tz !== b.z)) { const L8 = cmbLayout(), ax = b.x - CMB.x, az = b.z - CMB.z, ex = tx - b.x, ez = tz - b.z, yy = ty - 0.2, Bk = L8.B, cand = [], seen = new Set();
+        for (const kk of [0, 0.34, 0.67, 1]) { const px = ax + ex * kk, pz = az + ez * kk; for (let i = Math.floor(px / Bk) - 1; i <= Math.floor(px / Bk) + 1; i++) for (let j = Math.floor(pz / Bk) - 1; j <= Math.floor(pz / Bk) + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a8 = L8.bucket.get(key); if (!a8) continue; for (const q of a8) if ((CAMK.has(q.k) || (q.k === 'prop' && q.y1 - q.y0 > 1.2)) && !(yy < q.y0 - 0.1 || yy > q.y1 + 0.1) && Math.min(Math.abs(q.x0 - px), Math.abs(q.x1 - px)) < 2.5 + (q.x1 - q.x0) && Math.min(Math.abs(q.z0 - pz), Math.abs(q.z1 - pz)) < 2.5 + (q.z1 - q.z0)) cand.push(q); } }
+        if (cand.length) {
+          const dist = (q, x, z) => Math.max(q.x0 - x, x - q.x1, q.z0 - z, z - q.z1), okAt = (k) => { const px = ax + ex * k, pz = az + ez * k; for (const q of cand) { if (dist(q, px, pz) < Math.min(0.2, dist(q, ax, az)) - 0.001) return false; }   /* the pivot keeps 0.2 m off a wall (or as far as the body itself is) */
+            for (const q of cand) { let t0 = 0, t1 = k, hit = true; for (const [o, d, lo, hi] of [[ax, ex, q.x0 - 0.04, q.x1 + 0.04], [az, ez, q.z0 - 0.04, q.z1 + 0.04]]) { if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; } let u = (lo - o) / d, v = (hi - o) / d; if (u > v) { const w2 = u; u = v; v = w2; } t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { hit = false; break; } } if (hit && t0 > 0.001) return false; }
+            return true; };
+          if (!okAt(1)) { let lo = 0, hi = 1; for (let it = 0; it < 12; it++) { const mid = (lo + hi) / 2; if (okAt(mid)) lo = mid; else hi = mid; } tx = b.x + ex * lo; tz = b.z + ez * lo; this._pivNet = (this._pivNet || 0) + 1; } } } }
     /* v517: on a roof / high floor, looking steeply DOWN leans the camera pivot forward over the edge (up to 2.6 m), so you can see the people at the foot of your own building (the camera used to sit behind you, over the roof, and the building hid them) */
     if (this.jang && this.camPitch > 1.0) this.camPitch = Math.min(this.camPitch, this.pmax());
     if (this.meta.city && !this.drive && !spec && this.camPitch > (this.scoped ? 0.12 : 0.4) && this.world.terrain && !this.inCover()) { const b9 = this.me.body, el = b9.y - this.world.terrain(b9.x, b9.z), eF = -Math.sin(this.camYaw), eZ = -Math.cos(this.camYaw), eA = b9.y - Math.min(this.world.terrain(b9.x + eF * 1.5, b9.z + eZ * 1.5), this.world.terrain(b9.x + eF * 3, b9.z + eZ * 3)), ek = Math.max(Math.max(0, Math.min(1, (el - 3) / 4)), Math.max(0, Math.min(1, (eA - 0.7) / 2))),   /* v546: PUBG edge look - standing at the lip of a hill / bank (the ground FALLS AWAY in front: eA m lower 1.5-3 m ahead) and looking down, the view leans out over the edge too (it only did it on roofs / towers) so you can see all the way down the slope */ pk = this.scoped ? Math.max(0, Math.min(1, (this.camPitch - 0.12) / 0.3)) : Math.max(0, Math.min(1, (this.camPitch - 0.4) / 0.5)); this._edgeK = (this._edgeK || 0) + (ek * pk - (this._edgeK || 0)) * Math.min(1, dt * 6); if (this._edgeK > 0.01) { const lk = (this.scoped ? 1.6 : 2.2) * this._edgeK; tx -= Math.sin(this.camYaw) * lk; tz -= Math.cos(this.camYaw) * lk; } } else this._edgeK = 0;   /* v521: also while SCOPED (the scope only saw the wall of your own tower), and the look-down limit is now ~57 deg like PUBG (was nearly straight down) */
@@ -2223,6 +2235,19 @@ class Race {
       { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping) {   // last safety net: a camera that still ended up inside a wall / floor / roof slab is put back on the player
         const L = cmbLayout(), px = cam.x - CMB.x, pz = cam.z - CMB.z, a = L.bucket.get(Math.floor(px / L.B) * 4099 + Math.floor(pz / L.B));
         if (a) for (const s of a) { if (!(s.k === 'wall' || s.k === 'roof' || s.k === 'floor')) continue; if (px > s.x0 - 0.12 && px < s.x1 + 0.12 && pz > s.z0 - 0.12 && pz < s.z1 + 0.12 && cam.y > s.y0 - 0.12 && cam.y < s.y1 + 0.12) { const kf = this.twK > 0.3 ? 0.38 : 0.02; this.camK = kf; cam.set(ox + dx * kf, oy + dy * kf, oz + dz * kf); break; } } } }
+      { const cs = this.mission && this.mission.cs; if (cs && cs.on && !cs.dropping && !this.drive && !this.over && !(this.twK > 0.3) && this.me && this.me.body) {   /* v579 FINAL WALL NET (camera showing the inside of a room): the straight line from the PLAYER'S HEAD to the finished camera position must not cross a wall / roof / floor, and the camera stays 0.16 m off every one of them (the pivot smoothing, the peek lean or a fast turn could leave the camera on the other side of a wall from the player, or inside the thin wall box, so the wall was not drawn = you saw the room). It only acts when that happens, the normal fighting camera is not touched. */
+        const bd = this.me.body, hx = bd.x, hy = bd.y + (this.prone ? 0.45 : this.crouch ? 1.0 : 1.5), hz = bd.z, L = cmbLayout(), Bk = L.B, lx = hx - CMB.x, lz = hz - CMB.z, dx2 = cam.x - hx, dy2 = cam.y - hy, dz2 = cam.z - hz, len = Math.hypot(dx2, dy2, dz2);
+        if (len > 0.05 && L.bucket) { const seen = new Set(), n = Math.ceil(Math.hypot(dx2, dz2) / 3) + 1; let tm = 1; const MG = 0.16;
+          for (let k = 0; k <= n; k++) { const px = lx + dx2 * k / n, pz = lz + dz2 * k / n, ci = Math.floor(px / Bk), cj = Math.floor(pz / Bk);
+            for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) { const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a0 = L.bucket.get(key), a1 = L.cbucket && L.cbucket.get(key); if (!a0 && !a1) continue; const a = a0 && a1 ? a0.concat(a1) : a0 || a1;
+              for (const q of a) { if (!(q.k === 'wall' || q.k === 'roof' || q.k === 'floor')) continue;
+                if (lx > q.x0 - 0.3 && lx < q.x1 + 0.3 && lz > q.z0 - 0.3 && lz < q.z1 + 0.3 && hy > q.y0 - 0.3 && hy < q.y1 + 0.3) continue;   // the head itself is touching this box (a wall hugged from the side): the older checks handle that case
+                let t0 = 0, t1 = 1, hit = true;
+                for (const [o, d, lo, hi] of [[lx, dx2, q.x0 - MG, q.x1 + MG], [hy, dy2, q.y0 - MG, q.y1 + MG], [lz, dz2, q.z0 - MG, q.z1 + MG]]) {
+                  if (Math.abs(d) < 1e-7) { if (o < lo || o > hi) { hit = false; break; } continue; }
+                  let p = (lo - o) / d, r = (hi - o) / d; if (p > r) { const w2 = p; p = r; r = w2; } t0 = Math.max(t0, p); t1 = Math.min(t1, r); if (t0 > t1) { hit = false; break; } }
+                if (hit && t0 < tm) tm = t0; } } }
+          if (tm < 1) { const kk = Math.max(0.02, tm); cam.set(hx + dx2 * kk, hy + dy2 * kk, hz + dz2 * kk); this.camK = Math.min(this.camK === undefined ? 1 : this.camK, kk); this._wallNet = (this._wallNet || 0) + 1; } } } }
       if (cam.y < T(cam.x, cam.z) + 0.35) cam.y = T(cam.x, cam.z) + 0.35;
       { const cs = this.mission && this.mission.cs, g = this.me && this.me.model && this.me.model.group;   // v214 (PUBG): squeezed against a wall / in a stair shaft the camera ends up almost inside the head: hide the body then (first-person view) instead of staring into it
         if (g && cs && cs.on && !cs.dropping && !this.drive && !this.over) { const dd = cam.distanceTo(this.camTarget); const hT = this.twK > 0.3 ? 0.5 : 0.7, sT = this.twK > 0.3 ? 1.0 : 0.95; if (g.visible && dd < hT) { g.visible = false; this._bodyHid = true; } else if (!g.visible && this._bodyHid && dd > sT) { g.visible = true; this._bodyHid = false; } }

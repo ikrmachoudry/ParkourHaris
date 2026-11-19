@@ -1150,7 +1150,7 @@ body.jang-mode .qrow[data-k="wanted"], body.jang-mode .qrow[data-k="highJump"], 
 #s-profile .card b { position: relative; z-index: 1; text-shadow: 0 1px 3px #000; }
 
 /* v206 Jang: nothing combat-related before the fight starts, PUBG slot bar, bigger stance icons */
-body.jang-mode:not(.jang-fight) #a-punch, body.jang-mode:not(.jang-fight) #a-weapon, body.jang-mode:not(.jang-fight) #a-reload, body.jang-mode:not(.jang-fight) #a-fmode, body.jang-mode:not(.jang-fight) #a-aim, body.jang-mode:not(.jang-fight) #c-bag, body.jang-mode:not(.jang-fight) #c-pick, body.jang-mode:not(.jang-fight) #a-crouch, body.jang-mode:not(.jang-fight) #a-prone { display: none !important; }
+body.jang-mode:not(.jang-fight):not(.jang-air) #a-punch, body.jang-mode:not(.jang-fight):not(.jang-air) #a-weapon, body.jang-mode:not(.jang-fight):not(.jang-air) #a-reload, body.jang-mode:not(.jang-fight):not(.jang-air) #a-fmode, body.jang-mode:not(.jang-fight):not(.jang-air) #a-aim, body.jang-mode:not(.jang-fight) #c-bag, body.jang-mode:not(.jang-fight) #c-pick, body.jang-mode:not(.jang-fight) #a-crouch, body.jang-mode:not(.jang-fight) #a-prone { display: none !important; }
 body.jang-mode #a-weapon, body.jang-mode #wheel { display: none !important; }
 #c-slots { position: fixed; left: 50%; transform: translateX(-50%); bottom: 54px; z-index: 46; display: none; gap: 6px; }
 #c-spslots { position: fixed; left: 50%; transform: translateX(-50%); bottom: 54px; z-index: 46; display: none; gap: 6px; pointer-events: none; }
@@ -1766,5 +1766,5 @@ body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size:
 body.set-open :is(.tmh, #tm-hp, #c-hud, #c-hp, #c-bag, #c-train, #c-train-x, #c-slots, #a-reload, #b-gm, #b-full, #b-auto, #mm-btn, #minimap, #mm, .ls-x, #c-kill, #c-feed, #c-zone, #c-alive, #c-ping, #c-comp, #c-dive) { visibility: hidden !important; pointer-events: none !important; }
 body.set-open #sz-chip, body.set-open body > div[style*="max(44px, 7vh)"], body.set-open div[style*="max(44px, 7vh)"] { visibility: hidden !important; pointer-events: none !important; }
 
-/* v578: the sniper scope view uses the round bezel of YOUR scope.glb (rendered to models/ads/scope-ring.png); the opening stays 36vmin, black outside the ring */
-body.scoped:not(.acog):not(.binoc) #scope { background: url("models/ads/scope-ring.png") 50% 50% / 94vmin 94vmin no-repeat, radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 35.5vmin, #000 36.5vmin, #000 100%) !important; }
+/* v579: PUBG-style sniper scope: a clean round window, a soft inner shadow, a thin steel edge, solid black outside (no picture needed) */
+body.scoped:not(.acog):not(.binoc) #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 32vmin, rgba(0,0,0,.18) 34.2vmin, rgba(0,0,0,.55) 35.4vmin, #14171c 35.55vmin, #3a4049 35.9vmin, #0a0c0f 36.4vmin, #000 36.9vmin, #000 100%) !important; }

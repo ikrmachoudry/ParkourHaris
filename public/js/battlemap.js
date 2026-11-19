@@ -531,14 +531,15 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     { const rx = rngS(570), tX = [], rX = []; pickT(rx, tX, Math.round(nT * (MO - 1)), 45000); pickR(rx, rX, Math.round(nR * (MO - 1)), 20000); mkGrass(tuft, tX, (q === 0 ? 70 : 110) * 0.7); mkGrass(reed, rX, (q === 0 ? 110 : 160) * 0.7); }
     /* v565 TALL-GRASS PATCHES (L.grass, made in combat.js): dense waist-high clumps of the same grass model, ~1 m tall so a prone or crouching player disappears in it */
     { const rp = rngS(565), pIt = [], per = q === 0 ? 100 : 175;
-      for (const g of L.grass || []) for (let i = 0, tr = 0; i < per && tr < per * 4; tr++) {
+      /* v579: the patches are 6x (dry river bed: 7x) bigger in area, so they get 3.2x (4.2x) the tufts - a little less dense than before, to keep the frame rate - and every tuft is 12 % bigger */
+      for (const g of L.grass || []) for (let i = 0, tr = 0, nG = Math.round(per * (g.riv ? 4.2 : 3.2)); i < nG && tr < nG * 4; tr++) {
         const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
-        const y = cmbH(x, z); if (y < 0.3) continue; i++; pIt.push({ x, y: y - 0.05, z, s: 1.0 + rp() * 0.3, sx: 1.9 + rp() * 0.5, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
+        const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pIt.push({ x, y: y - 0.05, z, s: (1.0 + rp() * 0.3) * 1.12, sx: (1.9 + rp() * 0.5) * 1.12, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
       mkGrass(tuft, pIt, q === 0 ? 60 : 95);
       { const rq = rngS(571), pX = [], perX = Math.round(per * (MP - 1));   /* the extra layer: the same places, 4x (laptop) / 2x (phone) more tufts, drawn up to 70 % of the distance */
-        for (const g of L.grass || []) for (let i = 0, tr = 0; i < perX && tr < perX * 4; tr++) {
+        for (const g of L.grass || []) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2)); i < nX && tr < nX * 4; tr++) {
           const a = rq() * 6.283, rr = Math.sqrt(rq()) * g.r * 0.98, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rq() < (rr / g.r) ** 3 * 0.7 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
-          const y = cmbH(x, z); if (y < 0.3) continue; i++; pX.push({ x, y: y - 0.05, z, s: 0.85 + rq() * 0.25, sx: 1.25 + rq() * 0.6, sy: 0.8 + rq() * 0.2, r: rq() * 6.28 });   /* the extra tufts are a little smaller (0.8 - 1.0 m tall, 1.2 - 2 m wide): a dense carpet, but a prone camera is not walled in by one huge leaf */ }
+          const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pX.push({ x, y: y - 0.05, z, s: (0.85 + rq() * 0.25) * 1.12, sx: (1.25 + rq() * 0.6) * 1.12, sy: 0.8 + rq() * 0.2, r: rq() * 6.28 });   /* the extra tufts are a little smaller (0.8 - 1.0 m tall, 1.2 - 2 m wide): a dense carpet, but a prone camera is not walled in by one huge leaf */ }
         mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7); } } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind

@@ -3,9 +3,9 @@ import { layout, CombatSim, inField, distRoad, onPad } from '../public/js/combat
 let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL', m); } else console.log('PASS', m); };
 const L = layout(); console.log('grass patches', L.grass.length, L.grass.map((g) => g.x + ',' + g.z + ' r' + g.r.toFixed(0)).join(' | '));
 ok(L.grass.length >= 8, 'at least 8 patches (' + L.grass.length + ')');
-ok(L.grass.every((g) => distRoad(g.x, g.z) > g.r && !inField(g.x, g.z) && !onPad(g.x, g.z, g.r * 0.5)), 'no patch on a road, field or building');
+ok(L.grass.every((g) => distRoad(g.x, g.z) > g.r * 0.5 && !inField(g.x, g.z) && !onPad(g.x, g.z, g.r * 0.5)), 'no patch on a road, field or building');
 ok(L.grass.every((a, i) => L.grass.every((b, j) => i === j || Math.hypot(a.x - b.x, a.z - b.z) >= 40)), 'patches are spread out');
-const g = L.grass[0];
+const g = L.grass.find((q) => !q.riv) || L.grass[0];   // v579: the river-bed patches sit in the dry river (banks block the view), so the sight test uses a land patch
 ok(L.grassHide(g.x, g.z, 0) === Infinity, 'standing in grass: normal sight');
 ok(L.grassHide(g.x, g.z, 2) === 7 && L.grassHide(g.x, g.z, 1) === 20, 'prone 7 m, crouch 20 m');
 ok(L.grassHide(g.x + g.r * 2, g.z, 2) === Infinity, 'outside the patch: normal sight');
