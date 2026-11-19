@@ -2330,7 +2330,7 @@ class Race {
     if (this.peds) { this.peds.dispose(); this.peds = null; }
     A.setInGame(false);
     A.stopMusic(); A.engineStop(); A.sirenStop(); A.sirenFar(0); A.rainSet(0); A.seaSet(0); A.swimSet(false); A.carEngineStop(); A.skidStop(); { const uw = $('uw'); if (uw) uw.classList.remove('on'); } document.body.classList.remove('sky-swap'); document.body.classList.remove('city-mode'); A.carEngineStop(); A.skidStop(); A.hornStop(); A.cityAmbience(false); document.body.classList.remove('driving'); document.body.classList.remove('near-car'); document.body.classList.remove('near-swing');
-    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc', 'acog', 'ads'); try { this.nadeArc && this.nadeArc(null); } catch (e) { /* not built yet */ } { const ch = $('rscope-chip'); if (ch) ch.style.display = 'none'; } document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
+    document.body.classList.remove('in-race', 'jang-mode', 'scoped', 'binoc', 'acog', 'ads'); { const dw = document.getElementById('dn-warn'); if (dw) dw.style.display = 'none'; }   /* v589: no 'IS DOWN' banner left over in the lobby / menus */ try { this.nadeArc && this.nadeArc(null); } catch (e) { /* not built yet */ } { const ch = $('rscope-chip'); if (ch) ch.style.display = 'none'; } document.body.classList.remove('big-map'); document.body.classList.remove('single'); $('pause').classList.add('hidden'); this.menuOpen = false;
     $('hud').classList.add('hidden');
     $('hud-count').textContent = ''; $('hud-toast').classList.remove('show'); { const fx = $('hud-fx'); if (fx) fx.innerHTML = ''; }
     for (const r of this.remotes.values()) r.dispose(this.scene);
