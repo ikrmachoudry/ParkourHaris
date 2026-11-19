@@ -1541,7 +1541,7 @@ body.btn-edit #scope-zoom { display: flex !important; }
 body.scoped:not(.acog):not(.binoc) #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 36vmin, rgba(0,0,0,.28) 39vmin, rgba(0,0,0,.78) 42vmin, #000 44.5vmin); }
 body.scoped:not(.acog):not(.binoc) #scope i { width: 90vmin; height: 12px; margin: -6px 0 0 -45vmin; background: linear-gradient(#000, #000) left center / 33vmin 6px no-repeat, linear-gradient(#000, #000) right center / 33vmin 6px no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 24vmin 1px no-repeat; }
 body.scoped:not(.acog):not(.binoc) #scope b { width: 12px; height: 90vmin; margin: -45vmin 0 0 -6px; background: linear-gradient(#000, #000) center top / 6px 22vmin no-repeat, linear-gradient(#000, #000) center bottom / 6px 33vmin no-repeat, linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.92)) center / 1px 24vmin no-repeat; }
-body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absolute; left: 50%; top: 50%; width: 24vmin; height: 8px; margin: -4px 0 0 -12vmin; background: radial-gradient(circle, #000 1.4px, transparent 1.9px) center / 3vmin 8px repeat-x; }
+
 body.scoped:not(.acog):not(.binoc) #scope::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #ff2a2a; box-shadow: 0 0 5px 1px rgba(255,40,40,.8); }
 body.acog #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 27vmin, #05070a 27.6vmin, #151a21 29.2vmin, #232a34 30.4vmin, #0a0d12 32.2vmin, rgba(8,10,14,.5) 35vmin, rgba(8,10,14,.12) 41vmin, rgba(8,10,14,0) 50vmin); }
 
@@ -1766,5 +1766,6 @@ body.touch #mm-btn { padding: clamp(6px, 1.4vh, 9px) 12px !important; font-size:
 body.set-open :is(.tmh, #tm-hp, #c-hud, #c-hp, #c-bag, #c-train, #c-train-x, #c-slots, #a-reload, #b-gm, #b-full, #b-auto, #mm-btn, #minimap, #mm, .ls-x, #c-kill, #c-feed, #c-zone, #c-alive, #c-ping, #c-comp, #c-dive) { visibility: hidden !important; pointer-events: none !important; }
 body.set-open #sz-chip, body.set-open body > div[style*="max(44px, 7vh)"], body.set-open div[style*="max(44px, 7vh)"] { visibility: hidden !important; pointer-events: none !important; }
 
-/* v579: PUBG-style sniper scope: a clean round window, a soft inner shadow, a thin steel edge, solid black outside (no picture needed) */
-body.scoped:not(.acog):not(.binoc) #scope { background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 32vmin, rgba(0,0,0,.18) 34.2vmin, rgba(0,0,0,.55) 35.4vmin, #14171c 35.55vmin, #3a4049 35.9vmin, #0a0c0f 36.4vmin, #000 36.9vmin, #000 100%) !important; }
+/* v580: the sniper scope is a PICTURE rendered from the real scope GLB (models/ads/scope-ring.webp): the ring around a clear lens; the picture is a 135.2vmin square with its lens hole 36vmin in radius, flat black fills the rest of the screen. Nothing is drawn by CSS gradients. */
+body.scoped:not(.acog):not(.binoc) #scope { background: none !important; }
+body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absolute; left: 50%; top: 50%; margin: 0; width: 135.2vmin; height: 135.2vmin; transform: translate(-50%, -50%); background: url(models/ads/scope-ring.webp) center / 100% 100% no-repeat; box-shadow: 0 0 0 200vmax #000, inset 0 0 0 1px #000; }

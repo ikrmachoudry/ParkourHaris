@@ -23,11 +23,6 @@ export function buildJeep({ paint = '#4f6b3a', detail = 'hi' } = {}) {
   const add = (m, parent) => { m.castShadow = true; parent.add(m); return m; };
   for (const k of ['paint', 'dark', 'glass', 'head', 'tail', 'tire', 'rim']) if (D.parts[k]) add(new THREE.Mesh(geo(k, D.parts[k]), mats[k]), g);
   /* v579: Haris's photo on the back of every jeep (a framed square on the plain panel next to the spare wheel; the rear face is at x = -2.06, the picture faces backwards = -x) */
-  if (typeof document !== 'undefined') {
-    if (!PHOTO) { PHOTO = new THREE.TextureLoader().load('models/props/jeep-back.jpg'); PHOTO.colorSpace = THREE.SRGBColorSpace; PHOTO.anisotropy = 4; }
-    const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), FRAME), pic = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), new THREE.MeshBasicMaterial({ map: PHOTO }));
-    for (const [m, x] of [[fr, -2.082], [pic, -2.092]]) { m.rotation.y = -Math.PI / 2; m.position.set(x, 1.2, 0.42); m.name = 'jeepPhoto'; g.add(m); }
-  }
   const wheels = [];
   D.wheels.forEach((w, i) => {
     const steer = new THREE.Group(), spin = new THREE.Group(); steer.position.set(w.x, w.y, w.z); steer.add(spin); g.add(steer);
@@ -41,4 +36,12 @@ export function buildJeep({ paint = '#4f6b3a', detail = 'hi' } = {}) {
     spin(a) { for (const w of wheels) w.spin.rotation.z = -a * 0.7; },   // tyre radius 0.48 against the 0.34 the animation assumes
     setColor(c) { mats.paint.color.set(c); },
   };
+}
+
+// Jang only: the boy photo on the back of a Jang jeep. Called by the Jang level for its own jeeps, never from the shared jeep builder.
+export function addJangJeepPhoto(g) {
+  if (typeof document === 'undefined') return;
+  if (!PHOTO) { PHOTO = new THREE.TextureLoader().load('models/props/jeep-back.jpg'); PHOTO.colorSpace = THREE.SRGBColorSpace; PHOTO.anisotropy = 4; }
+  const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), FRAME), pic = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), new THREE.MeshBasicMaterial({ map: PHOTO }));
+  for (const [m, x] of [[fr, -2.082], [pic, -2.092]]) { m.rotation.y = -Math.PI / 2; m.position.set(x, 1.2, 0.42); m.name = 'jeepPhoto'; g.add(m); }
 }

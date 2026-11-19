@@ -14,7 +14,7 @@ export function jangJeeps(n = 3, seed = 0) {
       for (const a of [-2.6, -1.3, 0, 1.3, 2.6]) { const px = x + dx * a, pz = z + dz * a; if (hitsSolid(L, px, pz, 1.5, cmbH(px, pz)) || Math.abs(cmbH(px, pz) - cmbH(x, z)) > 0.8) { free = false; break; } }
       if (free) { ok = [x, z]; break; } }
     if (!ok) continue;
-    out.push({ id: 33, x: CMB.x + ok[0], z: CMB.z + ok[1], yaw: Math.atan2(dx, dz) + (rnd() < 0.5 ? 0 : Math.PI), y: cmbH(ok[0], ok[1]) });
+    out.push({ id: 33, x: CMB.x + ok[0], z: CMB.z + ok[1], yaw: Math.atan2(dx, dz) + (rnd() < 0.5 ? 0 : Math.PI), y: cmbH(ok[0], ok[1]), jang: true });
   }
   return out;
 }

@@ -815,7 +815,7 @@ export const gunDamage = (w, dist, zone, rel, H) => { const G = GUNS[w]; if (!G)
 export class CombatSim {
   constructor(seed = 1, nBots = 8) {
     this.L = layout(); this.R = seeded(seed >>> 0 || 1); this.t = 0; this.events = []; this.kills = 0; this.deaths = 0; this.nBots = nBots;
-    this.diff = 'medium'; this.nades = []; this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i));
+    this.diff = 'medium'; this.nades = []; this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i)); for (const b of this.bots) b.skin = this.R() < 0.2; if (this.bots.length > 2 && !this.bots.some((b) => b.skin)) this.bots[this.bots.length >> 1].skin = true;   /* v580: about 1 soldier in 5 carries a MILITARY SKIN in his backpack (at least one always does) */
     this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot(); this.L.spots.forEach((sp, k) => { if (sp.force) { this.used.add(k); this.loot.push({ k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); } });
     this.Z = makeZone(seed >>> 0 || 1); this.airN = 0; this.airSent = false;   // v251: the bots follow the blue circle, the airdrop plane flies on a schedule
   }
@@ -921,7 +921,7 @@ export class CombatSim {
   bulletDmg(wid, dmg, dist, head, rel, H, DF) { if (!GUNS[wid]) return dmg * 34 * (head ? 2.3 * DF.hm : DF.bm); const zone = head ? 1 : zoneOf(rel, H, 99) === 2 ? 2 : 0; return gunDamage(wid, dist, zone, rel, H) * (zone === 1 ? DF.hm : DF.bm); }
   hurt(b, d, fromX, fromZ, by) {
     if (!b.alive) return; b.hp -= d; b.flash = 0.15; b.alert = 8; if (b.droid && d > 0.5) b.retT = 8; if (d > 0.5) { b.hurtT = 2.5; if (fromX !== 0 || fromZ !== 0) b.lk = { x: fromX, z: fromZ, t: this.t }; } const hd = b.lastHead ? 1 : 0; b.lastHead = false; if (b.hp <= 0) { b.alive = false; b.respawn = 7; b.dieT = 0; this.kills++; this.events.push({ k: 'kill', id: b.id, x: b.x, z: b.z, w: b.weapon, by, h: hd });
-      const gk = [b.weapon, 'ammo', this.pick(['ammo', 'med', 'inject', 'pills', 'grenade', 'smoke'])]; if (b.gr > 0) gk.push('grenade'); if (b.mo > 0) gk.push('molotov'); gk.forEach((k, i) => { const a = i * 2.1 + 0.5, ox = Math.cos(a) * 0.7, oz = Math.sin(a) * 0.7, ok = !hitsSolid(this.L, b.x + ox, b.z + oz, 0.2); this.addLootAt(k, b.x + (ok ? ox : 0), b.z + (ok ? oz : 0), { gold: 1, life: 150, am: k === 'ak' ? { mag: 30, res: 60 } : k === 'pistol' ? { mag: 12, res: 24 } : 0 }); }); }   // v251: a dead bot leaves a GOLD box with its gun + ammo (+ one more thing) for whoever shot it
+      const gk = [b.weapon, 'ammo', this.pick(['ammo', 'med', 'inject', 'pills', 'grenade', 'smoke'])]; if (b.gr > 0) gk.push('grenade'); if (b.mo > 0) gk.push('molotov'); if (b.skin) { gk.push('skin'); b.skin = false; } gk.forEach((k, i) => { const a = i * 2.1 + 0.5, ox = Math.cos(a) * 0.7, oz = Math.sin(a) * 0.7, ok = !hitsSolid(this.L, b.x + ox, b.z + oz, 0.2); this.addLootAt(k, b.x + (ok ? ox : 0), b.z + (ok ? oz : 0), { gold: 1, life: 150, am: k === 'ak' ? { mag: 30, res: 60 } : k === 'pistol' ? { mag: 12, res: 24 } : 0 }); }); }   // v251: a dead bot leaves a GOLD box with its gun + ammo (+ one more thing) for whoever shot it
    
     else this.events.push({ k: 'bothit', id: b.id, x: b.x, z: b.z, h: hd });
   }

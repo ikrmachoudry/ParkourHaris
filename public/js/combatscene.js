@@ -25,11 +25,11 @@ import { showVictory, startWinSong, cancelWinSong, prepareVictory } from './vict
 import { OPT } from './opts.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', molotov: '#ff9a3c', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0' };
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', molotov: '#ff9a3c', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0', skin: '#8fbf5a' };
 const fitPx = (c, t, px, maxW) => { c.font = '900 ' + px + 'px Impact, Arial Black, sans-serif'; const w = c.measureText(t).width; return Math.max(18, Math.floor(w > maxW ? px * maxW / w : px)); };   // v271: shrink a name to fit the canopy
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'BINOCULARS', sscope: 'TELESCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET' };
-const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0, vest: 0, helmet: 0 }, vestHp: 0, helmHp: 0 });
-const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet'];
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'BINOCULARS', sscope: 'TELESCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET', skin: 'MILITARY SKIN' };
+const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0, vest: 0, helmet: 0, skin: 0 }, vestHp: 0, helmHp: 0 });
+const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet', 'skin'];
 // v523: a small corner chip (red-zone warning: shows for about a second and fades out; same on laptop and phone)
 function cornerChip(id, text, ms) { try { let e = document.getElementById(id); if (!e) { e = document.createElement('div'); e.id = id; e.style.cssText = 'position:fixed;left:max(150px,calc(2vw + 140px));top:max(10px,2vh);z-index:9;padding:5px 10px;border-radius:8px;background:rgba(190,20,10,.88);color:#fff;font:800 12px system-ui,sans-serif;letter-spacing:.4px;pointer-events:none;opacity:0;transition:opacity .25s'; document.body.appendChild(e); } e.textContent = text; e.style.opacity = '1'; clearTimeout(e._t); e._t = setTimeout(() => { e.style.opacity = '0'; }, ms || 1000); } catch (er) { /* noop */ } }
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
@@ -53,6 +53,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   scope: ['BINOCULARS', 'Press 0 to look far away with zoom (mouse wheel zooms). A separate item: it cannot be used on the sniper rifle.'],
   sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
   vest: ['BODY ARMOR', 'PUBG Level 2 vest: takes 40% of every body shot until its 220 points run out. Worn automatically.'],
+  skin: ['MILITARY SKIN', 'A dead soldier can carry one. Open the BACKPACK and tap it to put the olive military uniform on (tap again to take it off). It is only yours for this match: you must find another one next match.'],
   helmet: ['HELMET', 'PUBG Level 2 helmet: takes 40% of every headshot until its 150 points run out. Worn automatically.'],
 };
 const MY_DMG = 100;
@@ -380,10 +381,10 @@ export class CombatScene {
     return this._icons[k] || '';
   }
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
-    const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', molotov: 'molotov', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet' }[k], wrap = new THREE.Group();
+    const G = { ammo: 'ammo', med: 'medkit', pills: 'pills', inject: 'syringe', grenade: 'grenade', smoke: 'grenade', molotov: 'molotov', sscope: 'scope', scope: 'smgscope', vest: 'vest', helmet: 'helmet', skin: 'vest' }[k], wrap = new THREE.Group();
     if (G && hasProp(G)) {
-      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); if (k === 'molotov') m.scale.multiplyScalar(1.6); if (!icon && (k === 'sscope' || k === 'scope')) m.scale.multiplyScalar(0.5); wrap.add(m);   /* v300: a scope lying on the floor is half as big */
-      if (!icon) { if (k === 'inject') wrap.rotation.z = Math.PI / 2; else if (k === 'med' || k === 'vest') wrap.rotation.x = -Math.PI / 2; } else if (k === 'inject') wrap.rotation.z = Math.PI / 2;
+      const m = propModel(G, k === 'smoke' ? '#9aa6ae' : k === 'skin' ? '#5d7a34' : null); if (k === 'smoke') m.scale.multiplyScalar(1.25); if (k === 'molotov') m.scale.multiplyScalar(1.6); if (!icon && (k === 'sscope' || k === 'scope')) m.scale.multiplyScalar(0.5); wrap.add(m);   /* v300: a scope lying on the floor is half as big */
+      if (!icon) { if (k === 'inject') wrap.rotation.z = Math.PI / 2; else if (k === 'med' || k === 'vest' || k === 'skin') wrap.rotation.x = -Math.PI / 2; } else if (k === 'inject') wrap.rotation.z = Math.PI / 2;
       return wrap;
     }
     if (isGunK(k) || k === 'grenade' || k === 'bat') { const mdl = makeWeaponModel(k); mdl.scale.setScalar(k === 'grenade' ? 2.2 : k === 'bat' ? 1.5 : k === 'pistol' || k === 'revolver' ? 2.4 : 1.5); if (k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; return mdl; }
@@ -393,7 +394,7 @@ export class CombatScene {
     const sim = this.sim; if (!sim) return;
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = it.gold ? '#ffd23f' : LOOT_COL[it.k];
       const mdl = this.lootModel(it.k);
-      const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'molotov', 'sscope', 'scope', 'vest', 'helmet'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
+      const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'molotov', 'sscope', 'scope', 'vest', 'helmet', 'skin'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject' || it.k === 'skin') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
       if (it.gold === 1) { const gb = propModel('goldbox'), hh = (propDim('goldbox') || { y: 0.3 }).y; if (gb) g.add(gb); pivot.position.y += hh + 0.02; }   // v251/v263: a dead enemy's GOLD box (the real loot box model): everything he carried lies on it
       const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       if (it.gold === 1) {   // v264: a dead bot / player: a thin GREEN smoke column over his loot box (one column per box, however many items lie on it)
@@ -924,7 +925,7 @@ export class CombatScene {
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
   autoOk(it) {   // v360 SETTINGS > PICK UP: a category switched OFF is not picked up by walking over it (take it from the BACKPACK button)
     const pk = (OPT && OPT.pk) || null; if (!pk) return true; const k = it.k;
-    const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope') ? 'gear' : '';
+    const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope' || k === 'skin') ? 'gear' : '';
     if (g === 'gun' && pk['w_' + k] !== undefined && !pk['w_' + k]) return false;   // v522: each weapon has its own auto-pick-up switch (Settings > Pick Up)
     return !g || pk[g] === undefined || !!pk[g];
   }
@@ -1027,6 +1028,7 @@ export class CombatScene {
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO BINOCULARS'); return false; } if (R.weapon === 'sniper') { R.toast && R.toast('BINOCULARS are a separate item - they cannot be used on the Kar98 (it has its own TELESCOPE). Put the rifle away first.', 3.5); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'BINOCULARS  -  mouse wheel / the + - buttons zoom' : 'BINOCULARS AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.heldThrow = 'grenade'; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 40% of every body shot' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 40% of every headshot') : 'NONE', 2.5); return false; }
+    if (k === 'skin') { if (have <= 0) { R.toast && R.toast('NO MILITARY SKIN'); return false; } this.skinOn = !this.skinOn; this.applySkin(); R.toast && R.toast(this.skinOn ? 'MILITARY SKIN ON' : 'MILITARY SKIN OFF  (it stays in your backpack)', 2.4); if (this.inv) this.inv.render(); return true; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
     if (k === 'smoke' || k === 'molotov') { R.nadeKind = k; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
     const U = USE[k]; if (!U) return false; if (this.using) { this.using = null; R.toast && R.toast('CANCELLED'); return false; }
@@ -1041,8 +1043,19 @@ export class CombatScene {
     const used = []; sim.bots.forEach((bt, i) => { const c = pool.find((q) => !used.includes(q) && (used.length === 0 || Math.hypot(q.sp.x - used[0].sp.x, q.sp.z - used[0].sp.z) > 15)) || pool[i % Math.max(1, pool.length)]; if (!c) return; used.push(c); bt.x = c.sp.x; bt.z = c.sp.z; bt.path = null; bt.pi = 0; bt.seen = false; bt.alert = 0; bt.cool = 2.5; bt.react = 0; bt.yaw = Math.atan2(px - c.sp.x, pz - c.sp.z); });
   }
   boostSpd() { const b = this.boost || 0; return b >= 75 ? 1.062 : b >= 50 ? 1.025 : 1; }
+  /* v580 MILITARY SKIN (Jang only): found on some dead soldiers, worn from the BACKPACK, lost at the end of the match. It re-colours a private copy of the player's own character materials (the shared ones are never touched, so every other soldier keeps his look). */
+  applySkin() {
+    const m = this.R.me && this.R.me.model; if (!m || !m.group) return; const on = !!this.skinOn; if (m._skinOn === on) return; m._skinOn = on;
+    m.group.traverse((o) => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return; const u = o.userData; if (!u.m0) { u.m0 = o.material; if (!o.material.color) return; u.m1 = o.material.clone(); u.m1.color.multiply(new THREE.Color(0x8fa86a)); }
+      if (u.m1) o.material = on ? u.m1 : u.m0; });
+  }
+  skinTick() {
+    if (this.skinOn && this.count('skin') <= 0) { this.skinOn = false; this.applySkin(); this.R.toast && this.R.toast('MILITARY SKIN OFF', 2); }
+    const m = this.R.me && this.R.me.model; if (m && this.skinOn && m._skinOn !== true) this.applySkin();
+  }
   cancelUse(msg) { if (!this.using) return; this.using = null; if (this.useBar) this.useBar.style.display = 'none'; this.R.toast && this.R.toast(msg || 'HEALING STOPPED', 2.2); }
   useTick(dt) {
+    this.skinTick();
     if (this.boost > 0) {   /* v540 PUBG boost bar: drains 1 per second; while it lasts it heals (tier 1-4 = 0.2 / 0.4 / 0.6 / 0.8 HP per second); from 50 it adds +2.5% run speed, from 75 +6% */
       if (this.hp > 0 && !this.down && !this.dropping) { const tr = this.boost >= 75 ? 3 : this.boost >= 50 ? 2 : this.boost >= 25 ? 1 : 0; if (this.hp < MY_DMG) this.hp = Math.min(MY_DMG, this.hp + (0.2 + tr * 0.2) * dt); this.boost = Math.max(0, this.boost - dt); }
       else if (this.hp <= 0) this.boost = 0;
