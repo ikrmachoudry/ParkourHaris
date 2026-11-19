@@ -71,7 +71,7 @@ function setSprintLock(on) {
   if (sprintLock) { touch.x = 0; touch.y = 1; if (k) k.style.transform = 'translate(-50%, calc(-50% - 56px))'; } else { if (touch.x === 0 && touch.y === 1) touch.y = 0; if (k && j && !j.classList.contains('on')) k.style.transform = 'translate(-50%, -50%)'; }
 }
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const NADE_DUR = [1.12, 1.3, 1.4], NADE_REL = [0.64, 0.75, 0.643];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
+const NADE_DUR = [1.12, 1.3, 1.4, 1.47, 1.47], NADE_REL = [0.64, 0.75, 0.643, 0.614, 0.545];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 const fmtT = (s) => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r < 10 ? '0' : ''}${r.toFixed(2)}`; };
@@ -1514,7 +1514,7 @@ class Race {
     if (this.weapon === 'grenade' && this.heldThrow && this.heldThrow !== 'grenade' && !this.nadeKind) this.nadeKind = this.heldThrow;   // v443: the throwable in the hand (molotov / smoke) is thrown with FIRE
     const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || this.healing() || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
-    this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.crouch ? 1 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
+    this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.prone ? 4 : this.crouch ? 3 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
     if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
     return true;
   }
@@ -1525,7 +1525,7 @@ class Race {
   }
   onGrenade(m) {   // another player winds up (k 0) or lets go (k 1)
     const r = this.remotes.get(m.id); if (!r) return;
-    if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(2, m.toss | 0)); return; }
+    if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(4, m.toss | 0)); return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
     if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
     { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false);

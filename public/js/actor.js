@@ -61,7 +61,7 @@ export class HeroActor {
     if (st.reload > 0 && w && !st.seated && !st.swim && wc !== 'bat') { name = 'reloadR'; t = st.reload; if (st.prone) name = 'reloadProne'; else if (st.crouch) name = 'reloadCrouch'; else if (sp > 0.25 && st.grounded) name = sp > 3 ? 'reloadRun' : 'reloadWalk'; }   /* v516: reloading lying down / crouched plays the lying / crouched reload (it used to stand the soldier up) */   // v224: reloading on the move keeps the legs running / walking (no gliding)   // the real Mixamo reload
     if ((name === 'idle' || name === 'crouch') && st.heal && !st.seated && !st.swim) { name = st.kneel ? 'reviveInj' : HEALPOSE[st.heal] || name; t = st.healT || this.t; }   // v393: syringe / pills / first aid each have their own motion
     else if (name === 'idle' && st.gesture) name = st.gesture;
-    if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }
+    if (st.nade > 0 && !st.seated && !st.swim) { name = st.nadeToss === 4 ? 'nadeProne' : st.nadeToss === 3 ? 'nadeCrouch' : st.nadeToss === 2 ? 'nadeStand' : st.nadeToss ? 'nadeToss' : 'nadeThrow'; t = st.nade; }
     if (st.skydive) { name = st.skydive === 2 ? 'chute' : 'skydive'; t = this.t; if (st.skydive === 2 && w && (st.shooting || st.aiming) && (wc === 'ak' || wc === 'sniper' || wc === 'pistol')) { name = wc === 'pistol' ? 'jumpPistol' : 'jumpRifle'; t = -0.45; } }   /* v579: under the parachute with a gun: legs hang, the upper body holds the gun up and aimed (the jump-with-a-gun clip) while you aim / fire */
     if (st.zpose) { name = st.zpose; t = st.zp || 0; }
     if (st.punch > 0 && !st.seated && !st.zpose) { name = st.kick ? 'kick' : w === 'bat' ? 'batswing' : 'punch'; t = st.punch; }

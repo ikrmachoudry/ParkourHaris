@@ -6,7 +6,7 @@ import { JEEP_DATA as D } from './jeepdata.js';
 export const JEEP = { L: 4.1, w: 1.8, wb: 2.54, seatX: -0.3, seatR: 0.4, seatTop: 0.9 };
 const dec = (b64, C) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new C(u.buffer); };
 const cache = new Map();
-let PHOTO = null; const FRAME = new THREE.MeshBasicMaterial({ color: '#15171a' });
+let PHOTO = null;
 const geo = (key, d) => {
   if (cache.has(key)) return cache.get(key);
   const q = dec(d.p, Int16Array), pos = new Float32Array(q.length); for (let i = 0; i < q.length; i++) pos[i] = q[i] / 8000;
@@ -22,7 +22,6 @@ export function buildJeep({ paint = '#4f6b3a', detail = 'hi' } = {}) {
   const g = new THREE.Group();
   const add = (m, parent) => { m.castShadow = true; parent.add(m); return m; };
   for (const k of ['paint', 'dark', 'glass', 'head', 'tail', 'tire', 'rim']) if (D.parts[k]) add(new THREE.Mesh(geo(k, D.parts[k]), mats[k]), g);
-  /* v579: Haris's photo on the back of every jeep (a framed square on the plain panel next to the spare wheel; the rear face is at x = -2.06, the picture faces backwards = -x) */
   const wheels = [];
   D.wheels.forEach((w, i) => {
     const steer = new THREE.Group(), spin = new THREE.Group(); steer.position.set(w.x, w.y, w.z); steer.add(spin); g.add(steer);
@@ -38,10 +37,13 @@ export function buildJeep({ paint = '#4f6b3a', detail = 'hi' } = {}) {
   };
 }
 
-// Jang only: the boy photo on the back of a Jang jeep. Called by the Jang level for its own jeeps, never from the shared jeep builder.
-export function addJangJeepPhoto(g) {
-  if (typeof document === 'undefined') return;
-  if (!PHOTO) { PHOTO = new THREE.TextureLoader().load('models/props/jeep-back.jpg'); PHOTO.colorSpace = THREE.SRGBColorSpace; PHOTO.anisotropy = 4; }
-  const fr = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), FRAME), pic = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), new THREE.MeshBasicMaterial({ map: PHOTO }));
-  for (const [m, x] of [[fr, -2.082], [pic, -2.092]]) { m.rotation.y = -Math.PI / 2; m.position.set(x, 1.2, 0.42); m.name = 'jeepPhoto'; g.add(m); }
+// Jang only: Haris's photo on the back of a Jang jeep (called by the Jang level for its own jeeps, never from the shared jeep builder).
+// The jeep's rear panel is FLAT at x = -2.05 between z 0.10 .. 0.68 and y 1.00 .. 1.58 (ray-measured on the jeep model; the spare wheel is on the other side and the tail lamp above), so the picture is a 0.58 m square lying on it (a few mm off, depth-offset): it is part of the panel, not a floating frame.
+export function addJangJeepPhoto(car) {
+  if (typeof document === 'undefined' || !car || car.userData.jangPhoto) return; car.userData.jangPhoto = true;
+  const rot = car.children[0]; if (!rot) return;   // the car-space group (nose = +x) of the city-car wrapper
+  if (!PHOTO) { PHOTO = new THREE.TextureLoader().load('models/props/jeep-back2.jpg'); PHOTO.colorSpace = THREE.SRGBColorSpace; PHOTO.anisotropy = 4; }
+  const frame = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ color: '#101214', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(0.57, 0.57), new THREE.MeshBasicMaterial({ map: PHOTO, color: '#e6e6e6', polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  for (const [m, x] of [[frame, -2.0535], [pic, -2.0545]]) { m.rotation.y = -Math.PI / 2; m.position.set(x, 1.29, 0.39); m.name = 'jeepPhoto'; rot.add(m); }
 }

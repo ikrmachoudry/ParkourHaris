@@ -411,6 +411,16 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     else if (p.t === 'chimney') { cyl(p.r, p.r * 1.45, p.h, 12, 0, '#9a6a5a', 'wall'); for (const yy of [8, 16, 22]) cyl(p.r * 1.1, p.r * 1.1, 0.8, 12, yy, '#ddd'); }
     else if (p.t === 'windmill') { cyl(p.r * 0.5, p.r, p.h, 8, 0, '#e8e0d0', 'wall'); const g = new THREE.ConeGeometry(p.r * 1.1, 2.4, 8); g.translate(p.x, p.y + p.h + 1.2, p.z); B.add('roof', g, '#6a4030', 0.02); }
   };
+  /* v581: Haris's photo (the beanie picture, models/props/silo-pic.jpg) as a BIG poster curved round the silo and the three big tanks, facing the middle of the island */
+  if (typeof document !== 'undefined') {
+    const tx = new THREE.TextureLoader().load('models/props/silo-pic.jpg'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
+    const pm = new THREE.MeshBasicMaterial({ map: tx, color: '#e0e0e0', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    for (const p of L.props) { if (p.k !== 'round' || (p.t !== 'silo' && p.t !== 'tank')) continue;
+      const ph = p.t === 'silo' ? 9.6 : 6.8, pw = ph * 0.639, arc = pw / (p.r + 0.05), y0 = p.y + (p.t === 'silo' ? 1.7 : 0.6);   // aspect of the photo 480 x 751
+      const face = Math.atan2(-p.x, -p.z);   // the side that looks at the island centre (CylinderGeometry theta 0 = +z, growing towards +x)
+      const g = new THREE.CylinderGeometry(p.r + 0.05, p.r + 0.05, ph, 24, 1, true, face - arc / 2, arc);   // open cylinder slice
+      const m = new THREE.Mesh(g, pm); m.position.set(p.x, y0 + ph / 2, p.z); m.name = 'siloPhoto'; group.add(m); }
+  }
   for (const p of L.props) { if (mp[p.k]) mp[p.k](p); else if (p.k === 'round') round(p); else if (p.k === 'tower') {
     const t = L.towers.find((q) => Math.abs(q.x - p.x) < 0.1 && Math.abs(q.z - p.z) < 0.1), py = t.py, gy = p.y, X = p.x, Z = p.z, wc = '#a5a59f';
     const O = TW.O, S2 = TW.S2, K = TW.K;
