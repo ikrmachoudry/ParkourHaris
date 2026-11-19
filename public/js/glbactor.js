@@ -115,6 +115,7 @@ export class GlbActor extends HeroActor {
     this.opts = opts; this.ready = false; this.failed = false; this.shell = null; this.ch.mesh.visible = false; this.ch.gun.visible = false;   // nothing shows until the real model is in (no stand-in body that gets swapped)
     Promise.all([loadGlb(url), loadClips()]).then(([g]) => this.attach(g), (e) => { this.failed = true; this.ch.mesh.visible = true; console.warn('GLB failed', url, e && e.message); });
   }
+  hipsBone() { const T = this.rt && this.rt.T; return T && T.hips && T.hips.bone || null; }   // v595: where the hips are (lying poses are centred on the spot where the soldier fell / lies)
   attach(gltf) {
     if (this.disposed) return;
     const model = skClone(gltf.scene);
@@ -194,7 +195,7 @@ export class GlbActor extends HeroActor {
     if (gun.parent) gun.parent.remove(gun);
     hr.bone.add(gun); gun.quaternion.copy(rel); gun.position.copy(gp); gun.scale.setScalar(1 / S);
     model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-    for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.12, 1, 1.12); if (hd && hd.bone) hd.bone.scale.set(0.9, 0.9, 0.9); } gun.scale.multiplyScalar(1 / (0.9 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
+    for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.26, 1, 1.26); if (hd && hd.bone) hd.bone.scale.set(0.8, 0.9, 0.8); }   /* v595: wrist / forearm 12 % thicker, the hand keeps exactly its old world size (1.26 x 0.8 = 1.008) - the wrist looked tiny next to the glove */ gun.scale.multiplyScalar(1 / (0.9 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
     this.shell = shell; this.ch.mesh.visible = false; this.ready = true;
     if (!this.opts.zombie && this.opts.pack !== false) { try { this.addPack(T.chest.bone, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('backpack', e); } }   // every survivor carries a backpack
     this.height = this.opts.height || 1.78;
