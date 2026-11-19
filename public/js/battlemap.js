@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -406,15 +406,15 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   const round = (p) => {
     const cyl = (r0, r1, h, seg, y, col, mat = 'metal') => { const g = new THREE.CylinderGeometry(r0, r1, h, seg); g.translate(p.x, p.y + y + h / 2, p.z); B.add(mat, g, col, 0.03); };
-    if (p.t === 'silo') { cyl(p.r, p.r, p.h, 14, 0, '#b9bec4'); const d = new THREE.SphereGeometry(p.r, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2); d.translate(p.x, p.y + p.h, p.z); B.add('metal', d, '#9ea4ab', 0.02); }
-    else if (p.t === 'tank') { cyl(p.r, p.r, p.h, 16, 0, '#d6d8db'); cyl(p.r * 0.35, p.r * 0.35, 1.0, 8, p.h, '#777'); for (const yy of [2, 5.5]) cyl(p.r + 0.06, p.r + 0.06, 0.18, 16, yy, '#9a4a3a'); }
+    if (p.t === 'silo') { cyl(p.r, p.r, p.h, 14, 0, '#b9bec4'); cyl(p.r + 0.15, p.r + 0.15, 0.3, 14, p.h - 0.3, '#9ea4ab'); }   /* v582: FLAT roof (the dome is gone): a flat slab, its top exactly at the solid box top */
+    else if (p.t === 'tank') { cyl(p.r, p.r, p.h, 16, 0, '#d6d8db'); for (const yy of [2, 5.5]) cyl(p.r + 0.06, p.r + 0.06, 0.18, 16, yy, '#9a4a3a'); }
     else if (p.t === 'chimney') { cyl(p.r, p.r * 1.45, p.h, 12, 0, '#9a6a5a', 'wall'); for (const yy of [8, 16, 22]) cyl(p.r * 1.1, p.r * 1.1, 0.8, 12, yy, '#ddd'); }
     else if (p.t === 'windmill') { cyl(p.r * 0.5, p.r, p.h, 8, 0, '#e8e0d0', 'wall'); const g = new THREE.ConeGeometry(p.r * 1.1, 2.4, 8); g.translate(p.x, p.y + p.h + 1.2, p.z); B.add('roof', g, '#6a4030', 0.02); }
   };
   /* v581: Haris's photo (the beanie picture, models/props/silo-pic.jpg) as a BIG poster curved round the silo and the three big tanks, facing the middle of the island */
   if (typeof document !== 'undefined') {
-    const tx = new THREE.TextureLoader().load('models/props/silo-pic.jpg'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
-    const pm = new THREE.MeshBasicMaterial({ map: tx, color: '#e0e0e0', polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const tx = new THREE.TextureLoader().load('models/props/silo-pic.webp'); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
+    const pm = new THREE.MeshLambertMaterial({ map: tx, transparent: true, alphaTest: 0.03, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });   /* v582: the person is cut out (no background tile) and lit like the wall it sits on */
     for (const p of L.props) { if (p.k !== 'round' || (p.t !== 'silo' && p.t !== 'tank')) continue;
       const ph = p.t === 'silo' ? 9.6 : 6.8, pw = ph * 0.639, arc = pw / (p.r + 0.05), y0 = p.y + (p.t === 'silo' ? 1.7 : 0.6);   // aspect of the photo 480 x 751
       const face = Math.atan2(-p.x, -p.z);   // the side that looks at the island centre (CylinderGeometry theta 0 = +z, growing towards +x)
@@ -504,8 +504,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   const bushG = (() => { const gs = []; for (const [x, z, r] of [[0, 0, 0.55], [0.5, 0.2, 0.4], [-0.4, 0.3, 0.42]]) { const b = new THREE.IcosahedronGeometry(r, 0); gs.push(colorize(b.translate(x, r * 0.8, z).toNonIndexed(), (px, py) => lerpc([0.05, 0.12, 0.04], [0.16, 0.27, 0.08], py / (r * 1.6 + 0.2)))); } return mergeGeometries(gs); })();
   const rockG = (() => { const g = new THREE.DodecahedronGeometry(1, 0); const p = g.attributes.position, rr = rngS(17); for (let i = 0; i < p.count; i++) { const k = 0.8 + rr() * 0.35; p.setXYZ(i, p.getX(i) * k * 1.15, p.getY(i) * k * 0.8, p.getZ(i) * k); } g.computeVertexNormals(); return colorize(g.toNonIndexed(), (x, y) => lerpc([0.2, 0.19, 0.17], [0.34, 0.33, 0.3], (y + 1) / 2)); })();
   const VEG = []; const dummy = new THREE.Object3D(), tcol = new THREE.Color();
-  const makeInst = (geo, mat, items, cull, cast, setCol, farGeo, farMat, farCull) => {   // items: [{x,y,z,s,r}] -> chunked InstancedMeshes (120 m cells)
-    const cells = new Map(); for (const it of items) { const k = Math.floor((it.x + H) / 120) + ',' + Math.floor((it.z + H) / 120); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(it); }
+  const makeInst = (geo, mat, items, cull, cast, setCol, farGeo, farMat, farCull, cellSz) => {   // items: [{x,y,z,s,r}] -> chunked InstancedMeshes (120 m cells; v582: cellSz = smaller cells for the long river-bed grass strip, so only the tufts near you are drawn)
+    const cs = cellSz || 120, cells = new Map(); for (const it of items) { const k = Math.floor((it.x + H) / cs) + ',' + Math.floor((it.z + H) / cs); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(it); }
     for (const a of cells.values()) {
       const im = new THREE.InstancedMesh(geo, mat, a.length); a.forEach((it, i) => { dummy.position.set(it.x, it.y, it.z); dummy.rotation.set(0, it.r, 0); dummy.scale.set(it.s * (it.sx || 1), it.s * (it.sy || 1), it.s * (it.sx || 1)); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); if (setCol) { setCol(tcol, it); im.setColorAt(i, tcol); } });
       im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.castShadow = cast; im.receiveShadow = true; im.userData.c = [im.boundingSphere.center.x, im.boundingSphere.center.z]; im.userData.cull = cull + im.boundingSphere.radius; group.add(im); VEG.push(im);
@@ -523,8 +523,8 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
 
   /* v564 GRASS + REEDS (the user's grass models, instanced and distance culled like the trees): tufts of long grass in the meadows (more where the ground is soft and damp-looking), tall reed clumps along the river banks; nothing grows on roads, building sites, fields, concrete or steep slopes. Own seeded random numbers: nothing else in the map moves. */
   { const gp = (n) => { const ps = propParts(n); return ps && ps[0] ? ps[0] : null; }, tuft = gp('tuft'), reed = gp('reeds');
-    const mkGrass = (part, items, cull, sh) => { if (!part || !items.length) return; const mat = part.mat.clone(); mat.vertexColors = false; mat.side = THREE.DoubleSide; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.roughness = 1; mat.metalness = 0; const geo = part.geo;
-      makeInst(geo, mat, items, cull, false, (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.82 + k * 0.4, 0.9 + (1 - k) * 0.25, 0.7 + k * 0.2); }); };
+    const mkGrass = (part, items, cull, sh, cell) => { if (!part || !items.length) return; const mat = part.mat.clone(); mat.vertexColors = false; mat.side = THREE.DoubleSide; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.roughness = 1; mat.metalness = 0; const geo = part.geo;
+      makeInst(geo, mat, items, cull, false, (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.82 + k * 0.4, 0.9 + (1 - k) * 0.25, 0.7 + k * 0.2); }, undefined, undefined, undefined, cell); };
     /* v570 MORE GRASS: laptops get 5x grass in the hiding patches and 4x everywhere else; phones / the low tier get 3x and 2.5x. The base layer is exactly the old grass (same places, same draw distance); the extra layers are drawn only closer to you (70 % of the distance), so far away the cost is the same as before and the extra tufts only exist where you can see them. */
     const weak = q === 0 || /Android|iPhone|iPad|Mobile/i.test(typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''), MP = weak ? 3 : 5, MO = weak ? 2.5 : 4;
     const pickT = (rg, out, n, maxTries) => { for (let tries = 0; tries < maxTries && out.length < n; tries++) {
@@ -542,15 +542,24 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     /* v565 TALL-GRASS PATCHES (L.grass, made in combat.js): dense waist-high clumps of the same grass model, ~1 m tall so a prone or crouching player disappears in it */
     { const rp = rngS(565), pIt = [], per = q === 0 ? 100 : 175;
       /* v579: the patches are 6x (dry river bed: 7x) bigger in area, so they get 3.2x (4.2x) the tufts - a little less dense than before, to keep the frame rate - and every tuft is 12 % bigger */
-      for (const g of L.grass || []) for (let i = 0, tr = 0, nG = Math.round(per * (g.riv ? 4.2 : 3.2)); i < nG && tr < nG * 4; tr++) {
+      for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nG = Math.round(per * (g.riv ? 4.2 : 3.2)); i < nG && tr < nG * 4; tr++) {
         const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
         const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pIt.push({ x, y: y - 0.05, z, s: (1.0 + rp() * 0.3) * 1.12, sx: (1.9 + rp() * 0.5) * 1.12, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
       mkGrass(tuft, pIt, q === 0 ? 60 : 95);
       { const rq = rngS(571), pX = [], perX = Math.round(per * (MP - 1));   /* the extra layer: the same places, 4x (laptop) / 2x (phone) more tufts, drawn up to 70 % of the distance */
-        for (const g of L.grass || []) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2)); i < nX && tr < nX * 4; tr++) {
+        for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2)); i < nX && tr < nX * 4; tr++) {
           const a = rq() * 6.283, rr = Math.sqrt(rq()) * g.r * 0.98, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rq() < (rr / g.r) ** 3 * 0.7 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
           const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pX.push({ x, y: y - 0.05, z, s: (0.85 + rq() * 0.25) * 1.12, sx: (1.25 + rq() * 0.6) * 1.12, sy: 0.8 + rq() * 0.2, r: rq() * 6.28 });   /* the extra tufts are a little smaller (0.8 - 1.0 m tall, 1.2 - 2 m wide): a dense carpet, but a prone camera is not walled in by one huge leaf */ }
-        mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7); } } }
+        mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7); } }
+    /* v582 THE WHOLE DRY RIVER BED IN TALL GRASS (the same dense grass as the patches): one strip 27 m each side of the river line along the whole map, with a few natural bald stretches (riverGap) and a clear 16 m under the bridge deck.
+       Phones / weak laptops: fewer tufts per m2 and a shorter draw distance, and the strip is cut into 24 m cells so only the tufts near you are ever drawn (a long strip does not cost more than the old patches did). */
+    { const rr = rngS(582), vB = [], vN = [], W = 27, dB = weak ? 0.22 : 0.35, dN = weak ? 0.16 : 0.5;
+      const scatter = (out, dens, mk) => { for (let z0 = -H + 20; z0 < H - 20; z0 += 6) { const n0 = dens * 6 * 2 * W, n = Math.floor(n0) + (rr() < n0 % 1 ? 1 : 0);
+        for (let i = 0; i < n; i++) { const z = z0 + rr() * 6, d = (rr() * 2 - 1) * W, e = rr(), x = riverX(z) + d; if (riverGap(z) || Math.abs(z - BRIDGE.z) < 8 || e < (Math.abs(d) / W) ** 3 * 0.75 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
+          const y = cmbH(x, z); if (y < -3.3) continue; out.push(mk(x, y - 0.05, z)); } } };
+      scatter(vB, dB, (x, y, z) => ({ x, y, z, s: (1.0 + rr() * 0.3) * 1.12, sx: (1.9 + rr() * 0.5) * 1.12, sy: 1.0 + rr() * 0.15, r: rr() * 6.28 }));
+      scatter(vN, dN, (x, y, z) => ({ x, y, z, s: (0.85 + rr() * 0.25) * 1.12, sx: (1.25 + rr() * 0.6) * 1.12, sy: 0.8 + rr() * 0.2, r: rr() * 6.28 }));
+      mkGrass(tuft, vB, weak ? 60 : 80, null, 24); mkGrass(tuft, vN, (weak ? 60 : 80) * 0.7, null, 24); } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);

@@ -1584,12 +1584,13 @@ body.acog #scope b::after { top: -23.9vmin; }
 body.acog #scope::before { top: calc(50% + 19.2vmin); height: calc(50% - 17.4vmin); width: 50vmin; margin-left: -25vmin; clip-path: polygon(0 0, 100% 0, 94% 100%, 6% 100%); border-radius: 2.5vmin 2.5vmin 0 0; background: radial-gradient(circle at 76% 6vmin, #3b4149 0 2.2vmin, #1b1e23 2.3vmin 3.3vmin, rgba(0,0,0,0) 3.4vmin), radial-gradient(circle at 12% 2.6vmin, #4a5058 0 .55vmin, rgba(0,0,0,0) .65vmin), radial-gradient(circle at 88% 2.6vmin, #4a5058 0 .55vmin, rgba(0,0,0,0) .65vmin), linear-gradient(rgba(255,255,255,.10) 0 .35vmin, rgba(0,0,0,0) .4vmin), linear-gradient(#171a1f, #050607) !important; }
 
 /* v564 aim-down-sights for every gun except the sniper (PUBG): the sight dead centre, the gun body and gloved hands rising from the bottom edge, the rest of the screen clear.  The SVGs live in js/ads.js. */
-#ads { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; display: none; will-change: transform; }
+#ads { position: fixed; inset: 0; overflow: visible; pointer-events: none; z-index: 2; display: none; will-change: transform; }
 body.ads #ads { display: block; }
 body.ads #scope { display: none !important; }
-#ads svg { display: none; position: absolute; left: 50%; top: -9%; height: 118%; width: auto; aspect-ratio: 10 / 9; transform: translateX(-50%); filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .55)); }
+#ads svg { display: none; position: absolute; left: 50%; top: -9%; height: 146.9%; width: auto; aspect-ratio: 1000 / 1120; transform: translateX(-50%); filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .55)); }
 #ads[data-k="ak"] .k-ak, #ads[data-k="ak49"] .k-ak49, #ads[data-k="m4"] .k-m4, #ads[data-k="smg"] .k-smg, #ads[data-k="pistol"] .k-pistol, #ads[data-k="revolver"] .k-revolver, #ads[data-k="shotgun"] .k-shotgun, #ads[data-k="iron"] .k-iron { display: block; }   /* v569: one picture per gun */
 
+/* v582: #ads no longer clips (a clipped box that tilts shows wedges at its corners) and the SVG is 1000 x 1120 so the gun runs well below the screen when it tilts */
 /* v564 throw bar (PUBG): fuse diamond over the grenade + CANCEL button */
 .nade-fuse { display: none; position: fixed; left: 0; top: 0; width: 40px; height: 40px; z-index: 6; pointer-events: none; will-change: transform; }
 .nade-fuse::before { content: ""; position: absolute; inset: 3px; transform: rotate(45deg); border-radius: 5px; background: linear-gradient(135deg, #ffb13a, #f27a0c); border: 2px solid rgba(255, 255, 255, .85); box-shadow: 0 2px 6px rgba(0, 0, 0, .5); }

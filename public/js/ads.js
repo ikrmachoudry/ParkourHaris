@@ -16,11 +16,12 @@ const DEFS = (p) => `<defs>
 <linearGradient id="${p}L" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bcd8ff" stop-opacity=".16"/><stop offset=".5" stop-color="#bcd8ff" stop-opacity=".02"/><stop offset="1" stop-color="#bcd8ff" stop-opacity="0"/></linearGradient>
 </defs>`;
 
-const wrapSvg = (cls, p, inner) => `<svg class="k-${cls}" viewBox="0 0 1000 900" preserveAspectRatio="xMidYMin meet">${DEFS(p)}${inner}</svg>`;
+const wrapSvg = (cls, p, inner) => `<svg class="k-${cls}" viewBox="0 0 1000 1120" preserveAspectRatio="xMidYMin meet">${DEFS(p)}${inner}</svg>`;
 
-/* v579: THE REAL GUNS. Every sight picture below is a render of YOUR gun GLB (and your red-dot GLB mounted on the AK / AK-49 / M4) seen from the shooter's eye along the sight line, so the sight sits dead centre
+/* v582: the pictures were 800 x 720 and ended at the bottom of the SVG, so tilting for a peek lifted that cut edge into view (a gap under the gun). Now every picture is 800 x 784 (the last row of the gun carried 64 rows further down) and the SVG viewBox is 1000 x 1120, so the gun runs far below the screen like a real viewmodel and no tilt can show its end.
+   v579: THE REAL GUNS. Every sight picture below is a render of YOUR gun GLB (and your red-dot GLB mounted on the AK / AK-49 / M4) seen from the shooter's eye along the sight line, so the sight sits dead centre
    (the aim point is at 500,450) and the gun is exactly the model you see everywhere else. The files are public/models/ads/adsgun-<gun>.webp (800 x 720, transparent). No hands are drawn (they only hid the gun). */
-const gunPic = (cls, key, dot) => { const p = 'g' + key; return wrapSvg(cls, p, `<g transform="translate(500 450) scale(1.25) translate(-500 -450)"><image href="models/ads/adsgun-${key}.webp" x="0" y="0" width="1000" height="900" preserveAspectRatio="none"/></g>${dot ? `<circle cx="500" cy="450" r="16" fill="none" stroke="#ff2b22" stroke-width="2.2" stroke-opacity=".92"/><circle cx="500" cy="450" r="11" fill="url(#${p}R)"/><circle cx="500" cy="450" r="2.6" fill="#ff3b30"/>` : `<circle cx="500" cy="450" r="2.4" fill="#ff3b30" fill-opacity=".85"/>`}`); };
+const gunPic = (cls, key, dot) => { const p = 'g' + key; return wrapSvg(cls, p, `<g transform="translate(500 450) scale(1.25) translate(-500 -450)"><image href="models/ads/adsgun-${key}.webp" x="0" y="0" width="1000" height="980" preserveAspectRatio="none"/></g>${dot ? `<circle cx="500" cy="450" r="16" fill="none" stroke="#ff2b22" stroke-width="2.2" stroke-opacity=".92"/><circle cx="500" cy="450" r="11" fill="url(#${p}R)"/><circle cx="500" cy="450" r="2.6" fill="#ff3b30"/>` : `<circle cx="500" cy="450" r="2.4" fill="#ff3b30" fill-opacity=".85"/>`}`); };
 const ak = () => gunPic('ak', 'ak', true);
 const ak49 = () => gunPic('ak49', 'ak', true);
 const m4 = () => gunPic('m4', 'm4', true);

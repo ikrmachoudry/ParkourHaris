@@ -19,6 +19,9 @@ export const fbm = (x, z, s, o = 4) => { let a = 0.5, f = 1, t = 0, n = 0; for (
 // ---------------------------------------------------------------- terrain (map-local metres; x east, z south)
 export const SEA_Y = -1.2;   // the sea / river water level of the whole game (gta.js GT.SEA)
 export const riverX = (z) => -90 + 50 * Math.sin(z * 0.011 + 0.6) + 18 * Math.sin(z * 0.037 + 2);
+/* v582: THE WHOLE DRY RIVER BED IS TALL GRASS (drawn in battlemap.js, a strip 27 m each side of the river line along the whole map) except a few natural bald stretches (riverGap) and the 16 m under the bridge deck; a crouching / prone player in it is hidden like in the land patches (grassHide) */
+export const riverGap = (z) => fbm(z * 0.034 + 11, 3.3, 582, 2) < 0.31;
+export const inRiverGrass = (x, z) => Math.abs(x - riverX(z)) < 27 && Math.abs(z) < CMB.half - 20 && !riverGap(z) && Math.abs(z - BRIDGE.z) >= 8;
 export function rawH(x, z) {
   let h = 6 + (fbm(x * 0.0055, z * 0.0055, 11, 4) - 0.5) * 28 + (fbm(x * 0.03, z * 0.03, 21, 3) - 0.5) * 3.2;
   h += 36 * Math.exp(-(((x - 170) ** 2 + (z + 150) ** 2) / (2 * 62 * 62)));   // the military hill (north east)
@@ -544,8 +547,8 @@ function build() {
   const grass = []; { const RG = seeded(5641);
     /* v579: every patch is 6x BIGGER in area (radius x 2.45: 20 - 29 m) and the dry river bed gets 6 patches 7x the old size (radius 26) */
     const GK = 2.45;
-    for (const zr of [-215, -150, -85, -20, 130, 205]) { const x = Math.round(riverX(zr)), r = 26; if (Math.abs(zr - BRIDGE.z) < r + 40) continue; grass.push({ x, z: zr, r, riv: true }); }
-    for (let tries = 0; tries < 9000 && grass.length < 18; tries++) {
+    /* v582: the river bed is no longer 6 round patches: it is one long strip (inRiverGrass, see above) */
+    for (let tries = 0; tries < 30000 && grass.length < 12; tries++) {
       const r = (8 + RG() * 4) * GK, x = Math.round((RG() * 2 - 1) * (H - 45)), z = Math.round((RG() * 2 - 1) * (H - 45)), h0 = rawH(x, z);
       if (h0 < 0.8 || h0 > 24 || distRoad(x, z) < r * 0.5 + 4 || Math.abs(x - riverX(z)) < r + 14 || inField(x, z, r * 0.6 + 6) || onPad(x, z, r * 0.6 + 3) || (x > FB.x0 - r * 0.6 - 8 && x < FB.x1 + r * 0.6 + 8 && z > FB.z0 - r * 0.6 - 8 && z < FB.z1 + r * 0.6 + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
       let flat = true; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (Math.abs(rawH(x + a * r * 0.5, z + b * r * 0.5) - h0) > 3.2) flat = false; if (!flat) continue;
@@ -648,7 +651,7 @@ function build() {
   const L = {
     headFix,
     wtowers,
-    grass, grassHide(x, z, stn) { if (!(stn >= 1)) return Infinity; for (const g of grass) { const dx = x - g.x, dz = z - g.z; if (dx * dx + dz * dz < g.r * g.r * 0.8) return stn === 2 ? 7 : 20; } return Infinity; },   // v565: how far a bot can see this player: Infinity = the normal range; lying / crouching in tall grass = only a few metres
+    grass, grassHide(x, z, stn) { if (!(stn >= 1)) return Infinity; if (inRiverGrass(x, z)) return stn === 2 ? 7 : 20; for (const g of grass) { const dx = x - g.x, dz = z - g.z; if (dx * dx + dz * dz < g.r * g.r * 0.8) return stn === 2 ? 7 : 20; } return Infinity; },   // v565: how far a bot can see this player: Infinity = the normal range; lying / crouching in tall grass = only a few metres
     zip, ladders: towers.flatMap((t) => t.lads.map((q) => ({ ...q, tw: t }))), solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, cbucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
