@@ -1770,3 +1770,28 @@ body.set-open #sz-chip, body.set-open body > div[style*="max(44px, 7vh)"], body.
 /* v580: the sniper scope is a PICTURE rendered from the real scope GLB (models/ads/scope-ring.webp): the ring around a clear lens; the picture is a 124vmin square with its lens hole 33vmin in radius; outside the ring the real game view stays visible. Nothing is drawn by CSS gradients. */
 body.scoped:not(.acog):not(.binoc) #scope { background: none !important; }
 body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absolute; left: 50%; top: 50%; margin: 0; width: 124vmin; height: 124vmin; transform: translate(-50%, -50%); background: url(models/ads/scope-ring.webp) center / 100% 100% no-repeat; }
+
+/* v583 (Jang menus only: #s-cmb is the Combat Mission page, #s-profile.mode-jang the Jang player page): BIGGER cards / buttons, sized separately for a laptop (tall screen) and a phone (landscape, short screen); HOW TO PLAY / TRAINING ROOM / TEAM UP now use the same yellow as PLAY SOLO (index.html: class green) */
+@media (min-height: 471px) {
+  #ui #s-cmb .panel.panel.panel { width: min(720px, 52vw) !important; padding: 20px 26px 22px !important; }
+  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) { font-size: clamp(15px, 2.5vh, 21px) !important; padding: clamp(12px, 1.9vh, 17px) clamp(14px, 1.6vw, 22px) !important; margin: 0 0 8px !important; }
+  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) small { font-size: clamp(11px, 1.55vh, 14px) !important; }
+  #ui #s-cmb .panel .dsel button { font-size: clamp(12px, 2vh, 16px) !important; padding: clamp(10px, 1.6vh, 15px) 4px !important; }
+  #ui #s-cmb .panel .dsel span { font-size: clamp(9px, 1.5vh, 12px) !important; }
+  #ui #s-cmb .panel .note { font-size: clamp(12px, 1.8vh, 15px) !important; }
+  #ui #s-profile.mode-jang .panel.panel.panel { width: min(820px, 57vw) !important; padding: 20px 26px 22px !important; }
+  #ui #s-profile.mode-jang .cards.chars { gap: 12px; }
+  #ui #s-profile.mode-jang .card img { height: clamp(130px, 25vh, 230px) !important; max-height: none !important; width: 100% !important; max-width: 100% !important; aspect-ratio: auto !important; object-fit: contain; }
+  #ui #s-profile.mode-jang .card b { font-size: clamp(11px, 1.8vh, 16px) !important; }
+  #ui #s-profile.mode-jang .btn { font-size: clamp(13px, 2.2vh, 17px) !important; padding-top: clamp(9px, 1.5vh, 13px) !important; padding-bottom: clamp(9px, 1.5vh, 13px) !important; }
+  #ui #s-profile.mode-jang .field input { font-size: clamp(16px, 2.8vh, 22px) !important; padding: 11px 14px !important; }
+}
+@media (max-height: 470px) {
+  #ui #s-cmb .panel.panel.panel { width: min(560px, 62vw) !important; }
+  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) { font-size: 14px !important; padding-top: 10px !important; padding-bottom: 10px !important; }
+  #ui #s-cmb .panel .dsel button { font-size: 12px !important; padding: 8px 4px !important; }
+  #ui #s-profile.mode-jang .panel.panel.panel { width: min(580px, 64vw) !important; }
+  #ui #s-profile.mode-jang .cards.chars { gap: 8px; }
+  #ui #s-profile.mode-jang .card img { height: 27vh !important; max-height: none !important; width: 100% !important; max-width: 100% !important; aspect-ratio: auto !important; object-fit: contain; }
+  #ui #s-profile.mode-jang .card b { font-size: 11px !important; }
+}
