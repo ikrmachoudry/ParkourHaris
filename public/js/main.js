@@ -2877,6 +2877,8 @@ $('b-menu').addEventListener('click', () => (race && race.menuOpen ? closePause(
 $('b-auto').addEventListener('click', () => { if (aaLocked()) { A.sfx.back && A.sfx.back(); if (race) race.toast('AUTO AIM IS LOCKED OFF: 2 OR MORE TEAMS'); return; } A.sfx.click(); OPT.autoAim = !OPT.autoAim; saveOpts(); document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k])); if (race) race.toast(OPT.autoAim ? 'AUTO AIM ON' : 'AUTO AIM OFF - aim with the circle'); });
 $('b-gm').addEventListener('click', () => { A.sfx.click(); if (race && race.menuOpen) { closePause(); return; } if (race && !race.menuOpen) { openPause(); try { if (document.pointerLockElement) document.exitPointerLock(); } catch {} } });
 $('p-settings').onclick = () => { A.sfx.click(); $('pause').classList.add('hidden'); openSettings('pause'); };
+$('p-credits').onclick = () => { A.sfx.click(); $('credits-pg').classList.remove('hidden'); };   /* v591: credits have their own button + page */
+$('credits-back').onclick = () => { A.sfx.click(); $('credits-pg').classList.add('hidden'); };
 // ---- v236 button layout: drag + size any on-screen button in Settings, then DONE locks it (saved on this phone, as a fraction of the screen so it survives a rotation)
 const LAY_IDS = ['a-punch', 'a-aim', 'a-jump', 'a-crouch', 'a-prone', 'a-reload', 'a-fmode', 'a-weapon', 'a-leanl', 'a-leanr', 'c-bag', 'vc', 'c-dive', 'c-pullup', 'joy', 'scope-zoom'];   /* v272: the MOVE pad (joystick) can be moved and resized too */
 let LAY = {}; try { LAY = JSON.parse(localStorage.getItem('ph_layout') || '{}') || {}; } catch (e) { LAY = {}; }
