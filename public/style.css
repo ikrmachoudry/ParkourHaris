@@ -1799,3 +1799,18 @@ body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absol
 /* v587: hovering the JANG card on the home screen turned its text near-black (the generic .btn:hover colour) on the dark picture = the word JANG vanished */
 #ui #s-title.mode-home #b-go-jang:hover, #ui #s-title.mode-home #b-go-jang:hover b, #ui #s-title.mode-home #b-go-jang:hover small { color: #fff !important; }
 #ui #s-title.mode-home #b-go-jang:hover em { color: #0b0d0f !important; }
+
+/* v588: SETTINGS left tabs bigger: laptop = large, phone landscape = medium (no overlap: the column scrolls), phone portrait = scrolling row */
+@media (min-height: 471px) and (min-width: 761px) {
+  #ui #s-settings .ps-side { flex-basis: clamp(190px, 21vw, 290px); }
+  #ui #s-settings .ps-side h2 { font-size: clamp(18px, 2.7vh, 24px) !important; margin: 0 22px clamp(12px, 2.6vh, 22px) !important; }
+  #ui #s-settings .ps-tab { font-size: clamp(13px, 2.3vh, 17px); letter-spacing: .16em; padding: clamp(14px, 2.8vh, 22px) 22px; }
+}
+@media (max-height: 470px) and (min-width: 761px) {
+  #ui #s-settings .ps-side { flex-basis: clamp(150px, 24vw, 210px); padding: 8px 0; }
+  #ui #s-settings .ps-side h2 { font-size: 14px !important; margin: 0 14px 6px !important; letter-spacing: 3px; }
+  #ui #s-settings .ps-tab { font-size: 12px; letter-spacing: .1em; padding: 11px 14px; min-height: 40px; display: flex; align-items: center; }
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  #ui #s-settings .ps-tab { font-size: 12.5px; letter-spacing: .1em; padding: 15px 16px; flex: 0 0 auto; }
+}
