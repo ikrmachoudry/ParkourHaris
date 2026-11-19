@@ -1786,14 +1786,19 @@ body.scoped:not(.acog):not(.binoc) #scope::before { content: ""; position: absol
   #ui #s-profile.mode-jang .btn { font-size: clamp(13px, 2.2vh, 17px) !important; padding-top: clamp(9px, 1.5vh, 13px) !important; padding-bottom: clamp(9px, 1.5vh, 13px) !important; }
   #ui #s-profile.mode-jang .field input { font-size: clamp(16px, 2.8vh, 22px) !important; padding: 11px 14px !important; }
 }
-@media (max-height: 470px) {
-  #ui #s-cmb .panel.panel.panel { width: min(560px, 62vw) !important; }
-  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) { font-size: 14px !important; padding-top: 10px !important; padding-bottom: 10px !important; }
-  #ui #s-cmb .panel .dsel button { font-size: 12px !important; padding: 8px 4px !important; }
-  #ui #s-profile.mode-jang .panel.panel.panel { width: min(580px, 64vw) !important; }
-  #ui #s-profile.mode-jang .cards.chars { gap: 8px; }
-  #ui #s-profile.mode-jang .card img { height: 27vh !important; max-height: none !important; width: 100% !important; max-width: 100% !important; aspect-ratio: auto !important; object-fit: contain; }
-  #ui #s-profile.mode-jang .card b { font-size: 11px !important; }
+@media (max-height: 470px) {   /* v589: phone (landscape) = SMALLER cards than v583 so the 3D character has room */
+  #ui #s-cmb .panel.panel.panel { width: min(430px, 48vw) !important; padding: 12px 16px 14px !important; }
+  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) { font-size: 11.5px !important; padding-top: 7px !important; padding-bottom: 7px !important; margin-bottom: 5px !important; }
+  #ui #s-cmb .panel .btn.btn.big:not(#home-pick .btn) small { font-size: 9px !important; }
+  #ui #s-cmb .panel .dsel button { font-size: 10.5px !important; padding: 5px 3px !important; }
+  #ui #s-cmb .panel .dsel span { font-size: 8.5px !important; }
+  #ui #s-profile.mode-jang .panel.panel.panel { width: min(470px, 54vw) !important; padding: 12px 16px 14px !important; }
+  #ui #s-profile.mode-jang .cards.chars { gap: 5px; }
+  #ui #s-profile.mode-jang .card img { height: 20vh !important; max-height: none !important; width: 100% !important; max-width: 100% !important; aspect-ratio: auto !important; object-fit: contain; }
+  #ui #s-profile.mode-jang .card b { font-size: 9px !important; }
+  #ui #s-profile.mode-jang .btn { font-size: 11.5px !important; padding-top: 7px !important; padding-bottom: 7px !important; }
+  #ui #s-profile.mode-jang .field input { font-size: 14px !important; padding: 6px 10px !important; }
+}
 }
 
 /* v587: hovering the JANG card on the home screen turned its text near-black (the generic .btn:hover colour) on the dark picture = the word JANG vanished */
