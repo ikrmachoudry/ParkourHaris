@@ -923,12 +923,12 @@ export class CombatScene {
   // ---------------------------------------------------------------- inventory: 1 bat + 2 guns in the hands, everything else in the backpack
   // v443 (PUBG): 3 / 4 / G pick up the next throwable (grenade, molotov, smoke) into the hand, FIRE throws it; 5 / N = molotov, 9 = smoke. Pressing the same key again puts it away.
   throwList() { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return []; const l = []; if ((cb.nades | 0) > 0) l.push('grenade'); if (cb.inv && cb.inv.molotov > 0) l.push('molotov'); if (cb.inv && cb.inv.smoke > 0) l.push('smoke'); return l; }
-  cycleThrow(want) {
+  cycleThrow(want, keep) {   // keep (the number keys on a laptop): the throwable already in your hands stays there (v596)
     const R = this.R, l = this.throwList(); if (this.over || this.dropping || R.drive || this.down) return false;
     if (!l.length) { R.toast && R.toast('NO GRENADE / MOLOTOV / SMOKE - pick some up first'); return false; }
     const cur = R.weapon === 'grenade' ? (R.heldThrow || 'grenade') : null; let k;
-    if (want) { if (!l.includes(want)) { R.toast && R.toast('NO ' + want.toUpperCase()); return false; } if (cur === want) { R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = want; }
-    else { const i = cur ? l.indexOf(cur) : -1; if (cur && i === l.length - 1 && l.length === 1) { R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = l[(i + 1) % l.length]; }
+    if (want) { if (!l.includes(want)) { R.toast && R.toast('NO ' + want.toUpperCase()); return false; } if (cur === want) { if (keep) return true; R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = want; }
+    else { const i = cur ? l.indexOf(cur) : -1; if (cur && i === l.length - 1 && l.length === 1) { if (keep) return true; R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = l[(i + 1) % l.length]; }
     R.heldThrow = k; R.equip('grenade'); this._sk = ''; R.toast && R.toast((LOOT_NAME[k] || k.toUpperCase()) + ' IN HAND - FIRE to throw' + (l.length > 1 ? '  (press again: next throwable)' : ''), 2.2); return true;
   }
   slotsTick() {   // PUBG-style weapon slots: tap a slot to hold it, tap the held one to put it away

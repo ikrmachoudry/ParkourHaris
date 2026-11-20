@@ -470,7 +470,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         const pg = new THREE.CylinderGeometry(O + 0.12, O + 0.12, ph, 48, 1, true, 118 * d2r, 124 * d2r); pg.translate(X, yTop - ph / 2, Z);
         const pm = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ map: pt, toneMapped: false })); pm.name = 'tower-pic'; group.add(pm); } }
     // v357: the 'JUMP HERE' parachute sign is gone: there is no parachute on the towers any more, a fall hurts by its height
-    const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#ffb02a', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); bm.position.set(X, py + 7, Z - 0.2); group.add(bm);
+    // v596: the yellow light beam / circle standing on the tower roof is gone
   } else generic(p); }
   // the base's fence: posts, two rails and a sloping barbed top; farm fences round the fields
   const postFence = (x0, z0, x1, z1, col, h, step) => { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / step)); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n, y = cmbH(x, z); B.box('trim', x - 0.07, y - 0.3, z - 0.07, x + 0.07, y + h, z + 0.07, col, 0.05); if (i < n) { const xn = x0 + (x1 - x0) * (i + 1) / n, zn = z0 + (z1 - z0) * (i + 1) / n, yn = cmbH(xn, zn); for (const k of [0.45, 0.92]) { const g = new THREE.BoxGeometry(Math.hypot(xn - x, zn - z), 0.06, 0.05); g.rotateZ(Math.atan2(yn - y, Math.hypot(xn - x, zn - z))); g.rotateY(-Math.atan2(zn - z, xn - x)); g.translate((x + xn) / 2, (y + yn) / 2 + h * k, (z + zn) / 2); B.add('trim', g, col, 0.04); } } } };

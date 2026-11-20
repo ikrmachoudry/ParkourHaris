@@ -110,7 +110,8 @@ function evalWin(room, rd, timeUp) {
   if (room.cresDone === rd) return;
   const inM = [...room.players.values()].filter((q) => q.jtm !== undefined || (q.cs && q.cs.rd === rd));
   const alive = new Set(), all = new Set(); for (const q of inM) { const t = q.cs && q.cs.rd === rd ? q.cs.tm : q.jtm & 3; all.add(t); if (!(q.cs && q.cs.rd === rd && q.cs.out)) alive.add(t); }
-  if (all.size >= 2 && alive.size <= 1) { if (room.cwinRd !== rd) { room.cwinRd = rd; bcast(room, { t: 'cwin', rd }); clearTimeout(room.cresT); room.cresT = setTimeout(() => buildRes(room, rd), 2500); } }
+  const botsLive = !!(room.chost && room.chost.sim && room.chost.sim.bots && room.chost.sim.bots.some((q) => q.alive && !q.droid));   // v596: the last team standing wins only when every bot is dead too (it passed the mission with 12 bots still alive)
+  if (all.size >= 2 && alive.size <= 1 && !botsLive) { if (room.cwinRd !== rd) { room.cwinRd = rd; bcast(room, { t: 'cwin', rd }); clearTimeout(room.cresT); room.cresT = setTimeout(() => buildRes(room, rd), 2500); } }
   if (inM.every((q) => q.cs && q.cs.rd === rd && q.cs.fin)) buildRes(room, rd);
   else if (timeUp && room.cresRd !== rd) { room.cresRd = rd; clearTimeout(room.cresT); room.cresT = setTimeout(() => buildRes(room, rd), 3000); }
 }
@@ -217,7 +218,7 @@ const goMsg = (room, meta) => ({
 function addDroids(room) { if (room.chost) (room.teams || []).forEach((t, di) => { if (t.droid && t.ids.size === 1) room.chost.addDroid(di); }); }   // v507: one INTELLIDROID for every team that asked for one (it takes the empty seat of a 1-player team); v560: one place, also used when the host's bot count rebuilds the match
 function startRound(room) {
   const meta = LEVEL_META[room.level];
-  room.cresDone = null; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); room.csGone = []; for (const q of room.players.values()) q.csSnap = null; for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
+  room.cresDone = null; room._bd = 0; room.cwinRd = null; room.cresRd = null; clearTimeout(room.cresT); room.csGone = []; for (const q of room.players.values()) q.csSnap = null; for (const q of room.players.values()) q.cs = null;   // v433: a rematch starts clean
   room.phase = 'countdown';
   room.t0 = Date.now() + (meta.city ? 0 : COUNTDOWN_MS);   // the open-world city has no 3-2-1: you simply start
   room.finishCount = 0;
@@ -624,6 +625,7 @@ setInterval(() => {
     const h = room.chost; if (!h || room.phase !== 'race') continue;
     const pl = []; for (const q of room.players.values()) if (Number.isFinite(q.jx)) pl.push({ id: q.id, tm: q.jtm & 3, x: q.jx, y: q.jy, z: q.jz, al: q.jal, mv: q.jsp || 0, stn: q.jst === 2 ? 2 : q.jst === 1 ? 1 : 0, dn: q.jdn ? 1 : 0, rd: q.jrd ? 1 : 0 });
     try { h.tick(0.05, pl); } catch (e) { console.error('combat tick', e); }
+    if (!room._bd && h.sim && h.sim.bots && h.sim.bots.length && !h.sim.bots.some((q) => q.alive && !q.droid)) { room._bd = 1; const q0 = [...room.players.values()].find((q) => q.cs); if (q0) { try { evalWin(room, q0.cs.rd, false); } catch (e) { console.error('evalWin', e); } } }   // v596: the last bot fell: if the other teams are already out the survivors win now
   }
 }, 50);
 
