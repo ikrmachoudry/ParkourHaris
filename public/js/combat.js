@@ -888,7 +888,7 @@ export class CombatSim {
     if (b.rvCd > 0) { b.speed = 0; b.stn = 1; return true; }
     if (d > 1.6) {
       b.rvP = 0; b.rv = 0; b.stn = 0; b.walk = false; b.rvT = (b.rvT || 0) + dt;
-      if (b.rvT > 22) { b.rvT = 0; for (let k = 0; k < 30; k++) { const a = this.R() * 6.283, r = 1.4 + this.R() * 1.6, x = M.x + Math.cos(a) * r, z = M.z + Math.sin(a) * r; if (!hitsSolid(L, x, z, 0.55) && cmbH(x, z) > -0.3) { b.x = x; b.z = z; b.path = null; break; } } return true; }   /* last resort: stuck for 22 s */
+      if (b.rvT > 22) { b.rvT = 0; for (let k = 0; k < 30; k++) { const a = this.R() * 6.283, r = 1.4 + this.R() * 1.6, x = M.x + Math.cos(a) * r, z = M.z + Math.sin(a) * r; if (!hitsSolid(L, x, z, 0.55) && cmbH(x, z) > -0.3 && this.clearHop(b, x, z)) { b.x = x; b.z = z; b.path = null; break; } } return true; }   /* last resort: stuck for 22 s */
       b.think -= dt; if (!b.path || b.pi >= b.path.length || b.think <= 0) { b.path = findPath(L, b.x, b.z, M.x, M.z); b.pi = 0; b.think = 0.8; }
       let mx = dx / d, mz = dz / d; if (b.path && b.pi < b.path.length) { const [wx, wz] = b.path[b.pi], ex = wx - b.x, ez = wz - b.z, ed = Math.hypot(ex, ez); if (ed < 1.4) b.pi++; else { mx = ex / ed; mz = ez / ed; } }
       const sp = 6.5, want = Math.atan2(mx, mz); b.yaw += Math.atan2(Math.sin(want - b.yaw), Math.cos(want - b.yaw)) * Math.min(1, dt * 8);
@@ -919,6 +919,8 @@ export class CombatSim {
       best = b; bd = a; bhead = head; bRel = rl0; bH = H0; }
     this.lastBest = best; if (best) { best.lastHead = bhead; this.hurt(best, this.bulletDmg(wid, dmg, bd, bhead, bRel, bH, DF), ox, oz, by); } return best ? bd : (wall < range ? wall : -1);
   }
+  /* v597: a bot may only HOP (stuck rescue) to a spot it could walk to in a straight line: no wall between, and not into / out of a building (a stuck bot beside a wall used to jump through it and appear inside next to the window) */
+  clearHop(b, x, z) { const dx = x - b.x, dz = z - b.z, d = Math.hypot(dx, dz); if (d < 0.05) return true; if (this.bldIn(x, z) !== this.bldIn(b.x, b.z)) return false; try { return rayWalls(this.L, b.x, b.z, dx / d, dz / d, d, 0.9, b.y == null ? undefined : b.y) >= d - 0.12; } catch (e) { return true; } }
   bldIn(x, z) { const a = this.L.buildings; for (let i = 0; i < a.length; i++) { const B = a[i]; if (B.w && B.kind !== 'tower' && Math.abs(x - B.x) < B.w / 2 && Math.abs(z - B.z) < B.d / 2) return i; } return -1; }   // v414: which building footprint a point is inside (-1 = outside)
   melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg * (DIFFS[this.diff] || DIFFS.medium).bm, x, z, by); n++; } return n; }
   blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1)), x, z, by); } }   /* v563: PUBG frag grenade 99 at the centre, falling to ~12 at the edge */
@@ -1039,7 +1041,7 @@ export class CombatSim {
         /* v302: STUCK WATCH - he is trying to move but 2 s later is still within ~1.2 m: re-path and slide sideways; the 2nd time hop to a free spot a few metres away; the 4th time he goes to a fresh out-of-sight spot (never gets stuck for ever on a fence / wall / prop) */
         b.mvT = (b.mvT || 0) + dt; b.mvD = (b.mvD || 0) + Math.hypot(b.x - ox, b.z - oz); if (b.mvT === dt) { b.sx = ox; b.sz = oz; }
         if (b.mvT >= 2) { const away = Math.hypot(b.x - b.sx, b.z - b.sz); if (b.mvD < sp * 2 * 0.35 || (away < 1.2 && !sees)) { b.stk = (b.stk || 0) + 1; b.unst = 1 + this.R(); b.unsD = this.R() < 0.5 ? -1 : 1; b.path = null; b.think = 0; b.seen = false;
-              if (b.stk >= (b.droid ? 1 : 2)) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3) { b.x = tx; b.z = tz; break; } } }
+              if (b.stk >= (b.droid ? 1 : 2)) { for (let k = 0; k < 12; k++) { const a = this.R() * 6.283, d = 2.5 + this.R() * 3; const tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; if (!hitsSolid(L, tx, tz, 0.55) && cmbH(tx, tz) > -0.3 && this.clearHop(b, tx, tz)) { b.x = tx; b.z = tz; break; } } }
               if (b.stk >= 4 && !b.droid) { const p = this.respawnPoint(PL, zn, b); if (p) { b.x = p.x; b.z = p.z; b.stk = 0; b.path = null; this.events.push({ k: 'bot', id: b.id }); } } }
           else b.stk = Math.max(0, (b.stk || 0) - 1); b.mvT = 0; b.mvD = 0; }
         /* v542: DITHER WATCH - a bot that keeps walking but after 14 s is still within 3 m of where it started (re-planning back and forth, circling a prop) is sent to a fresh spot far away, so no bot stays in one place for ever */

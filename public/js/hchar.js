@@ -540,4 +540,19 @@ export function ensureHeal(ch) {
   if (ch._healOk) return; ch._healOk = true; const W = ch.wmesh;
   const a = holdModel('syringe', 0.17, true), b = holdModel('pills', 0.11, false), c = holdModel('medkit', 0.2, false);
   a.position.set(0, 0.03, 0.07); b.position.set(0, 0.05, 0.05); c.position.set(0, -0.04, 0.05); W.hinj.add(a); W.hpil.add(b); W.hmed.add(c);
+  // v597: a white gauze bandage - a roll in the hand, a loose strip swaying off it and rings that wind up the forearm one by one (made in code, no clip needed)
+  const gz = new THREE.MeshStandardMaterial({ color: '#f1ede2', roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
+  const bd = new THREE.Group(); bd.name = 'bandage';
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.05, 14), gz); roll.rotation.z = Math.PI / 2; roll.position.set(0.02, 0.0, 0.1); bd.add(roll);
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.14), gz); strip.position.set(0.02, -0.06, 0.1); bd.add(strip);
+  const rings = [];
+  for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.056, 0.03, 14, 1, true), gz); r.rotation.x = Math.PI / 2; r.position.set(0, -0.01, -0.05 - i * 0.03); r.visible = false; bd.add(r); rings.push(r); }
+  W.hmed.add(bd); ch._bd = { strip, rings, roll };
+}
+// drives the bandage every frame from the heal timer (loops every 3.5 s: rings appear one by one, then all unwind)
+export function animBandage(ch, t) {
+  const B = ch._bd; if (!B) return;
+  const u = (t % 3.5) / 3.5, n = u < 0.8 ? Math.floor(u / 0.8 * 6) : 5;   // 0..5 rings
+  for (let i = 0; i < 5; i++) B.rings[i].visible = i < n;
+  B.strip.rotation.x = Math.sin(t * 9) * 0.35; B.roll.rotation.x = t * 8;
 }
