@@ -10,7 +10,7 @@ import { track } from './loading.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HeroActor } from './actor.js';
-import { hasProp, propModel } from './props.js';
+import { hasProp, propModel, propParts } from './props.js';
 // each of the four players is a little different in height (no facial hair: it looked wrong on these heads)
 const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 1.79 }];
 
@@ -198,8 +198,28 @@ export class GlbActor extends HeroActor {
     for (const sd of ['L', 'R']) { const fa = T['forearm.' + sd], hd = T['hand.' + sd]; if (fa && fa.bone) fa.bone.scale.set(1.26, 1, 1.26); if (hd && hd.bone) hd.bone.scale.set(0.8, 0.9, 0.8); }   /* v595: wrist / forearm 12 % thicker, the hand keeps exactly its old world size (1.26 x 0.8 = 1.008) - the wrist looked tiny next to the glove */ gun.scale.multiplyScalar(1 / (0.9 * 1.12)); gun.position.multiplyScalar(1 / (0.74 * 1.12));   /* the gun in the right hand keeps its size and place */  /* v258: a wider wrist and smaller hands in every animation (forearm +12 % across, hand net ~0.83) */
     this.shell = shell; this.ch.mesh.visible = false; this.ready = true;
     if (!this.opts.zombie && this.opts.pack !== false) { try { this.addPack(T.chest.bone, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('backpack', e); } }   // every survivor carries a backpack
+    if (!this.opts.zombie) { try { this.addGhillie(T, wp('upperarm.R').sub(wp('upperarm.L')), shell); } catch (e) { console.warn('ghillie', e); } }
     this.height = this.opts.height || 1.78;
     this.tris = 0; model.traverse((o) => { if (o.isMesh && o.geometry.index) this.tris += o.geometry.index.count / 3; });
+  }
+  /* v601 GHILLIE CLOAK (made from the user's own grass model, no download): while the survivor is CROUCHED or PRONE inside tall grass, tufts of that same grass grow out of the helmet, the shoulders, the upper back and the chest, so the dark helmet and the vest stop standing out against the grass. Two merged meshes (head + chest), 117 triangles per tuft, drawn only while hiding. */
+  addGhillie(T, rightL, shell) {   // only the placement is worked out now (rest pose); the meshes are made on first use, when the grass model is loaded
+    if (!T.head || !T.chest) return;
+    shell.updateMatrixWorld(true); const up = new THREE.Vector3(0, 1, 0), fw = new THREE.Vector3().crossVectors(up, rightL.clone().setY(0).normalize()).transformDirection(shell.matrixWorld).setY(0).normalize(), rt = new THREE.Vector3().crossVectors(up, fw).negate();
+    const P = (n) => T[n].bone.getWorldPosition(new THREE.Vector3()), at = (b, dy, f, r) => b.clone().addScaledVector(up, dy).addScaledVector(fw, f).addScaledVector(rt, r);
+    const spec = (bone, list) => { const inv = bone.matrixWorld.clone().invert(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), out = [];
+      for (const [pos, s0, tx, tz, yaw] of list) { e.set(tx, yaw, tz, 'YXZ'); q.setFromEuler(e); sc.set(s0 * 1.25, s0, s0 * 1.25); out.push(new THREE.Matrix4().compose(pos, q, sc).premultiply(inv)); } return { bone, ms: out }; };
+    const h = P('head'), c = P('chest'), L = P('upperarm.L'), R = P('upperarm.R');
+    this._ghS = [spec(T.head.bone, [[at(h, 0.16, 0.02, 0), 0.42, 0.15, 0, 0.3], [at(h, 0.1, 0, 0.12), 0.3, 0, -0.65, 1.6], [at(h, 0.1, 0, -0.12), 0.3, 0, 0.65, 2.4], [at(h, 0.08, -0.12, 0), 0.34, -0.7, 0, 0.9], [at(h, 0.12, 0.1, 0), 0.22, 0.6, 0, 3.4]]),
+      spec(T.chest.bone, [[at(L, 0.05, 0, 0), 0.34, 0, -0.5, 0.2], [at(R, 0.05, 0, 0), 0.34, 0, 0.5, 1.1], [at(c, 0.12, -0.2, 0.1), 0.46, -0.45, 0, 2.0], [at(c, 0.12, -0.2, -0.1), 0.46, -0.45, 0, 2.9], [at(c, 0.02, 0.15, 0.1), 0.24, 0.4, 0, 0.7], [at(c, 0.02, 0.15, -0.1), 0.24, 0.4, 0, 4.0]])];
+    this._gk = 0;
+  }
+  ghilliMake() {
+    const parts = propParts('tuft'); if (!parts || !parts[0] || !this._ghS) return false; const part = parts[0]; this.ghM = [];
+    for (const { bone, ms } of this._ghS) { const gs = ms.map((m4) => { const g = part.geo.clone(); g.applyMatrix4(m4); return g; });
+      const mat = part.mat.clone(); mat.vertexColors = false; mat.side = THREE.DoubleSide; mat.alphaTest = Math.max(mat.alphaTest || 0, 0.45); mat.roughness = 1; mat.metalness = 0; mat.color.multiplyScalar(0.92);
+      const mesh = new THREE.Mesh(mergeGeometries(gs, false), mat); mesh.frustumCulled = false; mesh.castShadow = false; mesh.visible = false; bone.add(mesh); this.ghM.push(mesh); }
+    this._ghS = null; return true;
   }
   // a backpack on the back, parented to the chest bone so it moves with every animation (one merged mesh = one draw call)
   addPack(chestBone, rightL, shell) {
@@ -219,6 +239,8 @@ export class GlbActor extends HeroActor {
   update(dt, st) {
     super.update(dt, st);
     if (!this.ready) { this.ch.gun.visible = false; return; }
+    if (!this.ghM && this._ghS && st && st.ghillie) this.ghilliMake();
+    if (this.ghM) { const tg = st && st.ghillie ? 1 : 0; this._gk += (tg - this._gk) * Math.min(1, dt * 4); const k = this._gk; for (const m of this.ghM) { m.visible = k > 0.03; if (m.visible) m.scale.setScalar(Math.max(0.05, k)); } }
     const rt = this.rt, b = this.ch.bones;
     if (this.shellY0 === undefined) this.shellY0 = this.shell.position.y; this.shell.position.y = this.shellY0 + (this.liftY || 0);
     this.shell.rotation.x = this.ch.group.rotation.x; this.shell.rotation.y = this.ch.group.rotation.y;   // knocked flat (and rolling)

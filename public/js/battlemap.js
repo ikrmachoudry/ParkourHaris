@@ -535,6 +535,11 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     const pickR = (rg, out, n, maxTries) => { for (let tries = 0; tries < maxTries && out.length < n; tries++) {   /* reed clumps: picked ALONG the river banks (a random spot on the map almost never lands in the 5 - 30 m band) */
       const z = (rg() * 2 - 1) * (H - 30), x = riverX(z) + (rg() < 0.5 ? -1 : 1) * (5 + rg() * 25), y = cmbH(x, z), a1 = rg(), a2 = rg(), a3 = rg(); if (Math.abs(x) > H - 30 || y < -0.2 || y > 1.7 || distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) ) continue;
       if (Math.hypot(cmbH(x + 1.5, z) - y, cmbH(x, z + 1.5) - y) > 0.6) continue; out.push({ x, y: y - 0.05, z, s: 0.4 + a1 * 0.25, sy: 0.85 + a2 * 0.3, r: a3 * 6.28 }); } };
+    /* v601 FAR GRASS: the tall grass (hiding patches + the river bed) used to stop at 60 - 95 m while a player or bot is drawn to 300 m, so far away you saw the soldier standing in bare ground. Beyond the near draw distance a cheap low-poly clump (6 triangles, every 3rd / 5th tuft, 1.3 x wider) carries on to 200 - 340 m, fading out at its limit; the real tufts take over closer than that. */
+    const farGg = colorize(new THREE.ConeGeometry(0.55, 1.0, 6, 1, true).translate(0, 0.5, 0).toNonIndexed(), (x, y) => lerpc([0.3, 0.4, 0.16], [0.55, 0.66, 0.34], y));
+    const mkFar = (items, thin, near, farC, cell) => { if (!items.length) return; const out = []; for (let i = 0; i < items.length; i += thin) { const it = items[i]; out.push({ ...it, sx: (it.sx || 1) * 1.3 }); } const n0 = VEG.length;
+      makeInst(farGg, matInst({ roughness: 1, side: THREE.DoubleSide }, new THREE.Vector2(farC - 50, farC)), out, farC, false, (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.85 + k * 0.3, 0.9 + (1 - k) * 0.2, 0.8 + k * 0.2); }, undefined, undefined, undefined, cell);
+      for (let i = n0; i < VEG.length; i++) VEG[i].userData.near = near - 20; };
     const rg = rngS(564), tIt = [], rIt = [], nT = q === 0 ? 120 : 240, nR = q === 0 ? 24 : 48;
     pickT(rg, tIt, nT, 9000); pickR(rg, rIt, nR, 6000);
     mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160);
@@ -546,6 +551,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
         const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
         const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pIt.push({ x, y: y - 0.05, z, s: (1.0 + rp() * 0.3) * 1.12, sx: (1.9 + rp() * 0.5) * 1.12, sy: 1.0 + rp() * 0.15, r: rp() * 6.28 }); }   /* 1.0 - 1.45 m tall, 2 - 3 m wide clumps */
       mkGrass(tuft, pIt, q === 0 ? 60 : 95);
+      mkFar(pIt, 3, q === 0 ? 60 : 95, q === 0 ? 240 : 340, 120);
       { const rq = rngS(571), pX = [], perX = Math.round(per * (MP - 1));   /* the extra layer: the same places, 4x (laptop) / 2x (phone) more tufts, drawn up to 70 % of the distance */
         for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2)); i < nX && tr < nX * 4; tr++) {
           const a = rq() * 6.283, rr = Math.sqrt(rq()) * g.r * 0.98, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rq() < (rr / g.r) ** 3 * 0.7 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
@@ -559,7 +565,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
           const y = cmbH(x, z); if (y < -3.3) continue; out.push(mk(x, y - 0.05, z)); } } };
       scatter(vB, dB, (x, y, z) => ({ x, y, z, s: (1.0 + rr() * 0.3) * 1.12, sx: (1.9 + rr() * 0.5) * 1.12, sy: 1.0 + rr() * 0.15, r: rr() * 6.28 }));
       scatter(vN, dN, (x, y, z) => ({ x, y, z, s: (0.85 + rr() * 0.25) * 1.12, sx: (1.25 + rr() * 0.6) * 1.12, sy: 0.8 + rr() * 0.2, r: rr() * 6.28 }));
-      mkGrass(tuft, vB, weak ? 60 : 80, null, 24); mkGrass(tuft, vN, (weak ? 60 : 80) * 0.7, null, 24); } }
+      mkGrass(tuft, vB, weak ? 60 : 80, null, 24); mkGrass(tuft, vN, (weak ? 60 : 80) * 0.7, null, 24); mkFar(vB, 5, weak ? 60 : 80, weak ? 200 : 300, 96); } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);

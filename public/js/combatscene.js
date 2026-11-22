@@ -11,7 +11,7 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof, gunDamage, zoneOf, GUNS } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof, gunDamage, zoneOf, GUNS, los } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
@@ -698,7 +698,7 @@ export class CombatScene {
       const rvR = g.ph === 7 && !g.dd ? this.reviverOf(g) : null; g.lieK = (g.lieK || 0) + ((rvR ? 1 : 0) - (g.lieK || 0)) * Math.min(1, dt * (rvR ? 1.6 : 2.6)); if (!rvR && g.lieK < 0.02) g.lieK = 0;
       const lieDead = g.ph === 7 && g.dd, lieRv = !lieDead && g.lieK > 0.02, lieSp = lieDead ? { zpose: ['dieF', 'dieB', 'dieR', 'dieL'][(g.id | 0) & 3], zp: Math.min(1, g.dT / 2.4) } : lieRv ? { zpose: 'dieL', zp: Math.min(1, g.lieK) } : null;
       if (lieRv && rvR) g.m.group.rotation.y = rvYaw(g.x, g.z, rvR.x, rvR.z);
-      g.m.update(dt, { ...lieSp, stairs: g.sa > 0.6, ladder: on4 && !!(gs & 8), ladslide: on4 && !!(gs & 8) && (g.vy || 0) < -4, ladv: on4 && (gs & 8) ? (g.vy || 0) * 2 : 0, weapon: (g.ph === 4 || g.ph === 3 || g.ph === 2) && !g.rvg && !((gs >> 13) & 3) ? (g.wp || null) : null, ...(on4 && ((gs >> 13) & 3) && !g.rvg ? { heal: (gs >> 13) & 3, healT: (g.ht = (g.ht || 0) + dt) } : (g.ht = 0, null)), aiming: (g.ph === 4 || g.ph === 3) && (g.fire > 0 || !!g.ai), crouch: !!(gs & 1), prone: !!(gs & 2) || (g.ph === 7 && !g.dd), vy: on4 ? g.vy : 0, shooting: (on4 || g.ph === 3) && g.fire > 0, peek: on4 ? g.lv : 0, reload: on4 && (gs & 16) ? g.rl : 0, punch: on4 && g.pt > 0 ? g.pt : 0, kick: on4 && !!(gs & 256), nade: nadeP, nadeToss: g.nts | 0, aimElev: on4 ? Math.atan((0.34 - g.cp) * 0.9) : 0, ...(on4 && g.vt > 0 ? { vault: true, zp: g.vt } : null), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 || (g.ph === 7 && !g.dd) ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 5 || g.ph === 6 || g.ph === 7 || (on4 && !(gs & 4) && !(gs & 1024)), skydive: g.ph === 2 ? 1 : g.ph === 3 || (on4 && (gs & 1024)) ? 2 : 0, ...(g.ph === 4 && g.rvg ? { heal: 2, kneel: true } : null), down: g.ph === 7 && !g.dd && !lieRv, ...(g.vt > 0 || lieSp ? null : { zp: 1 }), seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
+      g.m.update(dt, { ...lieSp, stairs: g.sa > 0.6, ladder: on4 && !!(gs & 8), ladslide: on4 && !!(gs & 8) && (g.vy || 0) < -4, ladv: on4 && (gs & 8) ? (g.vy || 0) * 2 : 0, weapon: (g.ph === 4 || g.ph === 3 || g.ph === 2) && !g.rvg && !((gs >> 13) & 3) ? (g.wp || null) : null, ...(on4 && ((gs >> 13) & 3) && !g.rvg ? { heal: (gs >> 13) & 3, healT: (g.ht = (g.ht || 0) + dt) } : (g.ht = 0, null)), aiming: (g.ph === 4 || g.ph === 3) && (g.fire > 0 || !!g.ai), crouch: !!(gs & 1), prone: !!(gs & 2), ghillie: !!(gs & 3) && this.inGrass(g.x - CMB.x, g.z - CMB.z, (gs & 2) ? 2 : 1) || (g.ph === 7 && !g.dd), vy: on4 ? g.vy : 0, shooting: (on4 || g.ph === 3) && g.fire > 0, peek: on4 ? g.lv : 0, reload: on4 && (gs & 16) ? g.rl : 0, punch: on4 && g.pt > 0 ? g.pt : 0, kick: on4 && !!(gs & 256), nade: nadeP, nadeToss: g.nts | 0, aimElev: on4 ? Math.atan((0.34 - g.cp) * 0.9) : 0, ...(on4 && g.vt > 0 ? { vault: true, zp: g.vt } : null), speed: g.ph === 0 ? Math.min(g.sp, 3.4) : g.ph === 4 || (g.ph === 7 && !g.dd) ? g.sp : 0, grounded: g.ph === 0 || g.ph === 1 || g.ph === 5 || g.ph === 6 || g.ph === 7 || (on4 && !(gs & 4) && !(gs & 1024)), skydive: g.ph === 2 ? 1 : g.ph === 3 || (on4 && (gs & 1024)) ? 2 : 0, ...(g.ph === 4 && g.rvg ? { heal: 2, kneel: true } : null), down: g.ph === 7 && !g.dd && !lieRv, ...(g.vt > 0 || lieSp ? null : { zp: 1 }), seated: g.ph === 1 || g.ph === 5 || g.ph === 6, pax: g.ph === 1, mvF: 1, mvR: 0, faceCam: false });
       if (lieSp) this.lieFix(g.m, g.x, g.z);
       if (g.ph === 5) {   // v240: he drives a jeep: the real jeep of this match moves with him and his soldier sits in it
         const car = this.R.cars[g.vi]; if (car && car.mesh && car.mesh.visible !== false && (this.R.drive !== car || this.R.paxMode)) {   /* v595: no car drawn = nobody sits in the air */   // v291: a PASSENGER of this car (drive === car, paxMode) must also get the driver's movement, otherwise the car stands still on his screen
@@ -786,7 +786,7 @@ export class CombatScene {
         const adt = a.acc; a.acc = 0;
         if (s.alive && s.speed > 0.8 && d2 < 1600) { a.stepT = (a.stepT === undefined ? 0 : a.stepT) - adt * (s.speed > 3.5 ? 3.4 : 2.1); if (a.stepT <= 0) { a.stepT = 1; const dd = Math.sqrt(d2), v = Math.max(0.06, 0.5 * (1 - dd / 40)); if (A.play) A.play('fsc' + (Math.random() * 4 | 0), Math.min(0.9, v * 1.35), 0.9 + Math.random() * 0.2, 0, this.panOf(CMB.x + s.x, CMB.z + s.z), dd > 18 ? 2200 : 0, 0, this.bkOf(CMB.x + s.x, CMB.z + s.z)); } }   // v239: you hear enemy footsteps (up to 40 m, louder when running, from the side they are on)
         { const yy = s.y == null ? 0 : s.y; a.sv = a.ly === undefined || adt <= 0 ? 0 : (yy - a.ly) / adt; a.ly = yy; a.sa = s.y != null && a.sv > 0.4 ? Math.min(1, (a.sa || 0) + adt * 4) : Math.max(0, (a.sa || 0) - adt * 4); }   // v342: a bot climbing a staircase / tower spiral plays the real stair-climb clip
-        if (s.alive) { a.fin = false; a.g.visible = true; a.m.update(adt, { seated: false, stairs: a.sa > 0.6, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen && !(s.thr > 0), crouch: s.stn === 1, prone: s.stn === 2, nade: s.thr > 0 ? Math.min(0.999, s.thr) : 0, nadeToss: s.stn === 2 ? 4 : s.stn === 1 ? 3 : 2, vy: 0, stun: 0 }); }
+        if (s.alive) { a.fin = false; a.g.visible = true; a.m.update(adt, { seated: false, stairs: a.sa > 0.6, speed: s.speed, grounded: true, weapon: s.weapon, aiming: s.seen && !(s.thr > 0), crouch: s.stn === 1, prone: s.stn === 2, ghillie: s.stn >= 1 && this.inGrass(s.x, s.z, s.stn), nade: s.thr > 0 ? Math.min(0.999, s.thr) : 0, nadeToss: s.stn === 2 ? 4 : s.stn === 1 ? 3 : 2, vy: 0, stun: 0 }); }
         else { const dk = ['dieF', 'dieB', 'dieR', 'dieL', 'dieF', 'dieB'][(s.id | 0) % 6], dT = s.dieT > 0 ? s.dieT : 0, fin = dT >= 2.5 || !a.g.visible; a.m.update(fin ? 1 : adt, { seated: false, speed: 0, grounded: true, zpose: dk, zp: Math.min(1, dT / 2.4), weapon: s.weapon }); if (dT >= 2.5) a.fin = true;   /* v487: a dead bot always ends flat on the floor (full snap to the last frame; before, a skipped / late frame left some hanging in the air) */ a.g.visible = !!s.droid || s.dieT < (this.R.isTouch ? 45 : 1e9); }
       } }
     for (const q of this.tr) if (q.visible) { q.userData.t -= dt; if (q.userData.t <= 0) q.visible = false; }
@@ -925,6 +925,8 @@ export class CombatScene {
   // ---------------------------------------------------------------- inventory: 1 bat + 2 guns in the hands, everything else in the backpack
   // v443 (PUBG): 3 / 4 / G pick up the next throwable (grenade, molotov, smoke) into the hand, FIRE throws it; 5 / N = molotov, 9 = smoke. Pressing the same key again puts it away.
   throwList() { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return []; const l = []; if ((cb.nades | 0) > 0) l.push('grenade'); if (cb.inv && cb.inv.molotov > 0) l.push('molotov'); if (cb.inv && cb.inv.smoke > 0) l.push('smoke'); return l; }
+  /* v601: is a crouching (1) / prone (2) body at this local map position inside the tall grass (patches + the whole river bed)? */
+  inGrass(x, z, stn) { try { return stn >= 1 && this.sim.L.grassHide(x, z, stn) < Infinity; } catch (e) { return false; } }
   cycleThrow(want, keep) {   // keep (the number keys on a laptop): the throwable already in your hands stays there (v596)
     const R = this.R, l = this.throwList(); if (this.over || this.dropping || R.drive || this.down) return false;
     if (!l.length) { R.toast && R.toast('NO GRENADE / MOLOTOV / SMOKE - pick some up first'); return false; }
@@ -1131,5 +1133,14 @@ export class CombatScene {
   hurtPv(m) { if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; this.lastBy = m.from; this.lastByW = m.w || ''; this.lastByAt = performance.now(); { const g = this.mates.get(m.from); this.hurt(Math.max(0, Math.min(250, +m.d || 0)), g && g.has ? g.x : undefined, g && g.has ? g.z : undefined, (m.z | 0) & 3); } }   // v246: shot by a player of the other team
   onKillCredit() { this.kills++; this.stRec('ply', this.myW); this.R.toast && this.R.toast('ENEMY DOWN'); this.hitX(true); this.feed('YOU', this.wName(this.myW), 'ENEMY PLAYER', true); }
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
-  blast(x, z, r) { if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2); }
+  blast(x, z, r) {
+    if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2);
+    /* v601: a grenade of mine now HURTS the players of the other team in the blast (it only ever hurt bots): the same server-checked path as a bullet ('cpv': the server drops it for teammates); PUBG frag: 99 at the centre falling to ~12 at the edge, nothing through walls. One packet every 60 ms (the server accepts one every 40 ms per sender). */
+    const T = this.R.jangTeam; if (!(this.shared && T && T.net)) return; const now = performance.now(); let n = 0, L = layout();
+    for (const [, g] of this.mates) {
+      if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500) continue; const d = Math.hypot(g.x - x, g.z - z); if (d > r + 0.6) continue;
+      if (d > 1.5 && !los(L, x - CMB.x, z - CMB.z, g.x - CMB.x, g.z - CMB.z)) continue;
+      const dm = Math.min(250, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1))), id = g.id; setTimeout(() => { try { T.net.send({ t: 'cpv', to: id, d: +dm.toFixed(1), z: 0, w: 'grenade' }); } catch (e) { /* noop */ } }, 60 * n++);
+    }
+  }
 }
