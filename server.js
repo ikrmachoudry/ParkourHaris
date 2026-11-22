@@ -567,7 +567,7 @@ wss.on('connection', (ws, req) => {
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastGr || 0) < 80) return; p.lastGr = t;
         if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0 }, p.id); break; }
-        if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 300) || !num(m.z, -2000, 2000) || !num(m.vx, -40, 40) || !num(m.vy, -40, 40) || !num(m.vz, -40, 40)) return;
+        if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 400) || !num(m.z, -2000, 2000) || !num(m.vx, -70, 70) || !num(m.vy, -150, 80) || !num(m.vz, -70, 70)) return;   // v603: a throw DOWN from a tower / roof is fast (-55 m/s at 25 m height): the old +-40 limit silently threw those grenades away
         bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz, aim: m.aim ? 1 : 0, sm: m.sm ? 1 : 0, mo: m.mo ? 1 : 0 }, p.id);
         break;
       }

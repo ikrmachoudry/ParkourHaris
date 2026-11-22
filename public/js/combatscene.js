@@ -1135,12 +1135,13 @@ export class CombatScene {
   melee(x, z, fx, fz, reach, kind) { if (!this.active) return 0; const dm = kind === 'bat' ? 55 : kind === 'kick' ? 30 : 22; return this.sim.melee(x - CMB.x, z - CMB.z, fx, fz, reach, dm); }
   blast(x, z, r) {
     if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2);
-    /* v601: a grenade of mine now HURTS the players of the other team in the blast (it only ever hurt bots): the same server-checked path as a bullet ('cpv': the server drops it for teammates); PUBG frag: 99 at the centre falling to ~12 at the edge, nothing through walls. One packet every 60 ms (the server accepts one every 40 ms per sender). */
-    const T = this.R.jangTeam; if (!(this.shared && T && T.net)) return; const now = performance.now(); let n = 0, L = layout();
-    for (const [, g] of this.mates) {
-      if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500) continue; const d = Math.hypot(g.x - x, g.z - z); if (d > r + 0.6) continue;
-      if (d > 1.5 && !los(L, x - CMB.x, z - CMB.z, g.x - CMB.x, g.z - CMB.z)) continue;
-      const dm = Math.min(250, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1))), id = g.id; setTimeout(() => { try { T.net.send({ t: 'cpv', to: id, d: +dm.toFixed(1), z: 0, w: 'grenade' }); } catch (e) { /* noop */ } }, 60 * n++);
-    }
+  }
+  /* v603: a grenade THROWN BY SOMEBODY ELSE of the other team lands near me: I take the damage on my own screen (the thrower's screen used to guess where I stand and its packet was dropped). PUBG frag: 99 at the centre falling to ~12 at the edge, nothing through walls; the thrower is credited for the kill. */
+  victimNade(x, z, r, from) {
+    const T = this.R.jangTeam; if (!(this.shared && T) || !this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return;
+    if ((((T.teamOf || {})[from]) | 0) === (T.tm | 0)) return;   // my own team's grenade never hurts me (the fire does, like PUBG)
+    const b = this.R.me.body, d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) return;
+    if (d > 1.5 && !los(layout(), x - CMB.x, z - CMB.z, b.x - CMB.x, b.z - CMB.z)) return;
+    this.hurtPv({ from, d: Math.min(250, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1))), z: 0, w: 'grenade' });
   }
 }

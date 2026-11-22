@@ -397,6 +397,7 @@ let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the wo
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
 
+const mineId = (r, id) => !!(r.jangTeam && r.jangTeam.myId === id);
 class Race {
   constructor(levelIdx, players, localId, o) {
     this.jang = !!o.jang; this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
@@ -1543,11 +1544,12 @@ class Race {
     m.position.set(x, y, z); this.scene.add(m); (this.nades || (this.nades = [])).push(n); return n;
   }
   onGrenade(m) {   // another player winds up (k 0) or lets go (k 1)
-    const r = this.remotes.get(m.id); if (!r) return;
-    if (m.k === 0) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(4, m.toss | 0)); return; }
+    const r = this.remotes.get(m.id), jt = !this.multi && !!this.jangTeam;   // v603: in TEAM UP Jang the other players are not in 'remotes' (the combat scene draws them): the flight is simulated all the same
+    if (!r && !jt) return;
+    if (m.k === 0) { if (r) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(4, m.toss | 0)); } return; }
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
-    if (!r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
-    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false);
+    if (r && !r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.from = m.id; n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false);
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
@@ -1655,7 +1657,7 @@ class Race {
           const x = b.x + fx * 0.55, y = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
           const T = clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
           const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } this.updateAmmoHud();
-          if (this.multi) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
+          if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }
       }
@@ -1672,29 +1674,29 @@ class Race {
         if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
-      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine, n.bot); else this.grenadeBoom(n.x, n.y, n.z, n.mine); }
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine, n.bot, n.from); else this.grenadeBoom(n.x, n.y, n.z, n.mine, n.from); }
     }
   }
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
-  fireBoom(x, y, z, mine = true, bot = false) {
-    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
-    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5 }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.blast(x, y, z, 3.4, true); fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+  fireBoom(x, y, z, mine = true, bot = false, from) {
+    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot && (mine || !cs.shared)) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5, from }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.blast(x, y, z, 3.4, true); fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
     const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
     for (let i = a.length - 1; i >= 0; i--) { const f = a[i]; f.t -= dt; f.tk -= dt;
       if (f.t <= 0) { a.splice(i, 1); continue; }
       if (Math.random() < dt * 5) this.particles.emit(f.x + (Math.random() - 0.5) * 5, f.y + 0.4, f.z + (Math.random() - 0.5) * 5, 1, { color: '#ffb347', speed: 0.8, up: 3.2, life: 1.1, size: 0.12, gravity: -1 });   // v416: a few sparks (the flames themselves are in fire.js)
-      if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
+      if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { if (f.from !== undefined && !mineId(this, f.from) ) { cs.lastBy = f.from; cs.lastByW = 'molotov'; cs.lastByAt = performance.now(); } cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
   }
   // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
   smokeBoom(x, y, z, mine = true) {   // v403: SOFT billowing smoke (camera-facing puffs with a cloudy texture) instead of seven hard grey balls
-    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim) { cs.sim.addSmoke(x - CMB.x, z - CMB.z, 6.5, 15); }
+    const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && (mine || !cs.shared)) { cs.sim.addSmoke(x - CMB.x, z - CMB.z, 6.5, 15); }   /* v603: only the thrower tells the server (every screen used to send one) */
     this.fxs().smoke(x, y, z, 15); A.sfx.click && A.sfx.click();
   }
   fxs() { return this._fxs || (this._fxs = new FireSmokeFX(this.scene, IS_TOUCH)); }
   smokeTick(dt) { if (this._fxs) this._fxs.update(dt, this.camera); }   // v416: smoke + fire visuals live in fire.js
-  grenadeBoom(x, y, z, mine = true) {
+  grenadeBoom(x, y, z, mine = true, from) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
     { const fx = this.fxs(); fx.blast(x, y, z, R); }   /* v564: fireball + smoke column + dust ring + shockwave + sparks + scorch (fire.js) */
     this.particles.emit(x, y + 0.2, z, 14, { color: '#8a7a66', speed: 10, up: 3.5, life: 0.9, size: 0.2, gravity: 14, spread: 1.4 });   // flying dirt and chips
@@ -1702,6 +1704,7 @@ class Race {
     A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassBlast) cs.glassBlast(x, y, z, R); }   /* v351: JANG: the blast shatters nearby windows */
     if (mine) this.nadeDamage(x, z, R, W);
+    else if (from !== undefined) { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.victimNade) cs.victimNade(x, z, R, from); }   /* v603: a grenade thrown by a player of the OTHER team hurts ME if I stand in the blast: every screen judges its own player (exact position, no waiting for the thrower's screen to know where I am) */
     if (mine && this.copGhosts && this.multi) for (const h of this.copGhosts.near(x, z, R)) this.hitGhostCop(h, h.k === 'c' ? 8 * (1 - h.d / (R + 2)) : W.dmg * (1 - 0.55 * h.d / R), false, true);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
   }
@@ -2650,7 +2653,7 @@ async function ensureNet() {
   for (const t of ['pd', 'tf']) net.on(t, (m) => { if (race && race.multi && race.peds) race.onWorld({ ...m, t }); });
   net.on('ev', (m) => { if (race && race.multi) race.onEvent(m); });
   net.on('fx', (m) => { if (race && race.multi) race.onFx(m); });
-  net.on('gr', (m) => { if (race && race.multi) race.onGrenade(m); });
+  net.on('gr', (m) => { if (race && (race.multi || (race.jang && race.jangTeam))) race.onGrenade(m); });   // v603: TEAM UP Jang is NOT 'multi' (it is a solo Race with a jangTeam), so thrown grenades / molotovs / smokes never reached anybody
   net.on('pc', (m) => { if (race && race.multi && race.meta.city) race.onCops(m); });
   net.on('m_busy', (m) => { if (race && race.multi) race.busy = new Set(m.ids || []); });
   net.on('ph', (m) => { if (race && race.multi) race.onPedHit(m); });
