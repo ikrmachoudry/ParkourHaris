@@ -397,7 +397,6 @@ let NO_TEXT = false; // city mode: no names, labels or speech anywhere in the wo
 const keys = new Set();
 const press = { jump: false, dive: false, grab: false };
 
-const mineId = (r, id) => !!(r.jangTeam && r.jangTeam.myId === id);
 class Race {
   constructor(levelIdx, players, localId, o) {
     this.jang = !!o.jang; this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
@@ -1348,8 +1347,8 @@ class Race {
   isTalking(id) { try { return !!(voice && voice.speaking && voice.speaking.has(id)); } catch (e) { return false; } }   // v565: is this player's mic live right now (the squad bars light the mic icon)
   toggleRScope() { const w = this.weapon; if (!this.jang || !RSCOPE.has(w) || this.over) return; const so = this.scopeOff || (this.scopeOff = {}); so[w] = !so[w]; A.sfx.click(); this.toast(so[w] ? 'SCOPE OFF - open sights' : 'SCOPE ON'); try { this.me.model.group.traverse((o) => { if (o.name === 'ACOG') o.visible = !so[o.userData.kind]; }); } catch (e) { /* model not ready */ } this._rsK = ''; }   // v481: take the rifle scope off / put it back (PUBG: an attachment)
   zoomScope(d) { if (!this.scoped || this.acog) return; const n = clamp((this.scopeLvl || 0) + d, 0, this.scopeMax()); if (n !== this.scopeLvl) { this.scopeLvl = n; A.sfx.click(); } const el = $('sz-lvl'); if (el) el.textContent = 'x' + (62 / SCOPE_FOV[n]).toFixed(1); }
-  aimHold(on) { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
-  toggleAim() { if (this.over || this.drive || this.downed || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
+  aimHold(on) { if (this.over || this.drive || this.downed || (on && this.burnT > 0) || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (on && this.mission && this.mission.freeze)) return; if (this.aiming !== !!on) { this.aiming = !!on; this.aimT = 0; this.syncAct(); } }
+  toggleAim() { if (this.over || this.drive || this.downed || (!this.aiming && this.burnT > 0) || !this.weapon || this.weapon === 'bat' || this.weapon === 'grenade' || (!this.aiming && this.mission && this.mission.freeze)) return; this.aiming = !this.aiming; this.aimT = 0; this.syncAct(); }
   get aimOn() { return !!this.weapon && this.weapon !== 'bat' && this.weapon !== 'grenade' && (this.aiming || this.aimT > 0); }
   syncAct() { { const cb = $('a-crouch'), pr = $('a-prone'); if (cb) cb.classList.toggle('on', !!this.crouch && !this.prone); if (pr) pr.classList.toggle('on', !!this.prone); } { const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.classList.toggle('gunned', isGun(this.weapon)); } } const wb = $('a-weapon'); if (wb) wb.innerHTML = wIcon(this.weapon || 'fist');
     { const pb = $('a-punch'); if (pb) { const gun = this.armedNow(); if (pb.dataset.gun !== (gun ? '1' : '0')) { if (!pb.dataset.fist) pb.dataset.fist = pb.innerHTML; pb.dataset.gun = gun ? '1' : '0'; pb.classList.toggle('gun', gun); pb.innerHTML = gun ? BULLET_ICON + '<i>FIRE</i>' : pb.dataset.fist; pb.title = gun ? 'Fire (click / F)' : 'Punch (F)'; pb.setAttribute('aria-label', gun ? 'Fire' : 'Punch'); } } } const ab = $('a-aim'); if (ab) { ab.classList.toggle('on', !!this.aiming); ab.style.opacity = this.weapon && this.weapon !== 'bat' ? '' : '0.35'; } this.updateAmmoHud(); const c = $('a-crouch'); if (c) c.classList.toggle('on', !!this.crouch); }
@@ -1674,20 +1673,27 @@ class Race {
         if (g && n.y <= g.top + 0.06 && n.vy <= 0) { n.y = g.top + 0.06; if (n.aim) { n.aim = false; n.vx *= 0.1; n.vz *= 0.1; n.vy = 0; A.sfx.click(); n.spin *= 0.3; continue; } if (n.vy < -2.5) { A.sfx.click(); n.vx *= 0.65; n.vz *= 0.65; } else { n.vx *= Math.max(0, 1 - 4 * h); n.vz *= Math.max(0, 1 - 4 * h); } n.vy = n.vy < -2.5 ? -n.vy * 0.38 : 0; n.spin *= 0.6; }
       }
       n.m.position.set(n.x, n.y, n.z); n.m.rotation.x += n.spin * dt; n.m.rotation.z += n.spin * 0.6 * dt;
-      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine, n.bot, n.from); else this.grenadeBoom(n.x, n.y, n.z, n.mine, n.from); }
+      if (n.t <= 0) { this.scene.remove(n.m); this.nades.splice(i, 1); if (n.smoke) this.smokeBoom(n.x, n.y, n.z, n.mine); else if (n.molo) this.fireBoom(n.x, n.y, n.z, n.mine, n.bot, n.from); else this.grenadeBoom(n.x, n.y, n.z, n.mine, n.from, n.bot); }
     }
   }
   /* v313 MOLOTOV: the bottle breaks, the ground burns in a 3.4 m circle for 8 s: flames + smoke, bots in it lose health (the server does it in a shared match), and so do YOU (and teammates) while standing in it */
   fireBoom(x, y, z, mine = true, bot = false, from) {
     const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.sim && !bot && (mine || !cs.shared)) cs.sim.addFire(x - CMB.x, z - CMB.z, 3.4, 8, mine ? (cs.shared && this.jangTeam ? this.jangTeam.myId : undefined) : undefined);
-    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5, from }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.blast(x, y, z, 3.4, true); fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
+    (this.fireFx || (this.fireFx = [])).push({ x, y, z, t: 8, tk: 0.5, from: bot ? -1 : from }); { const fx = this.fxs(); fx.clip = cs && cs.on && cs.wallClip ? (px, pz, dx, dz, l) => cs.wallClip(px, pz, dx, dz, l) : null; fx.blast(x, y, z, 3.4, true); fx.fire(x, y, z, 8); } A.sfx.click && A.sfx.click(); this.particles.emit(x, y + 0.3, z, 14, { color: '#ffb347', speed: 3.2, up: 2.4, life: 0.5, size: 0.4, gravity: 2 });
   }
   fireTick(dt) {
-    const a = this.fireFx; if (!a || !a.length) return; const cs = this.mission && this.mission.cs, b = this.me.body;
-    for (let i = a.length - 1; i >= 0; i--) { const f = a[i]; f.t -= dt; f.tk -= dt;
+    const a = this.fireFx, cs = this.mission && this.mission.cs, b = this.me.body, alive = !!(cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0); let inF = null;
+    if (a && a.length) for (let i = a.length - 1; i >= 0; i--) { const f = a[i]; f.t -= dt;
       if (f.t <= 0) { a.splice(i, 1); continue; }
       if (Math.random() < dt * 5) this.particles.emit(f.x + (Math.random() - 0.5) * 5, f.y + 0.4, f.z + (Math.random() - 0.5) * 5, 1, { color: '#ffb347', speed: 0.8, up: 3.2, life: 1.1, size: 0.12, gravity: -1 });   // v416: a few sparks (the flames themselves are in fire.js)
-      if (f.tk <= 0) { f.tk += 0.5; if (cs && cs.on && !cs.dropping && cs.hp > 0 && cs.deadT <= 0 && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) { if (f.from !== undefined && !mineId(this, f.from) ) { cs.lastBy = f.from; cs.lastByW = 'molotov'; cs.lastByAt = performance.now(); } cs.hurt(5); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } } } }
+      if (alive && Math.hypot(b.x - f.x, b.z - f.z) < 3.6 && Math.abs(b.y - f.y) < 2.2) inF = f; }
+    /* v604 PUBG molotov: in the flames 12.5 damage per second + the burning status (10 per second for 4 s, renewed while you stand in it) that follows you out of the fire; you cannot aim down the sights while burning */
+    if (!alive) { this.burnT = 0; return; }
+    if (inF) { this.burnT = 4; this.burnFrom = inF.from; }
+    if (!(this.burnT > 0)) return;
+    this.burnT -= dt; this.burnTk = (this.burnTk === undefined ? 0.5 : this.burnTk) - dt;
+    if (this.aiming) { this.aiming = false; this.aimT = 0; this.syncAct && this.syncAct(); }
+    if (this.burnTk <= 0) { this.burnTk += 0.5; cs.burnHurt(5 + (inF ? 6.25 : 0), this.burnFrom); if (this.toast && !(this._burnT > performance.now())) { this._burnT = performance.now() + 1500; this.toast('YOU ARE BURNING - get out of the fire'); } }
   }
   // a smoke bomb: a grey cloud that grows in 1.5 s, stays 15 s and thins out; the bots cannot see through it
   smokeBoom(x, y, z, mine = true) {   // v403: SOFT billowing smoke (camera-facing puffs with a cloudy texture) instead of seven hard grey balls
@@ -1696,7 +1702,7 @@ class Race {
   }
   fxs() { return this._fxs || (this._fxs = new FireSmokeFX(this.scene, IS_TOUCH)); }
   smokeTick(dt) { if (this._fxs) this._fxs.update(dt, this.camera); }   // v416: smoke + fire visuals live in fire.js
-  grenadeBoom(x, y, z, mine = true, from) {
+  grenadeBoom(x, y, z, mine = true, from, bot = false) {
     const W = WEAPONS.grenade, R = W.radius, cp = this.camera.position, dd = Math.hypot(cp.x - x, cp.z - z), b = this.me.body;
     { const fx = this.fxs(); fx.blast(x, y, z, R); }   /* v564: fireball + smoke column + dust ring + shockwave + sparks + scorch (fire.js) */
     this.particles.emit(x, y + 0.2, z, 14, { color: '#8a7a66', speed: 10, up: 3.5, life: 0.9, size: 0.2, gravity: 14, spread: 1.4 });   // flying dirt and chips
@@ -1704,7 +1710,7 @@ class Race {
     A.sfx.boom(0.75 * Math.max(0.2, 1 - dd / 90)); if (dd < 45) this.shake = Math.max(this.shake || 0, 0.55 * (1 - dd / 45));
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassBlast) cs.glassBlast(x, y, z, R); }   /* v351: JANG: the blast shatters nearby windows */
     if (mine) this.nadeDamage(x, z, R, W);
-    else if (from !== undefined) { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.victimNade) cs.victimNade(x, z, R, from); }   /* v603: a grenade thrown by a player of the OTHER team hurts ME if I stand in the blast: every screen judges its own player (exact position, no waiting for the thrower's screen to know where I am) */
+    if (!bot) { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.blastMe) cs.blastMe(x, y, z, mine ? undefined : from); }   /* v604 PUBG: the blast hurts me whoever threw it: the other team, my teammates and my own grenade (a bot's grenade comes as an 'nbang' event) */
     if (mine && this.copGhosts && this.multi) for (const h of this.copGhosts.near(x, z, R)) this.hitGhostCop(h, h.k === 'c' ? 8 * (1 - h.d / (R + 2)) : W.dmg * (1 - 0.55 * h.d / R), false, true);
     if (!this.drive) { const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz) || 1; if (d < R * 0.85 && (b.immune || 0) <= 0) { if (knock(b, dx / d, dz / d, 5 + 8 * (1 - d / R))) { b.vy = 3.5; b.stun = 0.8; this.crouch = false; A.voice.pain(0.9); } } }   // the blast knocks ME down whoever threw it
   }

@@ -787,6 +787,9 @@ export function findPath(L, ax, az, bx, bz) {
 }
 
 // ---- the loot
+/* v604 PUBG FRAG GRENADE (patch notes, Update 14): lethal damage within 3.5 m, moderate 3.5-8.5 m, light 8.5-10 m. 100 = a full-health player dies; a vest takes 40% off, a helmet does nothing, prone takes 20% less. */
+export const FRAG_REACH = 10;
+export const fragDmg = (d) => (d <= 3.5 ? 100 : d <= 8.5 ? 60 - 40 * (d - 3.5) / 5 : d <= 10 ? 20 - 12 * (d - 8.5) / 1.5 : 0);
 export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
 export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
 export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
@@ -923,9 +926,9 @@ export class CombatSim {
   clearHop(b, x, z) { const dx = x - b.x, dz = z - b.z, d = Math.hypot(dx, dz); if (d < 0.05) return true; if (this.bldIn(x, z) !== this.bldIn(b.x, b.z)) return false; try { return rayWalls(this.L, b.x, b.z, dx / d, dz / d, d, 0.9, b.y == null ? undefined : b.y) >= d - 0.12; } catch (e) { return true; } }
   bldIn(x, z) { const a = this.L.buildings; for (let i = 0; i < a.length; i++) { const B = a[i]; if (B.w && B.kind !== 'tower' && Math.abs(x - B.x) < B.w / 2 && Math.abs(z - B.z) < B.d / 2) return i; } return -1; }   // v414: which building footprint a point is inside (-1 = outside)
   melee(x, z, fx, fz, reach, dmg, by) { let n = 0; for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz); if (d > reach || d < 1e-3 || (dx * fx + dz * fz) / d < 0.25) continue; this.hurt(b, dmg * (DIFFS[this.diff] || DIFFS.medium).bm, x, z, by); n++; } return n; }
-  blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1)), x, z, by); }
+  blast(x, z, r, dmg, by) { for (const b of this.bots) { if (!b.alive || this.friendly(b, by)) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > FRAG_REACH) continue; if (d > 1.5 && !los(this.L, x, z, b.x, b.z)) continue; this.hurt(b, fragDmg(d) * (b.stn === 2 ? 0.8 : 1), x, z, by); }   /* v604 PUBG frag: lethal within 3.5 m, moderate to 8.5 m, light to 10 m (prone takes 20% less) */
     /* v601: the bots HEAR a blast: every living bot within 55 m that it did not hit turns alert (investigates the spot) */
-    for (const b of this.bots) { if (!b.alive || b.droid || this.friendly(b, by)) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6 && d < 55) { b.alert = Math.max(b.alert || 0, 6); b.lk = { x, z, t: this.t }; } } }   /* v563: PUBG frag grenade 99 at the centre, falling to ~12 at the edge */
+    for (const b of this.bots) { if (!b.alive || b.droid || this.friendly(b, by)) continue; const d = Math.hypot(b.x - x, b.z - z); if (d > FRAG_REACH && d < 55) { b.alert = Math.max(b.alert || 0, 6); b.lk = { x, z, t: this.t }; } } }
   /* v563: HP taken by a bot from ONE bullet: PUBG base damage x distance fall-off x hit zone (head / chest / stomach / leg), then the bot's own toughness (DIFFS: a vest on the harder settings). An unknown weapon (old client) keeps the old number. */
   bulletDmg(wid, dmg, dist, head, rel, H, DF) { if (!GUNS[wid]) return dmg * 34 * (head ? 2.3 * DF.hm : DF.bm); const zone = head ? 1 : zoneOf(rel, H, 99) === 2 ? 2 : 0; return gunDamage(wid, dist, zone, rel, H) * (zone === 1 ? DF.hm : DF.bm); }
   hurt(b, d, fromX, fromZ, by) {

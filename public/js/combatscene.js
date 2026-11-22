@@ -11,7 +11,7 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof, gunDamage, zoneOf, GUNS, los } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, ballOK, underRoof, gunDamage, zoneOf, GUNS, los, FRAG_REACH, fragDmg } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
@@ -49,7 +49,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   med: ['FIRST AID', 'Heals up to 75 health (never above 75) but takes 4 seconds. You walk slowly while using it, and a hit stops it (it is not used up). Press 6 to use.'],
   pills: ['PAIN PILLS', 'Adds +60 to the BOOST bar in 5 seconds. Boost heals you slowly. Press 7 to use.'],
   inject: ['ADRENALINE', 'Fills +100 of the BOOST bar in 4 seconds. Boost heals you over time, and from 50 up it makes you run a bit faster. Press 8 to use.'],
-  grenade: ['GRENADE', 'Press 3, 4 or G to take it in your hand, then FIRE to throw. It explodes 2.6 seconds after leaving your hand, radius 7 m. Pull, throw, run.'],
+  grenade: ['GRENADE', 'Press 3, 4 or G to take it in your hand, then FIRE to throw. It explodes 2.6 seconds after leaving your hand, blast: lethal within 3.5 m, weaker out to 10 m (it hurts teammates and you too). Pull, throw, run.'],
   smoke: ['SMOKE BOMB', 'Throw it to hide yourself or a teammate while healing or crossing open ground. Press 9 (or 3 / 4 / G to cycle) to take it in hand, then FIRE.'],
   molotov: ['MOLOTOV', 'Throw it to start a fire on the ground that burns anyone standing in it. Great for pushing people out of a room. Press 5 or N (or 3 / 4 / G to cycle) to take it in hand, then FIRE.'],
   scope: ['BINOCULARS', 'Press 0 to look far away with zoom (mouse wheel zooms). A separate item: it cannot be used on the sniper rifle.'],
@@ -813,7 +813,7 @@ export class CombatScene {
       R.particles && R.particles.emit(CMB.x + e.x, cmbH(e.x, e.z) + 1.2, CMB.z + e.z, 10, { color: '#ff5a4a', speed: 3, up: 2, life: 0.4, size: 0.2 });
     } else if (e.k === 'nade') {   // v331: a bot throws a frag: it flies in an arc and lands where the sim says; the damage comes with the 'nbang' event
       const x0 = CMB.x + e.x, z0 = CMB.z + e.z, y0 = cmbH(e.x, e.z) + 1.4, tx = CMB.x + e.lx, tz = CMB.z + e.lz, ty = cmbH(e.lx, e.lz) + 0.07, dx = tx - x0, dz = tz - z0, d = Math.hypot(dx, dz), T = Math.max(0.5, Math.min(1.5, 0.45 + d * 0.03)), vy = (ty - y0 + 0.5 * 18 * T * T) / T;
-      if (R.spawnNade && Math.hypot(x0 - R.me.body.x, z0 - R.me.body.z) < 130) { const n = R.spawnNade(x0, y0, z0, dx / T, vy, dz / T, false); if (n) { n.aim = true; if (e.mo) { n.molo = true; n.bot = true; n.t = T + 0.15; R.nadeLook && R.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false); }
+      if (R.spawnNade && Math.hypot(x0 - R.me.body.x, z0 - R.me.body.z) < 130) { const n = R.spawnNade(x0, y0, z0, dx / T, vy, dz / T, false); if (n) { n.aim = true; n.bot = true; if (e.mo) { n.molo = true; n.t = T + 0.15; R.nadeLook && R.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false); }
     } else if (e.k === 'drev') { if (this.down && !this.over) { this.getUp(40); this.R.toast && this.R.toast('INTELLIDROID REVIVED YOU', 3); }   /* v568 */
     } else if (e.k === 'nbang') { if (this.glass) this.glass.blast(e.x, cmbH(e.x, e.z) + 1.2, e.z, 6.5); if ((!this.shared || e.tp === (R.jangTeam && R.jangTeam.myId)) && this.hp > 0 && this.deadT <= 0 && !this.dropping) { this.lastHit = { who: 'BOT GRENADE', w: 'grenade', d: 0, at: performance.now() }; this.hurt(e.dmg, CMB.x + e.x, CMB.z + e.z); }
     } else if (e.k === 'airplane') this.onAirplane(e); else if (e.k === 'airland') this.onAirland(e);
@@ -1136,12 +1136,20 @@ export class CombatScene {
   blast(x, z, r) {
     if (!this.active) return; this.sim.blast(x - CMB.x, z - CMB.z, r, 3.2);
   }
-  /* v603: a grenade THROWN BY SOMEBODY ELSE of the other team lands near me: I take the damage on my own screen (the thrower's screen used to guess where I stand and its packet was dropped). PUBG frag: 99 at the centre falling to ~12 at the edge, nothing through walls; the thrower is credited for the kill. */
-  victimNade(x, z, r, from) {
-    const T = this.R.jangTeam; if (!(this.shared && T) || !this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return;
-    if ((((T.teamOf || {})[from]) | 0) === (T.tm | 0)) return;   // my own team's grenade never hurts me (the fire does, like PUBG)
-    const b = this.R.me.body, d = Math.hypot(b.x - x, b.z - z); if (d > r + 0.6) return;
-    if (d > 1.5 && !los(layout(), x - CMB.x, z - CMB.z, b.x - CMB.x, b.z - CMB.z)) return;
-    this.hurtPv({ from, d: Math.min(250, 99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1))), z: 0, w: 'grenade' });
+  /* v604 PUBG: a frag grenade hurts EVERYBODY in the blast - the other team, your own teammates and YOU (from = the thrower's id, undefined = my own grenade). Every screen judges its own player (exact position). Lethal within 3.5 m, moderate to 8.5 m, light to 10 m, measured in 3D, nothing through walls; a vest takes 40% off (and is not damaged), a helmet does nothing, prone takes 20% less. An enemy's grenade credits him with the kill; a teammate's or my own does not. */
+  blastMe(x, y, z, from) {
+    const R = this.R, T = R.jangTeam, self = from === undefined; if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; if (!self && !(this.shared && T)) return;
+    const b = R.me.body, dh = Math.hypot(b.x - x, b.z - z), d = Math.hypot(dh, (b.y + 1) - y); if (d > FRAG_REACH) return;
+    if (dh > 1.5 && !los(layout(), x - CMB.x, z - CMB.z, b.x - CMB.x, b.z - CMB.z)) return;
+    let dm = fragDmg(d); if (R.prone) dm *= 0.8; { const cb = R.wallet && R.wallet.cb; if (cb && cb.vestHp > 0) dm *= 0.6; }
+    const foe = !self && ((((T.teamOf || {})[from]) | 0) !== (T.tm | 0)), now = performance.now();
+    if (foe) { this.lastBy = from; this.lastByW = 'grenade'; this.lastByAt = now; } else this.lastHit = { who: self ? 'YOUR OWN GRENADE' : 'TEAMMATE GRENADE', w: 'grenade', d: 0, at: now };
+    this.hurt(dm, x, z, 'zone');   // 'zone' = my armor was already counted above
+  }
+  /* v604 PUBG molotov: standing in the flames 12.5 damage per second, and burning (10 per second) for 4 s after catching fire; armor does not help; it burns the thrower and the thrower's team too. from = the thrower (undefined = me). */
+  burnHurt(d, from) {
+    if (!this.on || this.hp <= 0 || this.deadT > 0 || this.dropping) return; const T = this.R.jangTeam, now = performance.now();
+    if (from !== undefined && from >= 0 && T && ((((T.teamOf || {})[from]) | 0) !== (T.tm | 0))) { this.lastBy = from; this.lastByW = 'molotov'; this.lastByAt = now; } else this.lastHit = { who: from === undefined ? 'YOUR OWN FIRE' : from < 0 ? 'BOT FIRE' : 'FIRE', w: 'molotov', d: 0, at: now };
+    this.hurt(d, undefined, undefined, 'zone');
   }
 }
