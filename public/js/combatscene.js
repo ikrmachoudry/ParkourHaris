@@ -60,6 +60,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
 };
 const MY_DMG = 100;
 /* v558: PLAYER-vs-PLAYER damage per bullet (100 hp). PUBG-like: the AK used to do 35 (3 shots); now ~6 shots to kill, the sniper 2-3, a shotgun blast close up 2-3 */
+const STH_PV = [1.8, 1.25, 0.6];   // v605: a player's hit-box height standing / crouched / prone
 const PVP_SCALE = 1;   /* v563 PUBG damage model: a player hit takes the real PUBG numbers (AKM 48 body / 113 head, M416 40 / 94 ...) from GUNS in combat.js; this is the ONE knob to scale player-vs-player damage if it feels too strong */
 
 let TR_GEO = null, TR_MAT = null;
@@ -1125,8 +1126,9 @@ export class CombatScene {
     if (!this.shared && this.sim.events) { for (let i = ev0; i < this.sim.events.length; i++) { const q = this.sim.events[i]; if (q.k === 'kill' || q.k === 'bothit') { this.hitX(q.k === 'kill' || !!q.h); if (q.h) this.R.toast && this.R.toast('HEADSHOT', 0.8); break; } } }   // solo: the hit is known at once
     if (this.shared && T && T.net) {   // v246 PvP: a player of the OTHER team on the line of fire (before any wall / bot): the server takes his health. Teammates are never hurt.
       const lim = d > 0 ? d : range, now = performance.now(); let hit = null, hd = lim;
-      for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.95 + Math.min(0.5, a * 0.004)) continue; if (bal && !ballOK(bal, a, g.y)) continue; hit = g; hd = a; }
-      if (hit) { const rel = bal ? bal.y + bal.sl * hd - bal.k * hd * hd - hit.y : undefined, zn = zoneOf(rel, 1.75), dm = GUNS[w] ? gunDamage(w, hd, zn, rel, 1.75) * PVP_SCALE : dmg * 12; T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(250, dm).toFixed(1), z: zn, w: String(w || '').slice(0, 11) }); return hd; }
+      /* v605 PUBG HIT BOX: a player used to be hit by a bullet passing up to 0.95-1.45 m from his centre (a 2-3 m wide target, the bots' is 1.1-1.2 m) and a crouching / prone player was as tall as a standing one, so opponents landed far more bullets than the PUBG capsule (about 0.3 m radius) allows. Now: radius 0.55 m (+2 mm per metre of range, max +0.2 m for the lag of the picture) and a height that follows the stance (standing 1.8 m, crouched 1.25 m, prone 0.6 m, like the bots). */
+      for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500 || !g.m.group.visible) continue; const dx = g.x - ox, dz = g.z - oz, a = dx * fx + dz * fz; if (a < 0.2 || a > hd) continue; if (Math.abs(-dx * fz + dz * fx) > 0.55 + Math.min(0.2, a * 0.002)) continue; const gs = g.ph === 4 ? g.st | 0 : 0, Hg = gs & 2 ? STH_PV[2] : gs & 1 ? STH_PV[1] : STH_PV[0]; if (bal) { const yb = bal.y + bal.sl * a - bal.k * a * a; if (!(yb > g.y - 0.15 && yb < g.y + Hg + 0.12)) continue; } hit = g; hd = a; hit.Hg = Hg; }
+      if (hit) { const Hh = hit.Hg || 1.8, rel = bal ? bal.y + bal.sl * hd - bal.k * hd * hd - hit.y : undefined, zn = zoneOf(rel, Hh, Hh < 0.7 ? 0.22 : Hh < 1.5 ? 0.28 : 0.35), dm = GUNS[w] ? gunDamage(w, hd, zn, rel, Hh) * PVP_SCALE : dmg * 12; T.net.send({ t: 'cpv', to: hit.id, d: +Math.min(250, dm).toFixed(1), z: zn, w: String(w || '').slice(0, 11) }); return hd; }
     }
     return d;
   }
