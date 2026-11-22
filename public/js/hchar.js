@@ -466,6 +466,11 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b.chest, 0.08 + br, 0, 0); R(b.head, 0.42, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
     R(b['upperarm.R'], -0.55, 0.25, 0.15); R(b['forearm.R'], -1.3, 0, 0.3); R(b['hand.R'], -0.15, 0, 0); curl('R', 0.9);
     R(b['upperarm.L'], -0.7, -0.2, -0.15); R(b['forearm.L'], -1.45 + 0.12 * w, 0, -0.25); R(b['hand.L'], 0.2 * w, 0, 0); curl('L', 0.7);
+  } else if (name === 'ladSlide') {   // v600 FAST-ROPE / RAIL SLIDE down a ladder (made in code): both hands grip the rails high above the head, the body leans back a little, the legs hang loose with the knees bent and the feet braced on the outside of the rails
+    const sw = Math.sin(t * 7) * 0.04;
+    R(b.spine, -0.1, 0, 0); R(b.chest, -0.08, 0, 0); R(b.head, -0.3, 0, 0);
+    R(b['upperarm.R'], -2.45, 0.12, -0.03); R(b['upperarm.L'], -2.45, -0.12, 0.03); R(b['forearm.R'], -0.3, 0, 0); R(b['forearm.L'], -0.3, 0, 0); R(b['hand.R'], 0, 0, 0); R(b['hand.L'], 0, 0, 0); curl('R', 1.15); curl('L', 1.15);
+    R(b['upperleg.L'], -0.38 + sw, 0, 0.16); R(b['upperleg.R'], -0.22 - sw, 0, -0.16); R(b['lowerleg.L'], 0.85, 0, 0); R(b['lowerleg.R'], 0.6, 0, 0);
   } else if (name === 'phone') {  // checking the phone
     const br = Math.sin(t * 1.5) * 0.01;
     R(b.chest, 0.06 + br, 0, 0); R(b.head, 0.38, 0, 0); R(b['upperleg.L'], -0.02, 0, 0.05); R(b['upperleg.R'], 0.03, 0, -0.05);
