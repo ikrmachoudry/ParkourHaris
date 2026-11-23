@@ -71,7 +71,7 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   const air = !!c.air;
   if ((c.wet || 0) > 0.3) inp = (c.wet > 1.6 || c.sd > 0.3) ? { gas: 0, steer: 0 } : { gas: inp.gas * 0.35, steer: inp.steer, hb: inp.hb };
   const onRd = onRoad ? onRoad(c) : true;
-  const mu = spec.mu * (onRd ? 1 : 0.85) * (c.slick > 0 ? 0.3 : 1);
+  const mu = spec.mu * (onRd || spec.glb ? 1 : 0.85) * (c.slick > 0 ? 0.3 : 1);   // v609: the GLB dirt bike has knobby off-road tyres (no off-road grip loss)
   // ---- driver inputs
   const gasIn = inp.gas;
   c.steer += (inp.steer - c.steer) * Math.min(1, dt * (Math.abs(inp.steer) < 0.01 ? 12 : 16));
@@ -91,12 +91,12 @@ function stepOnce(c, dt, inp, track, others, spec, geo, m, L, a, b, h, Iz, onRoa
   if (throttle > 0 && Math.abs(u) > 2 && !inp.hb) throttle *= 1 - clamp((Math.abs(slipRe) - 0.17) / 0.25, 0, 0.6);
   const slope = Math.max(-0.85, Math.min(0.85, (c.gx || 0) * fx + (c.gz || 0) * fz)), cosT = 1 / Math.sqrt(1 + slope * slope);   /* real gravity along the hill: m g sin(angle). A weak engine slows down and a very steep slope stops it (and rolls it back) */
   let Fx = 0;
-  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * cosT * mu * (spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp(((c.topCap || spec.top) - u) / 2.2, 0, 1); }   // c.topCap: a lower limit set by the game (the mission cars: 130 km/h, 120 during the stunt run)   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
+  if (throttle > 0) { Fx = Math.min(P / Math.max(u, 1.4), m * G * cosT * mu * (spec.glb ? 0.8 : spec.drive === 'rwd' ? (a / L + 0.1) : (b / L)) * 1.0) * throttle; Fx *= clamp(((c.topCap || spec.top) - u) / 2.2, 0, 1); }   // c.topCap: a lower limit set by the game (the mission cars: 130 km/h, 120 during the stunt run)   // speed limiter: sports ~170 km/h, coupe / police ~140, the rest ~115-120
   else if (throttle < 0) { Fx = u > -4.2 ? -Math.min(P * 0.3 / Math.max(-u, 1.2), m * 2.2) * -throttle : 0; }
   // brakes: ~0.95 g peak, the handbrake locks the rear
   const Fb = brake * m * G * mu * 0.95 + (inp.hb ? m * G * mu * 0.35 : 0);
   const Fdrag = 0.5 * 1.2 * spec.cda * u * Math.abs(u), Froll = (0.013 + (onRd ? 0 : 0.03)) * m * G * Math.sign(u || 0) * Math.min(1, Math.abs(u) / 0.5);
-  const Fslope = m * G * slope * cosT * (spec.style === 'jeep' ? 0.5 : (onRd || slope < 0.06 ? 1 : slope > 0 ? 1 + Math.min(2.2, slope * 5) : 1));   /* v264: the 4x4 jeep climbs hills (half the slope pull, no off-road penalty, 1.7x low-range power) */   // off the road an uphill drags 2-3x harder: a hillside without a road is a real struggle (the steep ones stop the car and roll it back)
+  const Fslope = m * G * slope * cosT * (spec.style === 'jeep' ? 0.5 : spec.glb ? 0.45 : (onRd || slope < 0.06 ? 1 : slope > 0 ? 1 + Math.min(2.2, slope * 5) : 1));   /* v264: the 4x4 jeep climbs hills (half the slope pull, no off-road penalty, 1.7x low-range power) */   // off the road an uphill drags 2-3x harder: a hillside without a road is a real struggle (the steep ones stop the car and roll it back)
   const Fnet = Fx - Fdrag - Froll - Fslope - Math.sign(u || 0) * Math.min(Fb, Math.abs(u) * m / dt * 0.98);
   // ---- normal loads with weight transfer (filtered longitudinal acceleration)
   const axF = c.ax;
