@@ -19,3 +19,5 @@ eng_tractor.mp3: 'Minitractor (small tractor)' by tsidilin (Freesound), via Pixa
 Zombie growl / bite / death: sounds supplied by the game's owner (dragon-studio, freesound_community), cut by tools/build_user_audio.sh; used as supplied.
 
 win.mp3: the victory-page music (Kid Cudi - Day N Nite), supplied by the game owner for private use; NOT CC0, replace before any public release.
+
+eng_dirt.mp3: 'bike passing by' by freesound_community (Freesound), via Pixabay Content License; the engine part (1.45 - 3.05 s) supplied by the game owner, looped with a cross-fade; used for the Jang dirt bike.
