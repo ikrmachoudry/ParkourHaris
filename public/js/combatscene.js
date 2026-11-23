@@ -591,7 +591,7 @@ export class CombatScene {
     list.forEach(([k, am], i) => { const a = i * 1.1, it = this.sim.dropLoot(k, bx + Math.cos(a) * 0.8, bz + Math.sin(a) * 0.8, true); this.dropY(it, b); if (am) it.am = am; });
   }
   onMateShot(m) {   // v241: another player's shot: the same positional gunshot as the bots'
-    if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; { const g = this.mates.get(m.id); if (g && g.has) { g.fire = 0.45; const r = Number.isFinite(m.r) && m.r ? m.r : g.r, fx = Math.sin(r), fz = Math.cos(r), y0 = g.y + 1.35; this.tracer(g.x + fx * 0.8, y0, g.z + fz * 0.8, g.x + fx * 45, y0 - 0.5, g.z + fz * 45); this.muzzleFlash(g.x + fx * 0.9, y0, g.z + fz * 0.9); this.R.particles && this.R.particles.emit(g.x + fx * 0.9, y0, g.z + fz * 0.9, 4, { color: '#ffd978', speed: 1.5, up: 0.4, life: 0.1, size: 0.18 }); } }   // v251: you SEE his muzzle flash and tracer
+    if (!this.on || m.id === (this.R.jangTeam && this.R.jangTeam.myId)) return; { const g = this.mates.get(m.id); if (g && g.has) { g.fire = 0.45; g.fAt = performance.now(); const r = Number.isFinite(m.r) && m.r ? m.r : g.r, fx = Math.sin(r), fz = Math.cos(r), y0 = g.y + 1.35; this.tracer(g.x + fx * 0.8, y0, g.z + fz * 0.8, g.x + fx * 45, y0 - 0.5, g.z + fz * 45); this.muzzleFlash(g.x + fx * 0.9, y0, g.z + fz * 0.9); this.R.particles && this.R.particles.emit(g.x + fx * 0.9, y0, g.z + fz * 0.9, 4, { color: '#ffd978', speed: 1.5, up: 0.4, life: 0.1, size: 0.18 }); } }   // v251: you SEE his muzzle flash and tracer
     const c = this.R.camera.position, cd = Math.hypot(m.x - c.x, m.z - c.z); if (cd > 170) return;
     const v = Math.max(0.22, 1 - cd / 170), pn = this.panOf(m.x, m.z); m.w === 1 ? A.sfx.akShot && A.sfx.akShot(pn, v) : m.w === 2 && A.sfx.sniperShot ? A.sfx.sniperShot(pn, v) : A.sfx.shot(pn, v);
   }
@@ -690,7 +690,7 @@ export class CombatScene {
           else { const v = w.localToWorld(new THREE.Vector3(lv, yl(lu), lu)); x = v.x; y = v.y; z = v.z; } } } }
       if (g.hadCar !== undefined && (g.ph !== 5 || !show || g.vi !== g.hadCar) && this.R.mateCars) { this.R.mateCars.delete(g.hadCar); { const oc = this.R.cars[g.hadCar]; if (oc && oc.st.driver === g.id) { oc.st.driver = -1; oc.st.parked = true; oc.st.speed = 0; oc.st.vx = oc.st.vz = 0; } } g.hadCar = undefined; }   /* v299: the car he left is FREE again on my screen (it stayed 'driven' by him for ever: nobody could enter it) */   // he got out: the jeep stays where it is
       g.m.group.visible = show; if (!show) { g.ch.visible = false; continue; }
-      if (!IS_ANDROID && g.has) { const cp = this.R.camera.position, fs = (g.x - cp.x) ** 2 + (g.z - cp.z) ** 2 > 6400; if (g.shFar !== fs) { g.shFar = fs; g.m.group.traverse((o) => { if (o.isMesh) o.castShadow = !fs; }); } }   // v514: a teammate / opponent more than 80 m away casts no shadow
+      if (!IS_ANDROID && g.has) { const cp = this.R.camera.position, fs = (g.x - cp.x) ** 2 + (g.z - cp.z) ** 2 > 3844, rdy = !!g.m.ready; if (g.shFar !== fs || (fs && g.shR !== rdy)) { g.shFar = fs; g.shR = rdy; g.m.group.traverse((o) => { if (o.isMesh) o.castShadow = !fs; }); } }   // v514: a teammate / opponent more than 80 m away casts no shadow
       if (!g.has || inP || Math.abs(x - g.x) + Math.abs(z - g.z) > 12 || Math.abs(y - g.y) > 25) { g.x = x; g.y = y; g.z = z; g.has = true; g.vv = 0; } else {   /* v513: a teammate who respawned (or got dropped / teleported) APPEARS at the new place - the smoothing used to make him fly along the ground all the way from where he died */ const f = 1 - Math.exp(-14 * dt), px = g.x, pz = g.z; g.x += (x - g.x) * f; g.y += (y - g.y) * f; g.z += (z - g.z) * f; g.vv = dt > 0 ? Math.hypot(g.x - px, g.z - pz) / dt : 0; }
       if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y + (g.ph === 4 && g.sp > 0.3 && !g.dd ? Math.max(0, Math.min(0.28, (cmbG(g.x - CMB.x + Math.sin(g.r) * 0.5, g.z - CMB.z + Math.cos(g.r) * 0.5) - cmbG(g.x - CMB.x, g.z - CMB.z)) * 0.9)) : 0), g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw + (g.ph === 4 && ((g.st | 0) & 8) ? Math.PI : 0);
@@ -716,6 +716,12 @@ export class CombatScene {
       else g.ry = undefined;
       { const dn = g.ph === 7 && !g.dd && g.id !== -777 && g.tm === T.tm && g.has; if (dn) { if (!g.dnAt) { g.dnAt = now; this.R.toast && this.R.toast('\u26A0 ' + (g.nm || 'TEAMMATE') + ' IS DOWN - run to revive him!', 4); try { A.sfx.click(); } catch (e) { /* noop */ } } } else g.dnAt = 0; }   /* v551: a teammate who goes down: warning line + pin + time left */
       g.ch.visible = g.ph === 3; if (g.ph === 3) { g.ch.position.set(g.x, g.y, g.z); g.ch.rotation.y = g.m.group.rotation.y; }   /* v549: same yaw as his body */
+    }
+    for (const [, g] of this.mates) {   // v613: an OPPONENT (another team's player) crouching / lying in tall grass is not drawn beyond the hiding distance (see grassHidden); a teammate always is
+      if (!g.m || !g.m.group.visible || g.tm === T.tm || g.id === -777 || g.ph !== 4 || g.dd) continue;
+      const gs = g.st | 0, stn = (gs & 2) ? 2 : (gs & 1) ? 1 : 0; if (!stn) { g.cGr = false; continue; }
+      const cp = this.R.camera.position, d2 = (g.x - cp.x) ** 2 + (g.z - cp.z) ** 2;
+      if (this.grassHidden(g, g.x - CMB.x, g.z - CMB.z, stn, d2, g.sp || 0, g.fire > 0 || (g.fAt && performance.now() - g.fAt < 2500))) { g.m.group.visible = false; g.ch.visible = false; }
     }
   }
   // v269: VEHICLE HITS: any car / jeep / Civic that moves faster than ~14 km/h hurts whoever it runs into: bots, enemy players (PvP), and ME when somebody else's car hits me. Damage grows with the speed (about 22 m/s kills).
@@ -785,7 +791,8 @@ export class CombatScene {
         if (!s.alive && !s.droid && s.dieT >= (this.R.isTouch ? 45 : 1e9)) { if (a.g.visible) a.g.visible = false; continue; }   /* v486: the droid's body never disappears */
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, (() => { const c = g0(s.x, s.z); return s.y != null ? Math.max(s.y, c) : c + Math.max(s.alive && s.speed > 0.3 ? Math.max(0, Math.min(0.28, (cmbG(s.x + Math.sin(s.yaw) * 0.5, s.z + Math.cos(s.yaw) * 0.5) - cmbG(s.x, s.z)) * 0.9)) : 0, d2 < 40000 ? gLift(s.x, s.z, s.yaw, s.stn | 0, c) : 0); })(), CMB.z + s.z);   // v516: walking uphill the toes no longer dig in
         const behind = !far && d2 > 1600 && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && ((CMB.x + s.x - cmx) * cfx + ((s.y == null ? 0 : s.y) + 1 - cmy) * cfy + (CMB.z + s.z - cmz) * cfz) < -0.1 * Math.sqrt((CMB.x + s.x - cmx) ** 2 + (CMB.z + s.z - cmz) ** 2);   /* v612: a bot more than 40 m away BEHIND the camera is not drawn (its skinned parts are never frustum-culled, so it was drawn: 7-35 draws and 8-20k triangles each, for nothing); the 96-degree limit is far outside the real view */
-        if (far || behind) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
+        const hidG = !far && !behind && s.alive && !s.droid && s.stn >= 1 && this.grassHidden(a, s.x, s.z, s.stn, d2, s.speed || 0, a.shotAt && performance.now() - a.shotAt < 2500);   /* v613 */
+        if (far || behind || hidG) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         a.m.farLod = !this.R.scoped && d2 > (IS_ANDROID ? 2500 : 6400) && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500);   // v610
         a.m.farGun = !this.R.scoped && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && d2 > (IS_ANDROID ? 3600 : 9000);   // v513: laptops: a bot's gun is not drawn beyond 95 m either (1-5 draws each)
         if (!IS_ANDROID && this.R.sunCast !== false) { const fs = d2 > 3844, rdy = !!a.m.ready; if (fs ? (!a.shFar || a.shReady !== rdy || (fr + bi) % 90 === 0) : a.shFar !== false) { a.shFar = fs; a.shReady = rdy; a.g.traverse((o) => { if (o.isMesh) o.castShadow = !fs; }); } }   /* v612: the sun's shadow box is only +-40 m around you, but a bot beyond ~62 m was still drawn into the shadow map (skinned parts are never culled) - and the old switch was lost whenever the model arrived after it (every far bot showed cast=true); now it is re-applied when the model is ready and every 1.5 s */   /* v513: a bot more than 80 m away casts no shadow (its 17 parts were drawn twice) */
@@ -933,6 +940,11 @@ export class CombatScene {
   // v443 (PUBG): 3 / 4 / G pick up the next throwable (grenade, molotov, smoke) into the hand, FIRE throws it; 5 / N = molotov, 9 = smoke. Pressing the same key again puts it away.
   throwList() { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return []; const l = []; if ((cb.nades | 0) > 0) l.push('grenade'); if (cb.inv && cb.inv.molotov > 0) l.push('molotov'); if (cb.inv && cb.inv.smoke > 0) l.push('smoke'); return l; }
   /* v601: is a crouching (1) / prone (2) body at this local map position inside the tall grass (patches + the whole river bed)? */
+  /* v613 GRASS HIDING THAT NEVER DEPENDS ON THE DRAWN GRASS: a soldier who is crouching / lying in tall grass is not drawn at all once you are further than 40 m (crouched) / 22 m (prone) from him (x1.5 through a scope), unless he is moving fast or has just fired. The sim already lets bots see a prone player in grass only from 7 m (20 m crouched); now the picture follows the same rule, so nobody is "revealed" at 150 m when the far grass is thin or not drawn (laptop AND phone: the rule is distance, not what the GPU managed to draw). o keeps the on/off state so it does not flicker at the limit. */
+  grassHidden(o, x, z, stn, d2, spd, fired) {
+    if (!(stn >= 1) || fired || spd > 2.5 || !this.inGrass(x, z, stn)) { o.cGr = false; return false; }
+    const R = (stn === 2 ? 22 : 40) * (this.R.scoped ? 1.5 : 1); o.cGr = o.cGr ? d2 > R * R * 0.7225 : d2 > R * R; return o.cGr;
+  }
   inGrass(x, z, stn) { try { return stn >= 1 && this.sim.L.grassHide(x, z, stn) < Infinity; } catch (e) { return false; } }
   cycleThrow(want, keep) {   // keep (the number keys on a laptop): the throwable already in your hands stays there (v596)
     const R = this.R, l = this.throwList(); if (this.over || this.dropping || R.drive || this.down) return false;
