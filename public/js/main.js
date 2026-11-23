@@ -670,11 +670,11 @@ class Race {
 
   // ================= swimming pool fx + cars =================
   // seats in a vehicle (driver included): bike 2, rickshaw 2, truck 2, tractor 1, every car 4
-  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m === 'civic' ? 5 : m === 'jeep' ? 4 : m ? 2 : 4; }   // v302: the Civic carries 5 like the real car (driver + 4)
+  seatCap(c) { const ud = c.mesh.userData; if (ud.bike) return ud.cap || 2; const v = cityVeh(c.st.id), m = v && v.model; return m === 'tractor' ? 1 : m === 'civic' ? 5 : m === 'jeep' ? 4 : m ? 2 : 4; }   // v302: the Civic carries 5 like the real car (driver + 4)
   seatModel(g, car, pax, pseat = 0) {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.bike) {   // a motorbike: the rider straddles it and leans with it (about the road line)
-      const roll = ud.roll || 0, h = ud.seatY + (pax ? 0.04 : 0), f = ud.seatF - (pax ? 0.62 : 0), sy = Math.sin(st.yaw), cy = Math.cos(st.yaw), lat = -h * Math.sin(roll);
+      const roll = ud.roll || 0, h = ud.seatY + (pax ? 0.04 : 0), f = pax && ud.seatPx ? ud.seatPx[Math.min(pseat | 0, ud.seatPx.length - 1)] : ud.seatF - (pax ? 0.62 : 0), sy = Math.sin(st.yaw), cy = Math.cos(st.yaw), lat = -h * Math.sin(roll);
       g.rotation.order = 'YXZ'; g.position.set(st.x + sy * f + cy * lat, st.y + h * Math.cos(roll) - 0.02, st.z + cy * f - sy * lat); g.rotation.set(0, st.yaw, roll); g.scale.setScalar(1); return;
     }
     if (ud.hero) { // a real driver: right-hand-drive seat of the hero car
@@ -1030,7 +1030,7 @@ class Race {
   }
   honkOn() { if (this.paxMode) return; this.honkAnim = 0.6;
     if (this.drive && cityVeh(this.drive.st.id).extra === 'police') { const n = performance.now(); if (n - (this._sirT || 0) < 350) return; this._sirT = n; if (A.sirenOn()) A.sirenStop(); else A.sirenStart(); return; }   // police car: the horn button is the siren switch
-    if (this.peds && this.drive) { this.peds.startle(this.drive.st.x, this.drive.st.z, 17); this.evt({ k: 'st', x: +this.drive.st.x.toFixed(1), z: +this.drive.st.z.toFixed(1), r: 17 }); } if (this.drive && this.drive.mesh.userData.hero) A.hornStart(cityVeh(this.drive.st.id).hornHz); else this.honk(); }
+    if (this.peds && this.drive) { this.peds.startle(this.drive.st.x, this.drive.st.z, 17); this.evt({ k: 'st', x: +this.drive.st.x.toFixed(1), z: +this.drive.st.z.toFixed(1), r: 17 }); } if (this.drive && this.drive.mesh.userData.hero) { const hv = cityVeh(this.drive.st.id); A.hornStart(hv.hornHz, hv.glb ? 'bike' : undefined); } else this.honk(); }
   honkOff() { A.hornStop(); }
   honk() { if (this.drive && !this.paxMode && this.hornCd <= 0) { this.honkAnim = 1.1; const big = CAR_SPECS[this.drive.st.id].racer; this.hornCd = big ? 0.9 : 0.4; big ? A.sfx.honkBig() : A.sfx.honk(); if (big) this.shake = Math.max(this.shake || 0, 0.12); } }
   onCars(cars) { // parked-car positions from the server (for players who join late)

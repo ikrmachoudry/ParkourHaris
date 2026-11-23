@@ -34,6 +34,7 @@ export const CITY_VEH = [
   { id: 33, name: 'Jeep', style: 'jeep', model: 'jeep', paint: '#4f6b3a', mass: 1900, kW: 135, top: 120 / 3.6, mu: 1.0, drive: 'rwd', cda: 0.9, cyl: 6, pitch: 0.75, hornHz: 360 },   // 4-seat off-road jeep
   { id: 34, name: 'Civic Si', style: 'coupe', model: 'civic', paint: '#0c0c0f', mass: 1290, kW: 145, top: 50, mu: 1.1, drive: 'fwd', cda: 0.6, cyl: 4, pitch: 1.05, hornHz: 460 },   // v269: the black Honda Civic Si coupe of CIVIC DA GARAGE (GLB model)
   { id: 35, name: 'Mehran', style: 'hatch', paint: '#f4f4f1', mass: 800, kW: 31, top: 125 / 3.6, mu: 0.95, drive: 'rwd', cda: 0.68, cyl: 3, pitch: 1.35, hornHz: 520 },   // v269: the little white Suzuki Mehran in the brother's garage
+  { id: 36, name: 'Dirt Bike', style: 'bikeD', kind: 'dirt', glb: 'dirtbike', paint: '#f97316', mass: 210, kW: 60, top: 38.6, mu: 1.0, drive: 'rwd', cda: 0.42, cyl: 1, pitch: 1.2, hornHz: 480, latG: 0.95, dLock: 0.42, dK: 40 },   // v607: Haris's own GLB dirt bike (Jang only): same physics as the city dirt bike, carries 3 (driver + 2)
 ];
 export const cityVeh = (id) => CITY_VEH[id - 11];
 

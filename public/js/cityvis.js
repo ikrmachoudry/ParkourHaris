@@ -4,6 +4,7 @@ import { syncDamage, applySag } from './cardamage.js';
 import * as THREE from 'three';
 import { buildHeroCar, CAR_STYLES } from './hcar.js';
 import { buildHeroBike, BIKE_KINDS } from './hbike.js';
+import { buildDirtBike, DIRT } from './hdirt.js';
 import { cityVeh } from './cityveh.js';
 import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
@@ -71,6 +72,20 @@ function buildBikeMesh(spec, lo, bakedOnly) {
   return g;
 }
 
+// v607: Haris's GLB dirt bike (Jang): the model is always shown in full (no merged distance copy: it is only 4 draw calls); the seats are measured on the model
+function buildGlbBike(spec) {
+  const full = buildDirtBike(), g = new THREE.Group(), rot = new THREE.Group();
+  rot.rotation.y = -Math.PI / 2; rot.add(full.group); g.add(rot);
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; g.add(sh);
+  g.userData = {
+    hero: full, spec, baked: new THREE.Group(), bakedOnly: false, keepFull: true, full: full.group, wheels: [], pivots: [], bike: true, kind: spec.kind, cap: 3,
+    seat: { z: -0.12, y: DIRT.seatTop }, seatF: -0.1, seatR: 0, seatY: DIRT.seatTop - 0.25, seatS: 1, seatPx: [-0.5, -0.88], lamp: null, grips: [],
+    ph: 0, door: 0, doorT: 9, lastDrv: -1, roll: 0, pit: 0, yawP: null, yr: 0,
+  };
+  return g;
+}
+
 const MODELS = { rick: [buildRickshaw, RICK, 0.62, 0.92, 0], tractor: [buildTractor, TRACTOR, 0.8, 0.96, 0], truck: [buildTruck, TRUCK, 1.3, 1, TRUCK.seatR], bus: [buildBus, BUS, 1.4, 1, BUS.seatR], jeep: [buildJeep, JEEP, 0.78, 1, JEEP.seatR], civic: [buildCivic, CIVIC, 0.62, 0.86, CIVIC.seatR],
   speedboat: [(o) => buildBoat({ ...o, hull: 'speedboat' }), BOATS.speedboat, BOATS.speedboat.seatTop - 0.15, 1, BOATS.speedboat.seatR], fishboat: [(o) => buildBoat({ ...o, hull: 'fishboat' }), BOATS.fishboat, BOATS.fishboat.seatTop - 0.15, 1, BOATS.fishboat.seatR], yacht: [(o) => buildBoat({ ...o, hull: 'yacht' }), BOATS.yacht, BOATS.yacht.seatTop - 0.15, 1, BOATS.yacht.seatR] };   // builder, size, seat height of the rider's origin, rider scale, seat offset to the right
 function buildRickMesh(spec, lo, bakedOnly) {
@@ -91,6 +106,7 @@ function buildRickMesh(spec, lo, bakedOnly) {
 }
 
 export function buildCityMesh(id, lo = false, bakedOnly = false) {
+  if (cityVeh(id).glb) return buildGlbBike(cityVeh(id));
   if (cityVeh(id).kind) return buildBikeMesh(cityVeh(id), lo, bakedOnly);
   if (cityVeh(id).model) return buildRickMesh(cityVeh(id), lo, bakedOnly);
   const spec = cityVeh(id), sp = CAR_STYLES[spec.style];

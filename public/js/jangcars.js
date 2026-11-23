@@ -2,7 +2,7 @@
 // (town centre, the military base, the container yard, the bridge, the farm...) are used, so you have to look for one. Same Jeep as the city: 4 seats, full driving physics.
 import { ROADS, CMB, cmbH, layout, hitsSolid } from './combat.js';
 const SPOTS = [[0, 2], [0, 4], [0, 7], [1, 2], [1, 4], [2, 1], [3, 1], [4, 1], [5, 2], [6, 2], [8, 1], [9, 1]];   // [road, point]: along the main roads and tracks
-export function jangJeeps(n = 3, seed = 0) {
+function spawnAt(n, seed, id, extra, avoid) {   // v607: the shared spot picker (jeeps and dirt bikes): never two vehicles within 9 m of each other
   let sd = seed | 0; const rnd = seed ? () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } : Math.random;   // v240: a room seed = the SAME jeeps in the SAME places for every player of the match
   const pool = SPOTS.slice(), out = [];
   while (out.length < n && pool.length) {
@@ -14,10 +14,14 @@ export function jangJeeps(n = 3, seed = 0) {
       for (const a of [-2.6, -1.3, 0, 1.3, 2.6]) { const px = x + dx * a, pz = z + dz * a; if (hitsSolid(L, px, pz, 1.5, cmbH(px, pz)) || Math.abs(cmbH(px, pz) - cmbH(x, z)) > 0.8) { free = false; break; } }
       if (free) { ok = [x, z]; break; } }
     if (!ok) continue;
-    out.push({ id: 33, x: CMB.x + ok[0], z: CMB.z + ok[1], yaw: Math.atan2(dx, dz) + (rnd() < 0.5 ? 0 : Math.PI), y: cmbH(ok[0], ok[1]), jang: true });
+    if (avoid.some((q) => Math.hypot(q.x - (CMB.x + ok[0]), q.z - (CMB.z + ok[1])) < 9)) continue;
+    out.push({ id, x: CMB.x + ok[0], z: CMB.z + ok[1], yaw: Math.atan2(dx, dz) + (rnd() < 0.5 ? 0 : Math.PI), y: cmbH(ok[0], ok[1]), ...extra });
   }
   return out;
 }
+export const jangJeeps = (n = 3, seed = 0) => spawnAt(n, seed, 33, { jang: true }, []);
+// v607: Haris's dirt bikes: a few more spots beside the roads (a different draw of the same seed, so every player of a TEAM UP match sees the same bikes in the same places)
+export const jangBikes = (n = 3, seed = 0, avoid = []) => spawnAt(n, seed ? (seed ^ 0x5bd1e995) | 0 : 0, 36, {}, avoid);
 
 // v269: the two garage cars (same place in every match): the black Civic (GLB) in the brother garage, the black Civic behind the CIVIC DA GARAGE shutter (nose out, ready to drive out when the shutter is open)
 export function garageCars() {

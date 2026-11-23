@@ -5,6 +5,7 @@ const ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.us
 import { preloadActors, HERO_GLB, JANG_GLB } from './glbactor.js';
 import { bankReady } from './audio.js';
 import { preloadProps } from './props.js';
+import { preloadDirt } from './hdirt.js';
 const done = {};
 // v265: a bad network must never start the game with the old code-made stand-in characters: show a clear warning, block the game, offer TRY AGAIN
 function netFail(why) {
@@ -18,7 +19,7 @@ export function preloadAssets(kind) {   // kind: 'jang' | 'gta'
   if (done[kind]) return done[kind];
   if (typeof navigator !== 'undefined' && navigator.onLine === false) netFail('you are offline');
   const list = kind === 'jang' ? [...JANG_GLB, HERO_GLB[2], 'models/bag.glb'] : [...HERO_GLB, 'models/bag.glb'];   // the soldiers of Jang (+ the army soldier) / the five heroes of the city
-  const P = Promise.race([Promise.all([ANDROID ? preloadGunsCore() : preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, track(bankReady(ANDROID ? 8000 : 25000), 'SOUNDS')]), new Promise((r) => setTimeout(r, 60000))]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
+  const P = Promise.race([Promise.all([ANDROID ? preloadGunsCore() : preloadGuns(), preloadActors(list), kind === 'jang' ? preloadProps() : null, kind === 'jang' ? preloadDirt() : null, track(bankReady(ANDROID ? 8000 : 25000), 'SOUNDS')]), new Promise((r) => setTimeout(r, 60000))]).catch((e) => { console.warn('preload', e); netFail(e && e.message || 'network error'); });
   if (ANDROID) P.then(() => setTimeout(() => { preloadGunsRest().catch(() => {}); }, 15000));   // the remaining guns download quietly once the match is running
   return done[kind] = P;
 }

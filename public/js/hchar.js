@@ -398,6 +398,11 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperleg.L'], -1.1, 0, 0.3); R(b['upperleg.R'], -1.1, 0, -0.3); R(b['lowerleg.L'], 1.25, 0, 0); R(b['lowerleg.R'], 1.25, 0, 0); R(b['foot.L'], 0.3, 0, 0); R(b['foot.R'], 0.3, 0, 0);
     R(b['upperarm.L'], -1.15, 0, -0.18); R(b['upperarm.R'], -1.15, 0, 0.18); R(b['forearm.L'], -0.35, 0, 0); R(b['forearm.R'], -0.35, 0, 0);
     curl('R', 1.0); curl('L', 1.0);
+  } else if (name === 'ridePax') {   // v607: pillion on a motorbike: sits upright behind the rider, knees wide, feet on the rear pegs, hands on the rider's hips (or the seat strap)
+    b.hips.position.y = rest.hips.y - 0.5; R(b.spine, 0.1, 0, 0); R(b.chest, 0.05, 0, 0); R(b.head, -0.12, 0, 0);
+    R(b['upperleg.L'], -1.15, 0, 0.32); R(b['upperleg.R'], -1.15, 0, -0.32); R(b['lowerleg.L'], 1.2, 0, 0); R(b['lowerleg.R'], 1.2, 0, 0); R(b['foot.L'], 0.3, 0, 0); R(b['foot.R'], 0.3, 0, 0);
+    R(b['upperarm.L'], -0.7, 0, -0.22); R(b['upperarm.R'], -0.7, 0, 0.22); R(b['forearm.L'], -0.7, 0, 0.12); R(b['forearm.R'], -0.7, 0, -0.12);
+    curl('R', 0.6); curl('L', 0.6);
   } else if (name === 'sit') {
     R(b['upperleg.L'], -1.42, 0, 0.05); R(b['upperleg.R'], -1.42, 0, -0.05); R(b['lowerleg.L'], 0.55, 0, 0); R(b['lowerleg.R'], 0.55, 0, 0); R(b['foot.L'], -0.35, 0, 0); R(b['foot.R'], -0.35, 0, 0); b.hips.position.y = rest.hips.y - 0.5; R(b.spine, -0.12, 0, 0);   // driving seat: knees bent, feet forward on the pedals (not hanging through the floor)
     R(b['upperarm.L'], -0.9, 0, -0.1); R(b['upperarm.R'], -0.9, 0, 0.1); R(b['forearm.L'], -0.6, 0, 0); R(b['forearm.R'], -0.6, 0, 0);

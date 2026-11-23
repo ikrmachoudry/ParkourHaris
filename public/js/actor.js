@@ -28,7 +28,7 @@ export class HeroActor {
     this.t += dt;
     let name = 'idle', t = this.t;
     const sp = st.speed || 0;
-    if (st.seated) name = st.bike ? 'ride' : st.pax ? (st.weapon && st.weapon !== 'bat' && st.weapon !== 'grenade' ? 'paxGun' : 'pax') : 'sit';
+    if (st.seated) name = st.bike ? (st.pax ? 'ridePax' : 'ride') : st.pax ? (st.weapon && st.weapon !== 'bat' && st.weapon !== 'grenade' ? 'paxGun' : 'pax') : 'sit';
     else if (st.swim) name = 'swim';
     else if (!st.grounded && (Math.abs(st.vy || 0) > 1.2 || this.inAir)) { name = 'jump'; this.inAir = true; }   // stays in the jump pose over the apex (it used to flip to run for a moment, lifting the leg a second time)
     else if (sp > 3.2) { name = 'run'; this.tRun += dt * sp / 4.2; t = this.tRun; }
@@ -89,7 +89,7 @@ export class HeroActor {
     if (st.ladder && !st.seated) { name = st.ladslide ? 'ladSlide' : 'ladder'; this.ch.gun.visible = false; }   // v503: on a tower ladder
     if (st.vault) name = 'vault'; if (st.revive && !st.vault) name = 'revive';   // v254: climbing over a broken wall
     if (st.dance) name = st.dance;   // v338: the victory page: Mixamo dance clips (glbactor CLIP_FOR dance0..4)
-    this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'pax' || name === 'paxGun';
+    this.pose = name; this.seated = name === 'sit' || name === 'ride' || name === 'ridePax' || name === 'pax' || name === 'paxGun';
   }
   dispose() {
     this.group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : [m]).forEach((mm) => mm.dispose()); } });

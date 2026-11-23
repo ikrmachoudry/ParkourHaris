@@ -357,6 +357,7 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   racer: { a: 'eng_v8', ra: [1.1, 3.9], b: 'eng_moto', rb: [2.0, 5.0], gb: [0.1, 0.65], lp: [1600, 9000], gain: 0.62 },
   bikeS: { a: 'eng_moto', ra: [1.2, 4.4], b: 'eng_car', rb: [2.4, 5.4], gb: [0, 0.3], lp: [1600, 8000], gain: 0.55 },
   bikeC: { a: 'eng_moto', ra: [0.62, 2.1], b: 'eng_v8', rb: [0.7, 1.7], gb: [0.25, 0.35], lp: [500, 3000], gain: 0.62, chop: [6, 0.28] },
+  bikeG: { a: 'eng_moto', ra: [1.0, 3.9], b: 'eng_moto', rb: [1.9, 5.3], gb: [0.05, 0.5], lp: [1300, 8800], gain: 0.7, chop: [15, 0.24] },   // v607: the GLB dirt bike: the motorbike recording twice (a deep and a screaming layer) with a single-cylinder thump
   bikeD: { a: 'eng_moto', ra: [1.1, 3.5], b: 'eng_car', rb: [2.0, 4.4], gb: [0, 0.35], lp: [1500, 7000], gain: 0.55, chop: [18, 0.15] },
   rick:  { a: 'eng_moto', ra: [0.85, 2.4], b: 'eng_boat', rb: [1.2, 3.0], gb: [0.2, 0.3], lp: [900, 3800], gain: 0.62, chop: [24, 0.38] },
   tractor: { a: 'eng_tractor', ra: [0.82, 1.5], b: 'eng_tractor', rb: [1.25, 2.1], gb: [0, 0.22], lp: [700, 3400], gain: 0.95 },   // the real small-tractor recording (4 s seamless loop)
@@ -366,7 +367,7 @@ const PROF = {   // a / b: sample, ra / rb: playback-rate range from idle to top
   fishboat:  { a: 'eng_diesel', ra: [0.8, 1.5], b: 'eng_boat', rb: [0.5, 0.95], gb: [0.1, 0.25], lp: [420, 1500], gain: 0.85, chop: [5.5, 0.42], boat: 0.8 },
   yacht:     { a: 'eng_diesel', ra: [0.78, 1.7], b: 'eng_boat', rb: [0.55, 1.2], gb: [0.2, 0.4], lp: [380, 1900], gain: 0.8, chop: [3, 0.08], boat: 1.1 },
 };
-const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht', 33: 'v8', 34: 'civic', 35: 'mehran' };
+const PROF_OF = { 11: 'car', 12: 'hot', 13: 'suv', 14: 'car', 15: 'v8', 16: 'v8', 17: 'sport', 18: 'rough', 19: 'bikeS', 20: 'bikeC', 21: 'bikeD', 22: 'v8', 23: 'rick', 24: 'v8', 25: 'sport', 26: 'tractor', 27: 'truck', 28: 'bus', 29: 'racer', 30: 'speedboat', 31: 'fishboat', 32: 'yacht', 33: 'v8', 34: 'civic', 35: 'mehran', 36: 'bikeG' };
 // a looping recording: a source, a low-pass and a gain; starts at a random point so layers never line up
 function loopV(name, vol = 0, rate = 1, lpf = 0, dest = sfxG) {
   const b = bank[name]; if (!ctx || !b) return null;
@@ -420,7 +421,8 @@ export function engineCrank(p = {}) { // the starter: the engine recording windi
 }
 
 // Horn: two reed tones a major third apart (real car horns), buzzy, held for as long as the button is held (never shorter than 0.2 s)
-export function hornStart(hz = 420) {
+export function hornStart(hz = 420, kind) {   // kind 'bike' (v607): the small, sharp scooter-style beep: ONE reed note (no major third), a quick flutter
+
   if (!ctx || horn) return;
   const t = ctx.currentTime, g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.26, t + 0.025);
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.7;
@@ -428,8 +430,8 @@ export function hornStart(hz = 420) {
   const sh = ctx.createWaveShaper(), cv = new Float32Array(257); for (let i = 0; i < 257; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 1.8); } sh.curve = cv;
   const mix = ctx.createGain(); mix.gain.value = 0.5; mix.connect(sh); sh.connect(lp); lp.connect(bp); bp.connect(g); g.connect(sfxG);
   const oscs = [];
-  for (const [f, type] of [[hz, 'sawtooth'], [hz * 1.004, 'square'], [hz * 1.26, 'sawtooth'], [hz * 1.267, 'square'], [hz * 2.02, 'triangle']]) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = type === 'triangle' ? 0.25 : 0.6; o.connect(og); og.connect(mix); o.start(); oscs.push(o); }
-  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 96; lg.gain.value = 0.05; lfo.connect(lg); lg.connect(g.gain); lfo.start(); oscs.push(lfo);
+  for (const [f, type] of (kind === 'bike' ? [[hz * 1.5, 'square'], [hz * 1.506, 'sawtooth'], [hz * 3.02, 'triangle']] : [[hz, 'sawtooth'], [hz * 1.004, 'square'], [hz * 1.26, 'sawtooth'], [hz * 1.267, 'square'], [hz * 2.02, 'triangle']])) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; const og = ctx.createGain(); og.gain.value = type === 'triangle' ? 0.25 : 0.6; o.connect(og); og.connect(mix); o.start(); oscs.push(o); }
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = kind === 'bike' ? 62 : 96; lg.gain.value = kind === 'bike' ? 0.07 : 0.05; lfo.connect(lg); lg.connect(g.gain); lfo.start(); oscs.push(lfo);
   horn = { g, oscs, t0: t };
 }
 export function hornStop() {

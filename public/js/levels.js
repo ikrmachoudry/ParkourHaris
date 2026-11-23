@@ -2,7 +2,7 @@
 import { World } from './world.js';
 import { buildGta } from './gtaworld.js';
 import { layout as cmbLayout, CMB, cmbInside, cmbG as cmbH, ROADS, onDeck, BRIDGE } from './combat.js';
-import { jangJeeps, garageCars } from './jangcars.js';
+import { jangJeeps, garageCars, jangBikes } from './jangcars.js';
 
 export const THEMES = {
   gta: {
@@ -34,5 +34,6 @@ export function buildEmptyLevel(seed = 0) {
   const T = (x, z) => (cmbInside(x, z) ? cmbH(x - CMB.x, z - CMB.z) : 0); world.terrain = T;
   { const L = cmbLayout(); for (const q of L.solids) { const ws = world.addStatic(CMB.x + q.x0, q.y0, CMB.z + q.z0, CMB.x + q.x1, q.y1, CMB.z + q.z1, { name: q.k === 'tree' || q.k === 'rock' || q.k === 'prop' ? 'prop' : 'building', slide: !!q.slide, sd: q.sd }); if (q.k === 'shutter') q._ws = ws; } }
   world.finalize();
-  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: [...jangJeeps(3, seed), ...garageCars()], track: { terrain: (x, z, y) => { const g = T(x, z); if (!cmbInside(x, z)) return g; if (y !== undefined && y < BRIDGE.y - 1.7) return g;   /* v579: a car (y given) DOWN IN THE RIVER BED under the bridge keeps the river-bed ground: it used to be lifted up into the deck (clipping through the bridge) */ const lx = x - CMB.x, lz = z - CMB.z; return lx > BRIDGE.xb - 0.5 && lx < BRIDGE.xa + 0.5 && Math.abs(lz - BRIDGE.z) < BRIDGE.w / 2 + 2.4 ? Math.max(g, BRIDGE.y) : g; }   /* v350: the deck height also counts 2.4 m beside the rails: the slope sampling under the car used to fall off the deck edge into the river bed (nose dipped into the deck) */, boxes: [], edge: 1900, waterY: -40, plazas: [], segs: ROADS.flatMap((r) => r.pts.slice(0, -1).map((p, i) => ({ ax: CMB.x + p[0], az: CMB.z + p[1], bx: CMB.x + r.pts[i + 1][0], bz: CMB.z + r.pts[i + 1][1], hw: r.w / 2 + 1 }))) }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
+  const jj = jangJeeps(3, seed);
+  return { world, info: { key: 'gta', spawn: { x: CMB.x, y: 0, z: CMB.z }, signs: [], pads: [], cars: [...jj, ...garageCars(), ...jangBikes(3, seed, jj)], track: { terrain: (x, z, y) => { const g = T(x, z); if (!cmbInside(x, z)) return g; if (y !== undefined && y < BRIDGE.y - 1.7) return g;   /* v579: a car (y given) DOWN IN THE RIVER BED under the bridge keeps the river-bed ground: it used to be lifted up into the deck (clipping through the bridge) */ const lx = x - CMB.x, lz = z - CMB.z; return lx > BRIDGE.xb - 0.5 && lx < BRIDGE.xa + 0.5 && Math.abs(lz - BRIDGE.z) < BRIDGE.w / 2 + 2.4 ? Math.max(g, BRIDGE.y) : g; }   /* v350: the deck height also counts 2.4 m beside the rails: the slope sampling under the car used to fall off the deck edge into the river bed (nose dipped into the deck) */, boxes: [], edge: 1900, waterY: -40, plazas: [], segs: ROADS.flatMap((r) => r.pts.slice(0, -1).map((p, i) => ({ ax: CMB.x + p[0], az: CMB.z + p[1], bx: CMB.x + r.pts[i + 1][0], bz: CMB.z + r.pts[i + 1][1], hw: r.w / 2 + 1 }))) }, finishZ: -99999, length: 99999, checkpoints: [], endZ: -230, finishPlat: { far: -230 } } };
 }
