@@ -126,7 +126,7 @@ window.__lag = LAG;
 function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolution first, then shadows
   if (Q.low) return;
   if (IS_TOUCH && !Q.low2 && Q.warm <= 0) { Q.lagT = (Q.lagT || 0) + (LAG.avg > 90 ? dt : -dt * 0.5); if (Q.lagT < 0) Q.lagT = 0; if (Q.lagT > 8) { Q.low2 = true; try { if (localStorage.getItem('ph_low') === null) localStorage.setItem('ph_auto', '1'); } catch { /* ignore */ } Q.dpr = 0.62; Q.shadows = false; Q.far = 240; if (race) { race.setShadows(false); race.setFar(); } resize(); try { race && race.toast && race.toast('Phone is overloaded: graphics lowered to keep the game smooth', 3.5); } catch { /* noop */ } } }   // v297: still stalling after the normal steps: drop to the lightest look (the phone answers the network late otherwise)
-  if (Q.low2) return;
+  if (Q.low2 || Q.pretty) return;   /* v610: PRETTY never eases itself (the phone-overload emergency above still works) */
   if (Q.warm > 0) { Q.warm -= dt; return; }
   Q.t += dt; Q.frames++;
   if (Q.t < 1.2) return;
@@ -149,9 +149,11 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   } else Q.good = 0;
 }
 try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === null && IS_TOUCH && (((navigator.hardwareConcurrency || 4) <= 2) || ((navigator.deviceMemory || 4) <= 2))) Q.low = true; } catch { Q.low = false; } if (AUTO_LOW) { Q.low = true; Q.auto = true; } // old/weak phones (e.g. iPhone 7) start on LOW automatically; each player can switch it in the menu
+try { Q.pretty = !Q.low && localStorage.getItem('ph_pretty') === '1'; const fv = parseInt(localStorage.getItem('ph_fps') || '0', 10); Q.fps = fv === 30 || fv === 60 ? fv : 0; } catch { Q.pretty = false; Q.fps = 0; }   // v610: three graphics levels (SMOOTH = low, BALANCED = the normal automatic one, PRETTY) and a frame-rate lock
 if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; }
+else if (Q.pretty) { Q.far = IS_TOUCH ? 560 : 1300; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.5) : Math.min(MAXDPR, 2); Q.shadows = true; }
 function applyGfx() {
-  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.shHalf = false; Q.warm = 3; }
+  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else if (Q.pretty) { Q.far = IS_TOUCH ? 560 : 1300; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.5) : Math.min(MAXDPR, 2); Q.shadows = true; Q.shHalf = false; Q.warm = 3; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.shHalf = false; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -2867,7 +2869,8 @@ function paintSettings() {
   document.querySelectorAll('.qrow[data-k]').forEach((r) => r.classList.toggle('on', !!OPT[r.dataset.k]));
   document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => r.classList.toggle('on', !!OPT.pk[r.dataset.pk]));
   $('set-mm').classList.toggle('on', A.isMusicMuted()); $('set-snd').classList.toggle('on', !app.muted);
-  document.querySelectorAll('#set-gfx button').forEach((b) => b.classList.toggle('on', (b.dataset.q === 'low') === !!Q.low));
+  document.querySelectorAll('#set-gfx button').forEach((b) => b.classList.toggle('on', b.dataset.q === 'low' ? !!Q.low : b.dataset.q === 'pretty' ? !!Q.pretty && !Q.low : !Q.low && !Q.pretty));
+  document.querySelectorAll('#set-fps button').forEach((b) => b.classList.toggle('on', (parseInt(b.dataset.f, 10) || 0) === (Q.fps | 0)));
   const b = $('set-cust'); b.disabled = false; b.classList.remove('idle');
 }
 function openSettings(from, tab) {
@@ -2883,11 +2886,13 @@ document.querySelectorAll('#s-settings .ps-tab').forEach((b) => { b.onclick = ()
 tapBtn($('set-mm'), () => { A.initAudio(); A.sfx.click(); A.setMusicMuted(!A.isMusicMuted()); });
 window.addEventListener('ph-musicmute', () => { const r = $('set-mm'); if (r) r.classList.toggle('on', A.isMusicMuted()); });
 tapBtn($('set-snd'), () => { A.initAudio(); toggleSound(); A.sfx.click(); paintSettings(); });
-document.querySelectorAll('#set-gfx button').forEach((b) => { b.onclick = () => { Q.low = b.dataset.q === 'low'; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); paintSettings(); }; });
+document.querySelectorAll('#set-gfx button').forEach((b) => { b.onclick = () => { setGfxLevel(b.dataset.q); A.sfx.click(); }; });
+document.querySelectorAll('#set-fps button').forEach((b) => { b.onclick = () => { Q.fps = parseInt(b.dataset.f, 10) || 0; try { localStorage.setItem('ph_fps', String(Q.fps)); } catch { /* ignore */ } A.sfx.click(); paintSettings(); }; });
 document.querySelectorAll('#s-settings .qrow[data-pk]').forEach((r) => { r.onclick = () => { A.sfx.click(); OPT.pk[r.dataset.pk] = OPT.pk[r.dataset.pk] ? 0 : 1; saveOpts(); paintSettings(); }; });
 
 // ------------------------------------------------------------------ in-game menu
-function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? (Q.auto && !(() => { try { return localStorage.getItem('ph_low') !== null; } catch { return false; } })() ? 'LOW (auto)' : 'LOW') : 'AUTO'); }
+function setGfxLevel(q) { Q.low = q === 'low'; Q.pretty = q === 'pretty'; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); localStorage.setItem('ph_pretty', Q.pretty ? '1' : '0'); } catch { /* ignore */ } if (Q.pretty) { Q.low2 = false; Q.lagT = 0; } applyGfx(); syncGfx(); paintSettings(); }
+function syncGfx() { $('p-gfx').textContent = '\uD83D\uDDA5 GFX: ' + (Q.low ? (Q.auto && !(() => { try { return localStorage.getItem('ph_low') !== null; } catch { return false; } })() ? 'SMOOTH (auto)' : 'SMOOTH') : Q.pretty ? 'PRETTY' : 'BALANCED'); }
 function syncPause() {
   $('p-sound').textContent = '\uD83D\uDD0A SOUND: ' + (app.muted ? 'OFF' : 'ON');
 }
@@ -2967,7 +2972,7 @@ $('p-resume').onclick = () => { A.sfx.click(); closePause(); };
 $('p-resume').addEventListener('touchend', (e) => { e.preventDefault(); A.sfx.click(); closePause(); }, { passive: false });
 $('b-gm').addEventListener('touchend', (e) => { e.preventDefault(); A.sfx.click(); if (race && race.menuOpen) closePause(); else if (race) openPause(); }, { passive: false });
 $('p-sound').onclick = () => { A.initAudio(); toggleSound(); A.sfx.click(); };
-$('p-gfx').onclick = () => { Q.low = !Q.low; try { localStorage.setItem('ph_low', Q.low ? '1' : '0'); } catch { /* ignore */ } A.sfx.click(); applyGfx(); syncGfx(); };
+$('p-gfx').onclick = () => { setGfxLevel(Q.low ? 'auto' : Q.pretty ? 'low' : 'pretty'); A.sfx.click(); };   // v610: the in-game button cycles BALANCED -> PRETTY -> SMOOTH
 $('p-full').onclick = () => {
   const d = document, el = d.documentElement;
   try { if (!d.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }); else if (d.exitFullscreen && d.fullscreenElement) d.exitFullscreen(); } catch { /* not supported */ }
@@ -3148,7 +3153,7 @@ if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { co
   } catch { /* no workers: fine */ }
   const loop = (now) => {
     requestAnimationFrame(loop);
-    if (IS_ANDROID && (Q.low || Q.low2) && race && !race.paused && !loadScreen.visible && now - last < 28) return;   /* v471: weak Android: the game runs at a steady 30 fps (every 2nd screen refresh) instead of stuttering between 12 and 40 */
+    { const capMs = Q.fps ? 1000 / Q.fps - 4 : (IS_ANDROID && (Q.low || Q.low2) ? 28 : 0); if (capMs && race && !race.paused && !loadScreen.visible && now - last < capMs) return; }   /* v610: the player's FRAME RATE LOCK (30 / 60) */   /* v471: weak Android: the game runs at a steady 30 fps (every 2nd screen refresh) instead of stuttering between 12 and 40 */
     { const D = window.__fd || (window.__fd = { n: 0, sum: 0, max: 0, long: 0 }), g9 = now - last; if (g9 < 8000) { D.n++; D.sum += g9; if (g9 > D.max) D.max = g9; if (g9 > 50) D.long++; } }   /* v528: frame-time stats for the on-screen diagnostics line */
     const dt = Math.min(0.1, (now - last) / 1000); last = now; bgLast = performance.now();
     if (!loadScreen.visible) adaptQuality(dt); else { Q.warm = Math.max(Q.warm, 4); Q.t = 0; Q.frames = 0; }   /* v598: the automatic graphics easing (draw distance, shadows, resolution) measured the LOADING screen's slow frames and then changed everything in the first seconds of the match = the glitch / shaking at the start; it now starts counting 4 s after the loading screen is gone */ flashPolice(now); A.sirenTickAll();
