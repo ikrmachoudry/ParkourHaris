@@ -71,7 +71,7 @@ function setSprintLock(on) {
   if (sprintLock) { touch.x = 0; touch.y = 1; if (k) k.style.transform = 'translate(-50%, calc(-50% - 56px))'; } else { if (touch.x === 0 && touch.y === 1) touch.y = 0; if (k && j && !j.classList.contains('on')) k.style.transform = 'translate(-50%, -50%)'; }
 }
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const NADE_DUR = [1.12, 1.3, 1.4, 1.47, 1.47], NADE_REL = [0.64, 0.75, 0.643, 0.614, 0.545];   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
+const NADE_DUR = [1.12, 1.3, 1.4, 1.47, 1.47], NADE_REL = [0.64, 0.75, 0.643, 0.614, 0.545], NADE_HOLDK = 0.86;   /* v615: HOLD the fire button and the arm stays cocked back at NADE_HOLDK x the release point; letting go finishes the throw */   // grenade throw clips: on the move / crouched toss / standing throw (seconds, release point 0..1)
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 const fmtT = (s) => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r < 10 ? '0' : ''}${r.toFixed(2)}`; };
@@ -374,7 +374,7 @@ class Remote {
     const landed = grounded && !this.lastLanded; this.lastLanded = grounded;
     this.sw = (this.flags & 16) ? Math.min(1, (this.sw || 0.001) + dt / 0.42) : 0;
     const WR = race && race.world, swimming = !!(WR && WR.terrain && WR.seaSwim && !(this.flags & (256 | PAX)) && this.y < WR.waterY + 0.1 && WR.terrain(this.x, this.z) < WR.waterY - 0.3);
-    if (this.nadeA) { this.nadeT = (performance.now() - this.nadeA) / 1000 / (NADE_DUR[this.nadeToss | 0] || 1.12); if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; } }   // somebody else is throwing a grenade (started by his 'gr' message)
+    if (this.nadeA) { const nd = NADE_DUR[this.nadeToss | 0] || 1.12, el = (performance.now() - this.nadeA) / 1000; this.nadeT = el / nd; if (this.nadeHd) { const hf = (NADE_REL[this.nadeToss | 0] || 0.64) * NADE_HOLDK; if (this.nadeT >= hf && el < 4) this.nadeT = hf; else this.nadeHd = false; } if (this.nadeT >= 1 || (this.flags & (2 | 256 | PAX))) { this.nadeA = 0; this.nadeT = 0; this.nadeHd = false; } }   // somebody else is throwing a grenade (started by his 'gr' message)
     this.model.update(dt, { swim: swimming, speed: this.speed, grounded: swimming ? true : grounded, vy: this.vy, stun: this.flags & 2 ? 1 : 0, dive: this.flags & 4 ? 1 : 0, celebrate: !!(this.flags & 8), seated: !!(this.flags & (256 | PAX)), pax: !!(this.flags & PAX), bike: !!(this.onBike && (this.flags & (256 | PAX))), swing: this.sw, shield: !!(this.flags & 32), leader: !!this.leader, mega: !!(this.flags & 128), landed, crouch: !!(this.flags & 2097152), prone: !!(this.flags & 16777216), kick: !!(this.flags & 4194304), weapon: (this.flags & (256 | PAX | USEFLAG)) || (this.nadeA && this.nadeT >= (this.nadeToss ? 0.75 : 0.64)) ? null : wnameOf(this.w), nade: this.nadeA ? this.nadeT : 0, nadeToss: this.nadeToss | 0, gesture: (this.flags & USEFLAG) ? 'phone' : undefined, heal: (this.flags & USEFLAG) ? ((this.w >> 5) & 3) : 0, aiming: !!(this.w & 4) && !(this.flags & (256 | PAX)), punch: (this.flags & 8388608) ? (this.pn = Math.min(0.95, (this.pn || 0.001) + dt / (!(this.flags & 4194304) && (this.w & 3) === 1 ? 0.85 : 0.62))) : (this.pn = 0) });
   }
   dispose(scene) { scene.remove(this.model.group); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } this.model.dispose(); }
@@ -1536,8 +1536,22 @@ class Race {
     const b = this.me.body, cbk = this.wallet && this.wallet.cb; if (this.nadeT > 0 || this.healing() || !this.wallet || (this.nadeKind === 'smoke' || this.nadeKind === 'molotov' ? !(cbk && cbk.inv && cbk.inv[this.nadeKind] > 0) : this.wallet.nades <= 0) || this.drive || b.stun > 0) return false;
     if (Number.isFinite(this.camYaw)) b.yaw = this.camYaw + Math.PI;
     this.nadeT = 0.001; this.nadeRel = false; this.nadeToss = this.prone ? 4 : this.crouch ? 3 : Math.hypot(b.vx, b.vz) < 1.2 ? 2 : 0; A.sfx.click(); this.punchCd = 0.4;   // 0 = throwing on the move, 1 = crouched toss, 2 = standing throw
-    if (this.multi) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss });   // everybody sees him wind up
+    this.nadeCook = !!this.fireHeld && !!(this.mission && this.mission.cs); this.nadeHeld = 0; this.nadeHolding = false;   /* v615: fire button still down = the pin is out and the grenade is COOKED in the cocked hand until the button is released */
+    if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 0, toss: this.nadeToss, hd: this.nadeCook ? 1 : 0 });   // everybody sees him wind up
     return true;
+  }
+  /* v615: the throw is cancelled (CANCEL button, knocked down, got in a car): the grenade is NOT used up, the others stop the animation */
+  nadeAbort() {
+    if (!(this.nadeT > 0) || this.nadeRel) return;
+    this.nadeT = 0; this.nadeCook = false; this.nadeHolding = false; this.nadeHeld = 0; this.nadeKind = null; this.fireHeld = false; this.fuseTag(0, null);
+    if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 2 });
+    this.updateAmmoHud();
+  }
+  /* v615: ONE flight formula for the red line and for the real throw, so the line is always where the grenade goes. A fast, FLAT throw like PUBG (the line is nearly straight and only bends over the last part), the arc only rises for a far or high target. */
+  nadeFlight(x, y, z, tg) {
+    const dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
+    const T = this.mission && this.mission.cs ? clamp(0.4 + d * 0.02 + Math.max(0, tg.y - y) * 0.06, 0.5, 1.4) : clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9);   // Jang only: the flat PUBG throw
+    return { T, vx: dx / T, vz: dz / T, vy: (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T };
   }
   // one flying grenade (mine = I threw it; the others are simulated the same way from the 'gr' message, so everybody sees it fly, bounce and blow up)
   spawnNade(x, y, z, vx, vy, vz, mine) {
@@ -1547,10 +1561,12 @@ class Race {
   onGrenade(m) {   // another player winds up (k 0) or lets go (k 1)
     const r = this.remotes.get(m.id), jt = !this.multi && !!this.jangTeam;   // v603: in TEAM UP Jang the other players are not in 'remotes' (the combat scene draws them): the flight is simulated all the same
     if (!r && !jt) return;
-    if (m.k === 0) { if (r) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(4, m.toss | 0)); } return; }
+    if (m.k === 0) { if (r) { r.nadeA = performance.now(); r.nadeT = 0.001; r.nadeToss = Math.max(0, Math.min(4, m.toss | 0)); r.nadeHd = !!m.hd; } return; }
+    if (m.k === 2) { if (r) { r.nadeA = 0; r.nadeT = 0; r.nadeHd = false; } return; }   // v615: he cancelled (or it blew up in his hand)
     if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(+m[k]))) return;
-    if (r && !r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
-    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.from = m.id; n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } } A.sfx.swing && A.sfx.swing(false);
+    if (r && r.nadeA && r.nadeHd) { r.nadeHd = false; r.nadeA = performance.now() - (NADE_REL[r.nadeToss | 0] || 0.64) * NADE_HOLDK * (NADE_DUR[r.nadeToss | 0] || 1.12) * 1000; }   // v615: he let go: the arm carries on from the cocked pose
+    else if (r && !r.nadeA) { r.nadeA = performance.now() - 700; r.nadeToss = 0; }
+    { const n = this.spawnNade(+m.x, +m.y, +m.z, +m.vx, +m.vy, +m.vz, false); n.from = m.id; n.aim = !!m.aim; n.smoke = !!m.sm; n.molo = !!m.mo; if (n.smoke || n.molo) { n.t = 1.3; this.nadeLook(n); } else if (Number.isFinite(+m.ft) && +m.ft > 0.1 && +m.ft <= WEAPONS.grenade.fuse) n.t = +m.ft; } A.sfx.swing && A.sfx.swing(false);   // v615: the fuse left after he cooked it
   }
   nadeVisual() {
     if (!this.nadeMats) this.nadeMats = { body: new THREE.MeshStandardMaterial({ color: '#4d6128', roughness: 0.6, metalness: 0.25 }), lever: new THREE.MeshStandardMaterial({ color: '#2b2f2a', roughness: 0.5, metalness: 0.6 }) };
@@ -1616,21 +1632,22 @@ class Race {
       const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ff3b2f', transparent: true, opacity: 0.88, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
       m.frustumCulled = false; m.renderOrder = 998; m.visible = false; this.scene.add(m); this.arcMesh = m;
       const cb = document.createElement('button'); cb.id = 'nade-cancel'; cb.textContent = 'Cancel'; cb.style.display = 'none'; document.body.appendChild(cb);
-      const cx = (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.weapon === 'grenade') race.equip('fist'); }; cb.addEventListener('pointerdown', cx); this.arcCancel = cb;
+      const cx = (e) => { e.preventDefault(); e.stopPropagation(); if (race && race.weapon === 'grenade') { race.nadeAbort(); race.equip('fist'); } }; cb.addEventListener('pointerdown', cx); this.arcCancel = cb;
     }
     const m = this.arcMesh, cb = this.arcCancel, kind = this.heldThrow || 'grenade';
     if (!t) { if (m.visible) m.visible = false; if (cb.style.display !== 'none') cb.style.display = 'none'; this.fuseTag(0, null); return; }
     const b = this.me.body, yaw = Number.isFinite(this.camYaw) ? this.camYaw + Math.PI : b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
     const x0 = b.x + fx * 0.55, y0 = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z0 = b.z + fz * 0.55, dx = t.x - x0, dz = t.z - z0, d = Math.max(1.5, Math.hypot(dx, dz));
-    const T = clamp(0.45 + d * 0.03 + Math.max(0, t.y - y0) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (t.y + 0.07 - y0 + 0.5 * 18 * T * T) / T;
+    const { T, vx, vy, vz } = this.nadeFlight(x0, y0, z0, t);
     const hl = Math.hypot(vx, vz) || 1, sx = -vz / hl, sz = vx / hl, cp = this.camera.position, P = m.geometry.attributes.position.array;
+    const jg = !!(this.mission && this.mission.cs); m.material.opacity = jg ? (this.nadeHolding || this.nadeT > 0 ? 0.95 : 0.6) : 0.88;   /* v615: faint while the grenade is only in the hand, bright while the pin is out */
     for (let i = 0; i <= N; i++) {
-      const u = i / N * T, x = x0 + vx * u, y = y0 + vy * u - 9 * u * u, z = z0 + vz * u, dc = Math.hypot(x - cp.x, y - cp.y, z - cp.z), w = Math.min(0.2, 0.012 + dc * 0.0085) * (i === 0 ? 0.4 : 1);
+      const u = i / N * T, x = x0 + vx * u, y = y0 + vy * u - 9 * u * u, z = z0 + vz * u, dc = Math.hypot(x - cp.x, y - cp.y, z - cp.z), w = (jg ? Math.max(0.004, dc * 0.0021) : Math.min(0.2, 0.012 + dc * 0.0085)) * (i === 0 ? 0.4 : 1);   /* v615: a THIN line (about 3 px on any screen at any distance), the old ribbon was 20-40 cm wide */
       P[i * 6] = x - sx * w; P[i * 6 + 1] = y; P[i * 6 + 2] = z - sz * w; P[i * 6 + 3] = x + sx * w; P[i * 6 + 4] = y; P[i * 6 + 5] = z + sz * w;
     }
     m.geometry.attributes.position.needsUpdate = true; m.visible = true;
     if (IS_TOUCH && cb.style.display !== 'block') cb.style.display = 'block';
-    this.fuseTag(0, kind === 'grenade' ? { x: x0 + vx * 0.12, y: y0 + vy * 0.12 - 0.13 + 0.35, z: z0 + vz * 0.12, s: Math.round(WEAPONS.grenade.fuse) } : null);
+    this.fuseTag(0, kind === 'grenade' ? { x: x0 + vx * 0.12, y: y0 + vy * 0.12 - 0.13 + 0.35, z: z0 + vz * 0.12, s: Math.ceil(Math.max(0, WEAPONS.grenade.fuse - (this.nadeHeld || 0)) - 1e-6) } : null);   /* v615: the diamond counts the fuse down while it is cooked in the hand */
   }
   fuseTag(i, p) {   /* the orange fuse diamond i (0 = the held grenade, 1.. = the flying ones): p = {x,y,z,s} or null to hide it */
     const a = this.fuseTags || (this.fuseTags = []); let el = a[i];
@@ -1648,17 +1665,28 @@ class Race {
   updateNades(dt, b) {
     this.nadeMarkTick(); this.smokeTick(dt); this.fireTick(dt);
     if (this.nadeT > 0) {   // the throw animation: 0..1 (the same clip lengths as the baked clips, a little sped up)
-      const mode = this.nadeToss | 0, dur = NADE_DUR[mode], rel = NADE_REL[mode];
-      this.nadeT += dt / dur;
+      const mode = this.nadeToss | 0, dur = NADE_DUR[mode], rel = NADE_REL[mode], hold = rel * NADE_HOLDK, FZ = WEAPONS.grenade.fuse;
+      if (!this.nadeRel && (this.downed || this.drive || this.healing() || this.menuOpen)) { this.nadeAbort(); return this.fuseTagsFlying(); }
+      if (!this.nadeRel && this.nadeCook && this.fireHeld && this.nadeT >= hold - 1e-6) {   /* v615: the fire button is still down: the hand stays cocked back and the fuse burns */
+        this.nadeT = hold; this.nadeHolding = true; this.nadeHeld += dt;
+        if (Number.isFinite(this.camYaw)) { let dy = this.camYaw + Math.PI - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); b.yaw += dy * Math.min(1, dt * 14); }   /* the body keeps turning with the camera while the grenade is cocked */
+        if (this.nadeHeld >= FZ && this.nadeKind !== 'smoke' && this.nadeKind !== 'molotov') {   /* held too long: it goes off in the hand (PUBG) */
+          this.nadeKind = null; this.nadeT = 0; this.nadeCook = false; this.nadeHolding = false; this.nadeHeld = 0; this.fireHeld = false; this.fuseTag(0, null);
+          if (this.wallet.useNade()) { const yw = b.yaw; this.grenadeBoom(b.x + Math.sin(yw) * 0.3, b.y + (this.prone ? 0.5 : this.crouch ? 1.0 : 1.4), b.z + Math.cos(yw) * 0.3, true); }
+          if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 2 });
+          this.updateAmmoHud(); return this.fuseTagsFlying();
+        }
+      } else { this.nadeHolding = false; this.nadeT += dt / dur; }
       if (!this.nadeRel && this.nadeT >= rel) {
         this.nadeRel = true;
         const nk = this.nadeKind, smk = nk === 'smoke', mol = nk === 'molotov', cbk = this.wallet.cb; this.nadeKind = null;
         if (smk || mol ? !!(cbk && cbk.inv && cbk.inv[nk]-- > 0) : this.wallet.useNade()) {
           const yaw = b.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
-          const x = b.x + fx * 0.55, y = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget(), dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
-          const T = clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9), vx = dx / T, vz = dz / T, vy = (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T;   // flies in an arc that lands ON the target sign
-          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } this.updateAmmoHud();
-          if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
+          const x = b.x + fx * 0.55, y = b.y + (this.prone ? 0.55 : this.crouch ? 1.05 : 1.55), z = b.z + fz * 0.55, tg = this.nadeTarget();
+          const { vx, vy, vz } = this.nadeFlight(x, y, z, tg);   // flies in an arc that lands ON the target sign (the SAME formula as the red line)
+          const n = this.spawnNade(x, y, z, vx, vy, vz, true); n.aim = true; n.smoke = smk; n.molo = mol; if (smk || mol) { n.t = 1.3; this.nadeLook(n); } else if (this.nadeHeld > 0) n.t = Math.max(0.35, FZ - this.nadeHeld); this.updateAmmoHud();   /* v615: the time it was cooked in the hand is gone from the fuse */
+          this.nadeCook = false; this.nadeHolding = false;
+          if (this.multi || (this.jangTeam && this.jangTeam.net)) app.net.send({ t: 'gr', k: 1, aim: 1, sm: smk ? 1 : 0, mo: mol ? 1 : 0, ft: +n.t.toFixed(2), x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), vx: +vx.toFixed(2), vy: +vy.toFixed(2), vz: +vz.toFixed(2) });   // the same throw is simulated on every screen
           A.sfx.swing && A.sfx.swing(false);
         }
       }

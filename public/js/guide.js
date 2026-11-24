@@ -25,7 +25,7 @@ const homeStick = () => {   // where the move stick lives (its home spot, plus a
 const TOUCH = [
   { t: 'MOVE', x: 'Put your left thumb on the stick and drag. Push it all the way up to sprint.', a: 'drag', rect: homeStick },
   { t: 'LOOK AROUND', x: 'Slide your finger anywhere on the right and the upper left of the screen to turn the camera.', a: 'swipe', rect: () => ({ l: innerWidth * 0.42, t: innerHeight * 0.18, r: innerWidth * 0.74, b: innerHeight * 0.62 }) },
-  { t: 'FIRE', x: 'Hold to shoot. With no gun in your hands this button punches.', a: 'tap', ids: ['a-punch'] },
+  { t: 'FIRE', x: 'Hold to shoot. With no gun in your hands this button punches. With a grenade: tap to throw, or HOLD to pull the pin and let go to throw.', a: 'tap', ids: ['a-punch'] },
   { t: 'AIM', x: 'Tap to zoom in for a steadier, more accurate shot.', a: 'tap', ids: ['a-aim'] },
   { t: 'JUMP, CROUCH, PRONE', x: 'Jump over things. Crouch or lie flat to hide and be a smaller target.', a: 'tap', ids: ['a-jump', 'a-crouch', 'a-prone'] },
   { t: 'RELOAD AND WEAPONS', x: 'Reload your gun, change the fire mode, or swap to another weapon.', a: 'tap', ids: ['a-reload', 'a-fmode', 'a-weapon'] },

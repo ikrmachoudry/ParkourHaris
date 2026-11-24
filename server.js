@@ -566,9 +566,10 @@ wss.on('connection', (ws, req) => {
       case 'gr': { // a grenade: k 0 = he starts the throw (everybody plays the animation), k 1 = it leaves his hand (everybody simulates the same flight and blast)
         if (!room || room.phase !== 'race') return;
         const t = Date.now(); if (t - (p.lastGr || 0) < 80) return; p.lastGr = t;
-        if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0 }, p.id); break; }
+        if (m.k === 0) { bcast(room, { t: 'gr', id: p.id, k: 0, toss: m.toss ? 1 : 0, hd: m.hd ? 1 : 0 }, p.id); break; }
+        if (m.k === 2) { bcast(room, { t: 'gr', id: p.id, k: 2 }, p.id); break; }   // v615: cancelled / blew up in the hand
         if (m.k !== 1 || !num(m.x, -2000, 2000) || !num(m.y, -5, 400) || !num(m.z, -2000, 2000) || !num(m.vx, -70, 70) || !num(m.vy, -150, 80) || !num(m.vz, -70, 70)) return;   // v603: a throw DOWN from a tower / roof is fast (-55 m/s at 25 m height): the old +-40 limit silently threw those grenades away
-        bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz, aim: m.aim ? 1 : 0, sm: m.sm ? 1 : 0, mo: m.mo ? 1 : 0 }, p.id);
+        bcast(room, { t: 'gr', id: p.id, k: 1, x: m.x, y: m.y, z: m.z, vx: m.vx, vy: m.vy, vz: m.vz, aim: m.aim ? 1 : 0, sm: m.sm ? 1 : 0, mo: m.mo ? 1 : 0, ft: num(m.ft, 0, 10) ? m.ft : 0 }, p.id);
         break;
       }
       case 'ph': { // host -> a player: an AI pedestrian punched him
