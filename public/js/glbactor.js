@@ -16,7 +16,7 @@ const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 
 
 import { av } from './assetver.js';
 const cache = new Map();
-const CAMO_C = new THREE.Color(0.40, 0.56, 0.26);   /* v627: the grass green the soldier blends into while hiding */
+const CAMO_C = new THREE.Color(0.22, 0.36, 0.13);   /* v627: the grass green the soldier blends into while hiding */
 const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.12;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
 export function loadGlb(url) {
   if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => mkLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
@@ -226,7 +226,7 @@ export class GlbActor extends HeroActor {
   camoUpdate(k) {
     if (!this._camo) { this._camo = []; const gun = this.ch && this.ch.gun, skip = (o) => { for (let p = o; p; p = p.parent) { if (p === gun) return true; if (this.ghM && this.ghM.includes(p)) return true; } return false; }, made = new Map();
       this.group.traverse((o) => { if (!o.isMesh || Array.isArray(o.material) || !o.material || !o.material.color || skip(o)) return; let m = made.get(o.material); if (!m) { m = o.material.clone(); made.set(o.material, m); this._camo.push({ m, c0: m.color.clone() }); } o.material = m; }); }
-    const kk = k > 0.01 ? Math.min(1, k) : 0, a = kk * 0.82; if (Math.abs(a - (this._camoA || 0)) < 0.004 && kk > 0) return; this._camoA = a; this._camoK = kk > 0 ? 1 : 0;
+    const kk = k > 0.01 ? Math.min(1, k) : 0, a = kk * 0.85; if (Math.abs(a - (this._camoA || 0)) < 0.004 && kk > 0) return; this._camoA = a; this._camoK = kk > 0 ? 1 : 0;
     for (const e of this._camo) { e.m.color.copy(e.c0); if (a > 0) e.m.color.lerp(CAMO_C, a); }
   }
   // a backpack on the back, parented to the chest bone so it moves with every animation (one merged mesh = one draw call)
