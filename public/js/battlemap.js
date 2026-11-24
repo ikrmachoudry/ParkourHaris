@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm } from './combat.js';
+import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -185,7 +185,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   for (const b of L.buildings) {
     const wm = WALLMAT[b.kind] || 'wall', fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
-    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' ? '#f2efe6' : '#3a3530';
+    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' ? '#f2efe6' : '#3a3530';
     /* v376: Z-FIGHT FIX. Wall / floor / roof boxes overlap at corners, T-joints and where a floor slab sliver sits inside a wall: two same-facing coplanar faces = flickery white patches on walls and floors. For every such pair one face is drawn 6 mm inside its box (collision is untouched): a floor slab yields to the wall, otherwise the later box yields. */
     const ZF = new Map(); { const T = b.solids.filter((q) => q.k === 'wall' || q.k === 'floor' || q.k === 'roof'), ov = (a0, a1, c0, c1) => Math.min(a1, c1) - Math.max(a0, c0);
       for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) { const a = T[i], c = T[j];
@@ -642,7 +642,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   return { group, update, warm, quality: q, propsOk: !!propDim('ladder'), setRange: (k) => { RK = Math.max(0.5, Math.min(1, k)); }, setFog: (d) => { FOGR = d; } };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
-const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95); return c; };
+const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c; };
 const flags = [], ICONS = [];
 const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
 const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');

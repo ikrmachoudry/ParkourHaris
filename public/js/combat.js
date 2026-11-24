@@ -22,10 +22,13 @@ export const riverX = (z) => -90 + 50 * Math.sin(z * 0.011 + 0.6) + 18 * Math.si
 /* v582: THE WHOLE DRY RIVER BED IS TALL GRASS (drawn in battlemap.js, a strip 27 m each side of the river line along the whole map) except a few natural bald stretches (riverGap) and the 16 m under the bridge deck; a crouching / prone player in it is hidden like in the land patches (grassHide) */
 export const riverGap = (z) => fbm(z * 0.034 + 11, 3.3, 582, 2) < 0.31;
 export const inRiverGrass = (x, z) => Math.abs(x - riverX(z)) < 27 && Math.abs(z) < CMB.half - 20 && !riverGap(z) && Math.abs(z - BRIDGE.z) >= 8;
+/* v622 NEW HILLS [x, z, height m, sigma m]: free sites found by scanning the map (searched so that no hand-placed building, tower or crop field sees more than ~3.5 m of extra relief; small cabins and shacks that stood on a hill are simply not built). The last one is a broad LOW MOUND under the south-west town: that corner was at sea level (-1.1 m: a swamp). */
+export const HILLS = [[30, -50, 18, 28], [-60, -210, 18, 28], [-110, 130, 18, 28], [-190, 205, 6, 62]];
 export function rawH(x, z) {
   let h = 6 + (fbm(x * 0.0055, z * 0.0055, 11, 4) - 0.5) * 28 + (fbm(x * 0.03, z * 0.03, 21, 3) - 0.5) * 3.2;
   h += 36 * Math.exp(-(((x - 170) ** 2 + (z + 150) ** 2) / (2 * 62 * 62)));   // the military hill (north east)
   h += 13 * Math.exp(-(((x + 190) ** 2 + (z + 170) ** 2) / (2 * 45 * 45)));   // a knoll in the north west
+  for (let i = 0; i < HILLS.length; i++) { const q = HILLS[i]; h += q[2] * Math.exp(-(((x - q[0]) ** 2 + (z - q[1]) ** 2) / (2 * q[3] * q[3]))); }   // v622: the new hills (and the broad low mound the south-west town stands on)
   const d = Math.abs(x - riverX(z)), k = smooth(26, 6, d); h = h * (1 - k) + (-2.9) * k;   // the river valley: deep enough to swim
   const r = Math.max(Math.abs(x), Math.abs(z)); h += 55 * Math.pow(smooth(H - 55, H - 6, r), 1.4);   // the mountains round the edge
   return h;
@@ -116,6 +119,11 @@ const KIND = {
   clinic: { fh: 3.4, fl: 2, win: { ww: 1.8, y0: 0.95, y1: 2.1, gap: 4.4, csS: [-8.5, -4.9, 4.9, 8.5] }, fur: 'clinic', roof: 'flat' },
   ghar: { fh: 3.4, fl: 2, win: { ww: 1.6, y0: 0.95, y1: 2.1, gap: 4.6 }, fur: 'ghar', roof: 'flat' },
   kiosk: { fh: 3.0, win: { ww: 2.2, y0: 0.9, y1: 2.3, gap: 3 }, fur: 'shop', roof: 'flat' },
+  /* v622 THE NEW TOWN BUILDINGS: all two storeys with the user's modern_stairs02 U-stair in the NW corner (the same tested stair as the apartments, so the sim, the bots and the loot all work), a flat roof you can climb onto, and BIG windows on both floors */
+  flat2: { fh: 3.2, fl: 2, win: { ww: 2.2, y0: 0.8, y1: 2.5, gap: 4.4 }, fur: 'home', roof: 'flat' },
+  mall2: { fh: 3.5, fl: 2, win: { ww: 3.4, y0: 0.5, y1: 2.8, gap: 5.6 }, fur: 'shop', roof: 'flat' },
+  office2: { fh: 3.4, fl: 2, win: { ww: 2.8, y0: 0.7, y1: 2.7, gap: 4.8 }, fur: 'school', roof: 'flat' },
+  duplex2: { fh: 3.1, fl: 2, win: { ww: 2.0, y0: 0.8, y1: 2.4, gap: 4.2 }, fur: 'home', roof: 'flat' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
 const OPP = { N: 'S', S: 'N', W: 'E', E: 'W' };
@@ -330,12 +338,18 @@ export const ROADS = [
   { w: 4.5, dirt: 1, pts: [[48, 170], [10, 200], [-26, 222]] },
   { w: 4.5, dirt: 1, pts: [[135, 95], [190, 80], [224, 70]] },
   { w: 4.5, dirt: 1, pts: [[58, -150], [66, -204]] },
+  /* v622: the roads of the three new towns */
+  { w: 6, pts: [[-146, 30], [-152, 80], [-160, 120], [-176, 150], [-190, 160], [-190, 242]] },   // west bank: from the bridge road down to the south-west town
+  { w: 6, pts: [[-170, -146], [-196, -152], [-207, -162], [-207, -242]] },   // from the west dirt road up to the north-west town
+  { w: 6, pts: [[205, -42], [205, -10], [205, 30], [205, 76]] },   // the east town street, joining the two dirt roads
 ];
 const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 1 < r.pts.length; i++) a.push([r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w]); return a; };
 const ROADSEGS = segsOf();
 /* v621 MEADOW GRASS COVER: the swaying meadow grass that is drawn all over the map (battlemap.js grassCell: not on roads, building sites, fields, concrete or steep slopes, thicker and taller where fbm 'd' is high) used to give NO cover, so a prone player in it stayed visible at any distance while the patches and the river bed hid him. Same ground test as the drawing (d >= 0.42 = the taller half), answered per 1 m square and remembered. PRONE only: crouching in 0.3 - 0.5 m blades hides nothing. Same answer for bots, other players and the picture, whatever the GPU managed to draw. */
 const MG = new Map();
-const concG = (x, z) => { const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95); };
+const concG = (x, z) => { const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); };
+/* v622: 0..1 how much a spot belongs to one of the new hills (1 = the summit): the pale 'concrete country' ground is not painted on them, they are grass and rock */
+export function hillCover(x, z) { let v = 0; for (let i = 0; i < HILLS.length; i++) { const q = HILLS[i]; if (q[2] < 10) continue; const e = Math.exp(-(((x - q[0]) ** 2 + (z - q[1]) ** 2) / (2 * (q[3] * 1.3) ** 2))); if (e > v) v = e; } return v; }
 export function meadowGrass(x, z) {
   const cx = Math.floor(x), cz = Math.floor(z), k = (cx + 2048) * 4096 + (cz + 2048); let v = MG.get(k);
   if (v === undefined) {
@@ -370,8 +384,9 @@ mk('shack', 150, 196, 6, 5, 'E', { c: '#b0a890' });
 // ---- the farm west of the river
 mk('house', -150, 20, 11, 9, 'E'); mk('barn', -178, 58, 22, 14, 'N', { c: '#a14b3a', rc: '#3f3f44' }); mk('shack', -148, 52, 8, 6, 'N');
 // ---- the river village (east bank) and cabins in the forests
-for (let i = 0; i < 6; i++) { const z = -150 + i * 22, x = Math.round(riverX(z) + 40 + ((i % 2) * 8)); mk(i % 3 === 2 ? 'cabin' : 'shack', x, z, i % 3 === 2 ? 8 : 6, i % 3 === 2 ? 7 : 5, 'E'); }
-for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'], [-10, -205, 'S'], [70, -205, 'W'], [235, -40, 'W'], [225, 70, 'W'], [-30, 225, 'N'], [-140, 120, 'E'], [-120, 150, 'E']]) mk('cabin', x, z, 8, 7, f);
+const nearHill = (x, z) => HILLS.some((q) => q[2] > 10 && Math.hypot(x - q[0], z - q[1]) < q[3] * 1.6);   // v622: a small cabin / shack is not built on a new hill
+for (let i = 0; i < 6; i++) { const z = -150 + i * 22, x = Math.round(riverX(z) + 40 + ((i % 2) * 8)); if (nearHill(x, z)) continue; mk(i % 3 === 2 ? 'cabin' : 'shack', x, z, i % 3 === 2 ? 8 : 6, i % 3 === 2 ? 7 : 5, 'E'); }
+for (const [x, z, f] of [[-170, -150, 'S'], [-215, -90, 'E'], [-100, -225, 'S'], [-10, -205, 'S'], [70, -205, 'W'], [235, -40, 'W'], [225, 70, 'W'], [-30, 225, 'N'], [-140, 120, 'E'], [-120, 150, 'E']]) { if (!nearHill(x, z)) mk('cabin', x, z, 8, 7, f); }
 
 export const FIELDS = [[-236, -44, -186, 22, '#c9b45a'], [-240, 30, -212, 100, '#79a143'], [-236, 110, -190, 150, '#d8c070']];   // crop fields on the farm (visual only; nothing grows or stands on them)
 export const inField = (x, z, m = 2) => FIELDS.some((f) => x > f[0] - m && x < f[2] + m && z > f[1] - m && z < f[3] + m);
@@ -394,11 +409,22 @@ const WTPOS = [];
     mk('shop', pick[0] + 14 + 9 + 3.2, pick[1] + 5, 6, 10, 'S', { fy: fy0, fh: 3.4, c: '#d9c9a3', doors: [{ s: 'S', o: 0, w: 3.3, h: 3.1 }] }); /* v310: the garage's back door is walled up (front shutter only) */ const cb = BUILDINGS[BUILDINGS.length - 1]; cb.civic = true; cb.noLoot = true; cb.fur = null;
     cb.shutter = { x0: cb.x - 1.65, x1: cb.x + 1.65, z0: cb.z + cb.d / 2 - TH, z1: cb.z + cb.d / 2, y0: cb.fy, y1: cb.fy + 3.1, k: 'shutter', open: false }; cb.solids.push(cb.shutter); }
 }
+/* v622 THREE NEW TOWNS (24 two-storey buildings, mixed kinds and sizes, doors to the street): SOUTH-WEST (a street along x = -190), NORTH-WEST (x = -207) and EAST (x = 205), each two columns of four with a ~24 m street between and 4-8 m alleys. */
+export const TOWNS = [{ n: 'sw', x0: -240, z0: 150, x1: -140, z1: 246 }, { n: 'nw', x0: -244, z0: -246, x1: -165, z1: -140 }, { n: 'e', x0: 170, z0: -32, x1: 246, z1: 66 }];
+{ const KS = [['flat2', 16, 12], ['mall2', 18, 13], ['office2', 16, 12], ['duplex2', 14, 11], ['office2', 17, 12], ['flat2', 16, 12], ['duplex2', 15, 11], ['mall2', 18, 13]];
+  const TC = ['#d9d4c7', '#c3ced4', '#e3d3b8', '#b4c0b6', '#dcc1b0', '#cfd3c6', '#c9b8a6', '#d6dde0'], TR = ['#5d5f66', '#7a3f2e', '#4c5560', '#6b4a3a'];   /* a modern pastel palette so no two neighbours look alike */
+  const col = (cx, zs, front, k0) => zs.forEach((z, i) => { const [kind, w, d] = KS[(k0 + i) % KS.length]; mk(kind, cx, z, w, d, front, { c: TC[(k0 * 3 + i * 5 + (cx < 0 ? 1 : 0)) % TC.length], rc: TR[(k0 + i) % TR.length] }); });
+  col(-215, [161, 185, 209, 233], 'E', 0); col(-165, [161, 185, 209, 233], 'W', 3);   // south-west
+  col(-225, [-232, -208, -184, -160], 'E', 1); col(-189, [-232, -208, -184, -160], 'W', 5);   // north-west
+  col(184, [-18, 6, 30, 54], 'E', 2); col(226, [-18, 6, 30, 54], 'W', 6);   // east
+}
+export const FIXED_BUILDINGS = BUILDINGS.length;   // v622: how many buildings are hand-placed (the random scatter below comes after them)
 // ---- more town: houses, shops, flats and sheds scattered over the open ground, mostly beside the roads (concrete country, not meadows)
 { const RX = seeded(777), kinds = [['house', 10, 9], ['house', 11, 9], ['shop', 12, 9], ['apart', 16, 12], ['warehouse', 22, 18], ['cabin', 8, 7], ['shack', 6, 5], ['house', 10, 9], ['shop', 14, 10]], fr = ['N', 'S', 'E', 'W'];
-  for (let tries = 0, n = 0; n < 48 && tries < 6000; tries++) {
+  for (let tries = 0, n = 0; n < 34 && tries < 6000; tries++) {   // v622: 48 -> 34 scattered buildings (the 24 new town buildings replace them: the map does not get heavier)
     const [kind, w, d] = kinds[Math.floor(RX() * kinds.length)], x = Math.round((RX() * 2 - 1) * (H - 50)), z = Math.round((RX() * 2 - 1) * (H - 50)), m = 7;
     const dr = distRoad(x, z); if (dr < Math.max(w, d) / 2 + 3 || dr > 38 || Math.abs(x - riverX(z)) < 24 || inField(x, z, 12)) continue;
+    if (HILLS.some((q) => Math.hypot(x - q[0], z - q[1]) < q[3] * 1.3 && q[2] > 10) || TOWNS.some((q) => x > q.x0 - 10 && x < q.x1 + 10 && z > q.z0 - 10 && z < q.z1 + 10)) continue;   /* v622: no scattered houses on a new hill or inside a new town */
     if (x > 100 && x < 240 && z > -205 && z < -84) continue; if (x > BRIDGE.xb - 14 && x < BRIDGE.xa + 14 && Math.abs(z - BRIDGE.z) < 16) continue;
     if (BUILDINGS.some((o) => Math.abs(o.x - x) < (o.w + w) / 2 + m && Math.abs(o.z - z) < (o.d + d) / 2 + m)) continue;
     const h0 = rawH(x, z); if (h0 < 1.5 || h0 > 24) continue; let flat = true; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) if (Math.abs(rawH(x + sx * w / 2, z + sz * d / 2) - h0) > 1.1) flat = false; if (!flat) continue;
@@ -558,14 +584,14 @@ function build() {
   /* v565 TALL-GRASS PATCHES (PUBG hiding grass): ~12 round patches of waist-high grass on gentle meadow ground; a CROUCHING or PRONE player inside one is hard to see (the grass is drawn in battlemap.js, the bots see a prone player in it only from a few metres: see grassHide).  Own random numbers. */
   const grass = []; { const RG = seeded(5641);
     /* v579: every patch is 6x BIGGER in area (radius x 2.45: 20 - 29 m) and the dry river bed gets 6 patches 7x the old size (radius 26) */
-    const GK = 2.45;
+    const GK = 2.45, GSP = 6;   /* v622: none sits in the open ground between the military hill and the east town: the grass is thousands of triangles per patch and that view already holds the most */
     /* v582: the river bed is no longer 6 round patches: it is one long strip (inRiverGrass, see above) */
     for (let tries = 0; tries < 30000 && grass.length < 12; tries++) {
       const r = (8 + RG() * 4) * GK, x = Math.round((RG() * 2 - 1) * (H - 45)), z = Math.round((RG() * 2 - 1) * (H - 45)), h0 = rawH(x, z);
-      if (h0 < 0.8 || h0 > 24 || distRoad(x, z) < r * 0.5 + 4 || Math.abs(x - riverX(z)) < r + 14 || inField(x, z, r * 0.6 + 6) || onPad(x, z, r * 0.6 + 3) || (x > FB.x0 - r * 0.6 - 8 && x < FB.x1 + r * 0.6 + 8 && z > FB.z0 - r * 0.6 - 8 && z < FB.z1 + r * 0.6 + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
+      if (h0 < 0.8 || h0 > 24 || (x > 90 && x < 205 && z > 15 && z < 125) || distRoad(x, z) < r * 0.5 + 4 || Math.abs(x - riverX(z)) < r + 14 || inField(x, z, r * 0.6 + 6) || onPad(x, z, r * 0.6 + 3) || (x > FB.x0 - r * 0.6 - 8 && x < FB.x1 + r * 0.6 + 8 && z > FB.z0 - r * 0.6 - 8 && z < FB.z1 + r * 0.6 + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
       let flat = true; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (Math.abs(rawH(x + a * r * 0.5, z + b * r * 0.5) - h0) > 3.2) flat = false; if (!flat) continue;
       if ([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => fbm((x + a * r * 0.5) * 0.013 + 40, (z + b * r * 0.5) * 0.013 - 17, 91, 3) > 0.45)) continue;   /* only on GREEN ground (the map paints grey concrete where this noise is high) */
-      if (grass.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + 6)) continue; grass.push({ x, z, r }); }
+      if (grass.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + GSP)) continue; grass.push({ x, z, r }); }
  }
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
@@ -585,7 +611,8 @@ function build() {
   const CELL = 6; let treeN = 0, treeKeep = 0;
   for (let gx = -H + 14; gx < H - 14; gx += CELL) for (let gz = -H + 14; gz < H - 14; gz += CELL) {
     const x = gx + R() * CELL, z = gz + R() * CELL, f = fbm(x * 0.011 + 5, z * 0.011 - 3, 41, 3), dr = Math.abs(x - riverX(z));
-    let p = smooth(0.40, 0.60, f) * 0.95 + 0.05 + (dr > 14 && dr < 44 ? 0.2 : 0); p *= 0.14; if (R() > p) continue;
+    let p = smooth(0.40, 0.60, f) * 0.95 + 0.05 + (dr > 14 && dr < 44 ? 0.2 : 0); p *= 0.14; { let hb = 0; for (let hi = 0; hi < HILLS.length; hi++) { const q = HILLS[hi]; if (q[2] > 10) hb = Math.max(hb, Math.exp(-(((x - q[0]) ** 2 + (z - q[1]) ** 2) / (2 * (q[3] * 1.5) ** 2)))); } const rim = Math.max(Math.abs(x), Math.abs(z)); p *= 1 + hb * 0.8 + (rim > 195 ? 0.45 : 0); }   /* v622 FOREST BELTS: the new hills' flanks and the outer ring of the map get about 1.5 x the trees (cover on the way up and round the edge; kept modest so the drawn triangles do not rise) */
+    if (R() > p) continue;
     if (distRoad(x, z) < 4 || onPad(x, z, 9) || inField(x, z, 4) || (x > BRIDGE.xb - 8 && x < BRIDGE.xa + 8 && Math.abs(z - BRIDGE.z) < 9)) continue;
     if (x > FB.x0 - 2 && x < FB.x1 + 2 && z > FB.z0 - 2 && z < FB.z1 + 2) continue;
     const gy = cmbH(x, z); if (gy < -0.2) continue;
@@ -645,6 +672,7 @@ function build() {
   for (const b of BUILDINGS) {
     if (b.noLoot) continue;
     if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; const s2 = b.stairRect2; if (s2 && x > b.x + s2.x0 - 2 && x < b.x + s2.x1 + 2 && z > b.z + s2.z0 - 2 && z < b.z + s2.z1 + 2) continue; addY(x, z, y2); } }
+    if (b.stairModel && (b.kind === 'office2' || b.kind === 'mall2')) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[0.5, 0.55], [-0.3, 0.6]]) addY(b.x + sx * (b.w / 2 - 3), b.z + sz * (b.d / 2 - 3), yr); }   /* v622: the roofs of the new offices and malls carry loot (the stair brings you up to them) */
     if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
   }
   for (const t of wtowers) spots.push({ x: t.x, z: t.z, y: t.fy, w: 1 });   /* v564: every watch tower cabin holds a weapon (a rifle, a sniper...) */

@@ -1,7 +1,7 @@
 // v213: the drivable JEEPS of the Jang battle island. Like PUBG, the vehicles are not in the same place every match: a few random spots beside the roads, close to the stations
 // (town centre, the military base, the container yard, the bridge, the farm...) are used, so you have to look for one. Same Jeep as the city: 4 seats, full driving physics.
 import { ROADS, CMB, cmbH, layout, hitsSolid } from './combat.js';
-const SPOTS = [[0, 2], [0, 4], [0, 7], [1, 2], [1, 4], [2, 1], [3, 1], [4, 1], [5, 2], [6, 2], [8, 1], [9, 1]];   // [road, point]: along the main roads and tracks
+const SPOTS = [[0, 2], [0, 4], [0, 7], [1, 2], [1, 4], [2, 1], [3, 1], [4, 1], [5, 2], [6, 2], [8, 1], [9, 1], [11, 2], [12, 2], [13, 1]];   // v622: + the three new town roads   // [road, point]: along the main roads and tracks
 function spawnAt(n, seed, id, extra, avoid) {   // v607: the shared spot picker (jeeps and dirt bikes): never two vehicles within 9 m of each other
   let sd = seed | 0; const rnd = seed ? () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } : Math.random;   // v240: a room seed = the SAME jeeps in the SAME places for every player of the match
   const pool = SPOTS.slice(), out = [];
