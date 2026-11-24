@@ -16,6 +16,7 @@ const FACIAL = [{ height: 1.78 }, { height: 1.81 }, { height: 1.76 }, { height: 
 
 import { av } from './assetver.js';
 const cache = new Map();
+const CAMO_C = new THREE.Color(0.40, 0.56, 0.26);   /* v627: the grass green the soldier blends into while hiding */
 const BAG_TINT = ['#ffffff', '#b9c9a8', '#8e949c', '#d8b98a'], BAG_MAT = new Map(), BAG_Z = 0.12;   /* v258: backpack colour per character (desert camo, green, grey, sand) */
 export function loadGlb(url) {
   if (!cache.has(url)) cache.set(url, track(new Promise((res, rej) => mkLoader().load(av(url), res, undefined, rej)), 'CHARACTERS'));
@@ -221,6 +222,13 @@ export class GlbActor extends HeroActor {
       const mesh = new THREE.Mesh(mergeGeometries(gs, false), mat); mesh.frustumCulled = false; mesh.castShadow = false; mesh.visible = false; bone.add(mesh); this.ghM.push(mesh); }
     this._ghS = null; return true;
   }
+  /* v627 CAMOUFLAGE: while the grass cloak grows (crouched / prone in tall grass) the soldier's own colours (skin, uniform, vest, helmet, pack - the military skin too) blend into the grass green, and blend back when he stands up. The materials are shared between soldiers, so each actor makes its own copies the FIRST time it hides (a few small clones, once); after that only the colour numbers move, and only while the blend is changing. Nothing is touched while standing. */
+  camoUpdate(k) {
+    if (!this._camo) { this._camo = []; const gun = this.ch && this.ch.gun, skip = (o) => { for (let p = o; p; p = p.parent) { if (p === gun) return true; if (this.ghM && this.ghM.includes(p)) return true; } return false; }, made = new Map();
+      this.group.traverse((o) => { if (!o.isMesh || Array.isArray(o.material) || !o.material || !o.material.color || skip(o)) return; let m = made.get(o.material); if (!m) { m = o.material.clone(); made.set(o.material, m); this._camo.push({ m, c0: m.color.clone() }); } o.material = m; }); }
+    const kk = k > 0.01 ? Math.min(1, k) : 0, a = kk * 0.82; if (Math.abs(a - (this._camoA || 0)) < 0.004 && kk > 0) return; this._camoA = a; this._camoK = kk > 0 ? 1 : 0;
+    for (const e of this._camo) { e.m.color.copy(e.c0); if (a > 0) e.m.color.lerp(CAMO_C, a); }
+  }
   // a backpack on the back, parented to the chest bone so it moves with every animation (one merged mesh = one draw call)
   addPack(chestBone, rightL, shell) {
     shell.updateMatrixWorld(true); const up = new THREE.Vector3(0, 1, 0), fwdW = new THREE.Vector3().crossVectors(up, rightL.setY(0).normalize()).transformDirection(shell.matrixWorld).setY(0).normalize();
@@ -240,7 +248,7 @@ export class GlbActor extends HeroActor {
     super.update(dt, st);
     if (!this.ready) { this.ch.gun.visible = false; return; }
     if (!this.ghM && this._ghS && st && st.ghillie) this.ghilliMake();
-    if (this.ghM) { const tg = st && st.ghillie ? 1 : 0; this._gk += (tg - this._gk) * Math.min(1, dt * 4); const k = this._gk; for (const m of this.ghM) { m.visible = k > 0.03; if (m.visible) m.scale.setScalar(Math.max(0.05, k)); } }
+    if (this.ghM) { const tg = st && st.ghillie ? 1 : 0; this._gk += (tg - this._gk) * Math.min(1, dt * 4); const k = this._gk; for (const m of this.ghM) { m.visible = k > 0.03; if (m.visible) m.scale.setScalar(Math.max(0.05, k)); } if (k > 0.03 || this._camoK > 0) this.camoUpdate(k); }
     const rt = this.rt, b = this.ch.bones;
     if (this.shellY0 === undefined) this.shellY0 = this.shell.position.y; this.shell.position.y = this.shellY0 + (this.liftY || 0);
     this.shell.rotation.x = this.ch.group.rotation.x; this.shell.rotation.y = this.ch.group.rotation.y;   // knocked flat (and rolling)
