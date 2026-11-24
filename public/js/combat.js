@@ -333,6 +333,16 @@ export const ROADS = [
 ];
 const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 1 < r.pts.length; i++) a.push([r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w]); return a; };
 const ROADSEGS = segsOf();
+/* v621 MEADOW GRASS COVER: the swaying meadow grass that is drawn all over the map (battlemap.js grassCell: not on roads, building sites, fields, concrete or steep slopes, thicker and taller where fbm 'd' is high) used to give NO cover, so a prone player in it stayed visible at any distance while the patches and the river bed hid him. Same ground test as the drawing (d >= 0.42 = the taller half), answered per 1 m square and remembered. PRONE only: crouching in 0.3 - 0.5 m blades hides nothing. Same answer for bots, other players and the picture, whatever the GPU managed to draw. */
+const MG = new Map();
+const concG = (x, z) => { const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95); };
+export function meadowGrass(x, z) {
+  const cx = Math.floor(x), cz = Math.floor(z), k = (cx + 2048) * 4096 + (cz + 2048); let v = MG.get(k);
+  if (v === undefined) {
+    if (MG.size > 8000) MG.clear(); const px = cx + 0.5, pz = cz + 0.5, y = cmbH(px, pz);
+    v = y >= -0.1 && y <= 36 && Math.abs(px) < CMB.half - 8 && Math.abs(pz) < CMB.half - 8 && distRoad(px, pz) >= 1.6 && !onPad(px, pz, 2.5) && !inField(px, pz) && concG(px, pz) <= 0.3 && Math.hypot(cmbH(px + 1.5, pz) - y, cmbH(px, pz + 1.5) - y) <= 0.75 && fbm(px * 0.04, pz * 0.04, 91, 2) >= 0.42; MG.set(k, v); }
+  return v;
+}
 export function distRoad(x, z) {
   let best = 1e9;
   for (let i = 0; i < ROADSEGS.length; i++) {
@@ -653,7 +663,7 @@ function build() {
   const L = {
     headFix,
     wtowers,
-    grass, grassHide(x, z, stn) { if (!(stn >= 1)) return Infinity; if (inRiverGrass(x, z)) return stn === 2 ? 7 : 20; for (const g of grass) { const dx = x - g.x, dz = z - g.z; if (dx * dx + dz * dz < g.r * g.r * 0.8) return stn === 2 ? 7 : 20; } return Infinity; },   // v565: how far a bot can see this player: Infinity = the normal range; lying / crouching in tall grass = only a few metres
+    grass, grassHide(x, z, stn) { if (!(stn >= 1)) return Infinity; if (inRiverGrass(x, z)) return stn === 2 ? 7 : 20; for (const g of grass) { const dx = x - g.x, dz = z - g.z; if (dx * dx + dz * dz < g.r * g.r * 0.8) return stn === 2 ? 7 : 20; } if (stn === 2 && meadowGrass(x, z)) return 14; return Infinity; },   /* v621: lying in the ordinary meadow grass: a bot sees you only from 14 m */   // v565: how far a bot can see this player: Infinity = the normal range; lying / crouching in tall grass = only a few metres
     zip, ladders: towers.flatMap((t) => t.lads.map((q) => ({ ...q, tw: t }))), solids, trees, rocks, props, fences, buildings: BUILDINGS, roads: ROADS, bridge: BRIDGE, towers, spots, spawns, base: FB, bucket, cbucket, B,
     get crates() { return outside; },
     get nav() { if (nav) return nav; const CS = 2, N = Math.round(2 * H / CS), cell = (i) => -H + (i + 0.5) * CS, free = new Uint8Array(N * N); for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const x = cell(i), z = cell(j); free[i * N + j] = cmbH(x, z) > -0.5 && open(x, z, 0.5) ? 1 : 0; }
