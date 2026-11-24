@@ -1123,5 +1123,9 @@ export class CombatSim {
     for (const q of PL) { if (!q.alive || (n.dtm !== undefined && q.tm === n.dtm)) continue; const d = Math.hypot(q.x - n.x, q.z - n.z); if (d >= r) continue; if (q.y !== undefined && Math.abs(q.y - cmbH(n.x, n.z)) > 3) continue; if (d > 1.5 && !los(this.L, n.x, n.z, q.x, q.z)) continue; this.events.push({ k: 'nbang', x: n.x, z: n.z, tp: q.id, dmg: Math.round(99 * Math.max(0.12, 1 - 0.88 * Math.max(0, d - 1) / Math.max(1, r - 1))) }); } }
   drain() { const e = this.events; this.events = []; return e; }
 }
+/* v626 SURFACE under a foot (map-local x, z): 0 grass, 1 concrete / asphalt, 2 wood, 3 metal. Inside a building the floor depends on its kind; the bridge deck is wood; roads, building pads and the grey concrete ground are concrete. One short loop over the buildings, only called when a step is heard (a few times a second). */
+const WOOD_K = new Set(['house', 'cabin', 'shack', 'shop', 'kiosk', 'church', 'duplex2', 'barn']), METAL_K = new Set(['hangar', 'warehouse']);
+export const inBld = (x, z) => { for (let i = 0; i < BUILDINGS.length; i++) { const o = BUILDINGS[i]; if (x > o.x - o.w / 2 && x < o.x + o.w / 2 && z > o.z - o.d / 2 && z < o.z + o.d / 2) return o; } return null; };
+export const surfaceAt = (x, z) => { const o = inBld(x, z); if (o) return METAL_K.has(o.kind) ? 3 : WOOD_K.has(o.kind) ? 2 : 1; if (onDeck(x, z)) return 2; if (distRoad(x, z) < 3.4) return 1; return concG(x, z) > 0.75 ? 1 : 0; };   // (0.75: only ground that is clearly grey; the blend zones sound like grass)
 // v269: the CIVIC DA GARAGE shutter: open = the solid is pushed far below the ground (nothing hits it, cars drive through); closed = it fills the doorway again
 export function setShutter(b, open) { const s = b && b.shutter; if (!s) return; if (s.oy1 === undefined) { s.oy0 = s.y0; s.oy1 = s.y1; } s.open = !!open; s.y0 = open ? -9999 : s.oy0; s.y1 = open ? -9998 : s.oy1; s._cb = null; if (s._ws) s._ws.active = !open; }

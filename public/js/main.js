@@ -12,7 +12,7 @@ import { newBody, stepBody, knock, respawn } from './physics.js';
 import { P } from './world.js';
 import { Character, makeNameTag } from './characters.js';
 import { HeroActor } from './actor.js';
-import { botCount as cmbBotCount, layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid, bulletK, underRoof } from './combat.js';
+import { botCount as cmbBotCount, layout as cmbLayout, CMB, TW, BRIDGE, onDeck as cmbOnDeck, vaultSpot, cmbH as cmbHt, setShutter, hitsSolid as cmbHitsSolid, bulletK, underRoof, surfaceAt as cmbSurface } from './combat.js';
 const CAMK = new Set(['wall', 'roof', 'floor', 'cliff', 'ruin', 'crate', 'sandbag', 'container', 'tower']);   // v305: solids the third-person camera must not enter
 import { isJangSet, makeHero, makeSkin, setJangSet } from './glbactor.js';
 import { cityVeh, STYLE_GEO } from './cityveh.js';
@@ -607,7 +607,7 @@ class Race {
     if (this._slide && !this.drive) { this.stepDist = 0; this._slT = (this._slT || 0) - dt; if (this._slT <= 0 && Math.hypot(b.vx, b.vz) > 3) { this._slT = 0.42; try { A.sfx.swing(false); } catch (e) { /* noop */ } } }   /* v596: no footsteps on the way down, a rope-slide whoosh */
     else if (b.grounded && !b.stun && !this.drive && !(b.swim > 0.3)) {
       this.stepDist += Math.hypot(b.vx, b.vz) * dt;
-      if (this.stepDist > 2.4) { this.stepDist = 0; if (Math.hypot(b.vx, b.vz) > 3) { A.sfx.step(b.x > -232 && b.x < -98 && b.z > 489 && b.z < 552 ? 'w' : b.y > 0.45 ? 'g' : 'c'); this.particles.emit(b.x, b.y + 0.05, b.z, 2, { color: '#ffffff', speed: 0.8, up: 0.8, life: 0.35, size: 0.22, gravity: 1 }); } }
+      if (this.stepDist > 2.4) { this.stepDist = 0; if (Math.hypot(b.vx, b.vz) > 3) { if (this.jang) A.stepAt(cmbSurface(b.x - CMB.x, b.z - CMB.z), 0.35 + Math.random() * 0.15); else A.sfx.step(b.x > -232 && b.x < -98 && b.z > 489 && b.z < 552 ? 'w' : b.y > 0.45 ? 'g' : 'c'); this.particles.emit(b.x, b.y + 0.05, b.z, 2, { color: '#ffffff', speed: 0.8, up: 0.8, life: 0.35, size: 0.22, gravity: 1 }); } }
     }
 
     // ---- local model
@@ -773,7 +773,7 @@ class Race {
       else if (boatV && !force && Math.abs(st.speed) > 2) { st.driver = -1; st.parked = false; if (!this.rolling.includes(c)) this.rolling.push(c); }
       else if (!force) { st.vx = st.vz = st.speed = 0; st.driver = -1; st.parked = true; }
       this.drive = null; this.paxMode = false; this.paxSeat = 0; if (this.paxLbl) this.paxLbl.style.display = 'none';
-      if (bail) try {   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
+      if (bail && !this.jang) try {   /* v626: JANG: you jump off a moving vehicle onto your feet (no tumble, no stun, no damage): the vehicle keeps rolling; crashes still throw you out */   // thrown out like being hit by a car: carried by the car's speed, tumbles and gets up
         const l = Math.hypot(vx0, vz0) || 1; b.hitCd = 0; b.immune = 0;
         if (knock(b, vx0 / l * 0.85 + lx * 0.5, vz0 / l * 0.85 + lz * 0.5, Math.min(12, 3 + sp0 * 0.32))) { b.vy = 2.6 + Math.min(2.4, sp0 * 0.07); b.stun = Math.min(2.8, 1.5 + sp0 * 0.045); A.crashSfx(Math.min(9, 3 + sp0 * 0.2)); this.shake = Math.max(this.shake || 0, 0.35); this.hurtFx(Math.min(1, sp0 / 14)); this.particles.emit(b.x, b.y + 0.4, b.z, 10, { color: '#d8d2c4', speed: 3, up: 2, life: 0.5, size: 0.4 }); }
       } catch (e) { console.warn(e); }

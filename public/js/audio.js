@@ -128,6 +128,28 @@ export const voice = {
   zdie(vol = 0.9, pan = 0, far = 0) { return play('u_zdie', vol, rnd(0.9, 1.1), 0, pan, far > 0.3 ? 3000 : 0, 0.1); },
 };
 
+/* v626 WORLD SOUND, all made in code (no files to download): a metal footstep (a short bright noise tick + a quiet ring), the surface step for any ground (0 grass, 1 concrete, 2 wood, 3 metal), the far-gunshot echo, and a quiet wind loop with now-and-then bird chirps. Costs: a step = 1 sample voice (metal: 2 tiny nodes); the echo = 1 voice, at most ~6 a second; the ambience = ONE looping source + 1 filter + 1 oscillator, always, and a chirp (2-4 tiny oscillators) every 5 - 13 s. */
+function metalStep(vol) { if (!ctx || !noiseBuf || active > 60) return; noise(0.06, vol * 0.5, 'bandpass', 4200, 2600, 0, 5); tone('triangle', rnd(900, 1150), 620, 0.11, vol * 0.14); }
+export function stepAt(sf, vol = 0.4, pan = 0, lp = 0, bk = 0) {
+  if (sf === 3) { metalStep(vol); return; }
+  play((sf === 0 ? 'fsg' : sf === 2 ? 'fsw' : 'fsc') + (Math.random() * 4 | 0), vol, rnd(0.9, 1.1), 0, pan, lp, 0, bk);
+}
+export function echoShot(w, vol, pan, delay) { play(w === 'ak' ? 'u_ak1' : w === 'sniper' ? 'u_sniper' : 'u_pistol', Math.max(0.05, vol * 0.3), 0.88, delay, pan * 0.6, 1500, 0.6); }
+let ambG = null, birdAt = 0;
+export function ambSet(level, birds) {   // level 0..1 = how much wind (0 = off: indoors-quiet / not in a match); birds: allowed now
+  if (!ctx || !noiseBuf) return;
+  const t = ctx.currentTime;
+  if (!ambG) {
+    if (level <= 0.01) return;
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.playbackRate.value = 0.5;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 480; f.Q.value = 0.6;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 170; lfo.connect(lg); lg.connect(f.frequency);   // the wind swells and fades slowly
+    ambG = ctx.createGain(); ambG.gain.value = 0; s.connect(f); f.connect(ambG); ambG.connect(sfxG); s.start(); lfo.start();
+  }
+  ambG.gain.setTargetAtTime(0.045 * Math.max(0, level), t, 0.7);
+  const now = performance.now();
+  if (birds && level > 0.5 && now > birdAt) { birdAt = now + rnd(5000, 13000); const n = 2 + (Math.random() * 3 | 0), f0 = rnd(2500, 3600), pn = rnd(-0.6, 0.6); for (let k = 0; k < n; k++) tone('sine', f0 * rnd(0.95, 1.1), f0 * rnd(1.25, 1.5), 0.07, 0.03, k * 0.11); void pn; }
+}
 export const sfx = {
   click() { play('ui_click', 0.7); },
   roar(big = 1) { play('boom1', 0.5, big ? 0.42 : 0.6, 0, 0, 700); },
