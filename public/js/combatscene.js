@@ -66,7 +66,7 @@ const PVP_SCALE = 1;   /* v563 PUBG damage model: a player hit takes the real PU
 
 let TR_GEO = null, TR_MAT = null;
 const IS_PHONE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent), IS_ANDR = /Android/i.test(navigator.userAgent), BOT_VIS2 = (IS_ANDR ? 190 : IS_PHONE ? 230 : 330) ** 2, BOT_MID2 = (IS_ANDR ? 40 : 70) ** 2;   /* v471: Android: bots are drawn up to 190 m and animated at a quarter of the rate beyond 40 m */   // bots: not drawn beyond this (m, squared) / animated at a third of the rate beyond 70 m
-const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 70 : 85) ** 2;   // v513: laptop 85 m (was 120): every gun on the ground is ~12 draws   // loot is drawn only this close (metres, squared)
+const LOOT_VIS2 = (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 46 : 64) ** 2;   /* v629: twice the items on the map, so each is drawn a little nearer (phone 70 -> 46 m, laptop 85 -> 64 m): the draw calls near a busy place stay about what they were */   // v513: laptop 85 m (was 120): every gun on the ground is ~12 draws   // loot is drawn only this close (metres, squared)
 // Shared loot parts (v221, P4): every crate / pill / ring of the same kind uses ONE material and ONE geometry, so the phone keeps a few dozen GPU objects instead of hundreds.
 const _SH = new Map(), _TINT = new Map(), _TINTD = new Map();   // _TINT: the red enemy tint is made once per soldier material, not once per bot
 const GEO = (k, ...a) => { const id = k + a.join(','); let g = _SH.get(id); if (!g) { g = new THREE[k + 'Geometry'](...a); _SH.set(id, g); } return g; };

@@ -847,9 +847,10 @@ export function findPath(L, ax, az, bx, bz) {
 /* v604 PUBG FRAG GRENADE (patch notes, Update 14): lethal damage within 3.5 m, moderate 3.5-8.5 m, light 8.5-10 m. 100 = a full-health player dies; a vest takes 40% off, a helmet does nothing, prone takes 20% less. */
 export const FRAG_REACH = 10;
 export const fragDmg = (d) => (d <= 3.5 ? 100 : d <= 8.5 ? 60 - 40 * (d - 3.5) / 5 : d <= 10 ? 20 - 12 * (d - 8.5) / 1.5 : 0);
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'vest', 'helmet', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
 export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
-export const LOOT_COUNT = 110, LOOT_RESPAWN = 22;
+export const LOOT_COUNT = 220, LOOT_RESPAWN = 22;   /* v629: twice the items (was 110) and every building gets some: see seedLoot() */
+const LOOT_FAR = { vest: 45, helmet: 45, sniper: 70, ak49: 45, sscope: 35, scope: 35, molotov: 35 };   /* v629: the same RARE item is never closer than this (m) to another one of its kind; everything else keeps at least 12 m from its own kind */
 
 // ---- the match: bots + loot + score (map-local coordinates; the scene adds CMB.x / CMB.z)
 const BOTK = { easy: 0.2, medium: 0.27, hard: 0.45 };   // v563: how much of a real PUBG bullet a bot's bullet is (AI difficulty); v585 hard 0.36 -> 0.45
@@ -881,7 +882,7 @@ export class CombatSim {
   constructor(seed = 1, nBots = 8) {
     this.L = layout(); this.R = seeded(seed >>> 0 || 1); this.t = 0; this.events = []; this.kills = 0; this.deaths = 0; this.nBots = nBots;
     this.diff = 'medium'; this.nades = []; this.bots = []; for (let i = 0; i < nBots; i++) this.bots.push(this.newBot(i)); for (const b of this.bots) b.skin = this.R() < 0.2; if (this.bots.length > 2 && !this.bots.some((b) => b.skin)) this.bots[this.bots.length >> 1].skin = true;   /* v580: about 1 soldier in 5 carries a MILITARY SKIN in his backpack (at least one always does) */
-    this.loot = []; this.used = new Set(); for (let i = 0; i < LOOT_COUNT; i++) this.spawnLoot(); this.L.spots.forEach((sp, k) => { if (sp.force) { this.used.add(k); this.loot.push({ k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); } });
+    this.loot = []; this.used = new Set(); this.L.spots.forEach((sp, k) => { if (sp.force) { this.used.add(k); this.loot.push({ k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); } }); this.seedLoot();   /* v629: the fixed items (tower sniper, clinic roof) first, so the random ones keep away from them */
     this.Z = makeZone(seed >>> 0 || 1); this.airN = 0; this.airSent = false;   // v251: the bots follow the blue circle, the airdrop plane flies on a schedule
   }
   pick(arr) { return arr[Math.floor(this.R() * arr.length)]; }
@@ -904,12 +905,53 @@ export class CombatSim {
     if (!best.ok && (b.rsT = (b.rsT || 0) + 1) <= 15) return null;   // nobody may see him appear: try again in a second
     rec.push(best); if (rec.length > 6) rec.shift(); return best;
   }
-  spawnLoot(avoid) {
-    const L = this.L; for (let tries = 0; tries < 40; tries++) {
-      const k = Math.floor(this.R() * L.spots.length); if (this.used.has(k)) continue; const s = L.spots[k];
+  /* v629 LOOT, EVENLY: (1) every lootable building gets items (1 for a shack, up to 5 for a big two-storey one, never all in one corner), every watch tower keeps its weapon; (2) the rest goes outside by BEST CANDIDATE (each new item takes, out of 20 random free spots, the one farthest from every item already placed), so the whole island is covered evenly, no empty quarters and no heaps; (3) the KIND of each item is drawn from the loot table but never the same kind within 12 m, and the rare ones (vest, helmet, sniper...) never within 45-90 m of their own kind, so two vests or two helmets never lie next to each other. Everything uses the match's seeded random numbers (same map for every player of a team). */
+  lootGroups() {
+    const L = this.L; if (L._lg) return L._lg; const bs = L.buildings.filter((b) => !b.noLoot), sp = L.spots, bi = new Int16Array(sp.length).fill(-1);
+    for (let k = 0; k < sp.length; k++) { const q = sp[k]; if (q.force) continue; for (let j = 0; j < bs.length; j++) { const b = bs[j]; if (Math.abs(q.x - b.x) < b.w / 2 + 0.2 && Math.abs(q.z - b.z) < b.d / 2 + 0.2) { bi[k] = j; break; } } }
+    return (L._lg = { bs, bi });
+  }
+  lootKind(s, near) {
+    const tbl = s.w ? WEAPON_KINDS : LOOT_KINDS, cnt = {}; for (const k of tbl) cnt[k] = (cnt[k] || 0) + 1;
+    const ks = Object.keys(cnt), w = ks.map((k) => cnt[k]), far = ks.map((k) => LOOT_FAR[k] || 12);
+    for (const o of near) { if (!o.alive || o.spot < 0 || o.gold) continue; const i = ks.indexOf(o.k); if (i < 0 || w[i] === 0) continue; const d = Math.hypot(o.x - s.x, o.z - s.z); if (d < far[i]) w[i] = 0; else if (d < 40) w[i] /= 3; }
+    let tot = 0; for (const x of w) tot += x; if (tot <= 0) return this.pick(tbl);
+    let r = this.R() * tot; for (let i = 0; i < ks.length; i++) { r -= w[i]; if (r < 0) return ks[i]; } return ks[ks.length - 1];
+  }
+  seedLoot() {
+    const L = this.L, sp = L.spots, { bs, bi } = this.lootGroups(), pick = [], taken = new Set(), R = this.R;
+    const dmin = (x, z, list) => { let m = 1e9; for (const k of list) { const q = sp[k], d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < m) m = d; } return Math.sqrt(m); };
+    // 1) the buildings
+    for (let j = 0; j < bs.length; j++) {
+      const b = bs[j], cand = []; for (let k = 0; k < sp.length; k++) if (bi[k] === j) cand.push(k); if (!cand.length) continue;
+      const area = b.w * b.d, fl = b.fl || 1, q = Math.min(cand.length, 1 + (area > 90 ? 1 : 0) + (area > 220 ? 1 : 0) + (fl >= 2 && area > 60 ? 1 : 0)), mine = [];
+      for (let n = 0; n < q; n++) {
+        const wantUp = n === q - 1 && q >= 3 && fl >= 2 && !mine.some((k) => sp[k].y !== undefined) && cand.some((k) => !taken.has(k) && sp[k].y !== undefined);
+        let best = -1, bsx = -1; for (const k of cand) { if (taken.has(k)) continue; if (wantUp && sp[k].y === undefined) continue; const sc = (mine.length ? dmin(sp[k].x, sp[k].z, mine) : 5) + R() * 1.6; if (sc > bsx) { bsx = sc; best = k; } }
+        if (best < 0) break; mine.push(best); taken.add(best); pick.push(best);
+      }
+    }
+    for (let k = 0; k < sp.length; k++) if (bi[k] < 0 && !sp[k].force && sp[k].y !== undefined && !taken.has(k)) { taken.add(k); pick.push(k); }   // 2) every watch tower cabin / roof spot that belongs to no building keeps its weapon
+    // 3) outside: best candidate
+    const out = []; for (let k = 0; k < sp.length; k++) if (bi[k] < 0 && !sp[k].force && sp[k].y === undefined && !taken.has(k)) out.push(k);
+    while (pick.length < LOOT_COUNT && out.length) {
+      let best = -1, bsx = -1; for (let t = 0; t < 20; t++) { const i = Math.floor(R() * out.length), k = out[i]; if (taken.has(k)) continue; const d = dmin(sp[k].x, sp[k].z, pick); if (d > bsx) { bsx = d; best = k; } }
+      if (best < 0) break; taken.add(best); pick.push(best);
+    }
+    // 4) what each one is
+    for (let i = pick.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); const t = pick[i]; pick[i] = pick[j]; pick[j] = t; }
+    for (const k of pick) { const s = sp[k]; this.used.add(k); this.loot.push({ k: this.lootKind(s, this.loot), x: s.x, z: s.z, y: s.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }); }
+  }
+  spawnLoot(avoid) {   // v629: a new item (after a pickup) goes where it is needed most: far from other items, and into a building that has nothing left
+    const L = this.L, { bi } = this.lootGroups(), bc = new Map(); for (const o of this.loot) if (o.alive && o.spot >= 0 && bi[o.spot] >= 0) bc.set(bi[o.spot], (bc.get(bi[o.spot]) || 0) + 1);
+    let best = null, bsx = -1; for (let tries = 0; tries < 30; tries++) {
+      const k = Math.floor(this.R() * L.spots.length); if (this.used.has(k)) continue; const s = L.spots[k]; if (s.force) continue;
       if (avoid && Math.hypot(s.x - avoid.x, s.z - avoid.z) < 8) continue;
-      if (s.force) continue; this.used.add(k); const it = { k: this.pick(s.w ? WEAPON_KINDS : LOOT_KINDS), x: s.x, z: s.z, y: s.y, spot: k, alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); return it;
-    } return null;
+      let md = 40; for (const o of this.loot) { if (!o.alive || o.spot < 0 || o.gold) continue; const d = Math.hypot(o.x - s.x, o.z - s.z); if (d < md) md = d; }
+      const sc = md + (bi[k] >= 0 && !bc.get(bi[k]) ? 25 : 0) + this.R() * 2; if (sc > bsx) { bsx = sc; best = k; }
+    }
+    if (best === null) return null; const s = L.spots[best]; this.used.add(best);
+    const it = { k: this.lootKind(s, this.loot), x: s.x, z: s.z, y: s.y, spot: best, alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); return it;
   }
   // v251: put an item on the ground anywhere (a dead bot's gold box, an airdrop): it vanishes after `life` seconds (0 = stays)
   addLootAt(k, x, z, o = {}) { const it = { k, x, z, spot: -1, alive: true, id: (this._id = (this._id || 0) + 1), nt: this.t + (o.nt || 0), gold: o.gold || 0, am: o.am || 0 }; if (o.life) it.exp = this.t + o.life; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); return it; }
@@ -1021,7 +1063,7 @@ export class CombatSim {
     }
     if (this.pendF) for (let i = this.pendF.length - 1; i >= 0; i--) if (this.t >= this.pendF[i].t) { const sp = this.L.spots[this.pendF[i].k]; this.pendF.splice(i, 1); const it = { k: sp.force, x: sp.x, z: sp.z, y: sp.y, spot: this.L.spots.indexOf(sp), alive: true, id: (this._id = (this._id || 0) + 1) }; this.loot.push(it); this.events.push({ k: 'lootnew', id: it.id }); }
     if (this.pend) for (let i = this.pend.length - 1; i >= 0; i--) if (this.t >= this.pend[i]) { this.pend.splice(i, 1); const it = this.spawnLoot(P0); if (it) this.events.push({ k: 'lootnew', id: it.id }); }
-    if (this.loot.length > LOOT_COUNT + 6) this.loot = this.loot.filter((it) => it.alive);
+    if (this.loot.length > LOOT_COUNT + 60) this.loot = this.loot.filter((it) => it.alive);   /* v629: 225 items + the fixed ones are alive from the start, so the clean-up limit is 60 above the count (it was 6, which would have rebuilt the list every tick) */
     if (this.droidBot) this.droidFollow(PL);
     { const A = this.bots, N = A.length;   /* v534: bots no longer stack on top of each other (in the last circle they all walked to the same spot and stood in one clump): a gentle push apart, never into a wall */
       for (let i = 0; i < N; i++) { const a = A[i]; if (!a.alive || a.droid || a.y != null) continue; for (let j = i + 1; j < N; j++) { const c = A[j]; if (!c.alive || c.droid || c.y != null) continue; const dx = c.x - a.x, dz = c.z - a.z, d2 = dx * dx + dz * dz; if (d2 >= 1.0) continue; const d = Math.sqrt(d2) || 0.01, k = (1.0 - d) * 0.5, ux = d2 < 1e-4 ? 1 : dx / d, uz = d2 < 1e-4 ? 0 : dz / d, ax = a.x - ux * k * Math.min(1, dt * 8), az = a.z - uz * k * Math.min(1, dt * 8), cx = c.x + ux * k * Math.min(1, dt * 8), cz = c.z + uz * k * Math.min(1, dt * 8); if (!hitsSolid(L, ax, az, 0.3, cmbH(ax, az) + 0.6)) { a.x = ax; a.z = az; } if (!hitsSolid(L, cx, cz, 0.3, cmbH(cx, cz) + 0.6)) { c.x = cx; c.z = cz; } } } }
