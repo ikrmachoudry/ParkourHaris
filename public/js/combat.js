@@ -58,8 +58,9 @@ function roadBed(x, z, h) {
   if (BR && Math.abs(z - BR.z) < 16 && x > BR.xb - 62 && x < BR.xa + 62) return h;   // the bridge and its embankments keep their own heights
   let bd = 1e9, bh = 0, bw = 0;
   if (!BGRID) { BGRID = new Map(); for (let i = 0; i < BEDS.length; i++) { const [ax, az, bx, bz, w] = BEDS[i], m = w + 7, c0 = Math.floor((Math.min(ax, bx) - m) / BGC), c1 = Math.floor((Math.max(ax, bx) + m) / BGC), r0 = Math.floor((Math.min(az, bz) - m) / BGC), r1 = Math.floor((Math.max(az, bz) + m) / BGC); for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) { const k = (cx + 4096) * 8192 + (cz + 4096); let a = BGRID.get(k); if (!a) BGRID.set(k, a = []); a.push(i); } } }   /* v472: a spatial grid: the ground height asked for ~millions of times (map, minimap, bots) scanned ALL road pieces each time (33 s of a 76 s start on a laptop = minutes on a phone); now only the few pieces near the point are looked at (same result, same order) */
-  for (const bi of BGRID.get((Math.floor(x / BGC) + 4096) * 8192 + (Math.floor(z / BGC) + 4096)) || NOBED) {
-    const [ax, az, bx, bz, w, ha, hb] = BEDS[bi];
+  const cl = BGRID.get((Math.floor(x / BGC) + 4096) * 8192 + (Math.floor(z / BGC) + 4096)) || NOBED;   /* v620: indexed loops, no array destructuring and no for-of (each one made a throw-away iterator / array: this is called millions of times and the garbage collector froze the game for a moment about once a second) */
+  for (let q = 0; q < cl.length; q++) {
+    const sg = BEDS[cl[q]], ax = sg[0], az = sg[1], bx = sg[2], bz = sg[3], w = sg[4], ha = sg[5], hb = sg[6];
     if (x < Math.min(ax, bx) - w - 7 || x > Math.max(ax, bx) + w + 7 || z < Math.min(az, bz) - w - 7 || z > Math.max(az, bz) + w + 7) continue;
     const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0, d = Math.hypot(x - (ax + t * dx), z - (az + t * dz));
     if (d < bd) { bd = d; bh = ha + (hb - ha) * t; bw = w; }
@@ -69,7 +70,7 @@ function roadBed(x, z, h) {
 }
 function cmbH0(x, z) {
   const raw = roadBed(x, z, rawH(x, z)); let ws = 0, wy = 0, wm = 0;
-  for (const p of PADS) {
+  for (let pi = 0; pi < PADS.length; pi++) { const p = PADS[pi];   // v620: indexed (no throw-away iterator)
     if (x < p.x0 - 9 || x > p.x1 + 9 || z < p.z0 - 9 || z > p.z1 + 9) continue;
     const d = Math.hypot(Math.max(p.x0 - x, 0, x - p.x1), Math.max(p.z0 - z, 0, z - p.z1)); if (d >= 9) continue;
     if (d === 0) return p.y;   // inside a building site: exactly level
@@ -334,7 +335,8 @@ const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 
 const ROADSEGS = segsOf();
 export function distRoad(x, z) {
   let best = 1e9;
-  for (const [ax, az, bx, bz, w] of ROADSEGS) {
+  for (let i = 0; i < ROADSEGS.length; i++) {
+    const sg = ROADSEGS[i], ax = sg[0], az = sg[1], bx = sg[2], bz = sg[3], w = sg[4];
     const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0, d = Math.hypot(x - (ax + t * dx), z - (az + t * dz)) - w / 2;
     if (d < best) best = d;
   }
@@ -690,7 +692,7 @@ export function rayWalls(L, x, z, dx, dz, len, hy = 1.3, yAbs, yAt) {   /* v614:
     const px = x + dx * Math.min(len, k * B * 0.7), pz = z + dz * Math.min(len, k * B * 0.7), ci = Math.floor(px / B), cj = Math.floor(pz / B);
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
       const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
-      for (const s of a) {
+      for (let ai = 0; ai < a.length; ai++) { const s = a[ai];
         const rf = s.k === 'roof' || s.k === 'floor';
         if (yAt) { if (!rf && (s.y1 < rlo - 0.2 || s.y0 > rhi + 0.2)) continue; } else if (rf || s.y1 < y - 0.2 || s.y0 > y + 0.2 || (s.vault && y > s.y1 - 0.3)) continue;   /* v493: a roof parapet / low rail (the 'vault' pieces, 1.1 m) is shot OVER by anyone standing or crouching behind it - before, a standing shooter (gun at 1.3 m) was blocked by the 1.1 m parapet and nobody on a rooftop could hit anything */   /* v444: 0.2 (was 0.4): a window sill (0.95 m) no longer eats the shots of a crouching player */
         let t0 = 0, t1 = best; if (Math.abs(dx) < 1e-9) { if (x < s.x0 || x > s.x1) continue; } else { let p = (s.x0 - x) / dx, q = (s.x1 - x) / dx; if (p > q) { const w = p; p = q; q = w; } t0 = Math.max(t0, p); t1 = Math.min(t1, q); }
@@ -711,19 +713,26 @@ export function terrainBlocked(ax, az, ya, bx, bz, yb) {
   for (let k = 1; k < n; k++) { const t = k / n, dd = t * d; if (dd < 2.5 || dd > d - 1.5) continue; const x = ax + dx * t, z = az + dz * t; if (cmbH(x, z) > ya + (yb - ya) * t - 0.05) return true; }
   return false;
 }
+/* v620: the same ground test for the DRAWING decision (is a bot hidden behind a hill?): a sample every 4 m (at most 40) and the ground must stand 0.15 m ABOVE the line, so it can only ever say 'hidden' when the hill is really in the way (a miss shows the bot, never hides one that can be seen) */
+export function groundBlocks(ax, az, ya, bx, bz, yb) {
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 12) return false; const n = Math.min(40, Math.ceil(d / 4));
+  for (let k = 1; k < n; k++) { const t = k / n, dd = t * d; if (dd < 4 || dd > d - 3) continue; if (cmbH(ax + dx * t, az + dz * t) > ya + (yb - ya) * t + 0.15) return true; }
+  return false;
+}
 // the distance at which a bullet (starting at map-local ox,oz heading fx,fz with height line y(a)) hits the ground, or Infinity
 export function terrainStop(ox, oz, fx, fz, range, yAt) {
   for (let a = 2.5; a < range; a += 2) if (cmbH(ox + fx * a, oz + fz * a) > yAt(a) + 0.3) return a; return Infinity;
 }
-export function shotClear(L, ax, az, bx, bz, ay, by, h0 = 1.3, h1 = 1.3) {
+const SEEN_B = new Set();   // v620: one reusable set (shotClear used to build a new Set on every call)
+export function shotClear(L, ax, az, bx, bz, ay, by, h0 = 1.3, h1 = 1.3, noGround = false) {
   /* v412: an EXACT 3D segment test against every solid on the way (it used to look at a point every 0.5 m: the 0.3 m thick roof parapets and thin walls fell between two points, so bots shot through them and bullets came through the rooftop walls). The first / last 0.45 m are ignored as before (a shooter standing right in a doorway or against a wall). */
-  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.3) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + h0, y1 = (by === undefined ? cmbH(bx, bz) : by) + h1, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = new Set();
-  if (terrainBlocked(ax, az, y0, bx, bz, y1)) return false;
+  const dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz); if (d < 0.3) return true; const B = L.B, y0 = (ay === undefined ? cmbH(ax, az) : ay) + h0, y1 = (by === undefined ? cmbH(bx, bz) : by) + h1, dy = y1 - y0, ST = B * 0.7, n = Math.ceil(d / ST), seen = SEEN_B; seen.clear();
+  if (!noGround && terrainBlocked(ax, az, y0, bx, bz, y1)) return false;
   for (let k = 0; k <= n; k++) {
     const t = Math.min(1, k * ST / d), px = ax + dx * t, pz = az + dz * t, ci = Math.floor(px / B), cj = Math.floor(pz / B);
     for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
       const key = i * 4099 + j; if (seen.has(key)) continue; seen.add(key); const a = L.bucket.get(key); if (!a) continue;
-      for (const s of a) {
+      for (let ai = 0; ai < a.length; ai++) { const s = a[ai];
         let t0 = 0, t1 = 1;
         if (Math.abs(dx) < 1e-9) { if (ax < s.x0 || ax > s.x1) continue; } else { let p = (s.x0 - ax) / dx, q = (s.x1 - ax) / dx; if (p > q) { const w = p; p = q; q = w; } if (p > t0) t0 = p; if (q < t1) t1 = q; }
         if (t0 > t1) continue;

@@ -11,7 +11,7 @@ import { makeWeaponModel } from './weaponmodels.js';
 import * as A from './audio.js';
 import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, shotClear, ballOK, underRoof, gunDamage, zoneOf, GUNS, los, FRAG_REACH, fragDmg } from './combat.js';
+import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, cmbH, cmbG, supportY, hitsSolid, rayWalls, shotClear, groundBlocks, ballOK, underRoof, gunDamage, zoneOf, GUNS, los, FRAG_REACH, fragDmg } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
@@ -794,11 +794,20 @@ export class CombatScene {
         a.g.rotation.set(0, s.yaw, 0); a.g.position.set(CMB.x + s.x, (() => { const c = g0(s.x, s.z); return s.y != null ? Math.max(s.y, c) : c + Math.max(s.alive && s.speed > 0.3 ? Math.max(0, Math.min(0.28, (cmbG(s.x + Math.sin(s.yaw) * 0.5, s.z + Math.cos(s.yaw) * 0.5) - cmbG(s.x, s.z)) * 0.9)) : 0, d2 < 40000 ? gLift(s.x, s.z, s.yaw, s.stn | 0, c) : 0); })(), CMB.z + s.z);   // v516: walking uphill the toes no longer dig in
         const behind = !far && d2 > 1600 && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500) && ((CMB.x + s.x - cmx) * cfx + ((s.y == null ? 0 : s.y) + 1 - cmy) * cfy + (CMB.z + s.z - cmz) * cfz) < -0.1 * Math.sqrt((CMB.x + s.x - cmx) ** 2 + (CMB.z + s.z - cmz) ** 2);   /* v612: a bot more than 40 m away BEHIND the camera is not drawn (its skinned parts are never frustum-culled, so it was drawn: 7-35 draws and 8-20k triangles each, for nothing); the 96-degree limit is far outside the real view */
         const hidG = !far && !behind && s.alive && !s.droid && s.stn >= 1 && this.grassHidden(a, s.x, s.z, s.stn, d2, s.speed || 0, a.shotAt && performance.now() - a.shotAt < 2500);   /* v613 */
-        /* v618 OCCLUSION: a bot more than 30 m away that cannot be seen from the camera - every one of 6 lines (head and chest, centre and 0.45 m to each side) is stopped by a wall, floor, roof or hill - is not drawn (each bot is 7-35 draw calls). Re-tested every 0.15 s; a bot that is shooting at you is always drawn. */
+        /* v618 OCCLUSION: a bot more than 30 m away that cannot be seen from the camera - every one of 6 lines (head and chest, centre and 0.45 m to each side) is stopped by a wall, floor, roof or hill - is not drawn (each bot is 7-35 draw calls). Re-tested every 0.15 s (0.3 s when nobody moved); a bot that is shooting at you is always drawn. */
         let hidO = false; if (!far && !behind && !hidG && d2 > 900 && !s.droid && !this.dropping && !(a.shotAt && performance.now() - a.shotAt < 2500)) {
-          a.occT = (a.occT || 0) - dt; if (a.occT <= 0 || a.occV === undefined) { a.occT = 0.12 + (bi % 5) * 0.01; const ax = cmx - CMB.x, az = cmz - CMB.z, by = a.g.position.y, ddx = s.x - ax, ddz = s.z - az, dl = Math.hypot(ddx, ddz) || 1, px = -ddz / dl * 0.45, pz = ddx / dl * 0.45, L0 = layout(); let seen = false;
-            for (const hh of [1.6, 0.8]) { for (const o of [0, 1, -1]) { if (shotClear(L0, ax, az, s.x + px * o, s.z + pz * o, cmy, by, 0, hh)) { seen = true; break; } } if (seen) break; }
-            a.occV = !seen; }
+          a.occT = (a.occT || 0) - dt; if (a.occT <= 0 || a.occV === undefined) {
+            const ax = cmx - CMB.x, az = cmz - CMB.z, by = a.g.position.y, still = a.occV !== undefined && Math.abs(ax - a.ocx) < 0.4 && Math.abs(az - a.ocz) < 0.4 && Math.abs(cmy - a.ocy) < 0.3 && Math.abs(s.x - a.obx) < 0.4 && Math.abs(s.z - a.obz) < 0.4 && Math.abs(by - a.oby) < 0.3;
+            a.occT = still ? 0.3 : 0.15 + (bi % 5) * 0.01;   /* v620: nobody moved: the last answer stands (a bot that stands still and a camera that stands still are most of a match) */
+            if (!still) {
+              a.ocx = ax; a.ocz = az; a.ocy = cmy; a.obx = s.x; a.obz = s.z; a.oby = by;
+              const ddx = s.x - ax, ddz = s.z - az, dl = Math.hypot(ddx, ddz) || 1, px = -ddz / dl * 0.45, pz = ddx / dl * 0.45, L0 = layout(); let seen = false;
+              if (groundBlocks(ax, az, cmy, s.x, s.z, by + 1.6)) { a.occV = true; }   /* a hill in the way of the head line: hidden (the cheap ground test can only say hidden when it is really there) */
+              else {
+                /* v620: head then chest, centre then 0.45 m to each side, WITHOUT temporary arrays (the ground was tested once above) */
+                for (let hi = 0; hi < 2 && !seen; hi++) { const hh = hi ? 0.8 : 1.6; for (let oi = 0; oi < 3; oi++) { const o = oi === 0 ? 0 : oi === 1 ? 1 : -1; if (shotClear(L0, ax, az, s.x + px * o, s.z + pz * o, cmy, by, 0, hh, true)) { seen = true; break; } } }
+                a.occV = !seen; }
+            } }
           hidO = !!a.occV; } else a.occV = undefined;
         if (far || behind || hidG || hidO) { if (a.g.visible) a.g.visible = false; a.acc = 0; continue; }
         a.m.farLod = !this.R.scoped && d2 > (IS_ANDROID ? 2500 : 6400) && !(s.alive && a.shotAt && performance.now() - a.shotAt < 2500);   // v610
