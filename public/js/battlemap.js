@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover } from './combat.js';
+import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite } from './combat.js';
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -553,22 +553,23 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
       makeInst(cardMat ? farCard : farGg, cardMat || matInst({ roughness: 1, side: THREE.DoubleSide }, new THREE.Vector2(farC - 50, farC), new THREE.Vector2(near - 45, near - 20)), out, farC, false, colFn || ((c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.85 + k * 0.3, 0.9 + (1 - k) * 0.2, 0.8 + k * 0.2); }), undefined, undefined, undefined, cell);
       for (let i = n0; i < VEG.length; i++) VEG[i].userData.near = near - 45 - VEG[i].boundingSphere.radius; };   /* v613: the cones fade IN between near-45 and near-20 m (tufts fade out 25 m before their limit): a smooth swap, and the block test uses the block's radius so no part of a block pops */
     const rg = rngS(564), tIt = [], rIt = [], nT = q === 0 ? 120 : 240, nR = q === 0 ? 24 : 48;
-    pickT(rg, tIt, nT, 9000); pickR(rg, rIt, nR, 6000);
+    const SK = (arr, k) => { for (const it of arr) it.s *= k; return arr; };   /* v631: the user: 'the grass is too big, half the size': meadow tufts and reeds are 0.5 x, the hiding patches 0.6 x (a prone or crouching soldier still disappears in 0.7 - 1.1 m grass) */
+    pickT(rg, tIt, nT, 9000); pickR(rg, rIt, nR, 6000); SK(tIt, 0.5); SK(rIt, 0.5);
     mkGrass(tuft, tIt, q === 0 ? 70 : 110); mkGrass(reed, rIt, q === 0 ? 110 : 160);
-    { const rx = rngS(570), tX = [], rX = []; pickT(rx, tX, Math.round(nT * (MO - 1)), 45000); pickR(rx, rX, Math.round(nR * (MO - 1)), 20000); mkGrass(tuft, tX, (q === 0 ? 70 : 110) * 0.7); mkGrass(reed, rX, (q === 0 ? 110 : 160) * 0.7); }
+    { const rx = rngS(570), tX = [], rX = []; pickT(rx, tX, Math.round(nT * (MO - 1)), 45000); pickR(rx, rX, Math.round(nR * (MO - 1)), 20000); SK(tX, 0.5); SK(rX, 0.5); mkGrass(tuft, tX, (q === 0 ? 70 : 110) * 0.7); mkGrass(reed, rX, (q === 0 ? 110 : 160) * 0.7); }
     /* v565 TALL-GRASS PATCHES (L.grass, made in combat.js): dense waist-high clumps of the same grass model, ~1 m tall so a prone or crouching player disappears in it */
     { const rp = rngS(565), pIt = [], per = q === 0 ? 125 : 215;   /* v627: +25 % tufts in the hiding patches (was 100 / 175) so a prone soldier has no gaps to be seen through */
       /* v579: the patches are 6x (dry river bed: 7x) bigger in area, so they get 3.2x (4.2x) the tufts - a little less dense than before, to keep the frame rate - and every tuft is 12 % bigger */
-      for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nG = Math.round(per * (g.riv ? 4.2 : 3.2)); i < nG && tr < nG * 4; tr++) {
+      for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nG = Math.round(per * (g.riv ? 4.2 : 3.2) * Math.min(1, (g.r / 24) ** 2)); i < nG && tr < nG * 4; tr++) {
         const a = rp() * 6.283, rr = Math.sqrt(rp()) * g.r * 0.96, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rp() < (rr / g.r) ** 3 * 0.8 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
         const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pIt.push({ x, y: y - 0.05, z, s: (1.0 + rp() * 0.3) * 1.12, sx: (1.9 + rp() * 0.5) * 1.12, sy: 1.06 + rp() * 0.18, r: rp() * 6.28 }); }   /* 1.1 - 1.8 m tall (v627: a little taller), 2 - 3 m wide clumps */
-      mkGrass(tuft, pIt, q === 0 ? 60 : 95, undefined, undefined, hideCol);
+      SK(pIt, 0.6); mkGrass(tuft, pIt, q === 0 ? 60 : 95, undefined, undefined, hideCol);
       mkFar(pIt, 3, q === 0 ? 60 : 95, q === 0 ? 240 : 340, 120, hideCol);
       { const rq = rngS(571), pX = [], perX = Math.round(per * (MP - 1));   /* the extra layer: the same places, 4x (laptop) / 2x (phone) more tufts, drawn up to 70 % of the distance */
-        for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2)); i < nX && tr < nX * 4; tr++) {
+        for (const g of (L.grass || []).filter((o) => !o.riv)) for (let i = 0, tr = 0, nX = Math.round(perX * (g.riv ? 4.2 : 3.2) * Math.min(1, (g.r / 24) ** 2)); i < nX && tr < nX * 4; tr++) {
           const a = rq() * 6.283, rr = Math.sqrt(rq()) * g.r * 0.98, x = g.x + Math.cos(a) * rr, z = g.z + Math.sin(a) * rr; if (rq() < (rr / g.r) ** 3 * 0.7 || distRoad(x, z) < 2.5 || onPad(x, z, 2) || inField(x, z, 1) || conc(x, z) > 0.6) continue;
           const y = cmbH(x, z); if (y < (g.riv ? -3.3 : 0.3)) continue; i++; pX.push({ x, y: y - 0.05, z, s: (0.85 + rq() * 0.25) * 1.12, sx: (1.25 + rq() * 0.6) * 1.12, sy: 0.8 + rq() * 0.2, r: rq() * 6.28 });   /* the extra tufts are a little smaller (0.8 - 1.0 m tall, 1.2 - 2 m wide): a dense carpet, but a prone camera is not walled in by one huge leaf */ }
-        mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7, undefined, undefined, hideCol); } }
+        SK(pX, 0.6); mkGrass(tuft, pX, (q === 0 ? 60 : 95) * 0.7, undefined, undefined, hideCol); } }
     /* v582 THE WHOLE DRY RIVER BED IN TALL GRASS (the same dense grass as the patches): one strip 27 m each side of the river line along the whole map, with a few natural bald stretches (riverGap) and a clear 16 m under the bridge deck.
        Phones / weak laptops: fewer tufts per m2 and a shorter draw distance, and the strip is cut into 24 m cells so only the tufts near you are ever drawn (a long strip does not cost more than the old patches did). */
     { const rr = rngS(582), vB = [], vN = [], W = 27, dB = weak ? 0.22 : 0.35, dN = weak ? 0.16 : 0.5;
@@ -577,7 +578,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
           const y = cmbH(x, z); if (y < -3.3) continue; out.push(mk(x, y - 0.05, z)); } } };
       scatter(vB, dB, (x, y, z) => ({ x, y, z, s: (1.0 + rr() * 0.3) * 1.12, sx: (1.9 + rr() * 0.5) * 1.12, sy: 1.0 + rr() * 0.15, r: rr() * 6.28 }));
       scatter(vN, dN, (x, y, z) => ({ x, y, z, s: (0.85 + rr() * 0.25) * 1.12, sx: (1.25 + rr() * 0.6) * 1.12, sy: 0.8 + rr() * 0.2, r: rr() * 6.28 }));
-      mkGrass(tuft, vB, weak ? 60 : 80, null, 24, hideCol); mkGrass(tuft, vN, (weak ? 60 : 80) * 0.7, null, 24, hideCol); mkFar(vB, 5, weak ? 60 : 80, weak ? 200 : 300, 96, hideCol); } }
+      SK(vB, 0.6); SK(vN, 0.6); mkGrass(tuft, vB, weak ? 60 : 80, null, 24, hideCol); mkGrass(tuft, vN, (weak ? 60 : 80) * 0.7, null, 24, hideCol); mkFar(vB, 5, weak ? 60 : 80, weak ? 200 : 300, 96, hideCol); } }
 
   // ---- grass: created cell by cell (50 m) when the player gets close, swaying in the wind
   const grassG = (() => { const gs = [], gr = rngS(3), nb = q === 0 ? 4 : 7; for (let i = 0; i < nb; i++) { const a = i / nb * Math.PI + gr() * 0.5, h = 0.22 + gr() * 0.3, w = 0.045, ox = (gr() - 0.5) * 0.4, oz = (gr() - 0.5) * 0.4, bend = (gr() - 0.5) * 0.18, ca = Math.cos(a), sa = Math.sin(a);
@@ -647,7 +648,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   return { group, update, warm, quality: q, propsOk: !!propDim('ladder'), setRange: (k) => { RK = Math.max(0.5, Math.min(1, k)); }, setFog: (d) => { FOGR = d; } };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
-const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c; };
+const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c * (1 - grassSite(x, z)); };   /* v631: no concrete on the old school site */
 const flags = [], ICONS = [];
 const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
 const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');

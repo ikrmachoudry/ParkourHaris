@@ -435,7 +435,7 @@ class Race {
     }
     this.cars = []; this.rolling = []; this.repairT = 0; this.drive = null; this.paxMode = false; this.lookT = 0; this.nearCar = null; this.hornCd = 0; this.skidT = 0;
     if (info.cars) {
-      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); if (cd.jang) addJangJeepPhoto(mesh); const bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); if (bh) { st0.hl = Math.max(st0.hl || 0, bh.hl - 0.03); st0.hw = Math.max(st0.hw || 0, bh.hw - 0.03); } if (this.cars.length >= 12 && this.cars.length < 16 || this.cars.length >= 24 && cd.id < 23) st0.topCap = 36.1; /* mission cars: 130 km/h */ if (o.jang && cd.id === 33) st0.topCap = 29.2; else if (o.jang && cd.id === 36) st0.topCap = 32.5;   /* v620 (Jang only): the jeep tops out at 105 km/h (was 120) and the dirt bike at 117 km/h (was 139); the engine power, grip and hill pull are NOT touched, so both still climb */ st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
+      for (const cd of info.cars) { const mesh = buildCarMesh(cd.id, IS_TOUCH); if (cd.jang) addJangJeepPhoto(mesh); const bh = bodyHalf(mesh); mesh.rotation.order = 'YXZ'; mesh.position.set(cd.x, cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0), cd.z); mesh.rotation.y = cd.yaw; scene.add(mesh); const st0 = newCar(cd.id, cd.x, cd.z, cd.yaw); if (bh) { st0.hl = Math.max(st0.hl || 0, bh.hl - 0.03); st0.hw = Math.max(st0.hw || 0, bh.hw - 0.03); } if (this.cars.length >= 12 && this.cars.length < 16 || this.cars.length >= 24 && cd.id < 23) st0.topCap = 36.1; /* mission cars: 130 km/h */ if (o.jang) { st0.jang = true; st0.topCap = ({ 33: 26.5, 36: 29.5, 34: 41, 35: 30.5 })[cd.id] || ((cityVeh(cd.id) || { top: 30 }).top * 0.88); }   /* v631 (Jang only): every vehicle a bit slower (jeep 95 km/h, bike 106, Civic 148, Mehran 110; was 105 / 117 / 180 / 125) and st.jang switches off the hill drag (see cityveh.js) */   /* v620 (Jang only): the jeep tops out at 105 km/h (was 120) and the dirt bike at 117 km/h (was 139); the engine power, grip and hill pull are NOT touched, so both still climb */ st0.y = cd.y || (info.track && info.track.terrain ? info.track.terrain(cd.x, cd.z) : 0); this.cars.push({ st: st0, mesh }); }
       this.racerOk = false;
       if (o.multi && app.pendingCars) { this.onCars(app.pendingCars); app.pendingCars = null; }
     }
@@ -680,7 +680,24 @@ class Race {
     this._ra = (this._ra || 0) + (Math.max(-12, Math.min(12, a)) - (this._ra || 0)) * Math.min(1, dt * 6);
     return { s: (st.steer || 0) * Math.min(0.5, 14 / Math.max(1, sp * sp) + 0.04), r: u.roll || 0, a: this._ra, v: Math.abs(sp) };
   }
-  seatModel(g, car, pax, pseat = 0) {
+  /* v631 (Jang): VEHICLES FOLLOW THE GROUND. The old body only pitched with the slope under its centre (no side tilt, nothing for the four wheels), so a car parked on a hillside sank its uphill wheels into the grass. Now the ground is read under the four wheel positions: the body pitches AND rolls to the slope and is lifted until every wheel touches (never below); the driver / passengers are lifted by the same amount (st.vlift). */
+  fitCar(c, dt) {
+    const st = c.st, m = c.mesh, T = this.info && this.info.track && this.info.track.terrain, ud = m.userData; if (!T || (st.id >= 30 && st.id <= 32) || st.sunk || !m.visible) { st.vlift = 0; return; }
+    const cp = this.camera.position; if ((st.x - cp.x) ** 2 + (st.z - cp.z) ** 2 > 90 * 90) { st.vlift = 0; return; }
+    const bike = !!ud.bike, hl = Math.max(0.9, (st.hl || 2.2) * 0.85), hw = bike ? 0 : Math.max(0.5, (st.hw || 0.9) * 0.9), sy = Math.sin(st.yaw), cy = Math.cos(st.yaw);
+    const at = (lat, fw) => { const x = st.x + cy * lat + sy * fw, z = st.z - sy * lat + cy * fw; return T(x, z, st.y + 1); };
+    const hFL = at(-hw, hl), hFR = at(hw, hl), hBL = at(-hw, -hl), hBR = at(hw, -hl);
+    if (!st.air) {
+      const pT = Math.atan(((hFL + hFR) / 2 - (hBL + hBR) / 2) / (2 * hl)), rT = bike ? 0 : Math.atan(((hFR + hBR) / 2 - (hFL + hBL) / 2) / (2 * hw));
+      const k = Math.min(1, dt * 9); st.fitP = (st.fitP || 0) + (pT - (st.fitP || 0)) * k; st.fitR = (st.fitR || 0) + (rT - (st.fitR || 0)) * k;
+      m.rotation.x += (st.pitch || 0) - st.fitP; m.rotation.z += st.fitR;
+    }
+    let lift = 0; const v = new THREE.Vector3();
+    for (const [lat, fw, h] of [[-hw, hl, hFL], [hw, hl, hFR], [-hw, -hl, hBL], [hw, -hl, hBR]]) { v.set(lat, 0, fw).applyEuler(m.rotation); lift = Math.max(lift, h - (m.position.y + v.y)); }
+    st.vlift = Math.max(lift, (st.vlift || 0) - dt * 1.5); st.vlift = Math.min(st.vlift, 1.2); m.position.y += st.vlift;
+  }
+  seatModel(g, car, pax, pseat = 0) { this._seatModel(g, car, pax, pseat); if (car.st.vlift) g.position.y += car.st.vlift; }
+  _seatModel(g, car, pax, pseat = 0) {
     const st = car.st, ud = car.mesh.userData, seat = ud.seat;
     if (ud.bike) {   // a motorbike: the rider straddles it and leans with it (about the road line)
       const roll = ud.roll || 0, h = ud.seatY + (pax ? 0.04 : 0), f = pax && ud.seatPx ? ud.seatPx[Math.min(pseat | 0, ud.seatPx.length - 1)] : ud.seatF - (pax ? 0.62 : 0), sy = Math.sin(st.yaw), cy = Math.cos(st.yaw), lat = -h * Math.sin(roll);
@@ -1116,7 +1133,7 @@ class Race {
     { let under = false; for (const pm of this.poolMeshes) { const p = pm.pl, cp = this.camera.position; if (cp.x > p.x0 && cp.x < p.x1 && cp.z > p.z0 && cp.z < p.z1 && cp.y < p.surf) under = true; } const uw = $('uw'); if (uw && uw.classList.contains('on') !== under) uw.classList.toggle('on', under); }
     setCityCamera(this.camera.position);
     // cars: pose + wheels
-    for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
+    for (const c of this.cars) { c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); if (this.jang) this.fitCar(c, dt); }
     for (const r of this.remotes.values()) if (r.vcar) { const c = r.vcar; c.mesh.position.set(c.st.x, c.st.y, c.st.z); c.mesh.rotation.y = c.st.yaw; animateCar(c.mesh, c.st, dt); }
     // "get in" prompt
     if (this.drive && this.paxMode) {   // my driver left (or lost the connection): I get out too
@@ -1559,7 +1576,14 @@ class Race {
   nadeFlight(x, y, z, tg) {
     const dx = tg.x - x, dz = tg.z - z, d = Math.max(1.5, Math.hypot(dx, dz));
     const T = this.mission && this.mission.cs ? clamp(0.4 + d * 0.02 + Math.max(0, tg.y - y) * 0.06, 0.5, 1.4) : clamp(0.45 + d * 0.03 + Math.max(0, tg.y - y) * 0.07, 0.5, 1.9);   // Jang only: the flat PUBG throw
-    return { T, vx: dx / T, vz: dz / T, vy: (tg.y + 0.07 - y + 0.5 * 18 * T * T) / T };
+    let TT = T;
+    if (this.mission && this.mission.cs && this.world.terrain) {   /* v631 (Jang): HILLS. The flat throw is a plain parabola, so throwing up a slope (or over a crest) the red line ran INSIDE the hill and the real grenade hit the slope right in front of you. The arc now gets higher (longer flight) until every point of it clears the ground by 25 cm; line and throw use this same function. */
+      const TF = this.world.terrain; for (let it = 0; it < 7; it++) {
+        const vyy = (tg.y + 0.07 - y + 0.5 * 18 * TT * TT) / TT; let ok = true;
+        for (let i = 1; i <= 12 && ok; i++) { const u = i / 14 * TT, px = x + dx / TT * u, pz = z + dz / TT * u; if (y + vyy * u - 9 * u * u < TF(px, pz) + 0.25) ok = false; }
+        if (ok) break; TT = Math.min(2.8, TT * 1.14); }
+    }
+    return { T: TT, vx: dx / TT, vz: dz / TT, vy: (tg.y + 0.07 - y + 0.5 * 18 * TT * TT) / TT };
   }
   // one flying grenade (mine = I threw it; the others are simulated the same way from the 'gr' message, so everybody sees it fly, bounce and blow up)
   spawnNade(x, y, z, vx, vy, vz, mine) {
@@ -1629,7 +1653,11 @@ class Race {
     }
     const mk = this.nadeMark; if (!on) { mk.visible = false; this.nadeArc(null); return; }
     const t = this.nadeTarget(), pulse = 1 + Math.sin(performance.now() / 160) * 0.08, R = WEAPONS.grenade.radius;
-    mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7)); this.nadeArc(t);
+    mk.visible = true; mk.position.set(t.x, t.y + 0.08, t.z); mk.scale.setScalar(pulse * (R / 7));
+    { const TF = this.world.terrain; if (this.jang && TF && !(this.mission && this.mission.cs && this.mission.cs.inBuilding)) {   /* v631 (Jang): the landing sign lies ON the slope (it was a flat disc half buried in a hillside) */
+        const gx = (TF(t.x + 1, t.z) - TF(t.x - 1, t.z)) / 2, gz = (TF(t.x, t.z + 1) - TF(t.x, t.z - 1)) / 2, nrm = (this._nmN || (this._nmN = new THREE.Vector3())).set(-gx, 1, -gz).normalize(), qa = this._nmQ || (this._nmQ = new THREE.Quaternion()), qf = this._nmF || (this._nmF = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
+        if (Math.abs(t.y - TF(t.x, t.z)) < 0.6) { qa.setFromUnitVectors(this._nmU || (this._nmU = new THREE.Vector3(0, 1, 0)), nrm); mk.quaternion.copy(qa).multiply(qf); } else mk.rotation.set(-Math.PI / 2, 0, 0); } }
+    this.nadeArc(t);
   }
   /* v564 PUBG throw bar: a red ribbon arc from the hand to the landing sign (the SAME flight formula as the real throw), an orange diamond with the fuse seconds over the grenade (held, then flying), and a CANCEL button on touch screens */
   nadeArc(t) {

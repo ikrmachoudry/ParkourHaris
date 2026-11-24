@@ -347,7 +347,8 @@ const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 
 const ROADSEGS = segsOf();
 /* v621 MEADOW GRASS COVER: the swaying meadow grass that is drawn all over the map (battlemap.js grassCell: not on roads, building sites, fields, concrete or steep slopes, thicker and taller where fbm 'd' is high) used to give NO cover, so a prone player in it stayed visible at any distance while the patches and the river bed hid him. Same ground test as the drawing (d >= 0.42 = the taller half), answered per 1 m square and remembered. PRONE only: crouching in 0.3 - 0.5 m blades hides nothing. Same answer for bots, other players and the picture, whatever the GPU managed to draw. */
 const MG = new Map();
-const concG = (x, z) => { const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); };
+export const grassSite = (x, z) => { const d = Math.hypot(x - 96, z - 46); return d < 12 ? 1 : d < 22 ? 1 - (d - 12) / 10 : 0; };   /* v631: the old school site (96, 46) is green ground, no concrete (battlemap.js + here) */
+const concG = (x, z) => { const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))) * (1 - grassSite(x, z)); };
 /* v622: 0..1 how much a spot belongs to one of the new hills (1 = the summit): the pale 'concrete country' ground is not painted on them, they are grass and rock */
 export function hillCover(x, z) { let v = 0; for (let i = 0; i < HILLS.length; i++) { const q = HILLS[i]; if (q[2] < 10) continue; const e = Math.exp(-(((x - q[0]) ** 2 + (z - q[1]) ** 2) / (2 * (q[3] * 1.3) ** 2))); if (e > v) v = e; } return v; }
 export function meadowGrass(x, z) {
@@ -371,7 +372,7 @@ for (const x of [6, 22]) { mk('house', x, 79, 10 + (x === 22 ? 1 : 0), 9, 'S'); 
 for (const x of [84, 100, 116]) { mk('house', x, 79, 10, 9, 'S'); if (x > 84) mk('house', x, 111, 10, 9, 'N'); }
 mk('shop', 66, 78, 14, 10, 'S'); mk('apart', 68, 114, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } });
 mk('shop', 30, 50, 12, 9, 'S'); mk('church', 12, 40, 10, 18, 'S', { win: { ww: 1.0, y0: 2.4, y1: 5.0, gap: 4.4 } });
-mk('school', 96, 46, 30, 12, 'S', { stair: { x0: -12, z0: -6 + TH / 2 + 0.45, dir: 1 } });
+/* v631: the school (96, 46) across the street from Sada Ghar is gone (user): a patch of grass grows on its site (see the grass patches below) */
 mk('house', 30, 142, 11, 9, 'N'); mk('apart', 72, 146, 18, 12, 'N', { stair: { x0: -6, z0: -6 + TH / 2 + 0.45, dir: 1 } }); mk('house', 100, 142, 10, 9, 'N'); mk('shop', 122, 146, 12, 10, 'W');
 mk('kiosk', 62, 192, 8, 6, 'W');   // the petrol station on the highway
 // ---- the military base on the hill (north east): barracks, HQ, hangar, sheds
@@ -394,7 +395,7 @@ export const onPad = (x, z, m = 0) => { for (const o of BUILDINGS) if (x > o.x -
 const WTPOS = [];
 // ---- Dr. Ikrma's house: hospital on the ground floor (reception, admission rooms, operation theatre, wards), the family home upstairs (a big lobby with five bedrooms round it), a roof terrace with a water tank
 { const CL = { w: 28, d: 20 }, cand = []; for (let x = -200; x <= 230; x += 8) for (let z = -190; z <= 220; z += 8) cand.push([x, z]); cand.sort((p, q) => Math.hypot(p[0] - 50, p[1] - 30) - Math.hypot(q[0] - 50, q[1] - 30));
-  const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };
+  const free = (x, z) => { for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [2, -1], [2, 1], [2, 0]]) if (Math.abs(rawH(x + dx * 14, z + dz * 10) - rawH(x, z)) > 1.6) return false; return rawH(x, z) > 2.5 && rawH(x, z) < 20 && Math.abs(x - riverX(z)) > 40 && distRoad(x, z) > 24 && !inField(x, z, 20) && !(x > 100 && x < 240 && z > -205 && z < -84) && !BUILDINGS.concat([{ x: 96, z: 46, w: 30, d: 12 }]).some((o) => Math.abs(o.x - (x + 16)) < (o.w + 60) / 2 + 12 && Math.abs(o.z - z) < (o.d + 20) / 2 + 12); };   /* v631: the removed school (96, 46) still counts here, so Sada Ghar (and the tower / zip line / shop / apartment that follow it) stay exactly where they were */
   const pick = cand.find(([x, z]) => free(x, z)) || [60, 40];
   const hs = CL.d / 2 - TH / 2 - 0.2 - 0.0;
   mk('clinic', pick[0], pick[1], CL.w, CL.d, 'S', { c: '#ead0aa', bay: 1.9, doors: [{ s: 'S', o: 0, w: 3.8, h: 2.9 }, { s: 'S', o: 9, w: 2.0, h: 2.5 }, { s: 'W', o: 5, w: 2.2, h: 2.5 }], stair: { x0: -8.4, z0: -CL.d / 2 + TH / 2 + 0.45, dir: 1 }, stair2: { ax: 'z', x0: 8.0, z0: 8.0, dir: -1, tr: 0.32 }, roofStair: { x0: 0.3 }, tank: { x: 11.6, z: -8.3 },
@@ -588,10 +589,11 @@ function build() {
     /* v582: the river bed is no longer 6 round patches: it is one long strip (inRiverGrass, see above) */
     for (let tries = 0; tries < 30000 && grass.length < 12; tries++) {
       const r = (8 + RG() * 4) * GK, x = Math.round((RG() * 2 - 1) * (H - 45)), z = Math.round((RG() * 2 - 1) * (H - 45)), h0 = rawH(x, z);
-      if (h0 < 0.8 || h0 > 24 || (x > 90 && x < 205 && z > 15 && z < 125) || distRoad(x, z) < r * 0.5 + 4 || Math.abs(x - riverX(z)) < r + 14 || inField(x, z, r * 0.6 + 6) || onPad(x, z, r * 0.6 + 3) || (x > FB.x0 - r * 0.6 - 8 && x < FB.x1 + r * 0.6 + 8 && z > FB.z0 - r * 0.6 - 8 && z < FB.z1 + r * 0.6 + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
+      if (h0 < 0.8 || h0 > 24 || (x > 90 && x < 205 && z > 15 && z < 125) || Math.hypot(x - 96, z - 46) < r + 20 || distRoad(x, z) < r * 0.5 + 4 || Math.abs(x - riverX(z)) < r + 14 || inField(x, z, r * 0.6 + 6) || onPad(x, z, r * 0.6 + 3) || (x > FB.x0 - r * 0.6 - 8 && x < FB.x1 + r * 0.6 + 8 && z > FB.z0 - r * 0.6 - 8 && z < FB.z1 + r * 0.6 + 8) || (x > BRIDGE.xb - r - 8 && x < BRIDGE.xa + r + 8 && Math.abs(z - BRIDGE.z) < r + 12)) continue;
       let flat = true; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (Math.abs(rawH(x + a * r * 0.5, z + b * r * 0.5) - h0) > 3.2) flat = false; if (!flat) continue;
       if ([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => fbm((x + a * r * 0.5) * 0.013 + 40, (z + b * r * 0.5) * 0.013 - 17, 91, 3) > 0.45)) continue;   /* only on GREEN ground (the map paints grey concrete where this noise is high) */
       if (grass.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + GSP)) continue; grass.push({ x, z, r }); }
+  grass.push({ x: 96, z: 46, r: 15 });   /* v631: the old school site across from Sada Ghar: a small grass patch (battlemap.js scales the tuft count down for patches smaller than the usual 20 - 29 m) */
  }
   // big round things: a silo and a windmill on the farm, fuel tanks and a chimney in the yard (a solid box each; battlemap.js draws them round)
   const round = (x, z, r, h, c, t) => { const gy = cmbH(x, z); padRect(x - r - 2, z - r - 2, x + r + 2, z + r + 2, Math.round(rawH(x, z) * 10) / 10); const y = Math.round(rawH(x, z) * 10) / 10; props.push({ x, z, y, w: 2 * r, d: 2 * r, h, c, k: 'round', t, r }); addS({ x0: x - r * 0.9, z0: z - r * 0.9, x1: x + r * 0.9, z1: z + r * 0.9, y0: y - 1, y1: y + h, k: 'prop' }); };
