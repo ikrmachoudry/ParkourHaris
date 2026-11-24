@@ -2550,9 +2550,16 @@ function openLevels() {
   levelCards($('level-cards'), { onPick: (id) => { A.sfx.go(); startSingle(id); } });
   show('levels');
 }
-function startJang(team) { preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; if (team && app.pendingCars) { race.onCars(app.pendingCars); app.pendingCars = null; } race.combatOnly = true; race.onCombatDone = leaveToTitle; race.onBackToRoom = backToRoom; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
+/* v628 SMALL iPHONES (SE, 6, 7, 8: 3 GB) ran out of memory in Jang (Safari: "a problem repeatedly occurred"). For a Jang match only: the big sounds are released (audio.trimForJang, every iPhone) and a small iPhone starts on the LOW graphics (no shadow maps, smaller picture) unless the player chose a level in the menu. Starting GTA puts the graphics back (see startSingle). */
+const TINY_IOS = IS_IOS && (() => { try { const a = Math.min(screen.width, screen.height), b = Math.max(screen.width, screen.height); return a <= 375 && b <= 667; } catch (e) { return false; } })();
+function jangLean() {
+  if (IS_IOS) { try { A.trimForJang(); } catch (e) { /* noop */ } }
+  try { if (TINY_IOS && !Q.low && !Q.pretty && localStorage.getItem('ph_low') === null && !Q.tinyAuto) { Q.tinyAuto = true; Q.low = true; applyGfx(); } } catch (e) { /* noop */ }
+}
+function startJang(team) { jangLean(); preloadAssets('jang'); startSingle(0, true, team && team.seed); if (race && race.mission) { race.jangTeam = team ? { ...team, net: app.net } : null; if (team && app.pendingCars) { race.onCars(app.pendingCars); app.pendingCars = null; } race.combatOnly = true; race.onCombatDone = leaveToTitle; race.onBackToRoom = backToRoom; race.mission.autoCombat(); } }   // v214: Jang solo, one place (RESTART used to start GTA)
 function startSingle(levelIdx, jang, jseed) {
   A.initAudio();
+  if (!jang) { try { A.untrimJang(); if (Q.tinyAuto) { Q.tinyAuto = false; Q.low = false; applyGfx(); } } catch (e) { /* noop */ } }   /* v628: GTA never keeps Jang's small-iPhone settings */
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
   try { const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.setClearColor(cc, ca); } catch (e) { /* never block the start */ }   // v489: the old profile-page podium picture must not stay on the canvas until the first frame
@@ -2609,6 +2616,7 @@ function leaveToTitle() {
   if (race) { race.destroy(); race = null; }
   if (app.net && app.room) { app.net.send({ t: 'leave' }); }
   app.room = null; app.combat = false; exitLock();
+  try { A.untrimJang(); if (Q.tinyAuto) { Q.tinyAuto = false; Q.low = false; applyGfx(); } } catch (e) { /* noop */ }   /* v628: back at the title the Jang-only iPhone settings end */
   stage.setTitle(); show('title'); A.initAudio(); A.startMusic(99);
 }
 

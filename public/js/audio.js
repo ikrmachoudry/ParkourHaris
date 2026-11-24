@@ -69,6 +69,7 @@ const SAMPLES = ['w_fist', 'w_punch1', 'w_punch2', 'w_punch3', 'w_bat', 'w_pisto
   'ui_click', 'ui_select', 'ui_back', 'ui_tick', 'ui_ok', 'ui_ok2', 'ui_open', 'ui_warn', 'ui_bong', 'pickup', 'cash', 'respawn', 'bouncepad', 'noammo', 'boom0', 'boom1', 'boom2', 'win', 'fin', 'door_o', 'door_c', 'latch'];
 const bank = {};
 let bankLeft = 1e9, bankStarted = false, menuBuf = null, menuSrc = null, menuG = null, menuWant = false;
+let leanWin = false;   /* v628: see trimForJang */
 function decode(url, cb, fin) {
   try {
     fetch(av(url)).then((r) => r.arrayBuffer()).then((ab) => new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); })).then(cb).catch(() => { /* keep the synth fallback */ }).then(() => { if (fin) fin(); });
@@ -79,10 +80,13 @@ function loadBank() {
   /* v470 (Android): the sounds you do not need in the first seconds (engines, water, loops, zombies, the win jingle...) are decoded AFTER the loading screen (a budget phone spent ~100 decodes in front of it); guns, footsteps, hits, doors and the UI stay in front */
   const AND = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || ''), LATE = /^(eng_|skid|crash|spl_|water_|sea_|lap_|rain_|city_|cash|bouncepad|respawn|win$|fin$|u_z|u_scared|scream)/;
   const core = AND ? SAMPLES.filter((n) => !LATE.test(n)) : SAMPLES, late = AND ? SAMPLES.filter((n) => LATE.test(n)) : [];
-  bankLeft = core.length; for (const n of core) decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, () => { bankLeft--; });
+  bankLeft = core.length; for (const n of core) decode('audio/' + n + '.mp3', (b) => { if (!(leanWin && n === 'win')) bank[n] = b; }, () => { bankLeft--; });
   if (late.length) setTimeout(() => { late.reduce((p, n) => p.then(() => new Promise((res) => decode('audio/' + n + '.mp3', (b) => { bank[n] = b; }, res))), Promise.resolve()); }, 25000);   // one at a time, 25 s after the sounds start loading (the match is running by then)
 }
 // v220: resolves when every recorded sample is decoded (or after maxMs): the loading screen waits for it, so no sound is missing during the match
+/* v628 (iPhone SE crashed on Jang: "a problem repeatedly occurred" = out of memory): the 3-minute WIN jingle is 63 MB of raw sound once decoded and the 2.5-minute menu music another 34 MB, both sitting in memory for the whole match. A Jang match on an iPhone frees both: the jingle is decoded only when the win screen needs it, the menu music is decoded again when the menu is back. Nothing else changes. */
+export function trimForJang() { leanWin = true; delete bank.win; if (!menuSrc) menuBuf = null; }
+export function untrimJang() { leanWin = false; }
 export function bankReady(maxMs = 20000) { return new Promise((res) => { if (!bankStarted) return res(); const t0 = performance.now(), iv = setInterval(() => { if (bankLeft <= 0 || performance.now() - t0 > maxMs) { clearInterval(iv); res(); } }, 120); }); }
 // play a recorded sample. pan -1..1 (a far-away sound is quieter and duller)
 export function play(name, vol = 1, rate = 1, delay = 0, pan = 0, lp = 0, rev = 0, bk = 0) {   // bk 0..1: how far BEHIND the listener the sound is (duller + a bit quieter)
@@ -206,7 +210,7 @@ export const sfx = {
   go() { play('ui_bong', 0.8, 1.2); },
   join() { play('ui_open', 0.7); },
   finish() { play('fin', 0.9); },
-  win() { play('win', 0.9); },
+  win() { if (!bank.win) { decode('audio/win.mp3', (b) => { bank.win = b; play('win', 0.9); if (leanWin) setTimeout(() => { if (leanWin) delete bank.win; }, 200000); }); return; } play('win', 0.9); },   /* v628: after trimForJang the 3-minute win jingle is decoded only when it is needed, and dropped again after it has played */
   lose() { play('ui_warn', 0.9, 0.7); play('ui_bong', 0.8, 0.6, 0.2); },
   warn() { play('ui_warn', 0.5, 1.2); },
 };
