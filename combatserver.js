@@ -16,7 +16,7 @@ export class CombatHost {
     const ev = this.sim.drain(), out = [];
     for (const e of ev) {
       if (e.k === 'lootnew') { const it = this.sim.loot.find((l) => l.id === e.id); if (it) { const o = { k: 'lootnew', i: this.lootItem(it) }; if (this.cid.has(e.id)) { const c = this.cid.get(e.id); o.cid = c.c; o.cs = c.s; this.cid.delete(e.id); }   /* v404: the temp id is only meaningful to the player who dropped it (every player counts 1,2,3..: another player's drop used to hijack MY temp item, so the item I dropped stayed on the floor after somebody picked it up) */ out.push(o); } }
-      else if (e.k === 'shot') out.push({ k: 'shot', id: e.id, x: q2(e.x), z: q2(e.z), tx: q2(e.tx), tz: q2(e.tz), tp: e.tp, hit: e.hit ? 1 : 0, dmg: q2(e.dmg), z: e.z | 0, w: e.w });
+      else if (e.k === 'shot') out.push({ k: 'shot', id: e.id, x: q2(e.x), z: q2(e.z), tx: q2(e.tx), tz: q2(e.tz), tp: e.tp, hit: e.hit ? 1 : 0, dmg: q2(e.dmg), zn: e.zn | 0, w: e.w });
       else if (e.k === 'kill') out.push({ k: 'kill', id: e.id, x: q2(e.x), z: q2(e.z), w: e.w, by: e.by, h: e.h ? 1 : 0 });
       else if (e.k === 'bothit') out.push({ k: 'bothit', id: e.id, x: q2(e.x), z: q2(e.z), h: e.h ? 1 : 0 });
       else if (e.k === 'nade') out.push({ k: 'nade', id: e.id, x: q2(e.x), z: q2(e.z), lx: q2(e.lx), lz: q2(e.lz), mo: e.mo ? 1 : 0 });

@@ -1,4 +1,5 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
+import './keybinds.js';   // v632: rebindable keys (capture-phase layer in front of the game's key handlers)
 import { FireSmokeFX } from './fire.js';
 import { potatoize } from './potato.js';
 import { packSupported, packDone, packInfo, downloadPack, packQuietUpdate, packHas, askPersist } from './offlinepack.js';
