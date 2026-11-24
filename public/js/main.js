@@ -1941,6 +1941,10 @@ class Race {
     const tl = Math.max(0.5, Math.hypot(ex - sx, ey - sy, ez - sz)), q = this.tracers.find((t) => t.t <= 0) || this.tracers[0];
     if (q) { q.t = 0.07; q.m.visible = true; q.m.rotation.order = 'YXZ'; q.m.position.set((sx + ex) / 2, (sy + ey) / 2, (sz + ez) / 2); q.m.rotation.set(-Math.atan2(ey - sy, hd), Math.atan2(ex - sx, ez - sz), 0); q.m.scale.set(1, 1, Math.min(tl, 60)); }
     { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.glassShot) cs.glassShot(sx, sy, sz, ex, ey, ez); }   /* v351: JANG: my bullet shatters the windows it crosses */
+    { const cs = this.mission && this.mission.cs; if (cs && cs.on && cs.impactFx && hcode < 0) {   /* v624 JANG: dust where MY bullet lands: on the ground where the line goes down into it, on a wall / solid where it stopped (not on a bot or a car) */
+        const gE = cmbHt(ex - CMB.x, ez - CMB.z), rawEy = aimP ? sy + (aimP.y - sy) / Math.max(1, Math.hypot(aimP.x - sx, aimP.z - sz)) * hd : sy;
+        if (rawEy < gE - 0.05 && sy > gE) { const t = Math.max(0.02, Math.min(1, (sy - gE) / (sy - rawEy))); cs.impactFx(sx + (ex - sx) * t, cmbHt(sx + (ex - sx) * t - CMB.x, sz + (ez - sz) * t - CMB.z) + 0.05, sz + (ez - sz) * t, 0); }
+        else if (len < W.range - 0.6 && !cs._hitB) cs.impactFx(ex, ey, ez, 1); } }
     const scF = !!(this.scoped && !this.drive);   /* v502: looking THROUGH a scope the camera is at the gun, so the flash / sparks filled the view: they are tiny there */
     this.particles.emit(sx, sy, sz, scF ? 1 : 4, { color: '#ffd23f', speed: 3, up: 0.5, life: 0.12, size: scF ? 0.06 : 0.3 }); if (this.mflash && mz) { const f = this.mflash; f.sp.position.set(sx, sy, sz); const k = (w === 'sniper' ? 0.7 : w === 'pistol' ? 0.38 : 0.55) * (scF ? 0.08 : 1); f.sp.scale.setScalar(k * (0.8 + Math.random() * 0.4)); f.sp.material.rotation = Math.random() * 6; f.sp.visible = true; f.t = 0.06; } { const wk = wcls(w); this.shake = Math.max(this.shake || 0, w === 'shotgun' ? 0.2 : wk === 'sniper' ? 0.16 : wk === 'ak' ? 0.07 : 0.05);
     wk === 'sniper' ? A.sfx.sniperShot() : wk === 'ak' ? A.sfx.akShot() : A.sfx.shot(); }
