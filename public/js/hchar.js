@@ -394,9 +394,12 @@ export function poseChar(ch, name, t = 0, k = 1) {
     R(b['upperleg.L'], -1.42, 0, 0.05); R(b['upperleg.R'], -1.42, 0, -0.05); R(b['lowerleg.L'], 0.55, 0, 0); R(b['lowerleg.R'], 0.55, 0, 0); R(b['foot.L'], -0.35, 0, 0); R(b['foot.R'], -0.35, 0, 0); b.hips.position.y = rest.hips.y - 0.5; R(b.spine, -0.12, 0, 0);
     R(b['upperarm.R'], -0.55, 0, 0.1); R(b['forearm.R'], -1.1, 0, -0.35); R(b['upperarm.L'], -0.75, 0, -0.1); R(b['forearm.L'], -1.0, 0, 0.45); curl('R', 0.9); curl('L', 0.9);
   } else if (name === 'ride') {   // motorbike: straddling the seat, torso leaning to the bars, hands on the grips, feet on the pegs
-    b.hips.position.y = rest.hips.y - 0.5; R(b.spine, 0.3, 0, 0); R(b.chest, 0.12, 0, 0); R(b.head, -0.3, 0, 0);
-    R(b['upperleg.L'], -1.1, 0, 0.3); R(b['upperleg.R'], -1.1, 0, -0.3); R(b['lowerleg.L'], 1.25, 0, 0); R(b['lowerleg.R'], 1.25, 0, 0); R(b['foot.L'], 0.3, 0, 0); R(b['foot.R'], 0.3, 0, 0);
-    R(b['upperarm.L'], -1.15, 0, -0.18); R(b['upperarm.R'], -1.15, 0, 0.18); R(b['forearm.L'], -0.35, 0, 0); R(b['forearm.R'], -0.35, 0, 0);
+    /* v617: a LIVING rider. ch.ride = { s: bars angle (right +), r: bike lean (right +), a: speeding up (+) / braking (-), v: speed } (smoothed in actor.js). The body leans into the turn more than the bike, the head stays level and looks into the corner, the shoulders and arms follow the bars, the weight goes back when accelerating and forward when braking, and the hips slide to the inside. Without it (other riders) the pose is the old fixed one. */
+    const rd = ch.ride || { s: 0, r: 0, a: 0, v: 0 }, cl = (x, m) => Math.max(-m, Math.min(m, x)), fw = cl(-rd.a * 0.012, 0.2) + Math.min(0.14, (rd.v || 0) / 40 * 0.14);
+    b.hips.position.y = rest.hips.y - 0.5; b.hips.position.x = rest.hips.x - cl(rd.r, 0.6) * 0.2;
+    R(b.spine, 0.3 + fw, -rd.s * 0.6, rd.r * 0.45); R(b.chest, 0.12 + fw * 0.4, -rd.s * 0.4, rd.r * 0.3); R(b.head, -0.3 - fw * 0.5, -rd.s * 0.7, -rd.r * 0.95);
+    R(b['upperleg.L'], -1.1, 0, 0.3 + cl(rd.r, 0.6) * 0.12); R(b['upperleg.R'], -1.1, 0, -0.3 + cl(rd.r, 0.6) * 0.12); R(b['lowerleg.L'], 1.25, 0, 0); R(b['lowerleg.R'], 1.25, 0, 0); R(b['foot.L'], 0.3, 0, 0); R(b['foot.R'], 0.3, 0, 0);
+    R(b['upperarm.L'], -1.15 - fw * 0.5, rd.s * 0.7, -0.18); R(b['upperarm.R'], -1.15 - fw * 0.5, rd.s * 0.7, 0.18); R(b['forearm.L'], -0.35 + fw * 0.8, 0, 0); R(b['forearm.R'], -0.35 + fw * 0.8, 0, 0);
     curl('R', 1.0); curl('L', 1.0);
   } else if (name === 'ridePax') {   // v607: pillion on a motorbike: sits upright behind the rider, knees wide, feet on the rear pegs, hands on the rider's hips (or the seat strap)
     b.hips.position.y = rest.hips.y - 0.5; R(b.spine, 0.1, 0, 0); R(b.chest, 0.05, 0, 0); R(b.head, -0.12, 0, 0);
