@@ -808,7 +808,7 @@ class Race {
     if (!this.meta.city) return;
     // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
     const wide = this.scoped && !(IS_TOUCH && (Q.low2 || (IS_ANDROID && Q.dpr < 0.95))), jb = (IS_TOUCH ? 260 : Q.pretty ? 520 : 400) * (Q.low || Q.low2 ? 0.85 : 1);   /* v616 PUBG HAZE (Jang only): the fog starts at 40 m and is thick at 260 m on a phone / 400 m on a laptop (PRETTY 520); a scope pushes it back x1.7; whatever is behind the haze is not drawn at all (battlemap setFog) */
-    const D = this.jang ? Math.min(760, jb * (wide ? 1.7 : 1)) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = this.jang ? Math.min(40, D * 0.2) : D * 0.85; try { const jm2 = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm2 && jm2.setFog) jm2.setFog(D); } catch { /* noop */ }
+    const D = this.jang ? Math.min(760, jb * (wide ? 1.7 : 1)) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = this.jang ? Math.min(40, D * 0.2) : D * 0.85; if (this.jang) CULL.far = Math.min(CULL.far, D + 15);   /* v618: a vehicle beyond the haze is not drawn */ try { const jm2 = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm2 && jm2.setFog) jm2.setFog(D); } catch { /* noop */ }
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }
@@ -2552,7 +2552,7 @@ function startSingle(levelIdx, jang, jseed) {
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
   try { const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.setClearColor(cc, ca); } catch (e) { /* never block the start */ }   // v489: the old profile-page podium picture must not stay on the canvas until the first frame
-  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
+  /*__TESTHOOK*/ window.__rr = () => race; race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
