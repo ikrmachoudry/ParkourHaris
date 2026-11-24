@@ -2552,7 +2552,7 @@ function startSingle(levelIdx, jang, jseed) {
   if (race) { race.destroy(); race = null; }
   app.level = levelIdx;
   try { const cc = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(cc); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.setClearColor(cc, ca); } catch (e) { /* never block the start */ }   // v489: the old profile-page podium picture must not stay on the canvas until the first frame
-  /*__TESTHOOK*/ window.__rr = () => race; race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
+  race = new Race(levelIdx, [{ id: 1, name: app.name, char: app.char, skin: app.skin, zom: app.zom }], 1, { multi: false, jang: !!jang, t0: performance.now() + (LEVEL_META[levelIdx] && LEVEL_META[levelIdx].city ? -50 : 3600), seed: 1 + Math.floor(Math.random() * 1e9), jseed: jseed | 0 }); race.syncAct();
   resize();
   show('none');
   $('s-results').classList.add('hidden');
