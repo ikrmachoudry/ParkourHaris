@@ -1,7 +1,7 @@
 // Parkour Haris - main: renderer, menus, lobby, race session, HUD, input, networking glue.
 import { FireSmokeFX } from './fire.js';
 import { potatoize } from './potato.js';
-import { packSupported, packDone, packInfo, downloadPack, packQuietUpdate, packHas } from './offlinepack.js';
+import { packSupported, packDone, packInfo, downloadPack, packQuietUpdate, packHas, askPersist } from './offlinepack.js';
 import { loadScreen } from './loading.js';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -3134,20 +3134,35 @@ async function boot() {
   $('b-home-back').onclick = () => { A.sfx.back(); homeMode('home'); };
   { const t = $('s-title'); for (const [id, g] of [['b-go-gta', true], ['b-go-jang', false]]) { const e = $(id); if (!e) continue; const f = () => t.classList.toggle('hl-g', g); e.addEventListener('mouseenter', f); e.addEventListener('focus', f); e.addEventListener('touchstart', f, { passive: true }); } }   // v190: the big background follows the card you point at
 // v473: Android: the first time, Jang asks to download all its files into the phone (about 20 MB, once); after that it starts from the phone's storage
-const openJangMenu = () => { $('b-combat').onclick(); };
+// v623: INSTALL CARD (once per phone, after Jang is opened, never in a match): Android Chrome shows its own install sheet through the saved beforeinstallprompt event; iPhone / iPad Safari has no install API, so the card shows the Share -> Add to Home Screen steps. Installed = fullscreen, and the phone keeps the game data.
+let installEv = null; try { window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEv = e; }); window.addEventListener('appinstalled', () => { try { localStorage.setItem('ph_inst', '1'); } catch (e2) { /* ok */ } }); } catch (e) { /* no install events */ }
+const installCard = () => { try {
+  if (!(IS_ANDROID || IS_IOS) || localStorage.getItem('ph_inst') || document.getElementById('inst-card')) return;
+  if (window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches)) return;
+  if (IS_IOS ? false : !installEv) return;   /* Android: only when Chrome offers the install sheet */
+  localStorage.setItem('ph_inst', '1');
+  const c = document.createElement('div'); c.id = 'inst-card'; c.style.cssText = 'position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:9990;max-width:min(52vw,420px);padding:8px 12px;border-radius:12px;background:rgba(14,22,34,.96);border:1px solid #ff9a3c;color:#fff;font:600 13px/1.35 system-ui,sans-serif;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.6)';
+  const x = '<button id="inst-no" style="margin-left:8px;padding:7px 12px;border:0;border-radius:8px;background:#333;color:#ddd;font:600 13px system-ui">Not now</button>';
+  c.innerHTML = IS_IOS ? '<div style="font-weight:900;color:#ff9a3c;margin-bottom:4px">PLAY FULLSCREEN</div>Tap the <b>Share</b> button (square with an arrow) in Safari, then <b>Add to Home Screen</b>. Haris Games then opens like an app, fullscreen, and keeps its downloaded data.<div style="margin-top:8px">' + x.replace('margin-left:8px;', '') + '</div>' : '<div style="font-weight:900;color:#ff9a3c;margin-bottom:4px">INSTALL HARIS GAMES</div>Opens like an app, fullscreen, and keeps its downloaded data.<div style="margin-top:8px"><button id="inst-go" style="padding:7px 16px;border:0;border-radius:8px;background:#ff9a3c;color:#111;font:800 13px system-ui">INSTALL</button>' + x + '</div>';
+  document.body.appendChild(c); const done = () => { try { c.remove(); } catch (e2) { /* gone */ } };
+  c.querySelector('#inst-no').onclick = done; setTimeout(done, 15000);
+  const go = c.querySelector('#inst-go'); if (go) go.onclick = async () => { try { installEv.prompt(); await installEv.userChoice; } catch (e2) { /* cancelled */ } installEv = null; done(); };
+} catch (e) { /* never break the menu */ } };
+const openJangMenu = () => { $('b-combat').onclick(); installCard(); };
 const packAsk = () => {
   const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,8,14,.94);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#fff;text-align:center;padding:16px';
-  o.innerHTML = '<div style="max-width:420px"><div style="font-size:26px;font-weight:900;letter-spacing:1px;color:#ff9a3c">DOWNLOAD JANG</div><div id="pk-t" style="margin:10px 0 14px;font-size:14px;opacity:.9">Saves EVERYTHING on your phone <b>once</b>: soldiers, guns, plane, buildings, animations, sounds and pictures. After that Jang only needs internet for the match itself. Use Wi-Fi if you can.</div><div id="pk-b" style="height:14px;border-radius:7px;background:#222;overflow:hidden;display:none"><div id="pk-f" style="height:100%;width:0;background:#ff9a3c"></div></div><button id="pk-go" style="margin-top:14px;padding:12px 26px;font-size:17px;font-weight:800;border:0;border-radius:10px;background:#ff9a3c;color:#111">DOWNLOAD</button> <button id="pk-skip" style="margin-top:14px;padding:12px 18px;font-size:14px;border:0;border-radius:10px;background:#333;color:#ddd">Skip</button></div>';
+  o.innerHTML = '<div style="max-width:420px"><div style="font-size:26px;font-weight:900;letter-spacing:1px;color:#ff9a3c">DOWNLOAD GAME DATA</div><div id="pk-t" style="margin:10px 0 14px;font-size:14px;opacity:.9">Saves EVERYTHING on your phone <b>once</b>: soldiers, guns, plane, buildings, animations, sounds and pictures. After that Jang only needs internet for the match itself. Use Wi-Fi if you can. You can start playing as soon as the models are in; the sounds and animations finish by themselves in the menu.</div><div id="pk-b" style="height:14px;border-radius:7px;background:#222;overflow:hidden;display:none"><div id="pk-f" style="height:100%;width:0;background:#ff9a3c"></div></div><button id="pk-go" style="margin-top:14px;padding:12px 26px;font-size:17px;font-weight:800;border:0;border-radius:10px;background:#ff9a3c;color:#111">DOWNLOAD</button> <button id="pk-skip" style="margin-top:14px;padding:12px 18px;font-size:14px;border:0;border-radius:10px;background:#333;color:#ddd">Skip</button></div>';
   document.body.appendChild(o); const g = (id) => o.querySelector('#' + id); let busy = false;
+  packInfo().then((inf) => { if (!busy) g('pk-go').textContent = 'DOWNLOAD (' + Math.round(inf.bytes / 1048576) + ' MB)'; }).catch(() => { /* size unknown: the button just says DOWNLOAD */ });   /* v623: the size is shown before the tap */
   g('pk-skip').onclick = () => { if (busy) return; o.remove(); openJangMenu(); };
   g('pk-go').onclick = async () => {
     if (busy) return; busy = true; g('pk-go').style.opacity = .5; g('pk-skip').style.opacity = .5; g('pk-b').style.display = 'block'; g('pk-t').textContent = 'Downloading... keep this page open.';
-    try { const info = await packInfo(); g('pk-t').textContent = 'Downloading ' + Math.round(info.bytes / 1048576) + ' MB... keep this page open.'; await downloadPack(info, (p) => { g('pk-f').style.width = Math.round(p * 100) + '%'; g('pk-t').textContent = 'Downloading ' + Math.round(p * 100) + '% ... keep this page open.'; }); g('pk-t').textContent = 'Done! Starting Jang...'; setTimeout(() => { o.remove(); openJangMenu(); }, 700); }
+    try { const info = await packInfo(); g('pk-t').textContent = 'Downloading ' + Math.round(info.bytes / 1048576) + ' MB... keep this page open.'; await downloadPack(info, (p) => { g('pk-f').style.width = Math.round(p * 100) + '%'; g('pk-t').textContent = 'Downloading ' + Math.round(p * 100) + '% ... keep this page open.'; }, { coreOnly: true }); g('pk-t').textContent = 'Ready! Sounds and animations finish in the background.'; setTimeout(() => { o.remove(); openJangMenu(); setTimeout(() => packQuietUpdate(() => !!race), 4000); }, 700); }
     catch (e) { busy = false; g('pk-go').style.opacity = 1; g('pk-skip').style.opacity = 1; g('pk-go').textContent = 'TRY AGAIN'; g('pk-t').textContent = 'Download stopped (network). Tap TRY AGAIN - it continues where it stopped.'; }
   };
 };
 $('b-go-jang').onclick = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else openJangMenu(); };
-if (IS_ANDROID || IS_IOS) setTimeout(packQuietUpdate, 6000);
+if (IS_ANDROID || IS_IOS) setTimeout(() => packQuietUpdate(() => !!race), 6000);
 if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
   $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
