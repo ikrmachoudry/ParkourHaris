@@ -411,7 +411,7 @@ class Race {
     this.sendT = 0; this.rs = 0; this.cpIdx = 0; this.cpCur = null; this.stepDist = 0; this.lastCount = 99; this.hudT = 0; this.hintT = 0; this.warnSec = -1;
     this.hang = null; this.hangCd = 0; this.hangHint = false; this.levelTime = -4; this.batCd = 0; this.swingT = 0; this.crouch = false; this.weapon = null; this.telescope = false; this.aiming = false; this.punchT = 0; this.punchCd = 0; this.punchPending = false; this.batPending = false; this.swingMega = false; this.fx = { turbo: 0, jump: 0, shield: 0, mega: 0 }; this.fxSig = '';
 
-    const v = VIS[this.meta.key];
+    const v = o.jang ? { ...VIS[this.meta.key], fog: '#b9c8d8', horizon: '#c8d6e4', bottom: '#c8d6e4' } : VIS[this.meta.key];   /* v616 JANG ONLY: a cool PUBG-blue haze (the city keeps its own sandy one) */
     const scene = this.scene = new THREE.Scene();
     setTimeout(() => { try { if (this.scene === scene) this.fxs().tex(); } catch (e) { /* noop */ } }, 6000);   // v416: the fire / smoke textures are drawn in the background a few seconds after the match starts (not at the first throw)
     scene.background = new THREE.Color(v.fog); scene.fog = new THREE.Fog(v.fog, v.fogNear, v.fogFar); this.fogFarBase = v.fogFar; this.fogNearBase = v.fogNear; this.setFar();
@@ -802,7 +802,8 @@ class Race {
     const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); try { const jm = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm && jm.setRange && !IS_TOUCH) jm.setRange(0.55 + 0.45 * Math.max(0, Math.min(1, (f - 480) / 620))); } catch { /* noop */ }   // v510: Jang on a laptop - the automatic draw-distance step really shortens the Jang map's view now
     if (!this.meta.city) return;
     // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
-    const D = this.jang ? (IS_TOUCH && !(this.scoped && !Q.low2 && !(IS_ANDROID && Q.dpr < 0.95)) ? 420 : 760) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = D * 0.85;
+    const wide = this.scoped && !(IS_TOUCH && (Q.low2 || (IS_ANDROID && Q.dpr < 0.95))), jb = (IS_TOUCH ? 260 : Q.pretty ? 520 : 400) * (Q.low || Q.low2 ? 0.85 : 1);   /* v616 PUBG HAZE (Jang only): the fog starts at 40 m and is thick at 260 m on a phone / 400 m on a laptop (PRETTY 520); a scope pushes it back x1.7; whatever is behind the haze is not drawn at all (battlemap setFog) */
+    const D = this.jang ? Math.min(760, jb * (wide ? 1.7 : 1)) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = this.jang ? Math.min(40, D * 0.2) : D * 0.85; try { const jm2 = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm2 && jm2.setFog) jm2.setFog(D); } catch { /* noop */ }
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
   }
