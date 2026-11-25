@@ -8,7 +8,7 @@ export const ACTIONS = [
   ['fwd', 'Move forward', 'KeyW', 'MOVE'], ['back', 'Move back', 'KeyS', 'MOVE'], ['left', 'Move left', 'KeyA', 'MOVE'], ['right', 'Move right', 'KeyD', 'MOVE'],
   ['jump', 'Jump  (handbrake in a vehicle)', 'Space', 'MOVE'], ['sprint', 'Sprint  /  dive in the air', 'ShiftLeft', 'MOVE'],
   ['crouch', 'Crouch', 'KeyZ', 'MOVE'], ['prone', 'Prone (lie down)', 'KeyX', 'MOVE'], ['peekL', 'Peek left', 'KeyQ', 'MOVE'], ['peekR', 'Peek right', 'KeyE', 'MOVE'],
-  ['car', 'Get in / out of a vehicle  /  pull up (skydive)', 'KeyC', 'MOVE'],
+  ['car', 'Get in / out of a vehicle  /  pull up (skydive)', 'KeyC', 'MOVE'], ['jet', 'Jetpack  (fly on / off)', 'KeyJ', 'MOVE'],
   ['reload', 'Reload', 'KeyR', 'FIGHT'], ['punch', 'Punch  /  pick up  /  use', 'KeyF', 'FIGHT'], ['next', 'Next weapon', 'KeyV', 'FIGHT'], ['fmode', 'Fire mode  /  melee swing', 'KeyB', 'FIGHT'],
   ['nade', 'Grenade  (press again to change type)', 'KeyG', 'FIGHT'], ['molo', 'Molotov  /  rifle scope on-off', 'KeyN', 'FIGHT'],
   ['zin', 'Scope zoom in', 'Equal', 'FIGHT'], ['zout', 'Scope zoom out', 'Minus', 'FIGHT'],

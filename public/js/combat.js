@@ -777,8 +777,8 @@ function build() {
   for (const b of BUILDINGS) {
     if (b.noLoot) continue;
     if ((b.fl || 1) >= 2) { const y2 = b.fy + b.fh + SL, ix = b.w / 2 - 1.8, iz = b.d / 2 - 1.8; for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5]]) { const x = b.x + sx * ix, z = b.z + sz * iz; const sr = b.stairRect; if (sr && x > b.x + sr.x0 - 2 && x < b.x + sr.x1 + 2 && z > b.z + sr.z0 - 2 && z < b.z + sr.z1 + 2) continue; const s2 = b.stairRect2; if (s2 && x > b.x + s2.x0 - 2 && x < b.x + s2.x1 + 2 && z > b.z + s2.z0 - 2 && z < b.z + s2.z1 + 2) continue; addY(x, z, y2); } }
-    if (b.stairModel && (b.kind === 'office2' || b.kind === 'mall2')) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[0.5, 0.55], [-0.3, 0.6]]) addY(b.x + sx * (b.w / 2 - 3), b.z + sz * (b.d / 2 - 3), yr); }   /* v622: the roofs of the new offices and malls carry loot (the stair brings you up to them) */
-    if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr); }
+    if (b.stairModel && (b.kind === 'office2' || b.kind === 'mall2')) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[0.5, 0.55], [-0.3, 0.6]]) addY(b.x + sx * (b.w / 2 - 3), b.z + sz * (b.d / 2 - 3), yr, { roof: 1 }); }   /* v622: the roofs of the new offices and malls carry loot (the stair brings you up to them) */
+    if (b.roofStair) { const yr = b.fy + b.fl * b.fh + (b.fl - 1) * SL + SL; for (const [sx, sz] of [[-0.6, 0.5], [0.6, 0.5], [0.6, -0.3], [-0.6, -0.3], [0, 0.7]]) addY(b.x + sx * (b.w / 2 - 2.5), b.z + sz * (b.d / 2 - 2.5), yr, { roof: 1 }); }
   }
   if (GOJRA && GJ_INFO.row) { const rw = GJ_INFO.row, pt = rw.w / rw.shopRow; for (let i = 0; i < rw.shopRow; i++) add(rw.x - rw.w / 2 + pt * (i + 0.5), rw.z + 0.5, 1); }   /* v633: every one of the 20 shops holds something */
   for (const t of wtowers) spots.push({ x: t.x, z: t.z, y: t.fy, w: 1 });   /* v564: every watch tower cabin holds a weapon (a rifle, a sniper...) */
@@ -1017,7 +1017,13 @@ export class CombatSim {
     for (let k = 0; k < sp.length; k++) { const q = sp[k]; if (q.force) continue; for (let j = 0; j < bs.length; j++) { const b = bs[j]; if (Math.abs(q.x - b.x) < b.w / 2 + 0.2 && Math.abs(q.z - b.z) < b.d / 2 + 0.2) { bi[k] = j; break; } } }
     return (L._lg = { bs, bi });
   }
+  /* v637 JETPACK: a roof spot (a building with a stair up to its roof) may hold a JETPACK instead of what the table gave: about 2 roof spots in 3 (a fixed pick from the spot's own position, so it draws NO random number and every other item stays exactly where it was), never closer than 70 m to another jetpack, at most 6 on the map. */
   lootKind(s, near) {
+    const k = this.lootKind0(s, near); if (!s.roof) return k;
+    const h = (Math.imul(Math.round(s.x * 10) ^ 0x9e3779b9, 2654435761) ^ Math.imul(Math.round(s.z * 10) + 17, 40503)) >>> 0; if (h % 100 >= 70) return k;
+    let n = 0; for (const o of near) if (o.alive && o.k === 'jet') { n++; if (Math.hypot(o.x - s.x, o.z - s.z) < 70) return k; } return n >= 6 ? k : 'jet';
+  }
+  lootKind0(s, near) {
     const tbl = s.w ? WEAPON_KINDS : LOOT_KINDS, cnt = {}; for (const k of tbl) cnt[k] = (cnt[k] || 0) + 1;
     const ks = Object.keys(cnt), w = ks.map((k) => cnt[k]), far = ks.map((k) => LOOT_FAR[k] || 12);
     for (const o of near) { if (!o.alive || o.spot < 0 || o.gold) continue; const i = ks.indexOf(o.k); if (i < 0 || w[i] === 0) continue; const d = Math.hypot(o.x - s.x, o.z - s.z); if (d < far[i]) w[i] = 0; else if (d < 40) w[i] /= 3; }

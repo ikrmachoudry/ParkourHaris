@@ -13,6 +13,7 @@ import { WEAPONS } from './economy.js';
 const IS_ANDROID = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
 import { CombatSim, CMB, COMBAT_MS, TW, botCount, layout, surfaceAt, inBld, cmbH, cmbG, supportY, hitsSolid, rayWalls, shotClear, groundBlocks, ballOK, underRoof, gunDamage, zoneOf, GUNS, los, FRAG_REACH, fragDmg } from './combat.js';
 import { Inventory, CAP } from './inventory.js';
+import { Jet, jetModel } from './jetpack.js';
 import { renderIcons } from './icons.js';
 import { propModel, hasProp, propDim, preloadProps } from './props.js';
 import { makeZone, zoneAt, bombAt, bombSpot, AIR } from './zone.js';
@@ -28,11 +29,11 @@ export const rvYaw = (hx, hz, rx, rz) => Math.atan2(rx - hx, rz - hz) - RV_A0;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const nhf = (mode) => ([0.64, 0.75, 0.643, 0.614, 0.545][mode | 0] || 0.64) * 0.86;   /* v615: where the cocked-back hold pose sits in the throw clip (same as NADE_REL x NADE_HOLDK in main.js) */
-const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', molotov: '#ff9a3c', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0', skin: '#8fbf5a' };
+const LOOT_COL = { pistol: '#7fd0ff', revolver: '#5fa8ff', smg: '#ffd23f', ak: '#ffb347', m4: '#ff8a47', ak49: '#ffd700', shotgun: '#ff6b6b', sniper: '#ff6bd6', bat: '#cfa36a', grenade: '#8dff6b', molotov: '#ff9a3c', ammo: '#ffe55c', med: '#ff5c5c', inject: '#5ec8ff', pills: '#ffa94d', smoke: '#cfd6dc', scope: '#b48cff', sscope: '#7fe0ff', vest: '#9ad0ff', helmet: '#b0b8c0', skin: '#8fbf5a', jet: '#ff9a2e' };
 const fitPx = (c, t, px, maxW) => { c.font = '900 ' + px + 'px Impact, Arial Black, sans-serif'; const w = c.measureText(t).width; return Math.max(18, Math.floor(w > maxW ? px * maxW / w : px)); };   // v271: shrink a name to fit the canopy
-const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'BINOCULARS', sscope: 'TELESCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET', skin: 'MILITARY SKIN' };
-const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0, vest: 0, helmet: 0, skin: 0 }, vestHp: 0, helmHp: 0 });
-const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet', 'skin'];
+const LOOT_NAME = { pistol: 'PISTOL', revolver: 'REVOLVER', smg: 'SMG', m4: 'M4 RIFLE', shotgun: 'SHOTGUN', ak: 'AK-47', ak49: 'AK-49', sniper: 'SNIPER RIFLE', bat: 'BASEBALL BAT', grenade: 'GRENADE', ammo: 'AMMO', med: 'FIRST AID', inject: 'ADRENALINE', pills: 'PAIN PILLS', smoke: 'SMOKE BOMB', molotov: 'MOLOTOV', scope: 'BINOCULARS', sscope: 'TELESCOPE (Kar98)', vest: 'BODY ARMOR', helmet: 'HELMET', skin: 'MILITARY SKIN', jet: 'JETPACK' };
+const newCb = () => ({ owned: {}, mag: {}, ammo: {}, nades: 0, inv: { med: 0, inject: 0, pills: 0, smoke: 0, molotov: 0, scope: 0, sscope: 0, vest: 0, helmet: 0, skin: 0, jet: 0 }, vestHp: 0, helmHp: 0 });
+const ITEM_K = ['med', 'inject', 'pills', 'smoke', 'molotov', 'scope', 'sscope', 'vest', 'helmet', 'skin', 'jet'];
 // v523: a small corner chip (red-zone warning: shows for about a second and fades out; same on laptop and phone)
 function cornerChip(id, text, ms) { try { let e = document.getElementById(id); if (!e) { e = document.createElement('div'); e.id = id; e.style.cssText = 'position:fixed;left:max(150px,calc(2vw + 140px));top:max(10px,2vh);z-index:9;padding:5px 10px;border-radius:8px;background:rgba(190,20,10,.88);color:#fff;font:800 12px system-ui,sans-serif;letter-spacing:.4px;pointer-events:none;opacity:0;transition:opacity .25s'; document.body.appendChild(e); } e.textContent = text; e.style.opacity = '1'; clearTimeout(e._t); e._t = setTimeout(() => { e.style.opacity = '0'; }, ms || 1000); } catch (er) { /* noop */ } }
 const isGunK = (w) => !!(WEAPONS[w] && !WEAPONS[w].melee && !WEAPONS[w].grenade);
@@ -57,6 +58,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
   vest: ['BODY ARMOR', 'PUBG Level 2 vest: takes 40% of every body shot until its 220 points run out. Worn automatically.'],
   skin: ['MILITARY SKIN', 'A dead soldier can carry one. Open the BACKPACK and tap it to put the olive military uniform on (tap again to take it off). It is only yours for this match: you must find another one next match.'],
+  jet: ['JETPACK', 'Found on the ROOFS. On the ground or on a roof press J (phone: tap JET): it lifts you about 12 m and flies you forward for 5 seconds of fuel - enough to jump from one roof to the next. The tank refills in 25 s on the ground. When the fuel ends a soft cushion keeps you from getting hurt. The roar can be heard by everybody near.'],
   helmet: ['HELMET', 'PUBG Level 2 helmet: takes 40% of every headshot until its 150 points run out. Worn automatically.'],
 };
 const MY_DMG = 100;
@@ -78,7 +80,7 @@ export class CombatScene {
   constructor(race) {
     this.R = race; this.on = false; this.sim = null; this.bots = new Map(); this.mates = new Map(); this.loot = new Map(); this.dsm = new Map(); this.group = new THREE.Group(); this.group.visible = false; race.scene.add(this.group);
     this.hp = MY_DMG; this.time = COMBAT_MS / 1000; this.st = { bots: {}, ply: {}, dby: {} }; this.over = false; this.t = 0; this.hud = null; this.deadT = 0; this.kills = 0; this.deaths = 0; this.tr = [];
-    this.tmpV = new THREE.Vector3(); this.using = null; this.boost = 0; this.promptIt = null; this.inv = new Inventory(this);
+    this.tmpV = new THREE.Vector3(); this.using = null; this.boost = 0; this.promptIt = null; this.inv = new Inventory(this); this.jet = new Jet(this);
   }
   get active() { return this.on && !this.down && !this.over && !!this.sim && this.R.mission && this.R.mission.phase === 'run' && this.deadT <= 0; }
   // ---------------------------------------------------------------- HUD
@@ -121,6 +123,7 @@ export class CombatScene {
     this.ensureMap();
     if (this.glass) this.glass.reset();   /* v351: every window whole again */
     if (!this.zipG) this.buildZip();   // the landscape is built the first time a match starts (the city never pays for it)
+    if (this.jet) this.jet.reset();
     if (R.wallet) { R.wallet.cb = newCb(); R.weapon = null; R.aiming = false; R.syncAct && R.syncAct(); R.updateAmmoHud && R.updateAmmoHud(); }
     this.respawn(seat | 0); this.map.warm(R.me.body); this.showHud(true); this.updateHud(); this.syncLoot();
     if (this.train) this.startTrain(); else this.startDrop();
@@ -387,7 +390,7 @@ export class CombatScene {
   endDrop(landed) { if (landed && this.practice && !this._pracPlaced && this.sim && !this.shared) this.placePracticeBots(); if (landed && window.phGuide && !this.train && this.practice) window.phGuide.maybeStart(this);   /* v443: the animated guide only from the HOW TO PLAY button, never in a normal solo / team match */ this.diveHint = false; if (window.phVoiceUI) window.phVoiceUI(); if (this.glideEl) this.glideEl.style.display = 'none'; if (this.diveBtn) { this.diveBtn.style.display = this.upBtn.style.display = 'none'; this.diveHold.dive = this.diveHold.up = false; } if (this.doorEl) this.doorEl.style.display = 'none'; { const jb = document.getElementById('a-jump'); if (jb) jb.classList.remove('ready'); } if (this.jumpBtn) this.jumpBtn.style.display = "none"; this.hasChute = !!this.ownChute; if (this.glider) this.glider.visible = false; if (this.plane && !landed) this.plane.visible = false; { const d0 = this.drop; if (landed && d0 && d0.v > 0 && this.plane && this.plane.visible) this._pf = { hd: d0.hd, v: d0.v, t: d0.t }; } this.dropping = false; this.dropPose = 0; const g = this.R.me && this.R.me.model && this.R.me.model.group; if (g) g.visible = true; this.drop = null; if (landed) { this.R.camInit = false; } }
   // ---------------------------------------------------------------- the world (bots, loot)
   icon(k) {   // v258: a picture of the real model (cached)
-    if (!this._icons) { if (!hasProp('syringe') || !hasProp('medkit')) return ''; this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
+    if (!this._icons) { if (!hasProp('syringe') || !hasProp('medkit')) return ''; this._icons = {}; try { const m = {}; for (const q of ['pistol', 'revolver', 'smg', 'ak', 'ak49', 'm4', 'shotgun', 'sniper', 'grenade', 'med', 'pills', 'inject', 'smoke', 'molotov', 'sscope', 'scope', 'ammo', 'vest', 'helmet', 'jet']) m[q] = this.lootModel(q, true); this._icons = renderIcons(m); } catch (e) { this._icons = {}; } }
     return this._icons[k] || '';
   }
   lootModel(k, icon) {   // v263: ONE place builds every item's 3D model from the real GLB files (ground loot and the icons use the same thing)
@@ -398,13 +401,14 @@ export class CombatScene {
       return wrap;
     }
     if (isGunK(k) || k === 'grenade' || k === 'bat') { const mdl = makeWeaponModel(k); mdl.scale.setScalar(k === 'grenade' ? 2.2 : k === 'bat' ? 1.5 : k === 'pistol' || k === 'revolver' ? 2.4 : 1.5); if (k === 'bat') mdl.rotation.z = Math.PI / 2; else mdl.rotation.y = Math.PI / 2; return mdl; }
+    if (k === 'jet') { const m = jetModel(false); m.scale.setScalar(icon ? 1.1 : 0.9); if (!icon) { m.rotation.x = -Math.PI / 2; m.position.y = 0.14; } else m.rotation.y = 0.6; wrap.add(m); return wrap; }
     wrap.add(new THREE.Mesh(GEO('Box', 0.3, 0.2, 0.3), SM('#8a8f96', 0.7))); return wrap;
   }
   syncLoot() {
     const sim = this.sim; if (!sim) return;
     for (const it of sim.loot) { if (!it.alive || this.loot.has(it.id)) continue; const g = new THREE.Group(), col = it.gold ? '#ffd23f' : LOOT_COL[it.k];
       const mdl = this.lootModel(it.k);
-      const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'molotov', 'sscope', 'scope', 'vest', 'helmet', 'skin'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject' || it.k === 'skin') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
+      const glbK = ['ammo', 'med', 'pills', 'inject', 'grenade', 'smoke', 'molotov', 'sscope', 'scope', 'vest', 'helmet', 'skin', 'jet'].includes(it.k), gunish = !glbK, lay = new THREE.Group(); lay.add(mdl); if (gunish) lay.rotation.x = Math.PI / 2; const pivot = new THREE.Group(); pivot.add(lay); pivot.rotation.y = (it.id * 2.399) % 6.28; pivot.position.y = gunish ? 0.11 : (it.k === 'med' || it.k === 'vest' || it.k === 'inject' || it.k === 'skin') ? 0.09 : 0.03; g.add(pivot); g.userData.pivot = pivot;
       if (it.gold === 1) { const gb = propModel('goldbox'), hh = (propDim('goldbox') || { y: 0.3 }).y; if (gb) g.add(gb); pivot.position.y += hh + 0.02; }   // v251/v263: a dead enemy's GOLD box (the real loot box model): everything he carried lies on it
       const ring = new THREE.Mesh(GEO('Ring',0.46, 0.52, 40), RM(col, 0.75)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; { const disc = new THREE.Mesh(GEO('Circle',0.46, 32), RM(col, 0.12)); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.02; g.add(disc); } g.add(ring);
       if (it.gold === 1) {   // v264: a dead bot / player: a thin GREEN smoke column over his loot box (one column per box, however many items lie on it)
@@ -1000,7 +1004,7 @@ export class CombatScene {
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
   autoOk(it) {   // v360 SETTINGS > PICK UP: a category switched OFF is not picked up by walking over it (take it from the BACKPACK button)
     const pk = (OPT && OPT.pk) || null; if (!pk) return true; const k = it.k;
-    const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope' || k === 'skin') ? 'gear' : '';
+    const g = isGunK(k) ? 'gun' : k === 'ammo' ? 'ammo' : (k === 'med' || k === 'inject' || k === 'pills') ? 'med' : (k === 'vest' || k === 'helmet') ? 'armor' : (k === 'grenade' || k === 'smoke' || k === 'molotov') ? 'throw' : (k === 'scope' || k === 'sscope' || k === 'skin' || k === 'jet') ? 'gear' : '';
     if (g === 'gun' && pk['w_' + k] !== undefined && !pk['w_' + k]) return false;   // v522: each weapon has its own auto-pick-up switch (Settings > Pick Up)
     return !g || pk[g] === undefined || !!pk[g];
   }
@@ -1103,6 +1107,7 @@ export class CombatScene {
     if (k === 'scope') { if (have <= 0) { R.toast && R.toast('NO BINOCULARS'); return false; } if (R.weapon === 'sniper') { R.toast && R.toast('BINOCULARS are a separate item - they cannot be used on the Kar98 (it has its own TELESCOPE). Put the rifle away first.', 3.5); return false; } const nowT = performance.now(); if (nowT - (this._tsT || 0) < 1000) return false; this._tsT = nowT; R.telescope = !R.telescope; R.toast && R.toast(R.telescope ? 'BINOCULARS  -  mouse wheel / the + - buttons zoom' : 'BINOCULARS AWAY'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'grenade') { if (have <= 0) return false; R.heldThrow = 'grenade'; R.equip('grenade'); if (this.inv) this.inv.toggle(false); return true; }
     if (k === 'vest' || k === 'helmet') { R.toast && R.toast(have > 0 ? (k === 'vest' ? 'BODY ARMOR ON: ' + Math.round(cb.vestHp) + ' left, takes 40% of every body shot' : 'HELMET ON: ' + Math.round(cb.helmHp) + ' left, takes 40% of every headshot') : 'NONE', 2.5); return false; }
+    if (k === 'jet') { R.toast && R.toast(have > 0 ? (R.isTouch ? 'JETPACK on your back: tap JET on the ground / a roof' : 'JETPACK on your back: press J on the ground / a roof') : 'NO JETPACK  -  find one on a ROOF', 3); if (have > 0 && this.inv) this.inv.toggle(false); return false; }
     if (k === 'skin') { if (have <= 0) { R.toast && R.toast('NO MILITARY SKIN'); return false; } this.skinOn = !this.skinOn; this.applySkin(); R.toast && R.toast(this.skinOn ? 'MILITARY SKIN ON' : 'MILITARY SKIN OFF  (it stays in your backpack)', 2.4); if (this.inv) this.inv.render(); return true; }
     if (have <= 0) { R.toast && R.toast('NONE LEFT'); return false; }
     if (k === 'smoke' || k === 'molotov') { R.nadeKind = k; const ok = R.throwNade(); if (!ok) R.nadeKind = null; else if (this.inv) this.inv.toggle(false); return ok; }
@@ -1146,6 +1151,7 @@ export class CombatScene {
     if (u.t >= u.dur) { cb.inv[u.k] = Math.max(0, (cb.inv[u.k] | 0) - 1); if (U.cap) this.hp = Math.max(this.hp, Math.min(U.cap, this.hp + U.hp)); else this.hp = Math.min(MY_DMG, this.hp + (U.hp || 0)); if (U.boost) { this.boost = Math.min(100, (this.boost || 0) + U.boost); R.toast && R.toast(U.name + '  +' + U.boost + ' BOOST'); } else R.toast && R.toast(U.name + '  HEALED'); A.sfx.pickup && A.sfx.pickup(); this.using = null; this.updateHud(); if (this.inv) this.inv.render(); }
   }
   finish(msg, why) {
+    if (this.jet) this.jet.reset();
     if (this.over) return; this.over = true; const R = this.R; R.fireHeld = false;
     try { const left = this.sim && this.sim.bots ? this.sim.bots.filter((q) => q.alive && !q.droid).length : 0, why2 = msg ? msg : why === 'win' ? (left ? 'LAST TEAM STANDING (server)' : 'ALL BOTS ELIMINATED') : 'TIME UP'; window.__endWhy = why2 + ' | bots left ' + left + ' | t ' + Math.round(this.t); console.log('[match end]', window.__endWhy); if (!msg && left > 0 && R.toast) R.toast('MATCH ENDED: ' + why2 + ' - BOTS LEFT ' + left, 6); } catch (e) { /* noop */ }   /* v598: the end of a match always says WHY (and how many bots were left) */
     this.ov.style.display = 'grid'; this.ov.innerHTML = '<div><div style="font-size:34px;color:' + (msg ? '#ff6a6a' : '#ffd23f') + '">' + (msg || (why === 'win' ? 'MISSION PASSED' : 'MATCH OVER')) + '</div><div>KILLS: ' + this.kills + '  \u2022  DEATHS: ' + this.deaths + '</div><div style="color:#5ef0a0">EARNED $' + (this.pay || 0) + '</div>' + (this.shared ? '<div style="font-size:14px;opacity:.8;margin-top:6px">Waiting for the other players...</div>' : '') + '</div>';

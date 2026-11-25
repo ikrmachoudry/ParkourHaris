@@ -154,6 +154,28 @@ export function ambSet(level, birds) {   // level 0..1 = how much wind (0 = off:
   const now = performance.now();
   if (birds && level > 0.5 && now > birdAt) { birdAt = now + rnd(5000, 13000); const n = 2 + (Math.random() * 3 | 0), f0 = rnd(2500, 3600), pn = rnd(-0.6, 0.6); for (let k = 0; k < n; k++) tone('sine', f0 * rnd(0.95, 1.1), f0 * rnd(1.25, 1.5), 0.07, 0.03, k * 0.11); void pn; }
 }
+/* v637 JETPACK SOUND (synthesised, no download): a rushing roar (filtered noise) over a low turbine whine (two detuned saws) with a fast flutter, all driven by THRUST 0..1 (the pitch and the roar climb with it). jetSound(thrust) starts / updates it, jetSound(0) fades it out and frees every node. jetBeep() = the low-fuel warning. */
+let jetN = null;
+export function jetSound(th, vol = 1) {
+  if (!ctx || !noiseBuf) return;
+  const t = ctx.currentTime;
+  if (th <= 0.001) { if (jetN) { const j = jetN; jetN = null; j.g.gain.setTargetAtTime(0, t, 0.18); setTimeout(() => { try { j.s.stop(); j.o1.stop(); j.o2.stop(); j.lfo.stop(); } catch { /* noop */ } try { j.g.disconnect(); } catch { /* noop */ } }, 700); } return; }
+  if (!jetN) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.playbackRate.value = 0.8;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.55; bp.frequency.value = 700;
+    const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(); o1.type = 'sawtooth'; o2.type = 'sawtooth'; o1.frequency.value = 95; o2.frequency.value = 99.5;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 1.2;
+    const ng = ctx.createGain(); ng.gain.value = 0.55; const og = ctx.createGain(); og.gain.value = 0.2;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 23; lg.gain.value = 0.08; const g = ctx.createGain(); g.gain.value = 0.0001; lfo.connect(lg); lg.connect(g.gain);   // the flutter
+    s.connect(bp); bp.connect(ng); ng.connect(g); o1.connect(lp); o2.connect(lp); lp.connect(og); og.connect(g); g.connect(sfxG);
+    s.start(); o1.start(); o2.start(); lfo.start(); jetN = { s, bp, o1, o2, lp, lfo, g };
+    noise(0.55, 0.45 * vol, 'bandpass', 500, 2600, 0, 0.8); tone('sawtooth', 70, 190, 0.5, 0.12 * vol);   // the ignition whoosh
+  }
+  const j = jetN, k = Math.max(0.2, Math.min(1.3, th));
+  j.bp.frequency.setTargetAtTime(520 + 900 * k, t, 0.1); j.o1.frequency.setTargetAtTime(78 + 70 * k, t, 0.12); j.o2.frequency.setTargetAtTime(81.5 + 73 * k, t, 0.12); j.lp.frequency.setTargetAtTime(380 + 520 * k, t, 0.12);
+  j.g.gain.setTargetAtTime(0.5 * vol * (0.55 + 0.45 * k), t, 0.08);
+}
+export function jetBeep() { tone('square', 1480, 1480, 0.09, 0.07); tone('square', 1480, 1480, 0.09, 0.07, 0.16); }
 export const sfx = {
   click() { play('ui_click', 0.7); },
   roar(big = 1) { play('boom1', 0.5, big ? 0.42 : 0.6, 0, 0, 700); },
