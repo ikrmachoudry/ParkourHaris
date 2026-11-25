@@ -1,3 +1,5 @@
+/* v648 TEAM SLOT COLOURS: slot 1 = YOU, 2.. = your mates (the same number + colour in the team panel, over his head in the world and on both maps) */
+export const SLOT_COL = ['#e3a02c', '#e8672b', '#2d9bd6', '#34b36a', '#8e6ad8'];
 // COMBAT MISSION on the client: drops the player onto the hidden battle map, draws the bots and the loot, runs the 5 minute match (combat.js has the brain),
 // shows the HUD (time, kills, health) and turns the player's bullets, fists and grenades into hits on the bots.
 import * as THREE from 'three';
@@ -111,7 +113,7 @@ export class CombatScene {
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
     { const cb = this.R.wallet && this.R.wallet.cb, vh = cb && cb.inv && cb.inv.vest > 0 ? Math.max(0, Math.round(cb.vestHp)) : 0, hh = cb && cb.inv && cb.inv.helmet > 0 ? Math.max(0, Math.round(cb.helmHp)) : 0;   // v414: you can SEE what armor you wear: icons above the health bar + the gear on your soldier
       const g = this.hpBar.querySelector('.cp-g'), cv = g.querySelector('.cp-v'), ch = g.querySelector('.cp-h'); g.style.display = vh > 0 || hh > 0 ? 'flex' : 'none'; cv.style.display = vh > 0 ? '' : 'none'; ch.style.display = hh > 0 ? '' : 'none'; cv.lastElementChild.textContent = vh; ch.lastElementChild.textContent = hh;
-      this.gearV = vh > 0; this.gearH = hh > 0; const mm = this.R.me && this.R.me.model; if (mm && mm.setGear) mm.setGear(this.gearV, this.gearH); if (mm && mm.setTeam) mm.setTeam(this.R.jangTeam || this.soloT ? 1 : 0); }   /* v647: my own helmet is blue too when I play in a team */
+      this.gearV = vh > 0; this.gearH = hh > 0; const mm = this.R.me && this.R.me.model; if (mm && mm.setGear) mm.setGear(this.gearV, this.gearH); }
   }
   // ---------------------------------------------------------------- start / stop
   begin(m, seat) {
@@ -165,7 +167,7 @@ export class CombatScene {
     if (this.trainG) { this.group.remove(this.trainG); this.trainG = null; } if (this.tbar) { this.tbar.remove(); this.tbar = null; } if (this.tx) { this.tx.remove(); this.tx = null; } this.stations = null;   // v442
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
     if (this._winT || this._winAt) { clearTimeout(this._winFade); if (this._fadeEl) { this._fadeEl.remove(); this._fadeEl = null; } clearTimeout(this._winT); this._winT = 0; this._winAt = 0; cancelWinSong(); }
-    if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { if (g.tg) this.group.remove(g.tg); this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
+    if (this._jtTimer) { clearInterval(this._jtTimer); this._jtTimer = 0; } for (const [, g] of this.mates) { if (g.tg) this.group.remove(g.tg); if (g.bd) this.group.remove(g.bd); this.group.remove(g.m.group); this.group.remove(g.ch); g.m.dispose && g.m.dispose(); } this.mates.clear(); A.remoteEngineStop && A.remoteEngineStop(); A.remoteHorn && A.remoteHorn(false); if (this.R.mateCars) this.R.mateCars.clear();
     for (const [, l] of this.loot) this.group.remove(l.g); this.loot.clear(); for (const [, sm] of this.dsm) this.group.remove(sm.g); this.dsm.clear(); for (const q of this.tr) this.group.remove(q); this.tr.length = 0;
     this.down = false; this.reviving = null; if (this.reviveBtn) this.reviveBtn.style.display = 'none'; this.spec = null; this.specHide();
     if (this.bw) { this.group.remove(this.bw); for (const q of this.bombs) this.group.remove(q.m); this.bw = null; this.bombs = null; } if (this.airs) { for (const a of this.airs) { this.group.remove(a.plane); this.group.remove(a.crate); } A.planeSound(null); this.airs = null; } this._bk = -1; this._bmsg = 0;
@@ -639,14 +641,21 @@ export class CombatScene {
   mkTag(txt, col) {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56; const c = cv.getContext('2d'); c.font = '800 ' + fitPx(c, txt, 34, 236) + 'px system-ui, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 7; c.strokeStyle = 'rgba(0,0,0,.85)'; c.fillStyle = col; c.strokeText(txt, 128, 30); c.fillText(txt, 128, 30);
     const tex = new THREE.CanvasTexture(cv), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, opacity: 0.9, fog: false })); sp.scale.set(1.0, 0.22, 1); sp.renderOrder = 998; sp.frustumCulled = false; this.group.add(sp); return sp; }
+  mkBadge(n) {   /* v648 PUBG-style TEAMMATE BADGE: his squad number in a bold coloured disc (dark ring + white ring + white digit), drawn through walls, about 20 px on the screen at any distance */
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), col = SLOT_COL[(n - 1 + SLOT_COL.length) % SLOT_COL.length];
+    c.beginPath(); c.arc(64, 64, 62, 0, 7); c.fillStyle = 'rgba(0,0,0,.95)'; c.fill(); c.beginPath(); c.arc(64, 64, 56, 0, 7); c.fillStyle = '#fff'; c.fill(); c.beginPath(); c.arc(64, 64, 51, 0, 7); c.fillStyle = col; c.fill();
+    c.font = '900 84px system-ui, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round'; c.lineWidth = 10; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(String(n), 64, 68); c.fillStyle = '#fff'; c.fillText(String(n), 64, 68);
+    const tex = new THREE.CanvasTexture(cv); if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, opacity: 1, fog: false })); sp.scale.set(0.3, 0.3, 1); sp.renderOrder = 999; sp.frustumCulled = false; sp._bn = n; this.group.add(sp); return sp; }
   tagTick() {
     const T = (this.R.jangTeam || this.soloT); if (!T || !this.sim) return; const c = this.R.camera.position;
     for (const [, g] of this.mates) {
-      if (g.tm !== T.tm) { if (g.tg) g.tg.visible = false; continue; }
-      const gp = g.m.group, dg = g.id === -777, ok = g.has && gp.visible && g.al !== 0 && !g.dd && (dg || (!this.dropping && Math.hypot(gp.position.x - c.x, gp.position.z - c.z) < 120));
-      if (!ok) { if (g.tg) g.tg.visible = false; continue; }
+      if (g.tm !== T.tm) { if (g.tg) g.tg.visible = false; if (g.bd) g.bd.visible = false; continue; }
+      const gp = g.m.group, dg = g.id === -777, ok = g.has && gp.visible && g.al !== 0 && !g.dd && (dg || g.ph > 1);
+      if (!ok) { if (g.tg) g.tg.visible = false; if (g.bd) g.bd.visible = false; continue; }
       if (dg) { if (!g.tg || !g.tg._dk) { if (g.tg) this.group.remove(g.tg); g.tg = this.mkDroidTag(); } const dd = Math.hypot(gp.position.x - c.x, gp.position.z - c.z), k = Math.max(1, Math.min(5, dd * 0.03)); g.tg.scale.set(1.5 * k, 0.5 * k, 1); g.tg.position.set(gp.position.x, gp.position.y + 2.5 + (k - 1) * 0.25, gp.position.z); g.tg.visible = true; continue; }   /* v568: the flying copy of the droid keeps its name all the time too */
-      if (!g.tg) g.tg = this.mkTag(g.nm || 'MATE', '#9dffb0'); g.tg.position.set(gp.position.x, gp.position.y + 2.15, gp.position.z); g.tg.visible = true;
+      { const nm = g.slot > 0 ? g.slot : 2, dd = Math.hypot(gp.position.x - c.x, gp.position.z - c.z), dy = gp.position.y + 2.5 - c.y, d3 = Math.hypot(dd, dy), sz = Math.max(0.17, d3 * 0.034);   /* v648: the number badge: at least 0.17 m, then it grows with the distance so it stays about 26 px big (1080p) (readable from far, never huge up close) */
+        if (!g.bd || g.bd._bn !== nm) { if (g.bd) { this.group.remove(g.bd); g.bd.material.map.dispose(); g.bd.material.dispose(); } g.bd = this.mkBadge(nm); } g.bd.scale.set(sz, sz, 1); g.bd.position.set(gp.position.x, gp.position.y + 2.28 + sz * 0.5, gp.position.z); g.bd.visible = true;
+        if (dd < 25) { if (!g.tg) g.tg = this.mkTag(g.nm || 'MATE', '#9dffb0'); g.tg.position.set(gp.position.x, gp.position.y + 2.0, gp.position.z); g.tg.visible = true; } else if (g.tg) g.tg.visible = false; }
     }
     for (const s of this.sim.bots) {
       if (!s.droid) continue; const a = this.bots.get(s.id); if (!a) continue;
@@ -683,13 +692,14 @@ export class CombatScene {
   // DOWN (red) / OUT (grey) when knocked or dead.  Row 1 is YOU.  On a phone the rows are short and see-through so the view stays clear.
   teamHp(now) {
     if (now - (this._thAt || 0) < 250) return; this._thAt = now; const T = this.R.jangTeam || this.soloT, rows = [], talk = (id) => !!(this.R.isTalking && this.R.isTalking(id));
-    if (T && this.on && !this.over) for (const [id, g] of this.mates) { if (g.tm !== T.tm || id === -777) continue; const out = !!g.dd, dn = g.ph === 7 && !g.dd, hp = out ? 0 : dn ? 0 : id === -777 ? 100 : (g.hpv === undefined ? 100 : g.hpv); rows.push({ nm: g.nm || 'MATE', hp, st: out ? 'OUT' : dn ? 'DOWN' : '', mic: talk(id) }); }
+    if (T && this.on && !this.over) for (const [id, g] of this.mates) { if (g.tm !== T.tm || id === -777) continue; const out = !!g.dd, dn = g.ph === 7 && !g.dd, hp = out ? 0 : dn ? 0 : id === -777 ? 100 : (g.hpv === undefined ? 100 : g.hpv); rows.push({ nm: g.nm || 'MATE', hp, st: out ? 'OUT' : dn ? 'DOWN' : '', mic: talk(id), gid: id }); }
     if (T && this.on && !this.over && this.sim && this.sim.bots) { const D = this.sim.bots.find((q) => q.droid && q.dtm === T.tm); if (D) rows.push({ nm: 'INTELLIDROID', hp: D.alive ? Math.max(1, Math.min(100, Math.round(D.hp / 2.6))) : 0, st: D.alive ? '' : 'OUT', mic: false }); }   /* v558: the droid is a server bot after landing (not a mate), so it gets its own row; its max health is 260 */
     if (rows.length) { const dead = this.deadT > 0 || (this.hp <= 0 && !this.down); rows.unshift({ nm: this.myName(), hp: dead ? 0 : this.down ? 0 : Math.max(0, Math.min(100, Math.round(this.hp))), st: dead ? 'OUT' : this.down ? 'DOWN' : '', mic: !!(T && talk(T.myId)), me: true }); }
+    for (const [, g] of this.mates) g.slot = 0; rows.forEach((q, i) => { if (q.gid !== undefined) { const g = this.mates.get(q.gid); if (g) { g.slot = i + 1; g.slotCol = SLOT_COL[i % SLOT_COL.length]; } } });   /* v648: the number each mate wears over his head = his row in this panel */
     let e = this._thEl; if (!e) { e = this._thEl = document.createElement('div'); e.id = 'tm-hp'; const tc = !!this.R.isTouch || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches); e.className = tc ? 'tmh phone' : 'tmh'; e.style.top = 'calc(max(10px,env(safe-area-inset-top),2vh) + ' + (tc ? 'clamp(78px,17vmin,112px)' : 'clamp(88px,19vmin,142px)') + ' + 6px)'; document.body.appendChild(e); }
     const sig = rows.map((q) => q.nm + q.st + Math.round(q.hp / 4) + (q.mic ? 'm' : '')).join('|'); if (sig === this._thSig) return; this._thSig = sig;
     if (!rows.length) { e.style.display = 'none'; return; } e.style.display = 'block';
-    const COL = ['#e3a02c', '#e8672b', '#2d9bd6', '#34b36a', '#8e6ad8'], MIC = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1A7 7 0 0 0 19 12z"/></svg>', PIN = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.500a2.500 2.500 0 1 1 0-5 2.500 2.500 0 0 1 0 5z"/></svg>';
+    const COL = SLOT_COL, MIC = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1A7 7 0 0 0 19 12z"/></svg>', PIN = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.500a2.500 2.500 0 1 1 0-5 2.500 2.500 0 0 1 0 5z"/></svg>';
     e.innerHTML = rows.map((q, i) => { const c = q.st === 'DOWN' ? '#ef4444' : q.st ? '#6b7280' : q.hp > 50 ? '#f4f4f4' : q.hp > 25 ? '#f5b82e' : '#ef4444'; return '<div class="tmr' + (q.st === 'DOWN' ? ' dn' : q.st ? ' out' : '') + (q.me ? ' me' : '') + '"><b class="n" style="background:' + COL[i % COL.length] + '">' + (i + 1) + '</b><div class="bx"><div class="l1"><span class="nm">' + String(q.nm).replace(/[<>&]/g, '') + '</span>' + (q.st ? '<em>' + q.st + '</em>' : '') + (q.mic ? '<u class="mic">' + MIC + '</u>' : q.me ? '<u class="pin">' + PIN + '</u>' : '') + '</div><div class="hb"><i style="width:' + (q.st === 'DOWN' ? 100 : q.hp) + '%;background:' + c + '"></i></div></div></div>'; }).join('');
   }
   /* v595 CPR geometry (measured on the real rig): the downed soldier lies on his back with his hips on the spot where he went down (head one way, feet the other); the reviver kneels at his chest side, 0.65 m from those hips, leaning over him with the adrenaline syringe. rvYaw gives the lying body's heading from where the reviver kneels, so both screens agree without sending anything extra. */
@@ -716,7 +726,6 @@ export class CombatScene {
       if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y + (g.ph === 4 && g.sp > 0.3 && !g.dd ? Math.max(0, Math.min(0.28, (cmbG(g.x - CMB.x + Math.sin(g.r) * 0.5, g.z - CMB.z + Math.cos(g.r) * 0.5) - cmbG(g.x - CMB.x, g.z - CMB.z)) * 0.9)) : 0), g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw + (g.ph === 4 && ((g.st | 0) & 8) ? Math.PI : 0);
       if (g.m.setGear) g.m.setGear(!!(g.st & 2048), !!(g.st & 4096));
-      if (g.m.setTeam) g.m.setTeam(g.tm === undefined || g.tm === null ? 0 : g.tm === T.tm ? 1 : 2);   /* v647: my team's helmets are BLUE, another team's RED */
       if (g.fire > 0) g.fire -= dt; const on4 = g.ph === 4, gs = on4 ? g.st | 0 : 0; if (g.pt > 0) { g.pt += dt / 0.72; if (g.pt >= 1) g.pt = 0; } if (g.vt > 0) { g.vt += dt / 1.25; if (g.vt >= 1) g.vt = 0; } const nadeP = on4 && (gs & 512) && g.nt0 ? Math.min((gs & 64) ? nhf(g.nts) : 0.999, (now - g.nt0) / 1000 / ([1.12, 1.3, 1.4, 1.47, 1.47][g.nts | 0] || 1.12)) : 0;   /* v615: bit 64 = the pin is out and he holds it: frozen cocked back */
       const dyS = g.py !== undefined && dt > 0 ? (g.y - g.py) / dt : 0; g.py = g.y; g.sa = (g.sa || 0) + ((dyS > 0.9 && on4 && !(gs & 4) ? 1 : 0) - (g.sa || 0)) * Math.min(1, dt * 6);   // v323: a teammate climbing a flight (rising fast on the ground)
       g.dT = g.ph === 7 && g.dd ? (g.dT || 0) + dt : 0;

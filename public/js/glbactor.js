@@ -79,7 +79,7 @@ export function mapBones(names) {
 }
 const NEED = ['hips', 'spine', 'chest', 'neck', 'head', 'upperarm.L', 'forearm.L', 'hand.L', 'upperarm.R', 'forearm.R', 'hand.R', 'upperleg.L', 'lowerleg.L', 'foot.L', 'upperleg.R', 'lowerleg.R', 'foot.R'];
 
-let _gearGeo = null, _gearMat = null, _teamGeo = null; const TEAM_COL = {};
+let _gearGeo = null, _gearMat = null;
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m = new THREE.Matrix4();
 
 // ---- zombie skin: the model keeps its vertex colours; the shader adds a rib cage (stripes + bump), a sternum, and blood / bruise blotches on skin-coloured pixels
@@ -388,23 +388,7 @@ export class GlbActor extends HeroActor {
   }
   // v414: BODY ARMOR and HELMET are visible on the character (you, teammates, bots): a green plate vest on the chest and a dark-green helmet on the head
   setGear(v, h) { v = !!v; h = !!h; if (this._gear && this._gear.fb && hasProp('vest') && hasProp('helmet')) { for (const q of [this._gear.vest, this._gear.helm]) if (q.parent) q.parent.remove(q); this._gear = null; }   // props arrived after the actor: swap the stand-in boxes for the real models
-    if (!this._gear && this._bb) this._buildGear(); if (this._gv === v && this._gh === h) return; this._gv = v; this._gh = h; if (this._gear) { this._gear.vest.visible = v; this._gear.helm.visible = h && !this._tm; } }
-  /* v647 TEAM HELMET: every member of a team wears a helmet in the TEAM colour (t 1 = BLUE = my team, t 2 = RED = another team; 0 = none) whether or not he picked up an armour helmet, so a teammate is never mistaken for an opponent. One small dome + brim (2 meshes) on the head bone; the armour helmet is hidden while it is on. */
-  setTeam(t) {
-    t = t | 0; if (this._tm === t && (this._th || !t)) return;
-    if (t && !this._th) this._buildTeamHelm(); if (t && !this._th) return;   // the bones are not ready yet: try again next frame
-    this._tm = t; if (this._th) { this._th.visible = !!t; if (t) { const c = TEAM_COL[t]; this._th.userData.dome.material = c.dome; this._th.userData.brim.material = c.brim; } }
-    if (this._gear) this._gear.helm.visible = !!this._gh && !t;
-  }
-  _buildTeamHelm() {
-    const bb = this._bb, map = this._bmap; if (!bb || !map || this._th) return; const hb = bb[map.head]; if (!hb) return;
-    if (!_teamGeo) { _teamGeo = { dome: new THREE.SphereGeometry(0.15, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), brim: new THREE.CylinderGeometry(0.162, 0.162, 0.028, 18) }; const mk = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0.2, emissive: e, emissiveIntensity: 0.55 }); TEAM_COL[1] = { dome: mk('#1f6bff', '#0a2e9a'), brim: mk('#0d3fc2', '#06236e') }; TEAM_COL[2] = { dome: mk('#e32222', '#8a0c0c'), brim: mk('#a91212', '#600808') }; }
-    this.group.updateMatrixWorld(true); const gw = this.group.matrixWorld, T = new THREE.Matrix4(), M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
-    const g = new THREE.Group(), dome = new THREE.Mesh(_teamGeo.dome, TEAM_COL[1].dome), brim = new THREE.Mesh(_teamGeo.brim, TEAM_COL[1].brim); brim.position.y = 0.005; dome.scale.set(1, 0.88, 1.06); g.add(dome, brim); g.userData = { dome, brim };
-    g.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
-    hb.updateWorldMatrix(true, false); P.setFromMatrixPosition(hb.matrixWorld); P.add(S.set(0, 0.1, -0.005).applyQuaternion(Q.setFromRotationMatrix(gw)));
-    T.makeTranslation(P.x, P.y, P.z); T.multiply(M.copy(gw).setPosition(0, 0, 0)); M.copy(hb.matrixWorld).invert().multiply(T); M.decompose(g.position, g.quaternion, g.scale); hb.add(g); g.visible = false; this._th = g;
-  }
+    if (!this._gear && this._bb) this._buildGear(); if (this._gv === v && this._gh === h) return; this._gv = v; this._gh = h; if (this._gear) { this._gear.vest.visible = v; this._gear.helm.visible = h; } }
   _buildGear() {
     const bb = this._bb, map = this._bmap; if (!bb || !map || this._gear) return;
     this.group.updateMatrixWorld(true); const gw = this.group.matrixWorld, T = new THREE.Matrix4(), M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
@@ -419,7 +403,7 @@ export class GlbActor extends HeroActor {
     vest.traverse((o) => { o.castShadow = false; o.frustumCulled = false; }); helm.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
     const cb = bb[map.chest] || bb[map.spine], hb = bb[map.head]; if (!cb || !hb) return;
     if (real) { fit(cb, vest, 0, -0.3, 0.035); fit(hb, helm, 0, -0.01, 0.01); } else { fit(cb, vest, 0, -0.07, 0.0); fit(hb, helm, 0, 0.125, 0.0); }
-    vest.visible = !!this._gv; helm.visible = !!this._gh && !this._tm; this._gear = { vest, helm, fb: !real };
+    vest.visible = !!this._gv; helm.visible = !!this._gh; this._gear = { vest, helm, fb: !real };
   }
   dispose() {
     this.disposed = true;
