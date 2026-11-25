@@ -365,8 +365,8 @@ const segsOf = () => { const a = []; for (const r of ROADS) for (let i = 0; i + 
 const ROADSEGS = segsOf();
 /* v621 MEADOW GRASS COVER: the swaying meadow grass that is drawn all over the map (battlemap.js grassCell: not on roads, building sites, fields, concrete or steep slopes, thicker and taller where fbm 'd' is high) used to give NO cover, so a prone player in it stayed visible at any distance while the patches and the river bed hid him. Same ground test as the drawing (d >= 0.42 = the taller half), answered per 1 m square and remembered. PRONE only: crouching in 0.3 - 0.5 m blades hides nothing. Same answer for bots, other players and the picture, whatever the GPU managed to draw. */
 const MG = new Map();
-export const grassSite = (x, z) => { if (GOJRA) return GJ.parkAt(x, z); const d = Math.hypot(x - 96, z - 46); return d < 12 ? 1 : d < 22 ? 1 - (d - 12) / 10 : 0; };   /* v631: the old school site (96, 46) is green ground, no concrete (battlemap.js + here) */
-const concG = (x, z) => { if (GOJRA) return GJ.urbanAt(x, z) * (1 - GJ.parkAt(x, z)); const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))) * (1 - grassSite(x, z)); };
+export const grassSite = (x, z) => { if (GOJRA) return GJ.grassAt(x, z); const d = Math.hypot(x - 96, z - 46); return d < 12 ? 1 : d < 22 ? 1 - (d - 12) / 10 : 0; };   /* v631: the old school site (96, 46) is green ground, no concrete (battlemap.js + here) */
+const concG = (x, z) => { if (GOJRA) return GJ.urbanAt(x, z) * (1 - GJ.grassAt(x, z)); const c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; return Math.max(c, smooth(0.46, 0.58, fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3)) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))) * (1 - grassSite(x, z)); };
 /* v622: 0..1 how much a spot belongs to one of the new hills (1 = the summit): the pale 'concrete country' ground is not painted on them, they are grass and rock */
 export function hillCover(x, z) { let v = 0; for (let i = 0; i < HILLS.length; i++) { const q = HILLS[i]; if (q[2] < 10) continue; const e = Math.exp(-(((x - q[0]) ** 2 + (z - q[1]) ** 2) / (2 * (q[3] * 1.3) ** 2))); if (e > v) v = e; } return v; }
 export function meadowGrass(x, z) {
@@ -446,6 +446,7 @@ function buildGojra() {
   // ---- the 20 shops: one building 68 x 9 m, 20 shutter openings to the street (north), partitions between the shops, one flat roof that also runs 2.4 m out over the pavement on posts
   { const S0 = GJ.shops, n = S0.n, pitch = S0.w / n, doors = [], inner = [];
     for (let i = 0; i < n; i++) doors.push({ s: 'N', o: -S0.w / 2 + pitch * (i + 0.5), w: 2.8, h: 2.8 });
+    doors.push({ s: 'S', o: GJ.path.x - S0.x, w: 1.8, h: 2.5 });   /* v635: a door in the back wall of the far-left shop: the straight footpath behind the grounds starts here */
     for (let i = 1; i < n; i++) inner.push({ f: 0, ax: 'z', pos: -S0.w / 2 + pitch * i, a: -S0.d / 2 + TH / 2, b: S0.d / 2 - TH / 2, gaps: [] });
     const row = mk('shop', S0.x, S0.z, S0.w, S0.d, 'N', { c: '#d9c9a3', rc: '#6b6b70', fh: 3.4, win: null, roofAcc: null, doors, inner });
     row.fur = null; row.shopRow = n; row.noParapet = true; row.noLoot = false;
@@ -716,6 +717,12 @@ function build() {
   }
   if (GOJRA) {   /* v633: Jinnah Park's trees (and an avenue round it) + the park benches */
     for (const [x, z, sc, pine] of GJ.trees) { const gy = cmbH(x, z); trees.push({ x, z, s: sc, pine, y: gy, r: R() * 6.28 }); }
+    /* v635 the walled yard behind the mosque: tiled area (46 m) then dirt ground; two big black gates, open, in the end wall facing POLICE STATION ROAD; the wall is 2.4 m (you enter by the gates or through the mosque's east door) */
+    { const Y = GJ.yard, wallC = '#d9ccb0', W = (x0, z0, x1, z1, h, c, k = 'barrier') => { const x = (x0 + x1) / 2, z = (z0 + z1) / 2, gy = cmbH(x, z), it = { x, z, y: gy, w: x1 - x0, d: z1 - z0, h, c, k }; props.push(it); addS({ x0, z0, x1, z1, y0: gy, y1: gy + h, k: 'prop' }); };
+      W(Y.tx0, Y.z0 - 0.2, Y.dx1, Y.z0 + 0.2, 2.4, wallC); W(Y.tx0, Y.z1 - 0.2, Y.dx1, Y.z1 + 0.2, 2.4, wallC);
+      const gx0 = Y.dx1 - 0.25, gx1 = Y.dx1 + 0.25; let zc = Y.z0; for (const [b0, b1] of Y.bays) { W(gx0, zc, gx1, b0, 3.0, wallC); zc = b1; } W(gx0, zc, gx1, Y.z1, 3.0, wallC);
+      for (const [b0, b1] of Y.bays) for (const [zz, sg] of [[b0, 1], [b1, -1]]) { W(Y.dx1 - 0.45, zz - 0.45, Y.dx1 + 0.45, zz + 0.45, 3.6, '#e4dccb', 'pillar'); W(Y.dx1 - 3.0, zz + sg * 0.62 - 0.06, Y.dx1 - 0.5, zz + sg * 0.62 + 0.06, 2.5, '#101215', 'gate'); }   // the black leaves, swung open against the pillars
+      for (const [bx, bz, al] of [[GJ.path.x + 3.2, -120, 0], [GJ.path.x + 3.2, -100, 0], [GJ.smallPark[0] + 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[0] + 10, GJ.smallPark[1] + 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[1] + 2, 1]]) { const it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 1.8 : 0.5, d: al ? 0.5 : 1.8, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); } }
     const PK = GJ.park; for (let i = 0; i < 16; i++) { const a = i * 0.3927 + 0.2, bx = PK.x + Math.cos(a) * PK.rx * 0.72, bz = PK.z + Math.sin(a) * PK.rz * 0.72, al = Math.abs(Math.cos(a)) > 0.7, it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 0.5 : 1.8, d: al ? 1.8 : 0.5, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); }
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)

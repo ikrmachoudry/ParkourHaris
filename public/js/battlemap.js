@@ -502,12 +502,11 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     { const row = GJ_INFO.row;
       if (row) { const NAMES = ['RAZA MOBILES', 'MADINA BAKERS', 'GOJRA CLOTH HOUSE', 'AL-FATIMA PHARMACY', 'NEW KHAN TAILORS', 'BISMILLAH GENERAL STORE', 'HONDA SPARES', 'CITY BOOK DEPOT', 'ALI ELECTRONICS', 'PUNJAB SWEETS', 'SHAN FOOTWEAR', 'ZAM ZAM TRADERS', 'GREEN KARYANA', 'MALIK HARDWARE', 'FAISAL OPTICS', 'AWAN TYRE SHOP', 'ROYAL BARBER', 'NOOR MEDICOSE', 'LAHORE CUTLERY', 'SADA GHAR PHOTO'], BG = ['#b3261e', '#1d6f42', '#1b4f9c', '#c77700', '#6a2c91', '#0b7285', '#a61e4d', '#2b8a3e', '#364fc7', '#d9480f'], SH = ['#7d858d', '#5f7f5f', '#7a6a58', '#6a7f96', '#8a4a40'];
         const zF = row.z - row.d / 2, y0 = row.fy;
-        row.doors.forEach((d, i) => { const cx = row.x + d.o, sh = SH[(i * 3 + 1) % SH.length];
+        row.doors.filter((d) => d.s === 'N').forEach((d, i) => { const cx = row.x + d.o, sh = SH[(i * 3 + 1) % SH.length];
           B.box('metal', cx - 1.5, y0 + 2.86, zF - 0.16, cx + 1.5, y0 + 3.22, zF + 0.02, sh, 0);   // the rolled-up shutter box over the opening
           for (let k = 0; k < 6; k++) B.box('metal', cx - 1.42, y0 + 2.8 - k * 0.0, zF - 0.1 - k * 0.0, cx - 1.3, y0 + 2.86, zF + 0.0, '#555a60', 0);
           B.box('trim', cx - 1.5, y0, zF - 0.1, cx - 1.38, y0 + 2.86, zF + 0.04, '#6c6860', 0); B.box('trim', cx + 1.38, y0, zF - 0.1, cx + 1.5, y0 + 2.86, zF + 0.04, '#6c6860', 0);   // the rail guides
-          /* v634 the name board hangs on the FRONT face of the canopy edge (it used to sit inside the cream trim strip, so its top half was hidden): big, two lines for long names, lit the same from every angle */
-          mkPlane(boardTex(NAMES[i % NAMES.length], BG[i % BG.length], 512, 192), 3.2, 1.2, cx, y0 + 3.52, zF - 2.46, SIGN_RY, false); });
+          /* v635: no shop name boards (user) */ });
         B.box('trim', row.x - row.w / 2 - 0.3, y0 + 3.0, zF - 2.4, row.x + row.w / 2 + 0.3, y0 + 3.4, zF - 2.34, '#e9e4d8', 0); }
     }
     for (const mq of L.buildings) {
@@ -534,7 +533,18 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       const line = (x0, z0, x1, z1, w) => { const n = 24, pos = [], idx = [], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), nx = -dz / l * w / 2, nz = dx / l * w / 2; for (let i = 0; i <= n; i++) { const x = x0 + dx * i / n, z = z0 + dz * i / n; for (const s2 of [-1, 1]) pos.push(x + nx * s2, cmbG(x + nx * s2, z + nz * s2) + 0.07, z + nz * s2); if (i < n) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); } } return [pos, idx]; };
       const parts = [ring(0.72, 0.05), ring(0.45, 0.04), line(PK.x - PK.rx * 0.95, PK.z, PK.x + PK.rx * 0.95, PK.z, 2.6), line(PK.x, PK.z - PK.rz * 0.95, PK.x, PK.z + PK.rz * 0.95, 2.6)], gs = [];
       for (const [pos, idx] of parts) { const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g2.setIndex(idx); g2.computeVertexNormals(); gs.push(g2); }
+      { const PA = GJ.path; for (const [pos, idx] of [line(PA.x, PA.z0, PA.x, PA.z1, PA.w), line(PA.x, PA.z1, PA.spurX, PA.z1, PA.w)]) { const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g2.setIndex(idx); g2.computeVertexNormals(); gs.push(g2); } }   /* v635: the straight footpath from the far-left shop's back door to the small park */
       const pm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshStandardMaterial({ color: '#cbbf9f', roughness: 1, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide })); pm.receiveShadow = true; group.add(pm); }
+    /* v635 the tiled area (46 m, light tiles with grout lines) and the dirt ground of the walled yard behind the mosque: flat decals that follow the ground */
+    { const Y = GJ.yard, patch = (x0, z0, x1, z1, mat) => { const nx = Math.max(2, Math.ceil((x1 - x0) / 3)), nz = Math.max(2, Math.ceil((z1 - z0) / 3)), pos = [], uv = [], idx = [];
+        for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz; pos.push(x, cmbG(x, z) + 0.06, z); uv.push(i / nx, j / nz); }
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+        const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g2.setIndex(idx); g2.computeVertexNormals(); const m = new THREE.Mesh(g2, mat); m.receiveShadow = true; group.add(m); };
+      const tc = document.createElement('canvas'); tc.width = tc.height = 128; { const g = tc.getContext('2d'); g.fillStyle = '#9b9588'; g.fillRect(0, 0, 128, 128); for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const k = 218 + ((a * 7 + b * 13) % 5) * 5; g.fillStyle = 'rgb(' + k + ',' + (k - 6) + ',' + (k - 22) + ')'; g.fillRect(a * 32 + 1.5, b * 32 + 1.5, 29, 29); } }
+      const tt = new THREE.CanvasTexture(tc); tt.wrapS = tt.wrapT = THREE.RepeatWrapping; tt.colorSpace = THREE.SRGBColorSpace; tt.anisotropy = 4; tt.repeat.set((Y.tx1 - Y.tx0) / 2.4, (Y.z1 - Y.z0) / 2.4);
+      const dt = T.dirt.clone(); dt.needsUpdate = true; dt.repeat.set((Y.dx1 - Y.tx1) / 6, (Y.z1 - Y.z0) / 6);
+      const dm = (map) => new THREE.MeshStandardMaterial({ map, roughness: 1, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+      patch(Y.tx0, Y.z0, Y.tx1, Y.z1, dm(tt)); patch(Y.tx1, Y.z0, Y.dx1, Y.z1, dm(dt)); }
   }
   meshes.push(...B.finish(group, true));
 
@@ -691,7 +701,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   return { group, update, warm, quality: q, propsOk: !!propDim('ladder'), setRange: (k) => { RK = Math.max(0.5, Math.min(1, k)); }, setFog: (d) => { FOGR = d; } };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
-const conc = (x, z) => { if (GOJRA) return GJ.urbanAt(x, z) * (1 - GJ.parkAt(x, z)); let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c * (1 - grassSite(x, z)); };   /* v631: no concrete on the old school site */
+const conc = (x, z) => { if (GOJRA) return GJ.urbanAt(x, z) * (1 - GJ.grassAt(x, z)); let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c * (1 - grassSite(x, z)); };   /* v631: no concrete on the old school site */
 const flags = [], ICONS = [];
 const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
 const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
