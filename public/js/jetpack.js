@@ -69,7 +69,7 @@ export class Jet {
       this.fuel -= dt * (this.vy > 1.5 ? JET.DRAIN_UP : JET.DRAIN_FLY);   // (this.vy = the smoothed climb speed from pre())
       if (this.fuel <= 0 || this.blocked(b) || !this.has()) { this.fuel = Math.max(0, this.fuel); this.off(b); }
     } else if (b.grounded) { this.glide = false; if (this.fuel < JET.FUEL) this.fuel = Math.min(JET.FUEL, this.fuel + dt * JET.FUEL / JET.RECHARGE); }
-    if (this.glide && (b.grounded || b.swim > 0.3 || cs.dropping || cs.down)) this.glide = false;
+    if (this.glide && (b.grounded || b.swim > 0.3 || cs.dropping || cs.down || cs.hp <= 0 || cs.deadT > 0)) this.glide = false;
     void inp;
   }
   /* inside every physics sub-step, before stepBody: thrust, forward flight, the soft cushion */
