@@ -40,6 +40,8 @@ import { Voice } from './voice.js';
 import { preloadAssets } from './preload.js';
 import './guide.js';
 import { throwModel } from './weaponmodels.js';
+import { MAPID, GOJRA, setMap } from './mapid.js';
+import { GJ } from './gojra.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { ADS_HTML, ADS_KIND, ADS_FOV } from './ads.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
@@ -3204,7 +3206,37 @@ const packAsk = () => {
     catch (e) { busy = false; g('pk-go').style.opacity = 1; g('pk-skip').style.opacity = 1; g('pk-go').textContent = 'TRY AGAIN'; g('pk-t').textContent = 'Download stopped (network). Tap TRY AGAIN - it continues where it stopped.'; }
   };
 };
-$('b-go-jang').onclick = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else openJangMenu(); };
+const jangNext = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else openJangMenu(); };
+/* v633 CHOOSE YOUR MAP: tapping JANG shows two big cards, DEFAULT MAP and GOJRA MAP. The whole map is built when the page loads, so a different choice is saved and the page reloads once, then the Jang menu opens by itself. Gojra is solo only for now (the server and the online rooms stay on the default map). */
+const mapAsk = (then) => {
+  if (document.getElementById('map-ask')) return;
+  const o = document.createElement('div'); o.id = 'map-ask'; o.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(5,8,14,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;color:#fff;text-align:center;padding:14px;overflow:auto';
+  const card = (id, name, sub, tag) => '<button data-m="' + id + '" style="flex:1 1 250px;max-width:360px;min-width:220px;border:3px solid ' + (id === MAPID ? '#ffb23c' : '#3a4658') + ';border-radius:16px;background:#101826;color:#fff;padding:10px;cursor:pointer;font:inherit;text-align:center"><canvas data-p="' + id + '" width="300" height="200" style="width:100%;border-radius:10px;background:#7d9a4a;display:block"></canvas><div style="font:900 24px Impact,Arial Black,sans-serif;letter-spacing:1px;margin:8px 0 2px;color:#ffb23c">' + name + '</div><div style="font:600 13px/1.35 system-ui;color:#c9d2e0">' + sub + '</div><div style="margin-top:6px;font:800 11px system-ui;color:' + (id === MAPID ? '#7CFC9A' : '#8794a8') + '">' + tag + '</div></button>';
+  o.innerHTML = '<div style="font:900 30px Impact,Arial Black,sans-serif;letter-spacing:2px">CHOOSE YOUR MAP</div><div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:min(780px,96vw)">'
+    + card('default', 'DEFAULT MAP', 'Hills, a dry river, the military base, the farm and the towns. 600 x 600 m. Solo, team and online.', id0('default'))
+    + card('gojra', 'GOJRA MAP', 'Our own city: Rahila Clinic (Sada Ghar), 20 shops under one roof, Jinnah Park, the mosque and the congested streets. 600 x 600 m. Solo only for now.', id0('gojra')) + '</div><button id="map-x" style="padding:9px 22px;border:0;border-radius:10px;background:#333;color:#ddd;font:700 14px system-ui">BACK</button>';
+  function id0(i) { return i === MAPID ? 'PLAYING THIS MAP NOW' : 'TAP TO SWITCH (the game reloads once)'; }
+  document.body.appendChild(o);
+  try { const pv = (id) => { const cv = o.querySelector('canvas[data-p="' + id + '"]'), g = cv.getContext('2d'), W = 300, Hh = 200;
+      if (id === 'gojra') { g.fillStyle = '#9fb26a'; g.fillRect(0, 0, W, Hh); const sx = (x) => W / 2 + x * 0.52, sz = (z) => Hh / 2 + z * 0.43 + 8; g.fillStyle = '#6fae62'; g.beginPath(); g.ellipse(sx(GJ.park.x), sz(GJ.park.z), GJ.park.rx * 0.52, GJ.park.rz * 0.43, 0, 0, 7); g.fill();
+        g.strokeStyle = '#4a4d55'; g.lineCap = 'round'; for (const r of GJ.roads) { g.lineWidth = Math.max(1.2, r.w * 0.27); g.beginPath(); r.pts.forEach((p, i) => (i ? g.lineTo(sx(p[0]), sz(p[1])) : g.moveTo(sx(p[0]), sz(p[1])))); g.stroke(); }
+        for (const l of GJ.lots) { g.fillStyle = l.baz ? '#e0a63a' : '#c98a6a'; g.fillRect(sx(l.x - l.w / 2), sz(l.z - l.d / 2), Math.max(2, l.w * 0.52), Math.max(2, l.d * 0.43)); }
+        g.fillStyle = '#ffd24a'; g.fillRect(sx(GJ.shops.x - GJ.shops.w / 2), sz(GJ.shops.z - 4), GJ.shops.w * 0.52, 4); g.fillStyle = '#fff'; g.fillRect(sx(GJ.clinic[0] - 14), sz(GJ.clinic[1] - 10), 28 * 0.52, 20 * 0.43); g.fillStyle = '#1e8a5a'; g.fillRect(sx(GJ.mosque.x - 11), sz(GJ.mosque.z - 11), 22 * 0.52, 22 * 0.43); }
+      else { const gr = g.createLinearGradient(0, 0, W, Hh); gr.addColorStop(0, '#8aa357'); gr.addColorStop(1, '#a8a25a'); g.fillStyle = gr; g.fillRect(0, 0, W, Hh); g.fillStyle = '#7a6a52'; g.beginPath(); g.arc(238, 52, 44, 0, 7); g.fill(); g.fillStyle = '#8f8a78'; g.beginPath(); g.arc(238, 52, 22, 0, 7); g.fill();
+        g.strokeStyle = '#6fa3c7'; g.lineWidth = 9; g.beginPath(); g.moveTo(70, 0); for (let y = 0; y <= Hh; y += 10) g.lineTo(70 + 22 * Math.sin(y * 0.05 + 0.6), y); g.stroke(); g.strokeStyle = '#4a4d55'; g.lineWidth = 4; g.beginPath(); g.moveTo(150, 200); g.bezierCurveTo(140, 140, 150, 100, 210, 40); g.stroke(); g.beginPath(); g.moveTo(40, 110); g.lineTo(250, 120); g.stroke();
+        g.fillStyle = '#c98a6a'; for (let i = 0; i < 26; i++) g.fillRect(100 + (i * 37) % 150, 60 + (i * 53) % 110, 9, 8); g.fillStyle = '#35603a'; for (let i = 0; i < 40; i++) { g.beginPath(); g.arc((i * 71) % 300, (i * 47) % 200, 3, 0, 7); g.fill(); } } };
+    pv('default'); pv('gojra'); } catch (e) { /* the cards work without the previews */ }
+  const close = () => { try { o.remove(); } catch (e) { /* gone */ } };
+  o.querySelector('#map-x').onclick = () => { A.sfx.back && A.sfx.back(); close(); };
+  for (const b of o.querySelectorAll('button[data-m]')) b.onclick = () => { const id = b.getAttribute('data-m'); try { A.sfx.click(); } catch (e) { /* no audio yet */ }
+    if (id === MAPID) { close(); if (then) then(); return; }
+    setMap(id); try { sessionStorage.setItem('ph_after_map', '1'); } catch (e) { /* private mode: the menu just does not reopen */ }
+    o.innerHTML = '<div style="font:900 26px Impact,Arial Black,sans-serif;letter-spacing:2px">LOADING ' + (id === 'gojra' ? 'GOJRA' : 'DEFAULT') + ' MAP...</div>'; setTimeout(() => location.reload(), 120); };
+};
+$('b-go-jang').onclick = () => mapAsk(jangNext);
+try { if (sessionStorage.getItem('ph_after_map')) { sessionStorage.removeItem('ph_after_map'); setTimeout(() => { try { jangNext(); } catch (e) { /* stay on the title screen */ } }, 500); } } catch (e) { /* no storage */ }
+if (GOJRA) { try { const note = document.createElement('p'); note.className = 'note'; note.style.cssText = 'margin:0 0 10px;color:#ffb23c;font-weight:800'; note.textContent = 'GOJRA MAP: solo only (team rooms, training and the guide use the default map).'; const solo = $('b-cmb-solo'); solo.parentNode.insertBefore(note, solo); for (const id of ['b-cmb-team', 'b-cmb-train', 'b-cmb-guide']) { const e = $(id); if (e) e.style.display = 'none'; } } catch (e) { /* the menu still works */ } }
+try { const sb = document.getElementById('b-cmb-solo'); if (sb) { const mb = document.createElement('button'); mb.className = 'btn grey'; mb.id = 'b-cmb-map'; mb.textContent = 'MAP: ' + (GOJRA ? 'GOJRA' : 'DEFAULT') + ' (tap to change)'; mb.onclick = () => mapAsk(() => {}); sb.parentNode.insertBefore(mb, sb); } } catch (e) { /* the menu still works */ }
 if (IS_ANDROID || IS_IOS) setTimeout(() => packQuietUpdate(() => !!race), 6000);
 if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };

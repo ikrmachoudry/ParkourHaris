@@ -5,7 +5,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim } from './props.js';
-import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite } from './combat.js';
+import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite, GJ_INFO } from './combat.js';
+import { GOJRA } from './mapid.js';
+import { GJ } from './gojra.js';   // v633: the Gojra map's park / signs
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -150,7 +152,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const add = (gs, mat) => { if (!gs.length) return; const m = new THREE.Mesh(mergeGeometries(gs), mat); m.receiveShadow = true; group.add(m); };
     add(rg, asphalt); add(dg, dirtM); add(pg, paintM);
     /* v355: the road up the military hill is named on the asphalt in Urdu (PAHARI SARAK = hill road): painted in each lane, readable when you drive / walk UP it (and the other way for the lane going down); three pairs on the climb */
-    { const sp = sample(spline(ROADS[0].pts), 3), arc = [0]; for (let i = 1; i < sp.length; i++) arc.push(arc[i - 1] + Math.hypot(sp[i][0] - sp[i - 1][0], sp[i][1] - sp[i - 1][1]));
+    if (!GOJRA) { const sp = sample(spline(ROADS[0].pts), 3), arc = [0]; for (let i = 1; i < sp.length; i++) arc.push(arc[i - 1] + Math.hypot(sp[i][0] - sp[i - 1][0], sp[i][1] - sp[i - 1][1]));
       const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256; const g2 = cv.getContext('2d'); g2.fillStyle = '#f4f0e0'; const urT = '\u067E\u06C1\u0627\u0691\u06CC \u0633\u0691\u06A9';   // v358: a flat NASKH face (the Nastaliq face runs diagonally downhill = the word looked tilted); horizontal baseline, big
       g2.font = '800 190px "Segoe UI","Tahoma","Arial","Noto Naskh Arabic","Noto Sans Arabic",sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; try { g2.direction = 'rtl'; } catch (e) { /* noop */ } g2.strokeStyle = '#f4f0e0'; g2.lineWidth = 9; g2.lineJoin = 'round'; g2.strokeText(urT, 512, 132, 960); g2.fillText(urT, 512, 132, 960);
       const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4; const tm = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.95, metalness: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
@@ -161,7 +163,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
           mx.makeBasis(r3, f3, n3); qq.setFromRotationMatrix(mx); const m = new THREE.Mesh(gm, tm); m.position.set(cx, cmbG(cx, cz) + 0.12, cz); m.quaternion.copy(qq); m.renderOrder = 3; group.add(m); } } }
   }
   // the bridge
-  { const y = BRIDGE.y, z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, xa = BRIDGE.xb, xb = BRIDGE.xa;
+  if (!GOJRA) { const y = BRIDGE.y, z0 = BRIDGE.z - BRIDGE.w / 2, z1 = BRIDGE.z + BRIDGE.w / 2, xa = BRIDGE.xb, xb = BRIDGE.xa;
     B.box('conc', xa, y - 0.9, z0, xb, y - 0.05, z1, '#9a9a94', 0.02); B.box('trim', xa, y - 0.05, z0 + 0.35, xb, y, z1 - 0.35, '#444448', 0);   /* v350: the asphalt top is FLUSH with the deck height the cars drive on (it was 5 cm above: wheels sank into it) */
     for (const zz of [z0, z1 - 0.25]) { B.box('conc', xa, y, zz, xb, y + 1.1, zz + 0.25, '#b8b6ad', 0.02); }
     for (let x = xa + 2; x < xb; x += 9) { B.box('conc', x - 0.8, -3.2, BRIDGE.z - 1.0, x + 0.8, y - 0.9, BRIDGE.z + 1.0, '#8c8a82', 0.02); }
@@ -185,7 +187,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   for (const b of L.buildings) {
     const wm = WALLMAT[b.kind] || 'wall', fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
-    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' ? '#f2efe6' : '#3a3530';
+    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' || b.kind === 'flat3' || b.kind === 'mosque' ? '#f2efe6' : '#3a3530';
     /* v376: Z-FIGHT FIX. Wall / floor / roof boxes overlap at corners, T-joints and where a floor slab sliver sits inside a wall: two same-facing coplanar faces = flickery white patches on walls and floors. For every such pair one face is drawn 6 mm inside its box (collision is untouched): a floor slab yields to the wall, otherwise the later box yields. */
     const ZF = new Map(); { const T = b.solids.filter((q) => q.k === 'wall' || q.k === 'floor' || q.k === 'roof'), ov = (a0, a1, c0, c1) => Math.min(a1, c1) - Math.max(a0, c0);
       for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) { const a = T[i], c = T[j];
@@ -252,7 +254,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         if (xb - xa > 0.1 && ub(xa) - yS > 0.02) { const P = (x, y, z) => [b.x + x, y, b.z + z], A0 = P(xa, yS, za), B0 = P(xb, yS, za), C0 = P(xa, ub(xa), za), A1 = P(xa, yS, zb), B1 = P(xb, yS, zb), C1 = P(xa, ub(xa), zb), T0 = P(xb, ub(xb), za), T1 = P(xb, ub(xb), zb), tri3 = (u, v, w) => [...u, ...v, ...w], q4 = (u, v, w, x) => [...tri3(u, v, w), ...tri3(u, w, x)];
           const pos = [...tri3(A0, C0, B0), ...tri3(A1, B1, C1), ...q4(A0, B0, B1, A1), ...q4(A0, A1, C1, C0), ...q4(C0, C1, B1, B0)];
           const gw = new THREE.BufferGeometry(); gw.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gw.computeVertexNormals(); B.add('wall', gw, b.c, 0.03); } } }
-    else if (b.kind !== 'clinic') { const ph = b.roofHole ? 1.1 : 0.55, segs = [[-hx, -hz, hx, -hz + 0.3, 3, 3], [-hx, hz - 0.3, hx, hz, 3, 3], [-hx, -hz, -hx + 0.3, hz, 3, 3]];   /* v493: a roof you can reach has a 1.1 m parapet (it matches the solid) with the 4.4 m jump-down gap in the east side drawn open; other roofs keep the low decorative 0.55 m one */
+    else if (b.kind !== 'clinic' && !b.noParapet) { const ph = b.roofHole ? 1.1 : 0.55, segs = [[-hx, -hz, hx, -hz + 0.3, 3, 3], [-hx, hz - 0.3, hx, hz, 3, 3], [-hx, -hz, -hx + 0.3, hz, 3, 3]];   /* v493: a roof you can reach has a 1.1 m parapet (it matches the solid) with the 4.4 m jump-down gap in the east side drawn open; other roofs keep the low decorative 0.55 m one */
       if (b.roofHole) segs.push([hx - 0.3, -hz, hx, -2.2, 3, 0], [hx - 0.3, 2.2, hx, hz, 0, 3]); else segs.push([hx - 0.3, -hz, hx, hz, 3, 3]);
       for (const [x0, z0, x1, z1, ea, eb] of segs) { const thx = (x1 - x0) < (z1 - z0); let X0 = x0 - 0.3, X1 = x1 + 0.3, Z0 = z0 - ea / 10, Z1 = z1 + eb / 10; if (thx) { if (x0 < 0) X1 = x1; else X0 = x0; } else if (z0 < 0) Z1 = z1; else Z0 = z0;   /* v496: the drawn parapet stuck 0.3 m INSIDE the solid one, so the player (who may stand against the solid) clipped into it: now the inner face is where the collision is */
         B.box('wall', b.x + X0, fy + tri + 0.3, b.z + Z0, b.x + X1, fy + tri + 0.3 + ph, b.z + Z1, wallC, 0.03); } /* v298: the grey roof box is gone */ }   // flat roof: a parapet and a roof box
@@ -485,14 +487,53 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       const nx = Math.round((x1 - x0) / 2), nz = Math.round((z1 - z0) / 4), pos = [], col = [], c0 = new THREE.Color(base);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const xa = x0 + i * 2, xb = xa + 2, za = z0 + j * 4, zb = za + 4, k = (i % 2 ? 0.78 : 1) * (0.9 + 0.2 * fbm(xa * 0.1, za * 0.1, 3, 2)); for (const [x, z] of [[xa, za], [xa, zb], [xb, za], [xb, za], [xa, zb], [xb, zb]]) { pos.push(x, cmbH(x, z) + 0.07, z); col.push(c0.r * k, c0.g * k, c0.b * k); } }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); gs.push(g); }
-    const m = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); m.receiveShadow = true; group.add(m); }
+    if (gs.length) { const m = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); m.receiveShadow = true; group.add(m); } }
   // power poles along the highway with sagging wires
-  { const hw = ROADS[0].pts, poles = [], wireP = []; let acc = 0, next = 0; for (let i = 0; i + 1 < hw.length; i++) { const [ax, az] = hw[i], [bx, bz] = hw[i + 1], len = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / len, nz = (bx - ax) / len; for (let d = next - acc; d < len; d += 42) { if (d < 0) continue; const x = ax + (bx - ax) * d / len + nx * 6, z = az + (bz - az) * d / len + nz * 6; if (cmbH(x, z) > 0.2 && !onPad(x, z, 3)) poles.push([x, z]); } acc += len; next = Math.ceil(acc / 42) * 42; }
+  { const hw = (GOJRA ? ROADS[3] : ROADS[0]).pts, poles = [], wireP = []; let acc = 0, next = 0; for (let i = 0; i + 1 < hw.length; i++) { const [ax, az] = hw[i], [bx, bz] = hw[i + 1], len = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / len, nz = (bx - ax) / len; for (let d = next - acc; d < len; d += 42) { if (d < 0) continue; const x = ax + (bx - ax) * d / len + nx * 6, z = az + (bz - az) * d / len + nz * 6; if (cmbH(x, z) > 0.2 && !onPad(x, z, 3)) poles.push([x, z]); } acc += len; next = Math.ceil(acc / 42) * 42; }
     for (const [x, z] of poles) { const y = cmbH(x, z); B.box('wood', x - 0.13, y - 0.4, z - 0.13, x + 0.13, y + 12, z + 0.13, '#5a4630', 0.05); B.box('wood', x - 1.3, y + 11.4, z - 0.07, x + 1.3, y + 11.55, z + 0.07, '#4a3a28', 0.05); }
     for (let i = 0; i + 1 < poles.length; i++) { const [ax, az] = poles[i], [bx, bz] = poles[i + 1]; if (Math.hypot(bx - ax, bz - az) > 70) continue; for (const o of [-1.2, 0, 1.2]) { let px = ax, py = cmbH(ax, az) + 11.5 , pz = az; for (let k = 1; k <= 6; k++) { const t = k / 6, x = ax + (bx - ax) * t, z = az + (bz - az) * t, y = cmbH(ax, az) * (1 - t) + cmbH(bx, bz) * t + 11.5 - 1.4 * Math.sin(Math.PI * t);   /* v351: the lines are 11.5 m up (were 8): they no longer cross the view through doors and windows */ wireP.push(px + o, py, pz, x + o, y, z); px = x; py = y; pz = z; } } }
     if (wireP.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wireP, 3)); const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#22252a' })); l.frustumCulled = false; group.add(l); } }
   /* v564 WATCH TOWERS (combat.js builds the collision: pillars, floor, sill walls, window posts, the stair): the user's model (door removed), turned by the tower's rotation; if the file did not load, the solids are drawn as plain boxes so a tower is never invisible */
   for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && placeWT(t.x, t.gy + t.dy, t.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
+  /* v633 THE GOJRA MAP: the shop row's shutters + name boards, the mosque (dome, minarets, name), the police station board, the road-name boards and Jinnah Park's paths. Everything here is looks only; the collision is in combat.js */
+  if (GOJRA) {
+    const mkPlane = (tex, w, h, x, y, z, ry, basic = true) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
+    { const row = GJ_INFO.row;
+      if (row) { const NAMES = ['RAZA MOBILES', 'MADINA BAKERS', 'GOJRA CLOTH HOUSE', 'AL-FATIMA PHARMACY', 'NEW KHAN TAILORS', 'BISMILLAH GENERAL STORE', 'HONDA SPARES', 'CITY BOOK DEPOT', 'ALI ELECTRONICS', 'PUNJAB SWEETS', 'SHAN FOOTWEAR', 'ZAM ZAM TRADERS', 'GREEN KARYANA', 'MALIK HARDWARE', 'FAISAL OPTICS', 'AWAN TYRE SHOP', 'ROYAL BARBER', 'NOOR MEDICOSE', 'LAHORE CUTLERY', 'SADA GHAR PHOTO'], BG = ['#b3261e', '#1d6f42', '#1b4f9c', '#c77700', '#6a2c91', '#0b7285', '#a61e4d', '#2b8a3e', '#364fc7', '#d9480f'], SH = ['#7d858d', '#5f7f5f', '#7a6a58', '#6a7f96', '#8a4a40'];
+        const zF = row.z - row.d / 2, y0 = row.fy;
+        row.doors.forEach((d, i) => { const cx = row.x + d.o, sh = SH[(i * 3 + 1) % SH.length];
+          B.box('metal', cx - 1.5, y0 + 2.86, zF - 0.16, cx + 1.5, y0 + 3.22, zF + 0.02, sh, 0);   // the rolled-up shutter box over the opening
+          for (let k = 0; k < 6; k++) B.box('metal', cx - 1.42, y0 + 2.8 - k * 0.0, zF - 0.1 - k * 0.0, cx - 1.3, y0 + 2.86, zF + 0.0, '#555a60', 0);
+          B.box('trim', cx - 1.5, y0, zF - 0.1, cx - 1.38, y0 + 2.86, zF + 0.04, '#6c6860', 0); B.box('trim', cx + 1.38, y0, zF - 0.1, cx + 1.5, y0 + 2.86, zF + 0.04, '#6c6860', 0);   // the rail guides
+          mkPlane(signTex(NAMES[i % NAMES.length], BG[i % BG.length], '#ffffff', 256, 64, 1), 3.0, 0.62, cx, y0 + 3.0, zF - 2.36, 0); });
+        B.box('trim', row.x - row.w / 2 - 0.3, y0 + 3.0, zF - 2.4, row.x + row.w / 2 + 0.3, y0 + 3.4, zF - 2.34, '#e9e4d8', 0); }
+    }
+    for (const mq of L.buildings) {
+      if (mq.mosque) { const fy = mq.fy, ry = fy + mq.fh + 0.3, gc = '#2f8f6b', cr = '#f1ecdd';
+        const dome = (r, x, z, y, col) => { const g = new THREE.SphereGeometry(r, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(1, 0.92, 1); g.translate(x, y, z); B.add('roof', g, col, 0); };
+        B.box('trim', mq.x - 8.2, ry, mq.z - 8.2, mq.x + 8.2, ry + 1.4, mq.z + 8.2, cr, 0); dome(7.4, mq.x, mq.z, ry + 1.4, gc);   // the drum and the big dome
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) { B.box('trim', mq.x + sx * 8.6 - 1.2, ry, mq.z + sz * 8.6 - 1.2, mq.x + sx * 8.6 + 1.2, ry + 1.1, mq.z + sz * 8.6 + 1.2, cr, 0); dome(1.3, mq.x + sx * 8.6, mq.z + sz * 8.6, ry + 1.1, gc); }
+        { const g = new THREE.CylinderGeometry(0.06, 0.06, 2.4, 6); g.translate(mq.x, ry + 1.4 + 6.8 + 1.1, mq.z); B.add('metal', g, '#d4a72c', 0); const t = new THREE.TorusGeometry(0.42, 0.07, 6, 14, Math.PI * 1.55); t.translate(mq.x, ry + 1.4 + 6.8 + 2.7, mq.z); B.add('metal', t, '#d4a72c', 0); }
+        for (const [mx, mz] of mq.minarets) { const cyl = (r0, r1, h, y, col, seg = 14) => { const g = new THREE.CylinderGeometry(r0, r1, h, seg); g.translate(mx, fy + y + h / 2, mz); B.add('wall', g, col, 0.02); };
+          cyl(1.4, 1.25, 8, -0.5, cr); cyl(1.3, 1.2, 8.5, 7.5, cr); cyl(1.2, 1.1, 5.5, 16, '#e9e3d3'); { const g = new THREE.CylinderGeometry(1.9, 1.9, 0.3, 16); g.translate(mx, fy + 16.4, mz); B.add('trim', g, '#cfc8b4', 0); const g2 = new THREE.CylinderGeometry(1.8, 1.8, 0.1, 16, 1, true); g2.translate(mx, fy + 17.1, mz); B.add('metal', g2, '#2a2a2e', 0); }
+          for (const yy of [8, 16]) { const g = new THREE.CylinderGeometry(1.45, 1.45, 0.25, 16); g.translate(mx, fy + yy, mz); B.add('trim', g, '#2f8f6b', 0); }
+          { const g = new THREE.SphereGeometry(1.25, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2); g.translate(mx, fy + 21.5, mz); B.add('roof', g, gc, 0); const f2 = new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6); f2.translate(mx, fy + 22.9 + 1.0, mz); B.add('metal', f2, '#d4a72c', 0); } }
+        const fz = mq.z + mq.d / 2; mkPlane(signTex('\u062C\u0627\u0645\u0639 \u0645\u0633\u062C\u062F', '', '', 360, 110, 3), 4.6, 1.4, mq.x, fy + 5.55, fz + 0.14, 0);
+        B.box('wall', mq.x - 11.6, fy, mq.z + mq.d / 2 + 2.6, mq.x + 11.6, fy + 0.5, mq.z + mq.d / 2 + 2.9, '#e4dccb', 0); }
+      if (mq.police) { const fz = mq.z - mq.d / 2; mkPlane(signTex('CITY POLICE STATION', '#14307a', '#ffffff', 512, 96, 1), 6.2, 1.16, mq.x, mq.fy + 5.0, fz - 0.14, 0); B.box('metal', mq.x + mq.w / 2 + 0.5, mq.fy, mq.z - mq.d / 2 - 0.1, mq.x + mq.w / 2 + 0.56, mq.fy + 9.5, mq.z - mq.d / 2 - 0.04, '#cfcfcf', 0); mkPlane(flagTex('pk'), 2.6, 1.7, mq.x + mq.w / 2 + 1.85, mq.fy + 8.6, mq.z - mq.d / 2 - 0.07, 0); }
+    }
+    for (const sg of GJ.signs) {   // blue road-name boards on two posts
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d'); g.fillStyle = '#0f4c9c'; g.fillRect(0, 0, 512, 96); g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.strokeRect(5, 5, 502, 86); g.fillStyle = '#ffffff'; let px = 46; g.font = '800 ' + px + 'px Arial, sans-serif'; while (g.measureText(sg.t).width > 470 && px > 18) { px -= 3; g.font = '800 ' + px + 'px Arial, sans-serif'; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(sg.t, 256, 50);
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; const y = cmbH(sg.x, sg.z), ang = (sg.ry || 0) * Math.PI / 2, cx = Math.cos(ang), cz = -Math.sin(ang);
+      mkPlane(tx, 3.4, 0.64, sg.x, y + 2.9, sg.z, ang);
+      for (const o of [-1.5, 1.5]) B.box('metal', sg.x + cx * o - 0.05, y - 0.2, sg.z + cz * o - 0.05, sg.x + cx * o + 0.05, y + 3.3, sg.z + cz * o + 0.05, '#4a4f55', 0);
+    }
+    { const PK = GJ.park, ring = (rf, w) => { const N = 72, pos = [], idx = []; for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2; for (const s2 of [-1, 1]) { const rr = rf + s2 * w / 2, x = PK.x + Math.cos(a) * PK.rx * rr, z = PK.z + Math.sin(a) * PK.rz * rr; pos.push(x, cmbG(x, z) + 0.07, z); } if (i < N) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); } } return [pos, idx]; };
+      const line = (x0, z0, x1, z1, w) => { const n = 24, pos = [], idx = [], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), nx = -dz / l * w / 2, nz = dx / l * w / 2; for (let i = 0; i <= n; i++) { const x = x0 + dx * i / n, z = z0 + dz * i / n; for (const s2 of [-1, 1]) pos.push(x + nx * s2, cmbG(x + nx * s2, z + nz * s2) + 0.07, z + nz * s2); if (i < n) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); } } return [pos, idx]; };
+      const parts = [ring(0.72, 0.05), ring(0.45, 0.04), line(PK.x - PK.rx * 0.95, PK.z, PK.x + PK.rx * 0.95, PK.z, 2.6), line(PK.x, PK.z - PK.rz * 0.95, PK.x, PK.z + PK.rz * 0.95, 2.6)], gs = [];
+      for (const [pos, idx] of parts) { const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g2.setIndex(idx); g2.computeVertexNormals(); gs.push(g2); }
+      const pm = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshStandardMaterial({ color: '#cbbf9f', roughness: 1, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide })); pm.receiveShadow = true; group.add(pm); }
+  }
   meshes.push(...B.finish(group, true));
 
   // ================================================================ instanced vegetation
@@ -648,7 +689,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
   return { group, update, warm, quality: q, propsOk: !!propDim('ladder'), setRange: (k) => { RK = Math.max(0.5, Math.min(1, k)); }, setFog: (d) => { FOGR = d; } };
 }
 // how concrete the ground is at (x, z): 1 round the buildings and in big paved patches, 0 on open meadow
-const conc = (x, z) => { let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c * (1 - grassSite(x, z)); };   /* v631: no concrete on the old school site */
+const conc = (x, z) => { if (GOJRA) return GJ.urbanAt(x, z) * (1 - GJ.parkAt(x, z)); let c = onPad(x, z, 7) ? 1 : onPad(x, z, 14) ? 0.6 : 0; const f = fbm(x * 0.013 + 40, z * 0.013 - 17, 91, 3); c = Math.max(c, smooth(0.46, 0.58, f) * 0.95 * (1 - smooth(0.2, 0.55, hillCover(x, z)))); return c * (1 - grassSite(x, z)); };   /* v631: no concrete on the old school site */
 const flags = [], ICONS = [];
 const urduFam = '"GameUrdu","Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",Tahoma,Arial,sans-serif';
 const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');

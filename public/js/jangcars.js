@@ -1,13 +1,14 @@
 // v213: the drivable JEEPS of the Jang battle island. Like PUBG, the vehicles are not in the same place every match: a few random spots beside the roads, close to the stations
 // (town centre, the military base, the container yard, the bridge, the farm...) are used, so you have to look for one. Same Jeep as the city: 4 seats, full driving physics.
 import { ROADS, CMB, cmbH, layout, hitsSolid } from './combat.js';
-const SPOTS = [[0, 2], [0, 4], [0, 7], [1, 2], [1, 4], [2, 1], [3, 1], [4, 1], [5, 2], [6, 2], [8, 1], [9, 1], [11, 2], [12, 2], [13, 1]];   // v622: + the three new town roads   // [road, point]: along the main roads and tracks
+import { GOJRA } from './mapid.js';
+const SPOTS = GOJRA ? [[0, 1], [0, 2], [1, 1], [1, 3], [2, 1], [2, 2], [3, 1], [3, 2], [4, 1], [4, 2], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0]] : [[0, 2], [0, 4], [0, 7], [1, 2], [1, 4], [2, 1], [3, 1], [4, 1], [5, 2], [6, 2], [8, 1], [9, 1], [11, 2], [12, 2], [13, 1]];   // v633: Gojra: spots along its own roads (the road order in gojra.js: Tehsil Office Road x2, Police Station Road, Jhang-Gojra Road, College Road, then the lanes)   // v622: + the three new town roads   // [road, point]: along the main roads and tracks
 function spawnAt(n, seed, id, extra, avoid) {   // v607: the shared spot picker (jeeps and dirt bikes): never two vehicles within 9 m of each other
   let sd = seed | 0; const rnd = seed ? () => { sd = (sd + 0x6D2B79F5) | 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; } : Math.random;   // v240: a room seed = the SAME jeeps in the SAME places for every player of the match
   const pool = SPOTS.slice(), out = [];
   while (out.length < n && pool.length) {
-    const [r, i] = pool.splice(Math.floor(rnd() * pool.length), 1)[0], R = ROADS[r]; if (!R) continue;
-    const p = R.pts[i], q = R.pts[i + 1] || R.pts[i - 1]; let dx = q[0] - p[0], dz = q[1] - p[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    const [r, i] = pool.splice(Math.floor(rnd() * pool.length), 1)[0], R = ROADS[r]; if (!R || !R.pts[i]) continue;
+    const p = R.pts[i], q = R.pts[i + 1] || R.pts[i - 1]; if (!q) continue; let dx = q[0] - p[0], dz = q[1] - p[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
     const L = layout(), sg = rnd() < 0.5 ? 1 : -1; let ok = null;
     for (const [sd, off] of [[sg, 1.6], [-sg, 1.6], [sg, 0], [-sg, 0]]) {   // beside the road, pointing along it - on the other side / on the road if a wall, tree or hill is in the way
       const side = sd * (R.w / 2 + off), x = p[0] - dz * side, z = p[1] + dx * side; let free = true;
