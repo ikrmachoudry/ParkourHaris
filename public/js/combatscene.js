@@ -58,7 +58,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
   vest: ['BODY ARMOR', 'PUBG Level 2 vest: takes 40% of every body shot until its 220 points run out. Worn automatically.'],
   skin: ['MILITARY SKIN', 'A dead soldier can carry one. Open the BACKPACK and tap it to put the olive military uniform on (tap again to take it off). It is only yours for this match: you must find another one next match.'],
-  jet: ['JETPACK', 'Found on the ROOFS. On the ground or on a roof press J (phone: tap JET): it lifts you about 12 m and flies you forward for 5 seconds of fuel - enough to jump from one roof to the next. The tank refills in 25 s on the ground. When the fuel ends a soft cushion keeps you from getting hurt. The roar can be heard by everybody near.'],
+  jet: ['JETPACK', 'Found on the ROOFS. On the ground or on a roof press J (phone: tap JET): it lifts you about 12 m and flies you forward (about 5 seconds of flight; climbing burns the fuel faster than flying or hovering). The tank refills in 25 s, only while you stand on the ground. When the fuel ends a soft cushion keeps you from getting hurt. The roar can be heard by everybody near.'],
   helmet: ['HELMET', 'PUBG Level 2 helmet: takes 40% of every headshot until its 150 points run out. Worn automatically.'],
 };
 const MY_DMG = 100;

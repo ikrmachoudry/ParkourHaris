@@ -6,11 +6,17 @@ import * as A from './audio.js';
 import { hasProp, propModel } from './props.js';
 
 const _v = new THREE.Vector3();
-export const JET = { FUEL: 5, RECHARGE: 25, MIN: 1, CLIMB: 6.2, FWD: 11, MAXH: 12, SINK: 5.5 };
+export const JET = { FUEL: 6, RECHARGE: 25, MIN: 1, CLIMB: 6.2, FWD: 11, MAXH: 12, SINK: 5.5, DRAIN_UP: 1.7, DRAIN_FLY: 0.75 };   // v638 (PUBG Mobile's jetpack: lift-off drains the energy fast, it refills only when you stand on the ground, you can hover): climbing burns 1.7 / s, flying or hovering 0.75 / s of the 6
 
 const MAT = { body: new THREE.MeshLambertMaterial({ color: 0x3b4048 }), band: new THREE.MeshLambertMaterial({ color: 0xd9732b }), steel: new THREE.MeshLambertMaterial({ color: 0x9aa3ad }),
-  fire: new THREE.MeshBasicMaterial({ color: 0xff6a12, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }),
-  core: new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }) };
+  fire: new THREE.MeshBasicMaterial({ color: 0x2f8cff, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }),
+  mid: new THREE.MeshBasicMaterial({ color: 0x8fe3ff, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }),
+  core: new THREE.MeshBasicMaterial({ color: 0xf2fdff, transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide }) };
+let GLOW = null;   // one soft round glow (a 64 px canvas, shared) that sits on the nozzle like the bright blue-white jet of the PUBG jetpack
+const glowMat = () => GLOW || (GLOW = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(235,252,255,1)'); g.addColorStop(0.3, 'rgba(120,205,255,.75)'); g.addColorStop(1, 'rgba(40,120,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }); })());
+const flameGroup = (len, rad) => { const f = new THREE.Group(), mk = (r, l, m, y) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, l, 10, 1, true), m); c.rotation.x = Math.PI; c.position.y = -l / 2 + y; f.add(c); };
+  mk(rad, len, MAT.fire, 0); mk(rad * 0.62, len * 0.72, MAT.mid, 0); mk(rad * 0.3, len * 0.42, MAT.core, 0);
+  const gl = new THREE.Sprite(glowMat()); gl.scale.setScalar(rad * 5.5); gl.position.y = 0.03; f.add(gl); f.visible = false; return f; };
 
 /* the pack: two tanks with an orange band, a steel plate between them and two nozzles pointing down (also used for the item lying on the floor). flames = true adds the two flame cones. */
 export function jetModel(flames) {
@@ -30,13 +36,13 @@ export function jetModel(flames) {
 function jetReal(flames) {
   const g = new THREE.Group(), flame = [], w = new THREE.Group(), m = propModel('jetpack'); m.position.set(-0.16, 0, -0.54);   // the tube's own axis (y = 0, z = 0.54) and middle (x = 0.16)
   w.add(m); w.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0))); w.scale.setScalar(0.24); g.add(w);
-  if (flames) { const f = new THREE.Group(); f.position.set(0, -0.4, 0); const o = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.62, 10, 1, true), MAT.fire), c = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.4, 10, 1, true), MAT.core); o.rotation.x = Math.PI; c.rotation.x = Math.PI; o.position.y = -0.31; c.position.y = -0.2; f.add(o); f.add(c); f.visible = false; g.add(f); flame.push(f); }
+  if (flames) { const f = flameGroup(0.75, 0.12); f.position.set(0, -0.4, 0); g.add(f); flame.push(f); }
   g.userData.flame = flame; g.userData.real = 1; return g;
 }
 
 export class Jet {
   constructor(cs) {
-    this.cs = cs; this.vy = 0; this.hx = 0; this.hz = 0; this.on = false; this.fuel = JET.FUEL; this.y0 = 0; this.glide = false; this.thr = 0; this.pack = null; this.packG = null; this.puff = 0; this.beep = 0; this.t = 0; this.hud = null; this.btn = null;
+    this.cs = cs; this.vy = 0; this.hx = 0; this.hz = 0; this.on = false; this.fuel = JET.FUEL; this.y0 = 0; this.glide = false; this.thr = 0; this.pack = null; this.packG = null; this.mount = null; this.mountFor = null; this.puff = 0; this.beep = 0; this.t = 0; this.hud = null; this.btn = null;
   }
   get R() { return this.cs.R; }
   has() { return this.cs.count('jet') > 0; }
@@ -60,7 +66,7 @@ export class Jet {
   frame(dt, inp, b) {
     this.t += dt; const cs = this.cs;
     if (this.on) {
-      this.fuel -= dt;
+      this.fuel -= dt * (this.vy > 1.5 ? JET.DRAIN_UP : JET.DRAIN_FLY);   // (this.vy = the smoothed climb speed from pre())
       if (this.fuel <= 0 || this.blocked(b) || !this.has()) { this.fuel = Math.max(0, this.fuel); this.off(b); }
     } else if (b.grounded) { this.glide = false; if (this.fuel < JET.FUEL) this.fuel = Math.min(JET.FUEL, this.fuel + dt * JET.FUEL / JET.RECHARGE); }
     if (this.glide && (b.grounded || b.swim > 0.3 || cs.dropping || cs.down)) this.glide = false;
@@ -83,11 +89,12 @@ export class Jet {
     if (show && g) {
       if (this.pack && !this.pack.userData.real && hasProp('jetpack')) { if (this.pack.parent) this.pack.parent.remove(this.pack); this.pack = null; this.packG = null; }   // the real model arrived after the stand-in was built
       if (!this.pack) { this.pack = jetModel(true); this.pack.scale.setScalar(1); }
-      const host = m && m.pack ? m.pack : g;   // the soldier's own back bag rides on his CHEST bone: the jetpack rides on it, so it follows the body when he lies flat to fly
-      if (this.packG !== host || this.pack.parent !== host) { host.add(this.pack); this.packG = host; if (host === g) { this.pack.position.set(0, 1.2, -0.34); this.pack.rotation.set(0.18, 0, 0); } else { this.pack.position.set(0, 0.02, -0.11); this.pack.rotation.set(0, 0, 0); } }
+      const hp = m && m.pack, bone = hp && hp.parent; let host = g;
+      if (bone) { if (this.mountFor !== hp) { if (this.mount && this.mount.parent) this.mount.parent.remove(this.mount); if (this.mountFor) this.mountFor.visible = true; const mt = new THREE.Group(); mt.position.copy(hp.position); mt.quaternion.copy(hp.quaternion); mt.scale.copy(hp.scale); bone.add(mt); this.mount = mt; this.mountFor = hp; } host = this.mount; hp.visible = false; }   // the jetpack rides on the CHEST bone, exactly where the soldier's tactical bag sits (the bag is hidden while he carries it): it sits on the back and follows the body when he lies flat to fly
+      if (this.packG !== host || this.pack.parent !== host) { host.add(this.pack); this.packG = host; if (host === g) { this.pack.position.set(0, 1.2, -0.34); this.pack.rotation.set(0.18, 0, 0); } else { this.pack.position.set(0, 0.03, 0.09); this.pack.rotation.set(0, 0, 0); } }
       this.pack.visible = !(cs.skinHide); const fl = this.pack.userData.flame;
-      for (const f of fl) { f.visible = this.on; if (this.on) { const s = 0.85 + Math.sin(this.t * 63 + f.position.x * 40) * 0.18 + Math.random() * 0.15; f.scale.set(1, s, 1); } }
-    } else if (this.pack && this.pack.parent) { this.pack.parent.remove(this.pack); this.packG = null; }
+      for (const f of fl) { f.visible = this.on; if (this.on) { const s = 0.85 + Math.sin(this.t * 63 + f.position.x * 40) * 0.18 + Math.random() * 0.15; f.scale.set(0.9 + Math.random() * 0.2, s * (0.7 + 0.3 * this.thr), 0.9 + Math.random() * 0.2); } }
+    } else { if (this.pack && this.pack.parent) { this.pack.parent.remove(this.pack); this.packG = null; } if (this.mountFor) { this.mountFor.visible = true; if (this.mount && this.mount.parent) this.mount.parent.remove(this.mount); this.mount = null; this.mountFor = null; } }
     const want = this.on ? (b.vy > 1 ? 1 : 0.7) : 0; this.thr += (want - this.thr) * Math.min(1, dt * 6);
     if (this.on) {
       A.jetSound(this.thr, 1);
@@ -95,8 +102,8 @@ export class Jet {
       this.puff -= dt; if (this.puff <= 0 && R.particles) {
         this.puff = 0.045; let px, py, pz; const fl0 = this.pack && this.pack.userData.flame && this.pack.userData.flame[0]; if (fl0) { fl0.getWorldPosition(_v); px = _v.x; py = _v.y - 0.1; pz = _v.z; } else { px = b.x - Math.sin(b.yaw) * 0.34; pz = b.z - Math.cos(b.yaw) * 0.34; py = b.y + 0.7; }
         { const x = px, z = pz;
-          R.particles.emit(x, py, z, 1, { color: '#ffb347', speed: 0.5, up: -4.5, gravity: 0, life: 0.22, size: 0.34, spread: 0.06 });
-          R.particles.emit(x, py - 0.1, z, 1, { color: '#d5d9de', speed: 0.7, up: -1.2, gravity: -0.8, life: 1.5, size: 0.55, grow: 3.2, alpha: 0.45, spread: 0.1 }); }
+          R.particles.emit(x, py, z, 1, { color: '#9fdcff', speed: 0.5, up: -4.5, gravity: 0, life: 0.2, size: 0.3, spread: 0.06 });
+          R.particles.emit(x, py - 0.1, z, 1, { color: '#e6edf5', speed: 0.7, up: -1.2, gravity: -0.8, life: 1.2, size: 0.5, grow: 3.0, alpha: 0.3, spread: 0.1 }); }
       }
     } else { this.thr = 0; A.jetSound(0); }
     void inp;
@@ -116,8 +123,8 @@ export class Jet {
   tick(dt, show) {
     void dt; const vis = show && !this.R.over; const d = vis ? 'flex' : 'none';
     if (this.hud.style.display !== d) this.hud.style.display = d; if (this.btn && this.btn.style.display !== d) this.btn.style.display = d;
-    if (!vis) return; const f = Math.max(0, Math.min(1, this.fuel / JET.FUEL)); this.bar.style.height = (f * 100).toFixed(0) + '%'; this.bar.style.background = this.on ? (this.fuel < 1.3 ? '#ff4040' : '#ff9a2e') : f >= JET.MIN / JET.FUEL ? '#5ee07a' : '#7d8794';
+    if (!vis) return; const f = Math.max(0, Math.min(1, this.fuel / JET.FUEL)); this.bar.style.height = (f * 100).toFixed(0) + '%'; this.bar.style.background = this.on ? (this.fuel < 1.3 ? '#ff4040' : '#5ec8ff') : f >= JET.MIN / JET.FUEL ? '#5ee07a' : '#7d8794';
     if (this.btn) { this.btn.style.borderColor = this.on ? '#6dff8a' : f >= JET.MIN / JET.FUEL ? '#ffb347' : '#6b6f75'; this.btn.style.background = this.on ? 'rgba(20,90,45,.85)' : 'rgba(60,40,20,.78)'; }
   }
-  reset() { this.on = false; this.glide = false; this.fuel = JET.FUEL; A.jetSound(0); if (this.pack && this.pack.parent) this.pack.parent.remove(this.pack); this.packG = null; if (this.hud) this.hud.style.display = 'none'; if (this.btn) this.btn.style.display = 'none'; }
+  reset() { if (this.mountFor) { this.mountFor.visible = true; } if (this.mount && this.mount.parent) this.mount.parent.remove(this.mount); this.mount = null; this.mountFor = null; this.on = false; this.glide = false; this.fuel = JET.FUEL; A.jetSound(0); if (this.pack && this.pack.parent) this.pack.parent.remove(this.pack); this.packG = null; if (this.hud) this.hud.style.display = 'none'; if (this.btn) this.btn.style.display = 'none'; }
 }

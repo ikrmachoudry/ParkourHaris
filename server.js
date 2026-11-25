@@ -9,6 +9,8 @@ import { WebSocketServer } from 'ws';
 import { LEVEL_META, MAX_PLAYERS, CHARACTERS } from './public/js/levelmeta.js';
 import { MissionHub } from './public/js/mission.js';
 import { CombatHost } from './combatserver.js';
+import { RemoteHost } from './combatremote.js';   // v638: the GOJRA team-up match runs in a worker thread (own map)
+const dropHost = (room) => { try { if (room.chost && room.chost.destroy) room.chost.destroy(); } catch (e) { /* gone */ } room.chost = null; };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -104,7 +106,7 @@ function buildRes(room, rd) {
   const noWin = teams.length === 1 && teams[0].out;   // v446: a lone team that was wiped out (everybody eliminated) has NOT won: it gets the DEFEAT page and song
   rows.sort((a, b) => b.k - a.k || a.d - b.d);
   bcast(room, { t: 'cres', rd, win: noWin ? -1 : teams[0].tm, rows, teams: teams.map((t) => ({ tm: t.tm, k: t.k, d: t.d, n: String(((room.teams || [])[t.tm] || {}).name || ('TEAM ' + (t.tm + 1))).slice(0, 24) })) });
-  room.phase = 'results'; room.chost = null; bcast(room, lobbyMsg(room));   // v433: the match is over: the room is back in its lobby state (teams are kept) so the host can start the next one without making a new room
+  room.phase = 'results'; dropHost(room); bcast(room, lobbyMsg(room));   // v433: the match is over: the room is back in its lobby state (teams are kept) so the host can start the next one without making a new room
 }
 function evalWin(room, rd, timeUp) {
   if (room.cresDone === rd) return;
@@ -129,6 +131,8 @@ function genCode() {
 
 const COMBAT_TEAMS = 4, TEAM_MAX = 4, capOf = (r) => (r && r.combat ? COMBAT_TEAMS * TEAM_MAX : MAX_PLAYERS);   // v274: Jang rooms hold up to 4 teams of 2-4 (PUBG custom room; v418: was 3)
 let teamSeq = 1;
+const mapOf = (r) => (r && r.map === 'gojra' ? 'gojra' : 'default'), mapReq = (m) => (m && m.map === 'gojra' ? 'gojra' : 'default');   // v638: a team-up room plays ONE map: the one its creator has loaded (the client sends map: 'gojra' | 'default')
+const mapMsg = (r) => (mapOf(r) === 'gojra' ? 'That room plays the GOJRA MAP. Tap JANG, choose the GOJRA MAP, then join again.' : 'That room plays the DEFAULT MAP. Tap JANG, choose the DEFAULT MAP, then join again.');
 function teamsOf(room) { for (const t of room.teams || []) if (t.droid && t.ids.size !== 1) t.droid = false; /* v507: the INTELLIDROID belongs only to a team with exactly ONE real player */ return (room.teams || []).map((t) => ({ id: t.id, name: t.name, leader: t.leader, fill: !!t.fill, droid: !!t.droid, ids: [...t.ids] })); }
 function leaveTeam(room, p) {
   if (!room || !room.teams || p.team == null) return; const t = room.teams.find((q) => q.id === p.team); p.team = null; if (!t) return; t.ids.delete(p.id);
@@ -136,7 +140,7 @@ function leaveTeam(room, p) {
 }
 function lobbyMsg(room) {
   return {
-    t: 'lobby', code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat, teams: teamsOf(room),
+    t: 'lobby', map: mapOf(room), code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat, teams: teamsOf(room),
     players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, skin: p.skin, zom: !!p.zom })),
   };
 }
@@ -173,7 +177,7 @@ function sendBusy(room, to) {
 const pids = (room, selfId) => [...room.players.values()].filter((q) => q.id === selfId || (q.ws.readyState === 1 && Date.now() - (q.seen || 0) < 6000)).map((q) => q.id);
 
 function endRound(room, reason) {
-  room.chost = null;
+  dropHost(room);
   if (room.phase !== 'race' && room.phase !== 'countdown') return;
   room.phase = 'results';
   clearTimers(room);
@@ -227,7 +231,7 @@ function startRound(room) {
   room.busyIds = [];
   room.seed = 1 + Math.floor(Math.random() * 1e9);
   for (const p of room.players.values()) { p.mounted = 0; p.finished = false; p.finTime = 0; p.z = 0; p.y = 0; p.x = 0; }
-  room.chost = room.combat && room.players.size >= 2 ? new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN) : null;   // v245: the shared Jang match: the server runs the bots + loot
+  dropHost(room); { const bc = (o) => bcast(room, o), st = (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }; room.chost = room.combat && room.players.size >= 2 ? (room.map === 'gojra' ? new RemoteHost(room.seed, bc, st, room.diff, room.botN, 'gojra') : new CombatHost(room.seed, bc, st, room.diff, room.botN)) : null; }   // v245: the shared Jang match: the server runs the bots + loot
   if (room.combat) for (const q of room.players.values()) q.jtm = Math.max(0, (room.teams || []).findIndex((t) => t.id === q.team));
   addDroids(room);
   bcast(room, goMsg(room, meta));
@@ -311,13 +315,14 @@ wss.on('connection', (ws, req) => {
         const want = roomKey(m.room);
         if (want && rooms.has(want) && !(room && room.code === want)) {   // v433: the name is taken: instead of a dead end the player simply JOINS that room (like a PUBG custom room code)
           const ex = rooms.get(want);
+          if (ex.combat && m.combat && mapOf(ex) !== mapReq(m)) return send(ws, { t: 'err', msg: mapMsg(ex) });
           if (!!ex.combat !== !!m.combat || ex.players.size >= capOf(ex)) return send(ws, { t: 'err', msg: ex.players.size >= capOf(ex) ? `Room ${want} is full.` : `A room named ${want} already exists. Choose another name.` });
           if (room) removePlayer(p);
           p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom; joinRoom(p, ex); break;
         }
         if (room) removePlayer(p);
         p.name = cleanName(m.name); p.char = m.char | 0; p.skin = m.skin | 0; p.zom = !!m.zom;
-        const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0, combat: !!m.combat };   // combat: a TEAM UP room for the COMBAT MISSION (the match starts by itself when the host presses START)
+        const r = { code: want || genCode(), hostId: p.id, level: 0, phase: 'lobby', players: new Map(), timers: [], t0: 0, combat: !!m.combat, map: m.combat ? mapReq(m) : 'default' };   // combat: a TEAM UP room for the COMBAT MISSION (the match starts by itself when the host presses START)
         rooms.set(r.code, r);
         joinRoom(p, r);
         break;
@@ -328,9 +333,10 @@ wss.on('connection', (ws, req) => {
         if (want) {
           r = rooms.get(want);
           if (r && !!r.combat !== !!m.combat) return send(ws, { t: 'err', msg: r.combat ? 'That room is a COMBAT team room. Use COMBAT MISSION on the main menu to join it.' : 'That is a normal room. Use MULTIPLAYER on the main menu to join it.' });
+          if (r && r.combat && m.combat && mapOf(r) !== mapReq(m)) return send(ws, { t: 'err', msg: mapMsg(r) });
           if (!r) return send(ws, { t: 'err', msg: `No room named ${want} yet. Ask the host to create it first (same name), then tap JOIN ROOM.` });
         } else {
-          const all = [...rooms.values()].filter((x) => !!x.combat === !!m.combat);
+          const all = [...rooms.values()].filter((x) => !!x.combat === !!m.combat && (!m.combat || mapOf(x) === mapReq(m)));
           if (all.length > 1) return send(ws, { t: 'err', msg: 'There is more than one room open - type the room name your friend made, then tap JOIN ROOM.' });
           r = all.find((x) => (x.phase === 'lobby' || x.phase === 'results') && x.players.size < capOf(x)) || all.find((x) => x.players.size < capOf(x));
           if (!r) {
