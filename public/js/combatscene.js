@@ -111,7 +111,7 @@ export class CombatScene {
     const h = clamp(this.hp, 0, MY_DMG); this.hpBar.querySelector('.cp-n').textContent = Math.round(h); const b = this.hpBar.querySelector('.cp-b'); b.style.width = h + '%'; b.style.background = h > 55 ? '#4ade80' : h > 25 ? '#facc15' : '#ef4444';
     { const cb = this.R.wallet && this.R.wallet.cb, vh = cb && cb.inv && cb.inv.vest > 0 ? Math.max(0, Math.round(cb.vestHp)) : 0, hh = cb && cb.inv && cb.inv.helmet > 0 ? Math.max(0, Math.round(cb.helmHp)) : 0;   // v414: you can SEE what armor you wear: icons above the health bar + the gear on your soldier
       const g = this.hpBar.querySelector('.cp-g'), cv = g.querySelector('.cp-v'), ch = g.querySelector('.cp-h'); g.style.display = vh > 0 || hh > 0 ? 'flex' : 'none'; cv.style.display = vh > 0 ? '' : 'none'; ch.style.display = hh > 0 ? '' : 'none'; cv.lastElementChild.textContent = vh; ch.lastElementChild.textContent = hh;
-      this.gearV = vh > 0; this.gearH = hh > 0; const mm = this.R.me && this.R.me.model; if (mm && mm.setGear) mm.setGear(this.gearV, this.gearH); }
+      this.gearV = vh > 0; this.gearH = hh > 0; const mm = this.R.me && this.R.me.model; if (mm && mm.setGear) mm.setGear(this.gearV, this.gearH); if (mm && mm.setTeam) mm.setTeam(this.R.jangTeam || this.soloT ? 1 : 0); }   /* v647: my own helmet is blue too when I play in a team */
   }
   // ---------------------------------------------------------------- start / stop
   begin(m, seat) {
@@ -716,6 +716,7 @@ export class CombatScene {
       if (g.ph !== 5 && g.ph !== 6) { const gr = g.m.group; gr.scale.setScalar(1); gr.rotation.order = 'YXZ'; gr.rotation.x = 0; gr.rotation.z = 0; }   /* v299: getting out of a car left the soldier at the seat's scale (0.0001 for the Civic = invisible!) and tilted */
       g.m.group.position.set(g.x, g.y + (g.ph === 4 && g.sp > 0.3 && !g.dd ? Math.max(0, Math.min(0.28, (cmbG(g.x - CMB.x + Math.sin(g.r) * 0.5, g.z - CMB.z + Math.cos(g.r) * 0.5) - cmbG(g.x - CMB.x, g.z - CMB.z)) * 0.9)) : 0), g.z); g.ryaw = g.ph === 1 && this.drop ? this.drop.a + Math.PI / 2 : g.r; g.m.group.rotation.y = g.ryaw + (g.ph === 4 && ((g.st | 0) & 8) ? Math.PI : 0);
       if (g.m.setGear) g.m.setGear(!!(g.st & 2048), !!(g.st & 4096));
+      if (g.m.setTeam) g.m.setTeam(g.tm === undefined || g.tm === null ? 0 : g.tm === T.tm ? 1 : 2);   /* v647: my team's helmets are BLUE, another team's RED */
       if (g.fire > 0) g.fire -= dt; const on4 = g.ph === 4, gs = on4 ? g.st | 0 : 0; if (g.pt > 0) { g.pt += dt / 0.72; if (g.pt >= 1) g.pt = 0; } if (g.vt > 0) { g.vt += dt / 1.25; if (g.vt >= 1) g.vt = 0; } const nadeP = on4 && (gs & 512) && g.nt0 ? Math.min((gs & 64) ? nhf(g.nts) : 0.999, (now - g.nt0) / 1000 / ([1.12, 1.3, 1.4, 1.47, 1.47][g.nts | 0] || 1.12)) : 0;   /* v615: bit 64 = the pin is out and he holds it: frozen cocked back */
       const dyS = g.py !== undefined && dt > 0 ? (g.y - g.py) / dt : 0; g.py = g.y; g.sa = (g.sa || 0) + ((dyS > 0.9 && on4 && !(gs & 4) ? 1 : 0) - (g.sa || 0)) * Math.min(1, dt * 6);   // v323: a teammate climbing a flight (rising fast on the ground)
       g.dT = g.ph === 7 && g.dd ? (g.dT || 0) + dt : 0;

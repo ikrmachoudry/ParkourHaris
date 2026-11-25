@@ -196,10 +196,10 @@ function buildSolids(o) {
   let zf = null;   /* v324: a REAL staircase (IRC/building-code numbers: riser <= 19 cm, tread 28 cm, 1.1 m wide, 1.2 m landings, 2 m headroom): a stacked U-shaped (switchback) stair in the north-west corner. Flight a climbs from the ground to a half landing, flight b turns back and arrives on floor 2; above it the same two flights go on from floor 2 to the roof. */
   if ((nfl > 1 || o.roofAcc) && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
   if ((nfl > 1 || o.roofAcc) && zf) {   /* v326: the user's own stair model (public/models/props/stairs.glb, 'modern_stairs02': a U-turn stair with floating treads and cable rails, 3.3 m per storey) in the NW corner of every ordinary 2-storey building. The collision below follows its treads exactly (original-model numbers: 8 treads per flight, pitch 0.217, riser 0.186, tread top 0.17 + 0.186 i, landing top 1.66, lane A x -0.58..0.58, lane B x -1.79..-0.63, flights run along the model's x and the whole thing is turned 90 degrees so the flights run north-south: lane A (east) climbs north from the south end, the landing is at the north wall, lane B (west, against the west wall) comes back south and arrives on the next floor next to where the next flight starts). Heights are stretched by R / 3.32. */
-    const R = zf.R, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, WK = 1.4, E = 1.19 * WK;   /* v353: the U-stair is 1.4 x WIDER across (lanes 1.62 m instead of 1.16 m: two people can pass, it no longer feels like a ladder) */
+    const R = zf.R, NF = o.roof === 'gable' ? nfl - 1 : nfl, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, WK = 1.4, E = 1.19 * WK;   /* v353: the U-stair is 1.4 x WIDER across (lanes 1.62 m instead of 1.16 m: two people can pass, it no longer feels like a ladder) */
     const cxB = -hx + TH / 2 + 0.05 + E, czB = -hz + TH / 2 + 0.05 + 1.528, xW = cxB - E, xE = cxB + E, zN = czB - 1.528, zS = czB + 1.514;
     const Q = (zo0, zo1, xo0, xo1, y0, y1, k) => { wall(cxB + (zo0 - GZ) * WK, czB - (xo1 - GX), cxB + (zo1 - GZ) * WK, czB - (xo0 - GX), y0, y1, k); const q = out[out.length - 1]; if (k === 'step') { q.fine = 1; q.nd = 1; } };   // a box given in the ORIGINAL model frame (z across, x along the flight)
-    for (let f = 0; f < nfl; f++) {
+    for (let f = 0; f < NF; f++) {   /* v647: a house with a PITCHED roof has no roof terrace: its stair stops at the upper floor (the second flight used to climb into the roof: you walked up it and could not go on, or fell out of the house) */
       const base = f * R, low = f === 0 ? -0.1 : base;
       for (let i = 0; i < 8; i++) {   // lane A: climbs from the south end to the landing
         const x0 = -0.24 + PT * i, x1 = i === 7 ? 1.56 : x0 + PT, top = base + (0.17 + RS * i) * sy; Q(-0.58, 0.58, x0, x1, top - 0.15, top, 'step');
@@ -213,9 +213,9 @@ function buildSolids(o) {
       const yb = f * R - SL, yt = f * R, X0 = -hx, X1 = hx, Z0 = -hz, Z1 = hz;
       wall(X0, Z0, X1, zN, yb, yt, 'floor'); wall(X0, zN, xW, zS, yb, yt, 'floor'); wall(xE, zN, X1, zS, yb, yt, 'floor'); wall(X0, zS, X1, Z1, yb, yt, 'floor'); for (let q = 1; q <= 4; q++) out[out.length - q].fine = 1;   // the slab edge sits one tread after the last stair tread: its 0.4 m rise must not count as a wall for the body
     }
-    wall(cxB + E - 0.053, zN, cxB + E + 0.047, zS, nfl * R, nfl * R + 1.0, 'rail'); wall(cxB - 0.048, czB - 0.28, cxB + 0.052, zS, nfl * R, nfl * R + 1.0, 'rail'); wall(cxB, zS - 0.05, xE + 0.05, zS + 0.05, nfl * R, nfl * R + 1.0, 'rail');   // roof: rails round lane A (the roof opening) - lane B is where you step out
-    hole = { x0: xW, x1: xE, z0: zN, z1: zS }; o.roofZ = { ...hole }; o.stairRect = { x0: xW, x1: xE, z0: zN, z1: zS + 1.2 }; o.stairRect2 = null;
-    o.stairModel = { cx: cxB, cz: czB, sy, n: nfl, R, wk: WK };
+    wall(cxB + E - 0.053, zN, cxB + E + 0.047, zS, NF * R, NF * R + 1.0, 'rail'); wall(cxB - 0.048, czB - 0.28, cxB + 0.052, zS, NF * R, NF * R + 1.0, 'rail'); wall(cxB, zS - 0.05, xE + 0.05, zS + 0.05, NF * R, NF * R + 1.0, 'rail');   // roof: rails round lane A (the roof opening) - lane B is where you step out
+    hole = { x0: xW, x1: xE, z0: zN, z1: zS }; if (NF === nfl) o.roofZ = { ...hole }; o.stairRect = { x0: xW, x1: xE, z0: zN, z1: zS + 1.2 }; o.stairRect2 = null;
+    o.stairModel = { cx: cxB, cz: czB, sy, n: NF, R, wk: WK };
     o.stairs = { ax: 'U', x0: cxB + 0.027 * WK, xb0: cxB - 1.183 * WK, cw: 1.16 * WK, rise: R, zN, zS0: czB - 1.0, zE: zS + 0.2, sw: 1.16 * WK };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0, flN = st.z0 < 0; st.z0 = flN ? -hz + TH / 2 : hz - TH / 2 - sw;   /* v343: the flight sits FLUSH against its wall (no gap to fall into); the open side gets a banister */
@@ -549,6 +549,11 @@ function build() {
       if (b.hole && x + w / 2 > b.hole.x0 - 0.8 && x - w / 2 < b.hole.x1 + 0.8 && z + d / 2 > b.hole.z0 - 0.8 && z - d / 2 < b.hole.z1 + 0.8) return;
       if (b.stairRect2 && x + w / 2 > b.stairRect2.x0 - 0.8 && x - w / 2 < b.stairRect2.x1 + 0.8 && z + d / 2 > b.stairRect2.z0 - 0.8 && z - d / 2 < b.stairRect2.z1 + 0.8) return;
       if (b.stairRect && x + w / 2 > b.stairRect.x0 - 0.8 && x - w / 2 < b.stairRect.x1 + 0.8 && z + d / 2 > b.stairRect.z0 - 0.8 && z - d / 2 < b.stairRect.z1 + 0.8) return;
+      if (GOJRA && b.stairs && !b.stairs.ax && b.stairs.tread) {   /* v647: nothing stands at the FOOT of a straight flight (ground floor) or in front of its TOP step (upper floor): a nightstand at the top step blocked the way off the stairs */
+        const st = b.stairs, sg = st.dir > 0 ? 1 : -1, a0 = st.dir > 0 ? st.x0 : st.x0 - (st.n - 1) * st.tread, a1 = a0 + (st.n - 1) * st.tread, zA = st.z0 - 0.7, zB = st.z0 + st.sw + 0.7;
+        const xa = fl > 0 ? (sg > 0 ? a1 - 0.5 : a0 - 2.6) : (sg > 0 ? st.x0 - 2.0 : st.x0), xb = fl > 0 ? (sg > 0 ? a1 + 2.6 : a0 + 0.5) : (sg > 0 ? st.x0 : st.x0 + 2.0);
+        if (x + w / 2 > xa && x - w / 2 < xb && z + d / 2 > zA && z - d / 2 < zB) return;
+      }
       for (const dr of b.doors) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (Math.abs(x - ex) < w / 2 + 1.9 && Math.abs(z - ez) < d / 2 + 1.9) return; }
       for (const dr of b.udoors || []) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (fl > 0 && Math.abs(x - ex) < w / 2 + 1.5 && Math.abs(z - ez) < d / 2 + 1.5) return; }
       if (b.partDoor) { const p = b.partDoor; if (p.ax === 'z' ? (Math.abs(x - p.pos) < w / 2 + 1.5 && Math.abs(z - p.gap) < d / 2 + 2.2) : (Math.abs(z - p.pos) < d / 2 + 1.5 && Math.abs(x - p.gap) < w / 2 + 2.2)) return; if (p.ax === 'z' && Math.abs(x - p.pos) < w / 2 + 0.3) return; }
