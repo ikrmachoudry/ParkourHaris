@@ -3211,11 +3211,11 @@ const packAsk = () => {
 };
 const jangNext = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas() && !/[?&]nopack=1/.test(location.search)) packAsk(); else openJangMenu(); };
 /* v633 CHOOSE YOUR MAP: tapping JANG shows two big cards, DEFAULT MAP and GOJRA MAP. The whole map is built when the page loads, so a different choice is saved and the page reloads once, then the Jang menu opens by itself. v638: team up works on Gojra too (the server runs a Gojra room in its own worker thread; a room plays the map its creator picked). */
-const mapAsk = (then) => {
+const mapAsk = (then, mode, label) => {
   if (document.getElementById('map-ask')) return;
   const o = document.createElement('div'); o.id = 'map-ask'; o.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(5,8,14,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#fff;text-align:center;padding:14px;overflow:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility';
   const card = (id, name, sub, tag) => '<button data-m="' + id + '" style="flex:1 1 280px;max-width:420px;min-width:240px;border:3px solid ' + (id === MAPID ? '#ffb23c' : '#3a4658') + ';border-radius:16px;background:#101826;color:#fff;padding:10px;cursor:pointer;font:inherit;text-align:center"><canvas data-p="' + id + '" width="1200" height="800" style="width:100%;border-radius:10px;background:#7d9a4a;display:block"></canvas><div style="margin:12px auto 8px;width:86%;box-sizing:border-box;padding:6px 10px;border-radius:10px;background:#ffd23a;color:#000;font:600 28px/1.15 system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;white-space:nowrap">' + name + '</div><div style="font:600 16px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#e3e9f3">' + sub + '</div><div style="margin-top:8px;font:800 14px system-ui,Segoe UI,Arial,sans-serif;color:' + (id === MAPID ? '#7CFC9A' : '#8794a8') + '">' + tag + '</div></button>';
-  o.innerHTML = '<div style="font:600 36px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:3px">CHOOSE YOUR MAP</div><div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:min(900px,96vw)">'
+  o.innerHTML = '<div style="font:600 36px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:3px">CHOOSE YOUR MAP</div>' + (label ? '<div style="font:700 18px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;color:#ffd23a;margin-top:-6px">' + label + '</div>' : '') + '<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:min(900px,96vw)">'
     + card('default', 'DEFAULT MAP', 'Hills, a dry river, the military base, the farm and the towns. 600 x 600 m. Solo, team and online.', id0('default'))
     + card('gojra', 'GOJRA MAP', 'Our own city: Rahila Clinic (Sada Ghar), 20 shops under one roof, Jinnah Park, the mosque and the congested streets. 600 x 600 m. Solo and team up.', id0('gojra')) + '</div><button id="map-x" style="padding:9px 22px;border:0;border-radius:10px;background:#333;color:#ddd;font:700 14px system-ui">BACK</button>';
   function id0(i) { return i === MAPID ? 'PLAYING THIS MAP NOW' : 'TAP TO SWITCH (the game reloads once)'; }
@@ -3233,21 +3233,26 @@ const mapAsk = (then) => {
   o.querySelector('#map-x').onclick = () => { A.sfx.back && A.sfx.back(); close(); };
   for (const b of o.querySelectorAll('button[data-m]')) b.onclick = () => { const id = b.getAttribute('data-m'); try { A.sfx.click(); } catch (e) { /* no audio yet */ }
     if (id === MAPID) { close(); if (then) then(); return; }
-    setMap(id); try { sessionStorage.setItem('ph_after_map', '1'); } catch (e) { /* private mode: the menu just does not reopen */ }
+    setMap(id); try { sessionStorage.setItem('ph_after_map', mode || '1'); } catch (e) { /* private mode: the menu just does not reopen */ }
     o.innerHTML = '<div style="font:900 26px Impact,Arial Black,sans-serif;letter-spacing:2px">LOADING ' + (id === 'gojra' ? 'GOJRA' : 'DEFAULT') + ' MAP...</div>'; setTimeout(() => location.reload(), 120); };
 };
-$('b-go-jang').onclick = () => mapAsk(jangNext);
-try { if (sessionStorage.getItem('ph_after_map')) { sessionStorage.removeItem('ph_after_map'); setTimeout(() => { try { jangNext(); } catch (e) { /* stay on the title screen */ } }, 500); } } catch (e) { /* no storage */ }
-if (GOJRA) { try { const note = document.createElement('p'); note.className = 'note'; note.style.cssText = 'margin:0 0 10px;color:#ffb23c;font-weight:800'; note.textContent = 'GOJRA MAP: solo and TEAM UP (everybody in the room must pick the Gojra map). Training and the guide use the default map.'; const solo = $('b-cmb-solo'); solo.parentNode.insertBefore(note, solo); for (const id of ['b-cmb-train', 'b-cmb-guide']) { const e = $(id); if (e) e.style.display = 'none'; } } catch (e) { /* the menu still works */ } }
-try { const sb = document.getElementById('b-cmb-solo'); if (sb) { const mb = document.createElement('button'); mb.className = 'btn grey'; mb.id = 'b-cmb-map'; mb.textContent = 'MAP: ' + (GOJRA ? 'GOJRA' : 'DEFAULT') + ' (tap to change)'; mb.onclick = () => mapAsk(() => {}); sb.parentNode.insertBefore(mb, sb); } } catch (e) { /* the menu still works */ }
+$('b-go-jang').onclick = jangNext;   /* v640: PUBG order - pick the MODE first (solo / team up ...), the map is asked after it */
+try { const am = sessionStorage.getItem('ph_after_map'); if (am) { sessionStorage.removeItem('ph_after_map'); setTimeout(() => { try { if (am !== '1' && window.__runMode) { openJangMenu(); window.__runMode(am); } else jangNext(); } catch (e) { /* stay on the title screen */ } }, 500); } } catch (e) { /* no storage */ }
 if (IS_ANDROID || IS_IOS) setTimeout(() => packQuietUpdate(() => !!race), 6000);
 if ((IS_ANDROID || IS_IOS) && packSupported() && !packDone() && !packHas()) { const sm = $('b-go-jang').querySelector('small'); if (sm) sm.textContent = 'Tap to DOWNLOAD (once)'; }
   $('b-combat').onclick = () => { A.initAudio(); A.startMusic(99); A.sfx.click(); openProfile('combat'); };
-  $('b-cmb-solo').onclick = () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
-  $('b-cmb-sdroid').onclick = () => { A.sfx.go(); window.phSoloDroid = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v461: solo with the INTELLIDROID teammate
-  $('b-cmb-train').onclick = () => { A.sfx.go(); if (window.phGuide) window.phGuide.train = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };   // v442: TRAINING ROOM (level 1)
-  $('b-cmb-guide').onclick = () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); };
-  $('b-cmb-team').onclick = () => { A.sfx.click(); app.combat = true; openMp(); };
+  /* v640: each mode runs through RUN[mode]. SOLO / SOLO+DROID / TEAM UP ask for the map first; training + guide are default-map only (a Gojra page switches itself back to the default map and then starts). */
+  const RUN = {
+    solo: () => { A.sfx.go(); app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); },
+    sdroid: () => { A.sfx.go(); window.phSoloDroid = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); },   // v461: solo with the INTELLIDROID teammate
+    train: () => { A.sfx.go(); if (window.phGuide) window.phGuide.train = true; app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); },   // v442: TRAINING ROOM (level 1)
+    guide: () => { A.sfx.go(); if (window.phGuide) { window.phGuide.replay(); window.phGuide.practice = true; } app.combat = false; loadScreen.show('JANG', 'LOADING...'); startLater(() => startJang()); },
+    team: () => { A.sfx.click(); app.combat = true; openMp(); },
+  };
+  window.__runMode = (m) => { if (RUN[m]) RUN[m](); };
+  const LABEL = { solo: 'PLAY SOLO', sdroid: 'SOLO + INTELLIDROID', team: 'TEAM UP' };
+  for (const m of ['solo', 'sdroid', 'team']) $('b-cmb-' + m).onclick = () => { A.sfx.click(); mapAsk(RUN[m], m, LABEL[m]); };
+  for (const m of ['train', 'guide']) $('b-cmb-' + m).onclick = () => { if (!GOJRA) { RUN[m](); return; } A.sfx.click(); setMap('default'); try { sessionStorage.setItem('ph_after_map', m); } catch (e) { /* private mode */ } loadScreen.show('JANG', 'SWITCHING TO THE DEFAULT MAP...'); setTimeout(() => location.reload(), 150); };
   $('b-cmb-back').onclick = () => { A.sfx.back(); openProfile('combat'); };
   $('b-profile-next').onclick = () => { if (!$('inp-name').value.trim().replace(/[<>&"']/g, '')) { A.sfx.back && A.sfx.back(); needField($('inp-name'), 'Enter your player name to continue'); return; } readName(); A.sfx.click(); if (app.mode === 'single') { A.sfx.go(); loadScreen.show('PUNJABI GTA', 'LOADING...'); requestAnimationFrame(() => setTimeout(() => startSingle(0), 40)); } else if (app.mode === 'combat') show('cmb'); else openMp(); };
   $('b-levels-back').onclick = () => { A.sfx.back(); openProfile('single'); };
