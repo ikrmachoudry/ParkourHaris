@@ -57,6 +57,12 @@ export function pubgBlockProps(B, group, GJ, cmbH, cmbG, q) {
   // jersey barriers (trapezoid profile, 3 m long)
   { const prof = new THREE.Shape(); [[-0.3, 0], [0.3, 0], [0.3, 0.22], [0.13, 0.72], [0.13, 0.85], [-0.13, 0.85], [-0.13, 0.72], [-0.3, 0.22]].forEach(([u, v], i) => (i ? prof.lineTo(u, v) : prof.moveTo(u, v)));
     for (const [x, z, al] of BK.barriers) { const g = new THREE.ExtrudeGeometry(prof, { depth: 3.0, bevelEnabled: false }); g.translate(0, 0, -1.5); if (al === 'x') g.rotateY(Math.PI / 2); g.translate(x, cmbH(x, z) - 0.02, z); B.add('pconc', g, '#c9c5bb', 0.1); } }
+  // v644: crates, barrels, gas bottles and cardboard boxes (the map's own crate / barrel models, the kit's propane tank and box)
+  for (const [k, x, z, ry = 0] of BK.clutter) { const gy = cmbH(x, z);
+    if (k === 'crate') { if (!B.place('crate', x, gy - 0.05, z, 1.0, 0.9, 1.0, ry)) B.box('wood', x - 0.5, gy, z - 0.5, x + 0.5, gy + 0.9, z + 0.5, '#9a7448', 0.05); }
+    else if (k === 'barrel') { if (!B.place('barrel', x, gy, z, 0.7, 0.95, 0.7, (x * 13) % 6, false)) B.box('metal', x - 0.35, gy, z - 0.35, x + 0.35, gy + 0.95, z + 0.35, '#8a3a2a', 0.05); }
+    else if (k === 'gas') B.kit('propane_tank', x, gy, z, 1, 1, 1, 0);
+    else if (k === 'cbox') B.kit('cardboard_box_01', x, gy, z, 1.2, 1.2, 1.2, ry); }
   // broken concrete yard walls: cut into chunks of slightly different height, the top chunk of some corners knocked off
   for (const [x0, z0, x1, z1, h] of BK.walls) { const alZ = (z1 - z0) > (x1 - x0), L = alZ ? z1 - z0 : x1 - x0, n = Math.max(1, Math.round(L / 2.4)); for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n, hh = h * (i === 0 || i === n - 1 ? 0.8 + R() * 0.2 : 0.94 + R() * 0.06), gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2);
       if (alZ) B.box('pconc', x0, gy - 0.3, z0 + L * t0, x1, gy + hh, z0 + L * t1 - 0.02, '#b9b5ab', 0.08); else B.box('pconc', x0 + L * t0, gy - 0.3, z0, x0 + L * t1 - 0.02, gy + hh, z1, '#b9b5ab', 0.08); } }

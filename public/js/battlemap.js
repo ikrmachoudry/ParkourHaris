@@ -4,7 +4,7 @@
 // quality 0 = phones (fewer / shorter things), 1 = middle, 2 = laptops.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { propParts, propDim } from './props.js';
+import { propParts, propDim, kitGeo } from './props.js';
 import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite, GJ_INFO } from './combat.js';
 import { GOJRA } from './mapid.js';
 import { GJ } from './gojra.js';   // v633: the Gojra map's park / signs
@@ -67,6 +67,12 @@ class Batches {
     if (!this.mats[key]) this.mats[key] = { m: material, uvs: 1 }; const n = g.attributes.position.count, col = new Float32Array(n * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const k2 = cx + ',' + cz + ',' + key; let a = this.map.get(k2); if (!a) this.map.set(k2, a = { cx, cz, mat: key, gs: [] }); a.gs.push(g);
   }
+  // v644: a piece of the street / room kit (vertex colours baked from the real photo textures); keeps its own colours, gets the same light shading as the other batch pieces
+  addKit(g, tint = 1) {
+    g.computeBoundingBox(); const bb = g.boundingBox, cx = Math.floor(((bb.min.x + bb.max.x) / 2 + H) / CH), cz = Math.floor(((bb.min.z + bb.max.z) / 2 + H) / CH), n = g.attributes.position.count, col = g.attributes.color, uv = new Float32Array(n * 2);
+    if (col) { const a = col.array; for (let i = 0; i < a.length; i++) a[i] = Math.min(1, a[i] * tint); } else g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(0.6), 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); if (g.index) g = g.toNonIndexed(); const k2 = cx + ',' + cz + ',kit'; let a = this.map.get(k2); if (!a) this.map.set(k2, a = { cx, cz, mat: 'kit', gs: [] }); a.gs.push(g);
+  }
   box(mat, x0, y0, z0, x1, y1, z1, col, jitter = 0.06) { const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); this.add(mat, g, col, jitter); }
   finish(group, shadows = true) {
     const out = [];
@@ -87,7 +93,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   const MATS = {
     wall: { m: std({ map: T.wall, bumpMap: T.wall, bumpScale: 1.0 }), uvs: 2.6 }, wood: { m: std({ map: T.wood, roughness: 0.85 }), uvs: 2.2 }, metal: { m: std({ map: T.metal, roughness: 0.5, metalness: 0.4 }), uvs: 2.4 },
     roof: { m: std({ map: T.roof, bumpMap: T.roof, bumpScale: 1.4, roughness: 0.8, side: THREE.DoubleSide }), uvs: 2.2 }, conc: { m: std({ map: T.conc, bumpMap: T.conc, bumpScale: 0.6 }), uvs: 3 }, trim: { m: std({ roughness: 0.7 }), uvs: 4 },
-    rock: { m: std({ map: T.rock, bumpMap: T.rock, bumpScale: 2, roughness: 1 }), uvs: 3 },
+    rock: { m: std({ map: T.rock, bumpMap: T.rock, bumpScale: 2, roughness: 1 }), uvs: 3 }, kit: { m: std({ roughness: 0.82 }), uvs: 1 },
   };
   /* v643 the PUBG-style street block's real CC0 photo textures (models/pubg/*.jpg: 512 px, 256 px on Android through av()); only the Gojra map loads them. Wall colours are multiplied on top of the photo (pink / teal / ochre plaster). */
   if (GOJRA) { const pt = (n) => { const t = new THREE.TextureLoader().load(av('models/pubg/' + n + '.jpg')); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = SRGB; t.anisotropy = q === 0 ? 2 : 4; return t; };
@@ -103,6 +109,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const sx = w / dim.x, sy = h / dim.y, sz = d / dim.z; _q.setFromAxisAngle(_up, ry); _m4.compose(_v3.set(x, y, z), _q, uni ? _s3.set(sy, sy, sy) : _s3.set(sx, sy, sz));
     parts.forEach((pt, i) => { const g = pt.geo.clone(); g.applyMatrix4(_m4); B.addRaw('glb:' + name + ':' + i, pt.mat, g); }); return true; };
 
+  const placeKit = (name, x, y, z, sx, sy, sz, ry = 0) => {   // v644: one piece of kit.glb scaled by (sx, sy, sz), turned ry about y, origin bottom centre
+    const g = kitGeo(name); if (!g) return false; _q.setFromAxisAngle(_up, ry); _m4.compose(_v3.set(x, y, z), _q, _s3.set(sx, sy, sz)); g.applyMatrix4(_m4); B.addKit(g); return true; };
   // ================================================================ terrain
   { const step = q === 0 ? 5 : q === 1 ? 4 : 3, half = H + 26, n = (setMeshStep(step), Math.round(2 * half / step)), vs = (n + 1) * (n + 1), pos = new Float32Array(vs * 3), col = new Float32Array(vs * 3), uv = new Float32Array(vs * 2), hh = new Float32Array(vs), cn = new Float32Array(vs);
     for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) { const x = -half + i * step, z = -half + j * step, k = j * (n + 1) + i; hh[k] = nodeH(i, j); pos[k * 3] = x; pos[k * 3 + 1] = hh[k]; pos[k * 3 + 2] = z; uv[k * 2] = x / 9; uv[k * 2 + 1] = z / 9; }
@@ -436,7 +444,29 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       const g = new THREE.CylinderGeometry(p.r + 0.05, p.r + 0.05, ph, 24, 1, true, face - arc / 2, arc);   // open cylinder slice
       const m = new THREE.Mesh(g, pm); m.position.set(p.x, y0 + ph / 2, p.z); m.name = 'siloPhoto'; group.add(m); }
   }
-  for (const p of L.props) { if (mp[p.k]) mp[p.k](p); else if (p.k === 'round') round(p); else if (p.k === 'tower') {
+  /* v644: the PUBG-style houses' furniture = real CC0 models (kit.glb) scaled into the same boxes the solids use; anything the kit could not provide falls back to the plain box furniture above */
+  const KD = { Sofa_01: [1.57, 0.8, 0.65], painted_wooden_table: [2.41, 0.96, 1.14], painted_wooden_chair_01: [0.43, 0.96, 0.54], painted_wooden_cabinet: [1.19, 1.18, 0.62], painted_wooden_nightstand: [0.5, 0.62, 0.51], Television_01: [0.6, 0.46, 0.47], cardboard_box_01: [0.38, 0.34, 0.51], barrel_stove: [0.59, 0.85, 0.59], propane_tank: [0.34, 0.55, 0.34] };
+  const kb = (n, p, y, w, h, d, ry) => { const k = KD[n]; return placeKit(n, p.x, y, p.z, w / k[0], h / k[1], d / k[2], ry); };
+  const kitDraw = (p) => {
+    const ry = p.ry || 0;
+    switch (p.k) {
+      case 'sofa': return kb('Sofa_01', p, p.y, p.w, p.h, p.d, ry);
+      case 'table': return kb('painted_wooden_table', p, p.y, p.w, p.h, p.d, ry);
+      case 'chair': return placeKit('painted_wooden_chair_01', p.x, p.y, p.z, 0.92, 0.92, 0.92, ry);
+      case 'cabinet': return kb('painted_wooden_cabinet', p, p.y, p.w, p.h, p.d, ry);
+      case 'nstand': return kb('painted_wooden_nightstand', p, p.y, p.w, p.h, p.d, ry);
+      case 'cbox': return kb('cardboard_box_01', p, p.y, p.w, p.h, p.d, (p.x * 7.3) % 6);
+      case 'gas': return placeKit('propane_tank', p.x, p.y, p.z, 1, 1, 1, 0);
+      case 'tvcab': { const ok = kb('painted_wooden_cabinet', p, p.y, p.w, p.h, p.d, 0); return ok && placeKit('Television_01', p.x, p.y + p.h, p.z, 0.8, 0.8, 0.8, 0); }
+      case 'bstove': { const ok = placeKit('barrel_stove', p.x, p.y, p.z, 0.95, 0.95, 0.95, 0); if (ok) B.box('metal', p.x - 0.06, p.y + 0.8, p.z - 0.06, p.x + 0.06, p.y + 2.95, p.z + 0.06, '#34363a', 0.02); return ok; }
+      case 'stove': { const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2, y = p.y;
+        B.box('trim', x0, y, z0, x1, y + 0.86, z1, '#e6e9eb', 0.02); B.box('trim', x0 - 0.01, y + 0.86, z0 - 0.01, x1 + 0.01, y + 0.9, z1 + 0.01, '#2b2d31', 0);
+        for (const [a, b2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box('trim', p.x + a * 0.15 - 0.07, y + 0.9, p.z + b2 * 0.15 - 0.07, p.x + a * 0.15 + 0.07, y + 0.93, p.z + b2 * 0.15 + 0.07, '#111214', 0);
+        B.box('trim', x0 + 0.06, y + 0.12, z1 - 0.01, x1 - 0.06, y + 0.62, z1 + 0.03, '#1e2226', 0); B.box('trim', x0 + 0.04, y + 0.7, z1 - 0.01, x1 - 0.04, y + 0.76, z1 + 0.03, '#9aa0a6', 0); return true; }
+      default: return false;
+    }
+  };
+  for (const p of L.props) { if (p.pub && kitDraw(p)) continue; if (mp[p.k]) mp[p.k](p); else if (p.k === 'round') round(p); else if (p.k === 'tower') {
     const t = L.towers.find((q) => Math.abs(q.x - p.x) < 0.1 && Math.abs(q.z - p.z) < 0.1), py = t.py, gy = p.y, X = p.x, Z = p.z, wc = '#a5a59f';
     const O = TW.O, S2 = TW.S2, K = TW.K;
     // v222: a ROUND tower - a real cylinder wall with a door, a round core, and a true spiral stair (wedge-shaped steps, no corners, no landings)
@@ -505,7 +535,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && placeWT(t.x, t.gy + t.dy, t.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
   /* v633 THE GOJRA MAP: the shop row's shutters + name boards, the mosque (dome, minarets, name), the police station board, the road-name boards and Jinnah Park's paths. Everything here is looks only; the collision is in combat.js */
   if (GOJRA) {
-    pubgBlockProps(B, group, GJ, cmbH, cmbG, q);   // v643: jersey barriers, broken walls, sheds, tarps, power poles, dirt patches
+    B.place = place; B.kit = placeKit;     pubgBlockProps(B, group, GJ, cmbH, cmbG, q);   // v643: jersey barriers, broken walls, sheds, tarps, power poles, dirt patches
     const SIGN_RY = Math.PI;   /* v634: a board whose front looks north (-z): the street side of the shops */
     const mkPlane = (tex, w, h, x, y, z, ry, dbl = true) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: dbl ? THREE.DoubleSide : THREE.FrontSide })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
     { const row = GJ_INFO.row;

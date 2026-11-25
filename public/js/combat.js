@@ -542,7 +542,7 @@ function build() {
     for (let i = Math.floor((s.x0 - 1) / B); i <= Math.floor((s.x1 + 1) / B); i++) for (let j = Math.floor((s.z0 - 1) / B); j <= Math.floor((s.z1 + 1) / B); j++) { const k = i * 4099 + j; let a = cbucket.get(k); if (!a) cbucket.set(k, a = []); a.push(s); } }
   // furniture inside the rooms (bigger things are solid cover; the loot spots keep away from all of it)
   const furn = (b) => {
-    const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true) => {
+    const hx = b.w / 2 - TH - 0.1, hz = b.d / 2 - TH - 0.1, fy = b.fy, put = (x, z, w, d, h, c, k, solid = true, ry = 0, fl = 0) => {
       if (k === 'counter' || k === 'crate' || k === 'desk' || k === 'screen') return;   /* v410: the plain wooden desk blocks (school, offices) and the screens that stood on them are gone from the whole map (user) */ // v318: the plain wooden block counters are gone (user); v391: the wooden crates are gone from the whole map (user)
       if ((k === 'bench' && c !== '#6a4a30') || k === 'rack' || (k === 'shelf' && c === '#9a9a9a') || c === '#111418') return;   // v325: the grey wood-textured block props are gone (user)
       if (b.hole2 && x + w / 2 > b.hole2.x0 - 0.8 && x - w / 2 < b.hole2.x1 + 0.8 && z + d / 2 > b.hole2.z0 - 0.8 && z - d / 2 < b.hole2.z1 + 0.8) return;
@@ -550,11 +550,21 @@ function build() {
       if (b.stairRect2 && x + w / 2 > b.stairRect2.x0 - 0.8 && x - w / 2 < b.stairRect2.x1 + 0.8 && z + d / 2 > b.stairRect2.z0 - 0.8 && z - d / 2 < b.stairRect2.z1 + 0.8) return;
       if (b.stairRect && x + w / 2 > b.stairRect.x0 - 0.8 && x - w / 2 < b.stairRect.x1 + 0.8 && z + d / 2 > b.stairRect.z0 - 0.8 && z - d / 2 < b.stairRect.z1 + 0.8) return;
       for (const dr of b.doors) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (Math.abs(x - ex) < w / 2 + 1.9 && Math.abs(z - ez) < d / 2 + 1.9) return; }
+      for (const dr of b.udoors || []) { const al = dr.s === 'N' || dr.s === 'S', sg = dr.s === 'N' || dr.s === 'W' ? -1 : 1, ex = al ? dr.o : sg * (b.w / 2 - 1.8), ez = al ? sg * (b.d / 2 - 1.8) : dr.o; if (fl > 0 && Math.abs(x - ex) < w / 2 + 1.5 && Math.abs(z - ez) < d / 2 + 1.5) return; }
       if (b.partDoor) { const p = b.partDoor; if (p.ax === 'z' ? (Math.abs(x - p.pos) < w / 2 + 1.5 && Math.abs(z - p.gap) < d / 2 + 2.2) : (Math.abs(z - p.pos) < d / 2 + 1.5 && Math.abs(x - p.gap) < w / 2 + 2.2)) return; if (p.ax === 'z' && Math.abs(x - p.pos) < w / 2 + 0.3) return; }
-      const it = { x: b.x + x, z: b.z + z, y: fy, w, d, h, c, k }; props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: fy, y1: fy + h, k: 'prop' });
+      const it = { x: b.x + x, z: b.z + z, y: fy + fl * (b.fh + SL), w, d, h, c, k }; if (b.pub) { it.pub = 1; if (ry) it.ry = ry; } props.push(it); if (solid && h > 0.45) addS({ x0: it.x - w / 2, z0: it.z - d / 2, x1: it.x + w / 2, z1: it.z + d / 2, y0: it.y, y1: it.y + h, k: 'prop' });
     };
     const f = b.fur;
-    if (f === 'home') { put(-hx + 1.2, -hz + 1.2, 2.1, 1.1, 0.6, '#8a6a4a', 'bed'); put(hx - 1.2, hz - 1.0, 1.4, 0.7, 2.0, '#6a4a30', 'wardrobe'); put(0.5, 0.5, 1.6, 0.9, 0.75, '#a07848', 'table'); put(hx - 0.7, -hz + 1.4, 0.45, 0.45, 0.45, '#7a5a3a', 'chair', false); put(-1.2, hz - 0.7, 1.8, 0.5, 1.6, '#7a5638', 'shelf'); }
+    if (f === 'home' && b.pub) {   /* v644 PUBG-STYLE HOUSE: a living room + kitchen downstairs, two bedrooms upstairs (real CC0 models, drawn by battlemap.js; solid like the old furniture, the loot spots keep away) */
+      const S2 = hz - 0.45, N2 = -hz + 0.45;
+      put(0.2, S2, 1.9, 0.9, 0.85, '#a9a08e', 'sofa', true, Math.PI); put(1.9, N2 + 0.05, 1.2, 0.55, 0.95, '#8a6a4a', 'tvcab'); put(-0.9, 0.2, 1.7, 0.95, 0.76, '#a37a4c', 'table');
+      for (const [cx, cz, cr] of [[-0.9, 1.1, Math.PI], [-0.9, -0.7, 0], [-2.0, 0.2, Math.PI / 2], [0.2, 0.2, -Math.PI / 2]]) put(cx, cz, 0.45, 0.45, 0.45, '#7a5a3a', 'chair', false, cr);
+      put(-hx + 0.55, S2 + 0.05, 0.62, 0.66, 0.9, '#e9ecee', 'stove'); put(-hx + 1.45, S2 + 0.1, 0.34, 0.34, 0.55, '#a8322a', 'gas'); put(hx - 0.45, N2, 0.55, 0.55, 0.85, '#6a3a22', 'bstove'); put(hx - 0.4, S2 + 0.1, 0.5, 0.4, 0.34, '#b79868', 'cbox'); put(hx - 0.9, S2 - 0.1, 0.5, 0.4, 0.34, '#b79868', 'cbox');
+      put(-hx + 0.4, 0.4, 0.5, 1.5, 1.5, '#7a5638', 'shelf');
+      put(-hx + 1.2, S2 - 0.2, 2.1, 1.1, 0.6, '#8a6a4a', 'bed', true, 0, 1); put(-hx + 2.75, S2 + 0.15, 0.5, 0.5, 0.62, '#8a6a4a', 'nstand', true, 0, 1); put(hx - 0.7, S2, 1.2, 0.6, 1.15, '#8a7a66', 'cabinet', true, Math.PI, 1);
+      put(hx - 1.2, N2 + 0.1, 2.1, 1.1, 0.6, '#8a6a4a', 'bed', true, 0, 1); put(hx - 2.75, N2 + 0.15, 0.5, 0.5, 0.62, '#8a6a4a', 'nstand', true, 0, 1); put(0, N2 + 0.05, 1.2, 0.6, 1.15, '#8a7a66', 'cabinet', true, 0, 1); put(0.8, 0.4, 1.6, 0.9, 0.76, '#a37a4c', 'table', true, 0, 1); put(0.8, 1.4, 0.45, 0.45, 0.45, '#7a5a3a', 'chair', false, Math.PI, 1);
+    }
+    else if (f === 'home') { put(-hx + 1.2, -hz + 1.2, 2.1, 1.1, 0.6, '#8a6a4a', 'bed'); put(hx - 1.2, hz - 1.0, 1.4, 0.7, 2.0, '#6a4a30', 'wardrobe'); put(0.5, 0.5, 1.6, 0.9, 0.75, '#a07848', 'table'); put(hx - 0.7, -hz + 1.4, 0.45, 0.45, 0.45, '#7a5a3a', 'chair', false); put(-1.2, hz - 0.7, 1.8, 0.5, 1.6, '#7a5638', 'shelf'); }
     else if (f === 'shop') { put(0, -hz + 2.6, Math.min(6, b.w - 4), 0.8, 1.05, '#8a6a4a', 'counter'); put(-hx + 0.6, 0, 0.5, Math.min(6, b.d - 3), 1.8, '#9a9a9a', 'shelf'); put(hx - 0.6, 1, 0.5, Math.min(5, b.d - 3), 1.8, '#9a9a9a', 'shelf'); put(0, hz - 1.6, 1.2, 1.2, 0.9, '#c9a165', 'crate'); }
     else if (f === 'school') { for (const z of [-0.8, 2.0]) for (const x of [-4, 0, 4, 8]) put(x, z, 1.4, 0.7, 0.75, '#b08a58', 'desk'); put(hx - 0.5, 0, 0.4, 3, 1.0, '#2c4a3c', 'board', false); }
     else if (f === 'church') { for (const z of [-2, 1, 4]) for (const x of [-2.2, 2.2]) put(x, z, 1.8, 0.5, 0.9, '#6a4a30', 'bench'); put(0, -hz + 1.6, 2.2, 1.0, 1.0, '#8a8a82', 'altar'); }
@@ -730,6 +740,7 @@ function build() {
       for (const [bx, bz, al] of [[GJ.path.x + 3.2, -120, 0], [GJ.path.x + 3.2, -100, 0], [GJ.smallPark[0] + 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[0] + 10, GJ.smallPark[1] + 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[1] + 2, 1]]) { const it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 1.8 : 0.5, d: al ? 0.5 : 1.8, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); } }
     /* v643 THE STREET BLOCK'S OUTDOOR PROPS (pubgblock.js draws them): jersey barriers (vault over them), broken concrete yard walls, corrugated sheds, the power poles */
     { const BK = GJ.block, S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
+      for (const [k, x, z] of BK.clutter) { const r = k === 'crate' ? 0.5 : k === 'barrel' ? 0.35 : 0; if (r) S3(x - r, z - r, x + r, z + r, k === 'crate' ? 0.9 : 0.95, k === 'crate'); }
       for (const [x, z, al] of BK.barriers) { const w = al === 'x' ? 3.0 : 0.6, d = al === 'x' ? 0.6 : 3.0; S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 0.85, 1); }
       for (const [x0, z0, x1, z1, h] of BK.walls) S3(x0, z0, x1, z1, h, h <= 1.3);
       for (const [x, z, w, d, , h] of BK.sheds) S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, h, 0);
