@@ -34,7 +34,10 @@ const FIXED = [   // rectangles nothing else may overlap [x0, z0, x1, z1]
   [POLICE.x - POLICE.w / 2 - 2, POLICE.z - POLICE.d / 2 - 2, POLICE.x + POLICE.w / 2 + 2, POLICE.z + POLICE.d / 2 + 2],
   [MOSQUE.x - MOSQUE.w / 2 - 4, MOSQUE.z - MOSQUE.d / 2 - 4, MOSQUE.x + MOSQUE.w / 2 + 4, MOSQUE.z + MOSQUE.d / 2 + 4],
 ];
-const inFixed = (x, z, m = 0) => FIXED.some((r) => x > r[0] - m && x < r[2] + m && z > r[1] - m && z < r[3] + m) || inPark(x, z, m);
+/* v634 the open strip between the shop row and Jinnah Park: no building, no lane (trees still grow here) */
+const CLEAR = [[-142, -147, 72, -104]];
+const hitsClear = (x0, z0, x1, z1, m = 0) => CLEAR.some((r) => x1 > r[0] - m && x0 < r[2] + m && z1 > r[1] - m && z0 < r[3] + m);
+const inFixed = (x, z, m = 0) => FIXED.some((r) => x > r[0] - m && x < r[2] + m && z > r[1] - m && z < r[3] + m) || inPark(x, z, m) || hitsClear(x, z, x, z, m);
 
 const HZ = [-275.2, -236.8, -198.4, -121.6, -83.2, -44.8, -6.4, 133.3, 176.7];          // lanes along x
 const VX = [-170, -130, -90, -50, -12, 80, 102, 162, 204];                                // lanes along z
@@ -47,6 +50,7 @@ const cutLane = (axis, c) => {   // split a lane into pieces that stay inside th
     if (ok) { if (!cur) cur = [t, t]; else cur[1] = t; } else if (cur) { out.push(cur); cur = null; }
   }
   if (cur) out.push(cur);
+  if (axis === 'v') for (const o of out) if (o[1] > -156 && o[1] < -140) o[1] = -156;   // a lane that ran on to the park side now ends at the road edge
   for (const [a, b] of out) if (b - a >= 14) lanes.push(axis === 'h' ? { id: 'ln', axis, c, lo: a, hi: b, w: LW, pts: [[a, c], [b, c]] } : { id: 'ln', axis, c, lo: a, hi: b, w: LW, pts: [[c, a], [c, b]] });
 };
 for (const c of HZ) cutLane('h', c);
@@ -88,8 +92,8 @@ for (const st of streets) for (const sg of st.segs) {
       const al = cur + F / 2, nx = -uz * side, nz = ux * side, off = sg[4] / 2 + 2.7 + D / 2;
       const x = Math.round((ax + ux * al + nx * off) * 2) / 2, z = Math.round((az + uz * al + nz * off) * 2) / 2;
       const w = horiz ? F : D, d = horiz ? D : F, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
-      const bad = Math.abs(x) > 262 || Math.abs(z) > 262 || FIXED.some((r) => x1 > r[0] - 1 && x0 < r[2] + 1 && z1 > r[1] - 1 && z0 < r[3] + 1) || inPark(x, z, 4) || inPark(x0, z0, 2) || inPark(x1, z1, 2) || inPark(x0, z1, 2) || inPark(x1, z0, 2)
-        || cand.some((q) => x1 + 1.2 > q.x - q.w / 2 && x0 - 1.2 < q.x + q.w / 2 && z1 + 1.2 > q.z - q.d / 2 && z0 - 1.2 < q.z + q.d / 2) || rectRoadGap(x0, z0, x1, z1, sg) < 2.4;
+      const bad = Math.abs(x) > 262 || Math.abs(z) > 262 || hitsClear(x0, z0, x1, z1, 0.5) || FIXED.some((r) => x1 > r[0] - 1 && x0 < r[2] + 1 && z1 > r[1] - 1 && z0 < r[3] + 1) || inPark(x, z, 4) || inPark(x0, z0, 2) || inPark(x1, z1, 2) || inPark(x0, z1, 2) || inPark(x1, z0, 2)
+        || cand.some((q) => x1 + 1.2 > q.x - q.w / 2 && x0 - 1.2 < q.x + q.w / 2 && z1 + 1.2 > q.z - q.d / 2 && z0 - 1.2 < q.z + q.d / 2) || rectRoadGap(x0, z0, x1, z1, sg) < 2.9;   // v634: 2.9 (was 2.4): combat.js moves any building closer than 2.5 m to a road, which put two lots on top of each other
       if (bad) { cur += 3; continue; }
       cand.push({ kind: kd[0], x, z, w, d, front: frontOf(ux, uz, side), baz: st.baz, m: coreM(x, z), street: st.id, F, D });
       cur += F + 1.0 + Math.floor(RN() * 2.5);
@@ -113,15 +117,29 @@ export const parkAt = (x, z) => 1 - smooth(0.0, 1.0, (Math.sqrt(((x - PARK.x) / 
 const RT = seeded(63301), trees = [];
 for (let i = 0; i < 90; i++) { const a = RT() * 6.283, r = Math.sqrt(RT()) * 0.9, x = PARK.x + Math.cos(a) * PARK.rx * r, z = PARK.z + Math.sin(a) * PARK.rz * r; if (Math.hypot(x - PARK.x, z - PARK.z) < 9) continue; trees.push([x, z, 1.5 + RT() * 1.1, RT() < 0.25]); }
 for (let i = 0; i < 26; i++) { const a = RT() * 6.283; trees.push([PARK.x + Math.cos(a) * PARK.rx * 0.98, PARK.z + Math.sin(a) * PARK.rz * 0.98, 1.7 + RT() * 0.8, false]); }   // an avenue round the edge
+for (let i = 0; i < 34; i++) { const x = -132 + RT() * 196, z = -139 + RT() * 28; trees.push([x, z, 1.5 + RT() * 1.0, RT() < 0.2]); }   // v634 the open strip between the shops and the park gets a scatter of trees (cover, and it reads as the park's edge)
 const treeOK = (t) => { const [x, z] = t; return !FIXED.some((r) => x > r[0] - 2 && x < r[2] + 2 && z > r[1] - 2 && z < r[3] + 2 || false) && rectRoadGap(x - 1, z - 1, x + 1, z + 1, null) > 1.5 && !GJ_LOTS.some((q) => Math.abs(x - q.x) < q.w / 2 + 2.2 && Math.abs(z - q.z) < q.d / 2 + 2.2); };
 const GRASS = [[-28, -22, 20], [30, -30, 18], [-32, 26, 19], [30, 30, 17], [-2, -2, 12]].map(([dx, dz, r]) => ({ x: PARK.x + dx, z: PARK.z + dz, r }));
 
 // ---------------------------------------------------------------- road-name signs (blue boards on two posts at the junctions)
-const SIGNS = [
-  { x: XC - 40, z: ZC - 6.5, ry: 0, t: 'TEHSIL OFFICE ROAD' }, { x: 126, z: -100, ry: 1, t: 'TEHSIL OFFICE ROAD' }, { x: 60, z: 27, ry: 0, t: 'POLICE STATION ROAD' }, { x: -120, z: 39, ry: 0, t: 'POLICE STATION ROAD' },
-  { x: 100, z: 83, ry: 0, t: 'JHANG - GOJRA ROAD' }, { x: -100, z: 97, ry: 2, t: 'JHANG - GOJRA ROAD' }, { x: 60, z: 213, ry: 0, t: 'GOVT. P.G. COLLEGE ROAD' }, { x: -90, z: 227, ry: 2, t: 'GOVT. P.G. COLLEGE ROAD' },
-  { x: PARK.x + PARK.rx + 2, z: PARK.z - 20, ry: 1, t: 'JINNAH PARK' }, { x: POLICE.x, z: POLICE.z - POLICE.d / 2 - 1.6, ry: 0, t: 'CITY POLICE STATION' },
+const SIGNS0 = [
+  { x: XC - 40, z: ZC - 6.5, ry: 0, rid: 'tehsil2', t: 'TEHSIL OFFICE ROAD' }, { x: XC + 42, z: ZC - 6.5, ry: 2, rid: 'tehsil2', t: 'TEHSIL OFFICE ROAD' }, { x: 126, z: -100, ry: 1, rid: 'tehsil1', t: 'TEHSIL OFFICE ROAD' }, { x: 132, z: 10, ry: 3, rid: 'tehsil1', t: 'TEHSIL OFFICE ROAD' },
+  { x: 60, z: 27, ry: 0, rid: 'police', t: 'POLICE STATION ROAD' }, { x: -120, z: 39, ry: 2, rid: 'police', t: 'POLICE STATION ROAD' },
+  { x: 100, z: 83, ry: 0, rid: 'jhang', t: 'JHANG - GOJRA ROAD' }, { x: -100, z: 97, ry: 2, rid: 'jhang', t: 'JHANG - GOJRA ROAD' }, { x: 190, z: 97, ry: 2, rid: 'jhang', t: 'JHANG - GOJRA ROAD' },
+  { x: 60, z: 213, ry: 0, rid: 'college', t: 'GOVT. P.G. COLLEGE ROAD' }, { x: -90, z: 227, ry: 2, rid: 'college', t: 'GOVT. P.G. COLLEGE ROAD' },
+  { x: PARK.x + PARK.rx + 2, z: PARK.z - 20, ry: 1, t: 'JINNAH PARK', fix: true }, { x: POLICE.x, z: POLICE.z - POLICE.d / 2 - 1.6, ry: 0, t: 'CITY POLICE STATION', fix: true },
 ];
+/* v634 every board is moved to the nearest free spot beside its road (the generated lanes and lots had put some of them inside a lane or a wall, so only half the board showed) */
+const ownGap = (segs, x0, z0, x1, z1) => { let best = 1e9; for (const sg of segs) { const [ax, az, bx, bz, w] = sg, n = Math.max(2, Math.ceil(Math.hypot(bx - ax, bz - az) / 1.5)); for (let k = 0; k <= n; k++) { const px = ax + (bx - ax) * k / n, pz = az + (bz - az) * k / n, d = Math.hypot(Math.max(x0 - px, 0, px - x1), Math.max(z0 - pz, 0, pz - z1)) - w / 2; if (d < best) best = d; } } return best; };
+const SIGNS = SIGNS0.map((sg) => {
+  if (sg.fix) return sg;
+  const own = SEGS.filter((q) => q[5] === sg.rid), odd = (sg.ry || 0) % 2, hw = odd ? 0.8 : 2.9, hd = odd ? 2.9 : 0.8, cs = [];
+  for (let dx = -24; dx <= 24; dx += 1.5) for (let dz = -24; dz <= 24; dz += 1.5) cs.push([dx, dz, Math.hypot(dx, dz)]);
+  cs.sort((p, q) => p[2] - q[2]);
+  for (const [dx, dz] of cs) { const x = sg.x + dx, z = sg.z + dz, x0 = x - hw, x1 = x + hw, z0 = z - hd, z1 = z + hd, gap = rectRoadGap(x0, z0, x1, z1, null), og = ownGap(own, x0, z0, x1, z1);
+    if (gap < 0.6 || og > 3.4 || inPark(x, z, 3) || FIXED.some((r) => x1 > r[0] - 1 && x0 < r[2] + 1 && z1 > r[1] - 1 && z0 < r[3] + 1) || GJ_LOTS.some((q) => x1 + 0.8 > q.x - q.w / 2 && x0 - 0.8 < q.x + q.w / 2 && z1 + 0.8 > q.z - q.d / 2 && z0 - 0.8 < q.z + q.d / 2)) continue;
+    return { ...sg, x, z }; }
+  return sg; });
 
 export const GJ = {
   roads: GJ_ROADS, lots: GJ_LOTS, clinic: CLINIC, shops: SHOPS, park: PARK, police: POLICE, mosque: MOSQUE, signs: SIGNS, named: NAMED, XC, ZC,

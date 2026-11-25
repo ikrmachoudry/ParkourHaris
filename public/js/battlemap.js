@@ -42,7 +42,7 @@ function makeTextures(q) {
 }
 
 // ---------------------------------------------------------------- merged geometry batches (chunked so that distant parts are culled)
-const CH = 150;   // chunk size for merged static meshes
+const CH = GOJRA ? 100 : 150;   // chunk size for merged static meshes   // v634: the dense Gojra town uses 100 m chunks so the camera and the sun's shadow box skip every far block (one 150 m chunk held a whole neighbourhood and was always drawn twice)
 class Batches {
   constructor(mats) { this.mats = mats; this.map = new Map(); }
   // g = a THREE geometry already positioned in map-local coordinates; col = colour (hex string or [r,g,b])
@@ -497,7 +497,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && placeWT(t.x, t.gy + t.dy, t.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
   /* v633 THE GOJRA MAP: the shop row's shutters + name boards, the mosque (dome, minarets, name), the police station board, the road-name boards and Jinnah Park's paths. Everything here is looks only; the collision is in combat.js */
   if (GOJRA) {
-    const mkPlane = (tex, w, h, x, y, z, ry, basic = true) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
+    const SIGN_RY = Math.PI;   /* v634: a board whose front looks north (-z): the street side of the shops */
+    const mkPlane = (tex, w, h, x, y, z, ry, dbl = true) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: dbl ? THREE.DoubleSide : THREE.FrontSide })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
     { const row = GJ_INFO.row;
       if (row) { const NAMES = ['RAZA MOBILES', 'MADINA BAKERS', 'GOJRA CLOTH HOUSE', 'AL-FATIMA PHARMACY', 'NEW KHAN TAILORS', 'BISMILLAH GENERAL STORE', 'HONDA SPARES', 'CITY BOOK DEPOT', 'ALI ELECTRONICS', 'PUNJAB SWEETS', 'SHAN FOOTWEAR', 'ZAM ZAM TRADERS', 'GREEN KARYANA', 'MALIK HARDWARE', 'FAISAL OPTICS', 'AWAN TYRE SHOP', 'ROYAL BARBER', 'NOOR MEDICOSE', 'LAHORE CUTLERY', 'SADA GHAR PHOTO'], BG = ['#b3261e', '#1d6f42', '#1b4f9c', '#c77700', '#6a2c91', '#0b7285', '#a61e4d', '#2b8a3e', '#364fc7', '#d9480f'], SH = ['#7d858d', '#5f7f5f', '#7a6a58', '#6a7f96', '#8a4a40'];
         const zF = row.z - row.d / 2, y0 = row.fy;
@@ -505,7 +506,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
           B.box('metal', cx - 1.5, y0 + 2.86, zF - 0.16, cx + 1.5, y0 + 3.22, zF + 0.02, sh, 0);   // the rolled-up shutter box over the opening
           for (let k = 0; k < 6; k++) B.box('metal', cx - 1.42, y0 + 2.8 - k * 0.0, zF - 0.1 - k * 0.0, cx - 1.3, y0 + 2.86, zF + 0.0, '#555a60', 0);
           B.box('trim', cx - 1.5, y0, zF - 0.1, cx - 1.38, y0 + 2.86, zF + 0.04, '#6c6860', 0); B.box('trim', cx + 1.38, y0, zF - 0.1, cx + 1.5, y0 + 2.86, zF + 0.04, '#6c6860', 0);   // the rail guides
-          mkPlane(signTex(NAMES[i % NAMES.length], BG[i % BG.length], '#ffffff', 256, 64, 1), 3.0, 0.62, cx, y0 + 3.0, zF - 2.36, 0); });
+          /* v634 the name board hangs on the FRONT face of the canopy edge (it used to sit inside the cream trim strip, so its top half was hidden): big, two lines for long names, lit the same from every angle */
+          mkPlane(boardTex(NAMES[i % NAMES.length], BG[i % BG.length], 512, 192), 3.2, 1.2, cx, y0 + 3.52, zF - 2.46, SIGN_RY, false); });
         B.box('trim', row.x - row.w / 2 - 0.3, y0 + 3.0, zF - 2.4, row.x + row.w / 2 + 0.3, y0 + 3.4, zF - 2.34, '#e9e4d8', 0); }
     }
     for (const mq of L.buildings) {
@@ -522,11 +524,11 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         B.box('wall', mq.x - 11.6, fy, mq.z + mq.d / 2 + 2.6, mq.x + 11.6, fy + 0.5, mq.z + mq.d / 2 + 2.9, '#e4dccb', 0); }
       if (mq.police) { const fz = mq.z - mq.d / 2; mkPlane(signTex('CITY POLICE STATION', '#14307a', '#ffffff', 512, 96, 1), 6.2, 1.16, mq.x, mq.fy + 5.0, fz - 0.14, 0); B.box('metal', mq.x + mq.w / 2 + 0.5, mq.fy, mq.z - mq.d / 2 - 0.1, mq.x + mq.w / 2 + 0.56, mq.fy + 9.5, mq.z - mq.d / 2 - 0.04, '#cfcfcf', 0); mkPlane(flagTex('pk'), 2.6, 1.7, mq.x + mq.w / 2 + 1.85, mq.fy + 8.6, mq.z - mq.d / 2 - 0.07, 0); }
     }
-    for (const sg of GJ.signs) {   // blue road-name boards on two posts
-      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d'); g.fillStyle = '#0f4c9c'; g.fillRect(0, 0, 512, 96); g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.strokeRect(5, 5, 502, 86); g.fillStyle = '#ffffff'; let px = 46; g.font = '800 ' + px + 'px Arial, sans-serif'; while (g.measureText(sg.t).width > 470 && px > 18) { px -= 3; g.font = '800 ' + px + 'px Arial, sans-serif'; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(sg.t, 256, 50);
-      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; const y = cmbH(sg.x, sg.z), ang = (sg.ry || 0) * Math.PI / 2, cx = Math.cos(ang), cz = -Math.sin(ang);
-      mkPlane(tx, 3.4, 0.64, sg.x, y + 2.9, sg.z, ang);
-      for (const o of [-1.5, 1.5]) B.box('metal', sg.x + cx * o - 0.05, y - 0.2, sg.z + cz * o - 0.05, sg.x + cx * o + 0.05, y + 3.3, sg.z + cz * o + 0.05, '#4a4f55', 0);
+    for (const sg of GJ.signs) {   /* v634 blue road-name boards: bigger (5 x 0.95 m), higher, a board on BOTH faces so the name reads from either side of the road, text no longer squeezed */
+      const tx = roadBoardTex(sg.t), y = cmbH(sg.x, sg.z), ang = (sg.ry || 0) * Math.PI / 2, cx = Math.cos(ang), cz = -Math.sin(ang), nx = Math.sin(ang), nz = Math.cos(ang);
+      for (const f of [1, -1]) mkPlane(tx, 5.0, 0.95, sg.x + nx * 0.07 * f, y + 3.55, sg.z + nz * 0.07 * f, ang + (f > 0 ? 0 : Math.PI), false);
+      B.box('metal', sg.x - Math.abs(cx) * 2.55 - Math.abs(nx) * 0.05, y + 3.0, sg.z - Math.abs(cz) * 2.55 - Math.abs(nz) * 0.05, sg.x + Math.abs(cx) * 2.55 + Math.abs(nx) * 0.05, y + 4.08, sg.z + Math.abs(cz) * 2.55 + Math.abs(nz) * 0.05, '#e9eef5', 0);   // white frame behind the board
+      for (const o of [-2.0, 2.0]) B.box('metal', sg.x + cx * o - 0.06, y - 0.2, sg.z + cz * o - 0.06, sg.x + cx * o + 0.06, y + 3.6, sg.z + cz * o + 0.06, '#4a4f55', 0);
     }
     { const PK = GJ.park, ring = (rf, w) => { const N = 72, pos = [], idx = []; for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2; for (const s2 of [-1, 1]) { const rr = rf + s2 * w / 2, x = PK.x + Math.cos(a) * PK.rx * rr, z = PK.z + Math.sin(a) * PK.rz * rr; pos.push(x, cmbG(x, z) + 0.07, z); } if (i < N) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); } } return [pos, idx]; };
       const line = (x0, z0, x1, z1, w) => { const n = 24, pos = [], idx = [], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), nx = -dz / l * w / 2, nz = dx / l * w / 2; for (let i = 0; i <= n; i++) { const x = x0 + dx * i / n, z = z0 + dz * i / n; for (const s2 of [-1, 1]) pos.push(x + nx * s2, cmbG(x + nx * s2, z + nz * s2) + 0.07, z + nz * s2); if (i < n) { const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); } } return [pos, idx]; };
@@ -710,6 +712,13 @@ const signTex = (txt, bg, fg, w, h, kind) => { const c = document.createElement(
   g.fillStyle = fg; g.strokeStyle = fg; if (kind === 1) { g.font = '900 ' + Math.round(h * 0.5) + 'px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 3, w - 30); }
   else { g.lineWidth = Math.max(3, h * 0.04); g.lineCap = 'round'; const rows = h > 100 ? 2 : 1; for (let r = 0; r < rows; r++) { g.beginPath(); let x = w - 30; const y = h / (rows + 1) * (r + 1); g.moveTo(x, y); while (x > 40) { const l = 14 + ((x * 7 + r * 13) % 22); g.bezierCurveTo(x - l * 0.3, y - h * 0.16, x - l * 0.7, y + h * 0.13, x - l, y + ((x * 3) % 9) - 4); x -= l; if (((x * 5) | 0) % 4 === 0) { g.moveTo(x + 4, y - h * 0.15); g.lineTo(x + 4, y - h * 0.22); g.moveTo(x - l * 0.3, y); } } g.stroke(); } }
   return tex(); };
+/* v634 shop name board: two lines for long names, big white letters on a bright panel; road-name board: dark blue, big white letters */
+const boardTex = (name, bg, w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = '#ffffff'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16);
+  const words = name.split(' '); let lines = [name]; if (name.length > 11 && words.length > 1) { let best = 1e9; for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), d = Math.abs(a.length - b.length); if (d < best) { best = d; lines = [a, b]; } } }
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; let px = lines.length > 1 ? 98 : 120; const fit = () => { g.font = '900 ' + px + 'px Arial, Helvetica, sans-serif'; return Math.max(...lines.map((l) => g.measureText(l).width)); }; while (fit() > w - 50 && px > 24) px -= 4;
+  lines.forEach((l, i) => g.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * px * 1.06 + px * 0.04)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const RBT = new Map();
+const roadBoardTex = (txt) => { if (RBT.has(txt)) return RBT.get(txt); const w = 1024, h = 192, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#0d3f8f'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ffffff'; g.lineWidth = 10; g.strokeRect(9, 9, w - 18, h - 18); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; let px = 120; const fit = () => { g.font = '900 ' + px + 'px Arial, Helvetica, sans-serif'; return g.measureText(txt).width; }; while (fit() > w - 70 && px > 28) px -= 4; g.fillText(txt, w / 2, h / 2 + 5); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; RBT.set(txt, t); return t; };
 const flagTex = (k) => { const c = document.createElement('canvas'); c.width = 340; c.height = 220; const g = c.getContext('2d'), W = 340, Hh = 220;
   const star = (cx, cy, r, col) => { g.fillStyle = col; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.4 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); };
   if (k === 'pk') { g.fillStyle = '#01411c'; g.fillRect(0, 0, W, Hh); g.fillStyle = '#fff'; g.fillRect(0, 0, W / 4, Hh); g.fillStyle = '#fff'; g.beginPath(); g.arc(W * 0.62, Hh / 2, 62, 0, 7); g.fill(); g.fillStyle = '#01411c'; g.beginPath(); g.arc(W * 0.62 + 20, Hh / 2 - 6, 52, 0, 7); g.fill(); star(W * 0.69, Hh * 0.38, 22, '#fff'); }

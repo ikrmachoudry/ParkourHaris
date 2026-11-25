@@ -303,7 +303,7 @@ function mk(kind, x, z, w, d, front, ov = {}) {
   const alongX = front === 'N' || front === 'S', len = alongX ? w : d, big = kind === 'warehouse' || kind === 'hangar' || kind === 'barn';
   const dh = big ? 4.6 : 2.5, dwid = kind === 'hangar' ? 12 : big ? 5 : 3.4;
   o.doors = ov.doors || [{ s: front, o: big ? 0 : Math.round((rr() - 0.5) * len * 0.4 * 2) / 2, w: dwid, h: dh }];
-  if (!ov.doors && len >= 8) o.doors.push({ s: OPP[front], o: big ? 0 : Math.round((rr() - 0.5) * (alongX ? w : d) * 0.4), w: big ? 3.4 : 3.4, h: 2.5 });
+  if (!ov.doors && !ov.noBack && len >= 8) o.doors.push({ s: OPP[front], o: big ? 0 : Math.round((rr() - 0.5) * (alongX ? w : d) * 0.4), w: big ? 3.4 : 3.4, h: 2.5 });
   if (!ov.doors && (big || kind === 'school') && (alongX ? d : w) >= 12) o.doors.push({ s: alongX ? 'W' : 'N', o: 0, w: 3.4, h: 2.5 });
   if ((kind === 'house' || kind === 'cabin') && w >= 10 && ov.part !== null) o.part = { ax: 'z', pos: Math.round((rr() - 0.5) * w * 0.3), gap: Math.round((rr() - 0.5) * 3) };
   if (kind === 'apart' || kind === 'barracks' || kind === 'school') o.part = o.part || undefined;
@@ -474,6 +474,9 @@ function buildGojra() {
   // ---- the houses, flats and bazaar blocks along the streets
   for (const l of GJ.lots) {
     const K = KIND[l.kind], two = (K.fl || 1) >= 2, alongX = l.front === 'N' || l.front === 'S', F = alongX ? l.w : l.d, ov = { c: l.c, rc: l.rc };
+    /* v634 a back door only where the ground behind the building is open (3 m): no more doors that open onto a neighbour's wall */
+    const bk = OPPS[l.front], bx0 = bk === 'W' ? l.x - l.w / 2 - 3 : bk === 'E' ? l.x + l.w / 2 : l.x - l.w / 2, bx1 = bk === 'E' ? l.x + l.w / 2 + 3 : bk === 'W' ? l.x - l.w / 2 : l.x + l.w / 2, bz0 = bk === 'N' ? l.z - l.d / 2 - 3 : bk === 'S' ? l.z + l.d / 2 : l.z - l.d / 2, bz1 = bk === 'S' ? l.z + l.d / 2 + 3 : bk === 'N' ? l.z - l.d / 2 : l.z + l.d / 2;
+    const backBlocked = BUILDINGS.some((q) => bx1 > q.x - q.w / 2 && bx0 < q.x + q.w / 2 && bz1 > q.z - q.d / 2 && bz0 < q.z + q.d / 2) || GJ.lots.some((q) => q !== l && bx1 > q.x - q.w / 2 && bx0 < q.x + q.w / 2 && bz1 > q.z - q.d / 2 && bz0 < q.z + q.d / 2); if (backBlocked) ov.noBack = true;
     if (two) {
       const va = l.kind === 'flat3' ? 0 : Math.floor(RG() * 5), hxx = l.w / 2, hzz = l.d / 2;
       // the stair: 0,1 = the tested U-stair in the NW corner; 2,3,4 = a straight flight along the back wall (3 runs towards x-, 4 along a side wall), the sides / ends differ so no two blocks feel alike
@@ -500,7 +503,7 @@ function buildGojra() {
       }
       // a gallery's door-over-door check: the street door and the upper doors never share a wall column
       if (ud.some((q) => Math.abs(q.o - doors[0].o) < 1.1 + 1.6 + 0.3)) { bal.length = 0; ud.length = 0; }
-      if (!(ov.stairAlong && alongX)) { const [A2, B2] = range(OPPS[l.front]); if (B2 - A2 >= 0) doors.push({ s: OPPS[l.front], o: Math.round((A2 + RG() * (B2 - A2)) * 2) / 2, w: 3.0, h: 2.5 }); }
+      if (!(ov.stairAlong && alongX) && !backBlocked) { const [A2, B2] = range(OPPS[l.front]); if (B2 - A2 >= 0) doors.push({ s: OPPS[l.front], o: Math.round((A2 + RG() * (B2 - A2)) * 2) / 2, w: 3.0, h: 2.5 }); }
       ov.doors = doors; if (bal.length) { ov.balc = bal; ov.udoors = ud; }
       ov.fh = K.fh + [0, 0.2, 0.4, -0.1][Math.floor(RG() * 4)];
     } else if (l.kind === 'house') { ov.part = RG() < 0.6 ? undefined : null; }
