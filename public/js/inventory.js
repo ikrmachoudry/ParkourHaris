@@ -2,7 +2,7 @@
 // Tap an item to use it (heal / throw / zoom), tap a gun to hold it, DROP to leave it on the ground. Keyboard: I opens and closes it, 6-0 use items, E swaps a gun on the ground.
 import { WEAPONS } from './economy.js';
 
-export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, molotov: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1, skin: 1, jet: 1 };
+export const CAP = { med: 4, inject: 4, pills: 6, smoke: 4, molotov: 4, scope: 1, sscope: 1, grenade: 5, vest: 1, helmet: 1, skin: 1, jet: 1, jfuel: 3 };
 const ITEMS = [
   { k: 'med', icon: '✚', name: 'FIRST AID', info: 'up to 75 health, 4 s', key: 'F', col: '#ff5c5c' },
   { k: 'pills', icon: '💊', name: 'PAIN PILLS', info: '+60 boost, 5 s', key: 'P', col: '#ffa94d' },
@@ -14,6 +14,7 @@ const ITEMS = [
   { k: 'vest', icon: '🛡', name: 'BODY ARMOR', info: 'takes 30% of every hit', key: 'V', col: '#9ad0ff' },
   { k: 'helmet', icon: '⛑', name: 'HELMET', info: 'takes 15% of every hit', key: 'H', col: '#b0b8c0' },
   { k: 'jet', icon: '🚀', name: 'JETPACK', info: 'fly roof to roof: press J / tap JET', key: 'J', col: '#ff9a2e' },
+  { k: 'jfuel', icon: '⛽', name: 'JET FUEL', info: 'tap: refill the jetpack tank', key: '', col: '#ff6a3a' },
   { k: 'skin', icon: '🪖', name: 'MILITARY SKIN', info: 'tap to wear / take off', key: '', col: '#8fbf5a' },
   { k: 'scope', icon: '🔭', name: 'BINOCULARS', info: 'tap to look far, again to put away', key: 'B', col: '#b48cff' },
 ];

@@ -40,6 +40,24 @@ function jetReal(flames) {
   g.userData.flame = flame; g.userData.real = 1; return g;
 }
 
+/* v642: what the OTHER players see: a teammate / opponent who carries a jetpack has it on his back (1), and while he burns (2) the blue-white flame, the smoke and the flying pose show on everybody's screen. Pure visuals (no sound), the same pack model and flame as your own. */
+export class RemoteJet {
+  constructor(R) { this.R = R; this.pack = null; this.packG = null; this.mount = null; this.mountFor = null; this.t = Math.random() * 9; this.puff = 0; }
+  restore() { if (this.pack && this.pack.parent) this.pack.parent.remove(this.pack); this.packG = null; if (this.mountFor) { this.mountFor.visible = true; if (this.mount && this.mount.parent) this.mount.parent.remove(this.mount); this.mount = null; this.mountFor = null; } }
+  update(dt, m, st) {
+    this.t += dt; const g = m.group; if (!g) return;
+    if (st <= 0) { this.restore(); return; }
+    if (this.pack && !this.pack.userData.real && hasProp('jetpack')) { if (this.pack.parent) this.pack.parent.remove(this.pack); this.pack = null; this.packG = null; }
+    if (!this.pack) this.pack = jetModel(true);
+    const hp = m.pack, bone = hp && hp.parent; let host = g;
+    if (bone) { if (this.mountFor !== hp) { if (this.mount && this.mount.parent) this.mount.parent.remove(this.mount); if (this.mountFor) this.mountFor.visible = true; const mt = new THREE.Group(); mt.position.copy(hp.position); mt.quaternion.copy(hp.quaternion); mt.scale.copy(hp.scale); bone.add(mt); this.mount = mt; this.mountFor = hp; } host = this.mount; hp.visible = false; }
+    if (this.packG !== host || this.pack.parent !== host) { host.add(this.pack); this.packG = host; if (host === g) { this.pack.position.set(0, 1.2, -0.34); this.pack.rotation.set(0.18, 0, 0); } else { this.pack.position.set(0, 0.03, 0.09); this.pack.rotation.set(0, 0, 0); } }
+    this.pack.visible = true; const on = st === 2;
+    for (const f of this.pack.userData.flame) { f.visible = on; if (on) { const s = 0.85 + Math.sin(this.t * 63 + f.position.x * 40) * 0.18 + Math.random() * 0.15; f.scale.set(0.9 + Math.random() * 0.2, s, 0.9 + Math.random() * 0.2); } }
+    if (on && this.R.particles && this.R.camera) { this.puff -= dt; if (this.puff <= 0) { this.puff = 0.09; const f0 = this.pack.userData.flame[0]; if (f0) { f0.getWorldPosition(_v); const cp = this.R.camera.position; if ((_v.x - cp.x) ** 2 + (_v.z - cp.z) ** 2 < 3600) { this.R.particles.emit(_v.x, _v.y - 0.1, _v.z, 1, { color: '#9fdcff', speed: 0.5, up: -4.5, gravity: 0, life: 0.2, size: 0.3, spread: 0.06 }); this.R.particles.emit(_v.x, _v.y - 0.2, _v.z, 1, { color: '#e6edf5', speed: 0.7, up: -1.2, gravity: -0.8, life: 1.0, size: 0.5, grow: 3.0, alpha: 0.3, spread: 0.1 }); } } } }
+  }
+}
+
 export class Jet {
   constructor(cs) {
     this.cs = cs; this.vy = 0; this.hx = 0; this.hz = 0; this.on = false; this.fuel = JET.FUEL; this.y0 = 0; this.glide = false; this.thr = 0; this.pack = null; this.packG = null; this.mount = null; this.mountFor = null; this.puff = 0; this.beep = 0; this.t = 0; this.hud = null; this.btn = null;
@@ -58,6 +76,7 @@ export class Jet {
   }
   toggle() {
     const b = this.R.me.body; if (this.on) { this.off(b); return; }
+    if (this.fuel < JET.MIN && this.has() && this.cs.count('jfuel') > 0 && b.grounded) { try { this.cs.useItem('jfuel'); } catch (e) { /* noop */ } }   /* v642: the tank is empty and you carry a JET FUEL can: J refills it first, then lights the jet */
     const why = this.canLight(b); if (why) { if (this.has() && why !== 'NOT NOW') this.R.toast && this.R.toast(why, 1.8); return; }
     this.on = true; this.glide = false; this.y0 = b.y; b.grounded = false; b.ground = null; b.noSnap = 0.3; b.jumping = false; b.vy = Math.max(b.vy, 3.5); this.vy = b.vy; this.hx = b.vx; this.hz = b.vz; this.R.crouch = false; this.R.prone = false;
   }

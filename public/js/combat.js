@@ -953,7 +953,7 @@ export function findPath(L, ax, az, bx, bz) {
 /* v604 PUBG FRAG GRENADE (patch notes, Update 14): lethal damage within 3.5 m, moderate 3.5-8.5 m, light 8.5-10 m. 100 = a full-health player dies; a vest takes 40% off, a helmet does nothing, prone takes 20% less. */
 export const FRAG_REACH = 10;
 export const fragDmg = (d) => (d <= 3.5 ? 100 : d <= 8.5 ? 60 - 40 * (d - 3.5) / 5 : d <= 10 ? 20 - 12 * (d - 8.5) / 1.5 : 0);
-export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'vest', 'helmet', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
+export const LOOT_KINDS = ['pistol', 'pistol', 'revolver', 'revolver', 'smg', 'smg', 'ak', 'ak', 'ak49', 'm4', 'm4', 'shotgun', 'shotgun', 'sniper', 'vest', 'vest', 'helmet', 'helmet', 'grenade', 'grenade', 'grenade', 'ammo', 'ammo', 'ammo', 'ammo', 'ammo', 'med', 'med', 'med', 'inject', 'inject', 'inject', 'inject', 'pills', 'pills', 'pills', 'smoke', 'molotov', 'scope', 'scope', 'sscope', 'sscope', 'sscope'];   /* v543: scope loot 3 -> 5 of the table (+67%) */
 export const WEAPON_KINDS = ['smg', 'ak', 'm4', 'ak49', 'shotgun', 'sniper', 'revolver', 'pistol', 'ak', 'm4', 'smg', 'ammo', 'ammo', 'med'];
 export const LOOT_COUNT = 220, LOOT_RESPAWN = 22;   /* v629: twice the items (was 110) and every building gets some: see seedLoot() */
 const LOOT_FAR = { vest: 45, helmet: 45, sniper: 70, ak49: 45, sscope: 35, scope: 35, molotov: 35 };   /* v629: the same RARE item is never closer than this (m) to another one of its kind; everything else keeps at least 12 m from its own kind */
@@ -1019,9 +1019,13 @@ export class CombatSim {
   }
   /* v637 JETPACK: a roof spot (a building with a stair up to its roof) may hold a JETPACK instead of what the table gave: about 2 roof spots in 3 (a fixed pick from the spot's own position, so it draws NO random number and every other item stays exactly where it was), never closer than 70 m to another jetpack, at most 6 on the map. */
   lootKind(s, near) {
-    const k = this.lootKind0(s, near); if (!s.roof) return k;
-    const h = (Math.imul(Math.round(s.x * 10) ^ 0x9e3779b9, 2654435761) ^ Math.imul(Math.round(s.z * 10) + 17, 40503)) >>> 0; if (h % 100 >= 70) return k;
-    let n = 0; for (const o of near) if (o.alive && o.k === 'jet') { n++; if (Math.hypot(o.x - s.x, o.z - s.z) < 70) return k; } return n >= 6 ? k : 'jet';
+    const k = this.lootKind0(s, near); if (s.w) return k;   /* weapon spots keep their guns */
+    /* v642: MORE JETPACKS (every roof spot, plus 6 in 100 ordinary spots on the ground, never closer than 40 m to another one, at most 14) and JET FUEL cans (9 in 100 spots, never closer than 35 m to another can). Both pick from the spot's own position (no random number is drawn), so every other item stays where it was. */
+    const hh = (salt) => (Math.imul(Math.round(s.x * 10) ^ salt, 2654435761) ^ Math.imul(Math.round(s.z * 10) + 17, 40503)) >>> 0;
+    const jetOk = s.roof || hh(0x7f4a7c15) % 100 < 6;
+    if (jetOk) { let n = 0, close = false; for (const o of near) if (o.alive && o.k === 'jet') { n++; if (Math.hypot(o.x - s.x, o.z - s.z) < 40) close = true; } if (!close && n < 14) return 'jet'; }
+    if (hh(0x51ed270b) % 100 < 9) { let close = false; for (const o of near) if (o.alive && o.k === 'jfuel' && Math.hypot(o.x - s.x, o.z - s.z) < 35) { close = true; break; } if (!close) return 'jfuel'; }
+    return k;
   }
   lootKind0(s, near) {
     const tbl = s.w ? WEAPON_KINDS : LOOT_KINDS, cnt = {}; for (const k of tbl) cnt[k] = (cnt[k] || 0) + 1;
