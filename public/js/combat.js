@@ -1044,7 +1044,7 @@ export class CombatSim {
     const k = this.lootKind0(s, near); if (s.w) return k;   /* weapon spots keep their guns */
     /* v642: MORE JETPACKS (every roof spot, plus 6 in 100 ordinary spots on the ground, never closer than 40 m to another one, at most 14) and JET FUEL cans (9 in 100 spots, never closer than 35 m to another can). Both pick from the spot's own position (no random number is drawn), so every other item stays where it was. */
     const hh = (salt) => (Math.imul(Math.round(s.x * 10) ^ salt, 2654435761) ^ Math.imul(Math.round(s.z * 10) + 17, 40503)) >>> 0;
-    const jetOk = s.roof || hh(0x7f4a7c15) % 100 < 6;
+    const jetOk = s.roof || hh(0x7f4a7c15) % 100 < (GOJRA ? 12 : 6);   /* v646: Gojra has 25% fewer buildings (fewer roofs): 12 in 100 ground spots hold a jetpack there, about 9% more jetpacks than before the thinning (6.4 -> 7.0 per match); the default map keeps 6 */
     if (jetOk) { let n = 0, close = false; for (const o of near) if (o.alive && o.k === 'jet') { n++; if (Math.hypot(o.x - s.x, o.z - s.z) < 40) close = true; } if (!close && n < 14) return 'jet'; }
     if (hh(0x51ed270b) % 100 < 9) { let close = false; for (const o of near) if (o.alive && o.k === 'jfuel' && Math.hypot(o.x - s.x, o.z - s.z) < 35) { close = true; break; } if (!close) return 'jfuel'; }
     return k;

@@ -110,7 +110,17 @@ for (const st of streets) for (const sg of st.segs) {
 }
 cand.sort((p, q) => p.m - q.m);
 const N_LOTS = 160;
-export const GJ_LOTS = cand.slice(0, N_LOTS).map((c, i) => ({ ...c, c: pickC(), rc: ROOFC[i % ROOFC.length], i }));
+const LOTS_ALL = cand.slice(0, N_LOTS).map((c, i) => ({ ...c, c: pickC(), rc: ROOFC[i % ROOFC.length], i }));
+/* v646 SPARSER TOWN: 25% of the lots (40 of 160) are dropped, always the ones that are a copy of their neighbours: each round the lot of a repeated kind (house, duplex2, apart, flat2) that has the most
+   lots of the SAME kind within 45 m goes (ties: the one farthest from the core), so rows of identical houses are thinned and the one-off buildings (malls, shops, three-storey flats) all stay. Pure data, no random number: every colour, tree and sign stays where it was. */
+const REPL = new Set(['house', 'duplex2', 'apart', 'flat2']);
+const dropped = new Set();
+for (let r = 0, want = Math.round(LOTS_ALL.length * 0.25); r < want; r++) {
+  let best = -1, bs = -1;
+  for (const a of LOTS_ALL) { if (dropped.has(a.i) || !REPL.has(a.kind)) continue; let n = 0; for (const b of LOTS_ALL) if (b !== a && !dropped.has(b.i) && b.kind === a.kind && Math.hypot(a.x - b.x, a.z - b.z) < 45) n++; const sc = n + a.m * 0.01; if (sc > bs) { bs = sc; best = a.i; } }
+  if (best < 0) break; dropped.add(best);
+}
+export const GJ_LOTS = LOTS_ALL.filter((l) => !dropped.has(l.i));
 
 // lanes that no lot opens on are dropped (no empty streets in the countryside)
 const usedLanes = laneList.filter((l) => GJ_LOTS.some((q) => { const mx = Math.max(l.pts[0][0], Math.min(l.pts[1][0], q.x)), mz = Math.max(l.pts[0][1], Math.min(l.pts[1][1], q.z)); return Math.hypot(mx - q.x, mz - q.z) < LW / 2 + 2.7 + Math.max(q.w, q.d) / 2 + 2; }));
@@ -136,7 +146,7 @@ export const GJ_ROADS = NAMED.map((r) => ({ w: r.w, pts: r.pts })).concat(usedLa
 SEGS.push([BLK.street.x, BLK.street.z0, BLK.street.x, BLK.street.z1, BLK.street.w, 'blk']); FIXED.push(BLK.rect);   // v643: signs and trees keep clear of the block's street and yards (the lots were already placed)
 
 // ---------------------------------------------------------------- the town ground (concrete) and the park (grass)
-const lotsM = GJ_LOTS.reduce((m, l) => Math.max(m, l.m), 0);
+const lotsM = LOTS_ALL.reduce((m, l) => Math.max(m, l.m), 0);
 export const urbanAt = (x, z) => 1 - smooth(Math.min(1, lotsM) * 0.95, Math.min(1, lotsM) * 0.95 + 0.5, coreM(x, z));
 export const parkAt = (x, z) => 1 - smooth(0.0, 1.0, (Math.sqrt(((x - PARK.x) / PARK.rx) ** 2 + ((z - PARK.z) / PARK.rz) ** 2) - 0.92) / 0.09);
 
