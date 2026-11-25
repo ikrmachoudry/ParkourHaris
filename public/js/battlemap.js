@@ -8,6 +8,8 @@ import { propParts, propDim } from './props.js';
 import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite, GJ_INFO } from './combat.js';
 import { GOJRA } from './mapid.js';
 import { GJ } from './gojra.js';   // v633: the Gojra map's park / signs
+import { av } from './assetver.js';
+import { pubgHouse, pubgBlockProps } from './pubgblock.js';   // v643: the PUBG-style street block (Gojra only)
 
 const H = CMB.half, SRGB = THREE.SRGBColorSpace;
 const rngS = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -46,7 +48,7 @@ const CH = GOJRA ? 100 : 150;   // chunk size for merged static meshes   // v634
 class Batches {
   constructor(mats) { this.mats = mats; this.map = new Map(); }
   // g = a THREE geometry already positioned in map-local coordinates; col = colour (hex string or [r,g,b])
-  add(mat, g, col, jitter = 0) {
+  add(mat, g, col, jitter = 0, swap = false) {
     g.computeBoundingBox(); const bb = g.boundingBox, cx = Math.floor(((bb.min.x + bb.max.x) / 2 + H) / CH), cz = Math.floor(((bb.min.z + bb.max.z) / 2 + H) / CH);
     const nrm = g.attributes.normal, pos = g.attributes.position, n = pos.count, uv = new Float32Array(n * 2), colr = new Float32Array(n * 3), c = Array.isArray(col) ? col : (_c.set(col), [_c.r * 0.8, _c.g * 0.8, _c.b * 0.8]), j = 1 + (Math.random() - 0.5) * jitter;
     const us = this.mats[mat].uvs || 2.4;
@@ -55,6 +57,7 @@ class Batches {
       if (ny >= nx && ny >= nz) { uv[i * 2] = x / us; uv[i * 2 + 1] = z / us; } else if (nx >= nz) { uv[i * 2] = z / us; uv[i * 2 + 1] = y / us; } else { uv[i * 2] = x / us; uv[i * 2 + 1] = y / us; }
       const shade = 0.78 + 0.22 * (ny * 0.7 + 0.3) + (nx > nz ? -0.04 : 0.02); colr[i * 3] = Math.min(1, c[0] * j * shade); colr[i * 3 + 1] = Math.min(1, c[1] * j * shade); colr[i * 3 + 2] = Math.min(1, c[2] * j * shade);
     }
+    if (swap) for (let i = 0; i < n; i++) { const t = uv[i * 2]; uv[i * 2] = uv[i * 2 + 1]; uv[i * 2 + 1] = t; }   // v643: turn the picture 90 degrees (roof tiles on a roof whose ridge runs along z)
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(colr, 3));
     if (g.index) g = g.toNonIndexed(); const key = cx + ',' + cz + ',' + mat; let a = this.map.get(key); if (!a) this.map.set(key, a = { cx, cz, mat, gs: [] }); a.gs.push(g);
   }
@@ -86,6 +89,10 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     roof: { m: std({ map: T.roof, bumpMap: T.roof, bumpScale: 1.4, roughness: 0.8, side: THREE.DoubleSide }), uvs: 2.2 }, conc: { m: std({ map: T.conc, bumpMap: T.conc, bumpScale: 0.6 }), uvs: 3 }, trim: { m: std({ roughness: 0.7 }), uvs: 4 },
     rock: { m: std({ map: T.rock, bumpMap: T.rock, bumpScale: 2, roughness: 1 }), uvs: 3 },
   };
+  /* v643 the PUBG-style street block's real CC0 photo textures (models/pubg/*.jpg: 512 px, 256 px on Android through av()); only the Gojra map loads them. Wall colours are multiplied on top of the photo (pink / teal / ochre plaster). */
+  if (GOJRA) { const pt = (n) => { const t = new THREE.TextureLoader().load(av('models/pubg/' + n + '.jpg')); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = SRGB; t.anisotropy = q === 0 ? 2 : 4; return t; };
+    Object.assign(MATS, { pplaster: { m: std({ map: pt('plaster'), roughness: 0.95 }), uvs: 3.2 }, pbrick: { m: std({ map: pt('brick'), roughness: 0.9 }), uvs: 1.9 }, proof: { m: std({ map: pt('roof'), roughness: 0.78, side: THREE.DoubleSide }), uvs: 6.5 },
+      pconc: { m: std({ map: pt('conc'), roughness: 0.95 }), uvs: 3.4 }, pmetal: { m: std({ map: pt('metal'), roughness: 0.55, metalness: 0.25 }), uvs: 2.2 }, pground: { m: std({ map: pt('ground'), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), uvs: 4.2 } }); }
   const GLB_STAIRS = false;   // v608: true = draw the open wooden stairs.glb (v326) again instead of the solid steps + railings
   const B = new Batches(MATS), meshes = [];
   const placeWT = (x, y, z, ry) => {   // v578: the watch tower model with its door + stair stretched 1 m wider (every vertex right of x 0.6 moves 1 m right: the same map as MX in combat.js)
@@ -186,8 +193,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.computeVertexNormals(); B.add('roof', g, col, 0.05);
   };
   for (const b of L.buildings) {
-    const wm = WALLMAT[b.kind] || 'wall', fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
-    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' || b.kind === 'flat3' || b.kind === 'mosque' ? '#f2efe6' : '#3a3530';
+    const wm = b.pub ? (b.pm === 'b' ? 'pbrick' : 'pplaster') : (WALLMAT[b.kind] || 'wall'), fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
+    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' || b.kind === 'flat3' || b.kind === 'mosque' || b.kind === 'pub2' ? '#f2efe6' : '#3a3530';
     /* v376: Z-FIGHT FIX. Wall / floor / roof boxes overlap at corners, T-joints and where a floor slab sliver sits inside a wall: two same-facing coplanar faces = flickery white patches on walls and floors. For every such pair one face is drawn 6 mm inside its box (collision is untouched): a floor slab yields to the wall, otherwise the later box yields. */
     const ZF = new Map(); { const T = b.solids.filter((q) => q.k === 'wall' || q.k === 'floor' || q.k === 'roof'), ov = (a0, a1, c0, c1) => Math.min(a1, c1) - Math.max(a0, c0);
       for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) { const a = T[i], c = T[j];
@@ -223,7 +230,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
         xx(xE, xE, zN, zS); xx(xM, xM, b.z + M.cz - 0.28, zS); xx(xM, xE + 0.05, zS, zS); }   // the roof opening: east, middle and south guards
     }
     /* v343: banisters. Every straight flight gets a post on each tread-pair and a SLOPED handrail + a mid bar on its open sides; every opening in an upper floor gets a guard rail (the same boxes are 'rail' solids in combat.js, so what you see is what stops you) */
-    { const iron = '#2a2a2e', oak = '#5b3e29', V = THREE.Vector3, up = new V(0, 0, 1);
+    { const iron = b.pub ? '#e9e7e0' : '#2a2a2e', oak = b.pub ? '#f4f2ec' : '#5b3e29', V = THREE.Vector3, up = new V(0, 0, 1);   /* v643: white railings on the PUBG-style houses */
       const bar = (x0, y0, z0, x1, y1, z1, t, col, mat) => { const d = new V(x1 - x0, y1 - y0, z1 - z0), L = d.length(); if (L < 0.02) return; const g = new THREE.BoxGeometry(t, t, L); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); B.add(mat, g, col, 0); };
       for (const F of b.flights || []) for (let sd = 0; sd < 2; sd++) { if (!F.sd[sd]) continue;
         const lat = sd ? F.l0 + F.sw - 0.04 : F.l0 + 0.04, P = (i) => { const pa = F.dir > 0 ? F.a0 + i * F.tr : F.a0 - (i + 1) * F.tr; return pa + F.tr / 2; }, Y = (i) => fy + F.yb + (i + 1) * F.stp, pt = (a, y) => F.ax === 'x' ? [b.x + a, y, b.z + lat] : [b.x + lat, y, b.z + a];
@@ -246,7 +253,8 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     }
     // roofs
     const along = b.w >= b.d, rc = b.rc;
-    if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
+    if (b.pub) pubgHouse(b, B, q);   // v643: clay tiles, plaster gable ends, plinth, floor band, barred windows, chimney
+    else if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
     else if (b.roof === 'lowgable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.12 + 0.6, along, b.c === '#b5a48c' ? '#7a6a58' : '#6e7a84', 0.3);
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05);
       /* v563: ROOF-TO-WALL GAP on the lean-to (pent) roofs: the tilted roof rises up to 0.6 m above the flat ceiling slab at its high end, which left an open wedge (daylight, a floating roof edge) between the wall tops and the roof. The wedge is now filled with a wall-coloured block that ends 1 cm under the roof's underside, so the roof sits on the walls on every side (the slab stays the ceiling and the collision) */
@@ -497,6 +505,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   for (const t of L.wtowers || []) { for (const v of t.vis || []) B.box('wall', v[0], v[1], v[2], v[3], v[4], v[5], v[6], 0.03); const dm = propDim('wtower'); if (!(dm && placeWT(t.x, t.gy + t.dy, t.z, -t.rot * Math.PI / 2))) for (const sd of t.solids) { if (sd.rail) continue; B.box(sd.k === 'roof' ? 'metal' : sd.k === 'step' ? 'metal' : 'wall', sd.x0, sd.y0, sd.z0, sd.x1, sd.y1, sd.z1, sd.k === 'floor' ? '#6b5a4a' : '#7a6652', 0.03); } }
   /* v633 THE GOJRA MAP: the shop row's shutters + name boards, the mosque (dome, minarets, name), the police station board, the road-name boards and Jinnah Park's paths. Everything here is looks only; the collision is in combat.js */
   if (GOJRA) {
+    pubgBlockProps(B, group, GJ, cmbH, cmbG, q);   // v643: jersey barriers, broken walls, sheds, tarps, power poles, dirt patches
     const SIGN_RY = Math.PI;   /* v634: a board whose front looks north (-z): the street side of the shops */
     const mkPlane = (tex, w, h, x, y, z, ry, dbl = true) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, side: dbl ? THREE.DoubleSide : THREE.FrontSide })); m.position.set(x, y, z); m.rotation.y = ry; group.add(m); return m; };
     { const row = GJ_INFO.row;

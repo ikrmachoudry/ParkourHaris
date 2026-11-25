@@ -130,6 +130,8 @@ const KIND = {
   /* v633 GOJRA: a three-storey block of flats (the same tested U-stair goes up all three floors) and the mosque (one tall hall) */
   flat3: { fh: 3.1, fl: 3, win: { ww: 2.0, y0: 0.8, y1: 2.4, gap: 4.2 }, fur: 'home', roof: 'flat' },
   mosque: { fh: 6.4, win: { ww: 1.4, y0: 2.0, y1: 5.2, gap: 4.6 }, fur: null, roof: 'flat' },
+  /* v643 PUBG-STYLE HOUSE (the Gojra street block): two storeys with the same tested U-stair, a pitched clay-tile roof (walkable solid bands, you slide off), barred windows (drawn in pubgblock.js) */
+  pub2: { fh: 3.1, fl: 2, win: { ww: 1.5, y0: 0.9, y1: 2.3, gap: 3.8 }, fur: 'home', roof: 'gable' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
 const OPP = { N: 'S', S: 'N', W: 'E', E: 'W' };
@@ -261,7 +263,7 @@ function buildSolids(o) {
   } else
     { wall(-hx - 0.3, -hz - 0.3, hx + 0.3, hz + 0.3, top, top + SL, 'roof'); if (o.roof && o.roof !== 'flat') out[out.length - 1].slide = 1; }
   if (o.roof === 'gable' || o.roof === 'lowgable') {   // v358: the shingles are SOLID (PUBG): the pitched roof is a stack of thin sloped bands (every band is a step of <= 0.3 m that is walkable and slides you downhill), so nobody sinks into the roof, and shots / the camera cannot go through it
-    const ax = o.w >= o.d, ov = o.roof === 'gable' ? 0.55 : 0.3, perp = (ax ? o.d : o.w) / 2 + ov, along = (ax ? o.w : o.d) / 2 + ov, rh = o.roof === 'gable' ? Math.min(o.w, o.d) * 0.33 : Math.min(o.w, o.d) * 0.12 + 0.6;
+    const ax = o.w >= o.d, ov = o.roof === 'gable' ? 0.55 : 0.3, perp = (ax ? o.d : o.w) / 2 + ov, along = (ax ? o.w : o.d) / 2 + ov, rh = o.roof === 'gable' ? Math.min(o.w, o.d) * (o.kind === 'pub2' ? 0.26 : 0.33) : Math.min(o.w, o.d) * 0.12 + 0.6;
     const nb = Math.max(2, Math.ceil(rh / 0.3)), wb = perp / nb, y00 = top + SL;
     for (let i = 0; i < nb; i++) {
       const za = i * wb, zb = (i + 1) * wb, hgt = rh * (1 - (za + zb) / 2 / perp) - 0.06; if (hgt < 0.12) continue;
@@ -473,7 +475,7 @@ function buildGojra() {
     GJ_INFO.mosque = mq; }
   { const Pq = GJ.police, pq = mk('office2', Pq.x, Pq.z, Pq.w, Pq.d, 'N', { c: '#e4e0cf', rc: '#4c5560' }); pq.police = true; GJ_INFO.police = pq; }
   // ---- the houses, flats and bazaar blocks along the streets
-  for (const l of GJ.lots) {
+  const doLot = (l) => {
     const K = KIND[l.kind], two = (K.fl || 1) >= 2, alongX = l.front === 'N' || l.front === 'S', F = alongX ? l.w : l.d, ov = { c: l.c, rc: l.rc };
     /* v634 a back door only where the ground behind the building is open (3 m): no more doors that open onto a neighbour's wall */
     const bk = OPPS[l.front], bx0 = bk === 'W' ? l.x - l.w / 2 - 3 : bk === 'E' ? l.x + l.w / 2 : l.x - l.w / 2, bx1 = bk === 'E' ? l.x + l.w / 2 + 3 : bk === 'W' ? l.x - l.w / 2 : l.x + l.w / 2, bz0 = bk === 'N' ? l.z - l.d / 2 - 3 : bk === 'S' ? l.z + l.d / 2 : l.z - l.d / 2, bz1 = bk === 'S' ? l.z + l.d / 2 + 3 : bk === 'N' ? l.z - l.d / 2 : l.z + l.d / 2;
@@ -508,8 +510,11 @@ function buildGojra() {
       ov.doors = doors; if (bal.length) { ov.balc = bal; ov.udoors = ud; }
       ov.fh = K.fh + [0, 0.2, 0.4, -0.1][Math.floor(RG() * 4)];
     } else if (l.kind === 'house') { ov.part = RG() < 0.6 ? undefined : null; }
-    mk(l.kind, l.x, l.z, l.w, l.d, l.front, ov); GJ_INFO.lots++;
-  }
+    const bb = mk(l.kind, l.x, l.z, l.w, l.d, l.front, ov); if (l.pm) { bb.pub = 1; bb.pm = l.pm; } GJ_INFO.lots++;
+  };
+  for (const l of GJ.lots) doLot(l);
+  /* v643 the PUBG-style street block: eight two-storey houses built exactly like the town's lots (gojra.js has the data) */
+  for (const [x, z, w, d, front, c, pm, rc] of GJ.block.houses) doLot({ kind: 'pub2', x, z, w, d, front, c, rc, pm, i: -1 });
 }
 if (GOJRA) buildGojra();
 export const FIXED_BUILDINGS = BUILDINGS.length;   // v622: how many buildings are hand-placed (the random scatter below comes after them)
@@ -723,6 +728,12 @@ function build() {
       const gx0 = Y.dx1 - 0.25, gx1 = Y.dx1 + 0.25; let zc = Y.z0; for (const [b0, b1] of Y.bays) { W(gx0, zc, gx1, b0, 3.0, wallC); zc = b1; } W(gx0, zc, gx1, Y.z1, 3.0, wallC);
       for (const [b0, b1] of Y.bays) for (const [zz, sg] of [[b0, 1], [b1, -1]]) { W(Y.dx1 - 0.45, zz - 0.45, Y.dx1 + 0.45, zz + 0.45, 3.6, '#e4dccb', 'pillar'); W(Y.dx1 - 3.0, zz + sg * 0.62 - 0.06, Y.dx1 - 0.5, zz + sg * 0.62 + 0.06, 2.5, '#101215', 'gate'); }   // the black leaves, swung open against the pillars
       for (const [bx, bz, al] of [[GJ.path.x + 3.2, -120, 0], [GJ.path.x + 3.2, -100, 0], [GJ.smallPark[0] + 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[0] + 10, GJ.smallPark[1] + 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[1] + 2, 1]]) { const it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 1.8 : 0.5, d: al ? 0.5 : 1.8, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); } }
+    /* v643 THE STREET BLOCK'S OUTDOOR PROPS (pubgblock.js draws them): jersey barriers (vault over them), broken concrete yard walls, corrugated sheds, the power poles */
+    { const BK = GJ.block, S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
+      for (const [x, z, al] of BK.barriers) { const w = al === 'x' ? 3.0 : 0.6, d = al === 'x' ? 0.6 : 3.0; S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 0.85, 1); }
+      for (const [x0, z0, x1, z1, h] of BK.walls) S3(x0, z0, x1, z1, h, h <= 1.3);
+      for (const [x, z, w, d, , h] of BK.sheds) S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, h, 0);
+      for (const [x, z] of BK.poles) S3(x - 0.14, z - 0.14, x + 0.14, z + 0.14, 11, 0); }
     const PK = GJ.park; for (let i = 0; i < 16; i++) { const a = i * 0.3927 + 0.2, bx = PK.x + Math.cos(a) * PK.rx * 0.72, bz = PK.z + Math.sin(a) * PK.rz * 0.72, al = Math.abs(Math.cos(a)) > 0.7, it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 0.5 : 1.8, d: al ? 1.8 : 0.5, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); }
   }
   // concrete instead of boulders: jersey barriers, blocks and slabs in clusters (cover everywhere)

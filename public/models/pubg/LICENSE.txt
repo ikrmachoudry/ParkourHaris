@@ -1,0 +1,3 @@
+Textures in this folder are CC0 (public domain) material scans from ambientCG (https://ambientcg.com):
+PaintedPlaster017 + PaintedPlaster015 (blended), Bricks012, RoofingTiles014A (colour + normal map baked into one picture), Concrete002, Planks004, CorrugatedSteel005 (colour + normal baked), Ground005, Asphalt003.
+Downloaded from the zuujis-cc0 GitHub mirror of the CC0 files; every file was checked against the SHA-256 in that mirror's MANIFEST.tsv. Resized to 512 px (256 px in models-lite). No attribution required (CC0).

@@ -114,7 +114,25 @@ export const GJ_LOTS = cand.slice(0, N_LOTS).map((c, i) => ({ ...c, c: pickC(), 
 
 // lanes that no lot opens on are dropped (no empty streets in the countryside)
 const usedLanes = laneList.filter((l) => GJ_LOTS.some((q) => { const mx = Math.max(l.pts[0][0], Math.min(l.pts[1][0], q.x)), mz = Math.max(l.pts[0][1], Math.min(l.pts[1][1], q.z)); return Math.hypot(mx - q.x, mz - q.z) < LW / 2 + 2.7 + Math.max(q.w, q.d) / 2 + 2; }));
-export const GJ_ROADS = NAMED.map((r) => ({ w: r.w, pts: r.pts })).concat(usedLanes.map((l) => ({ w: l.w, pts: l.pts })));
+/* v643 THE PUBG-STYLE STREET BLOCK (east of Police Station Road, off Cinema Road): one short street (x 227.5, running south from Cinema Road to a dead end) with four two-storey houses on each side,
+   pitched clay-tile roofs, barred windows, broken yard walls, jersey barriers, sheds, power poles. Only data here (no THREE): combat.js builds the houses + solids, battlemap.js draws them (pubgblock.js).
+   Houses are [centre x, centre z, w (x size), d (z size), front, wall tint, wall material p = plaster / b = brick, roof tint]. West row looks east, east row looks west; the street is 7 m wide, fronts stand 2.7 m back from its edge. */
+const BLK = {
+  rect: [200, -158, 253, -86],
+  street: { x: 227.5, w: 7, z0: -160, z1: -90 },
+  houses: [
+    [215.3, -145.5, 12, 13, 'E', '#f79c8e', 'p', '#ffe6d6'], [215.8, -130, 11, 12, 'E', '#7fd2c2', 'p', '#f3cdb8'], [215.3, -114.5, 12, 13, 'E', '#f6b784', 'b', '#ffe9dc'], [215.8, -99, 11, 12, 'E', '#f7cf86', 'p', '#e9d2c6'],
+    [239.7, -145, 12, 12, 'W', '#8dd6cf', 'p', '#f3cdb8'], [240.2, -129, 13, 14, 'W', '#f58f7c', 'p', '#ffe6d6'], [239.7, -113, 12, 12, 'W', '#f6b784', 'b', '#e9d2c6'], [240.2, -97.5, 13, 13, 'W', '#f6d26f', 'p', '#ffe9dc'],
+  ],
+  barriers: [[225.2, -91.2, 'x'], [227.5, -91.2, 'x'], [229.8, -91.2, 'x'], [226.2, -124, 'x'], [229, -121.2, 'x'], [224.6, -141.5, 'z'], [230.6, -104, 'z']],   // [x, z, long side along 'x' or 'z']
+  walls: [[205, -153, 205.4, -146.5, 1.9], [205, -142, 205.4, -131.5, 1.5], [205, -113, 205.4, -102, 1.4], [251, -152, 251.4, -139, 1.8], [251, -135, 251.4, -121.5, 1.3], [251, -116, 251.4, -105, 2.0], [251, -100, 251.4, -91, 1.5]],   // broken concrete yard walls [x0, z0, x1, z1, height]; the gaps line up with the lane and the back doors
+  sheds: [[201.7, -129.5, 4.4, 3.4, 'x', 2.5], [246.5, -88, 4.4, 3.2, 'x', 2.4]],   // corrugated sheds [x, z, w, d, -, height]
+  poles: [[232.6, -153], [232.6, -131], [232.6, -109], [232.6, -93]],
+  tarps: [[248.8, -131, 3.4, 3.0], [202.6, -108, 3.4, 3.0]],   // blue tarps on four posts, 2.6 m up
+  patches: [[227.5, -157, 11, 7], [227.5, -134, 8.5, 9], [227.5, -108, 9, 8], [204, -138, 5.5, 8], [251, -110, 5, 9], [221, -92, 7, 5]],   // bare dirt [x, z, rx, rz]
+};
+export const GJ_ROADS = NAMED.map((r) => ({ w: r.w, pts: r.pts })).concat(usedLanes.map((l) => ({ w: l.w, pts: l.pts }))).concat([{ w: BLK.street.w, pts: [[BLK.street.x, BLK.street.z0], [BLK.street.x, BLK.street.z1]] }]);
+SEGS.push([BLK.street.x, BLK.street.z0, BLK.street.x, BLK.street.z1, BLK.street.w, 'blk']); FIXED.push(BLK.rect);   // v643: signs and trees keep clear of the block's street and yards (the lots were already placed)
 
 // ---------------------------------------------------------------- the town ground (concrete) and the park (grass)
 const lotsM = GJ_LOTS.reduce((m, l) => Math.max(m, l.m), 0);
@@ -158,6 +176,6 @@ const SIGNS = SIGNS0.map((sg) => {
 
 export const GJ = {
   roads: GJ_ROADS, lots: GJ_LOTS, clinic: CLINIC, shops: SHOPS, park: PARK, police: POLICE, mosque: MOSQUE, signs: SIGNS, named: NAMED, XC, ZC,
-  grass: GRASS, parkAt, grassAt, urbanAt, inPark, grounds: GROUNDS, smallPark: SMALLPARK, path: PATH, yard: YARD,
+  block: BLK, grass: GRASS, parkAt, grassAt, urbanAt, inPark, grounds: GROUNDS, smallPark: SMALLPARK, path: PATH, yard: YARD,
   get trees() { return trees.filter(treeOK).filter((_, i) => i % 2 === 0); },   // v638: HALF the trees (every second one; all the random numbers were drawn before, so nothing else moves): from the air the park was one green blanket
 };
