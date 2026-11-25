@@ -4,6 +4,7 @@ import { av } from './assetver.js';
 import { track } from './loading.js';
 import { mkLoader } from './gltfload.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import GUNS from './guns.json' with { type: 'json' };   // the seven real low-poly guns (Ultimate Gun Pack by Quaternius, CC0), pre-converted to flat-coloured triangles in millimetres
 
 const M = {};
@@ -82,12 +83,28 @@ export function holdModel(name, size, alongZ, onLoad) {   // v393: a prop GLB fo
 export const preloadGunsCore = () => track(Promise.all([glbGun('pistol'), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');
 export const preloadGunsRest = () => GUN_KINDS.filter((k) => k !== 'pistol').reduce((p, k) => p.then(() => glbGun(k)), Promise.resolve());
 export const preloadGuns = () => track(Promise.all([...GUN_KINDS.map(glbGun), scopeProto(), propGlb('grenade'), propGlb('molotov')]), 'WEAPONS');   // v220: every gun file is loaded on the loading screen, loot never shows a stand-in box first
+// v645: all the static parts of a gun that share a material become ONE mesh (same look, 3-10x fewer draw calls and scene nodes per soldier / loot gun). Cached per gun; parts whose name contains `hide` (the AK's built-in optic) are left out. null when the model has skinned / instanced parts (then the plain clone is used).
+const MERGED = {};
+function mergedGun(key, src, hide) {
+  if (MERGED[key] !== undefined) return MERGED[key];
+  let ok = true; src.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(src.matrixWorld).invert(), by = new Map();
+  src.traverse((o) => {
+    if (!o.isMesh || !ok) return; if (o.isSkinnedMesh || o.isInstancedMesh || Array.isArray(o.material)) { ok = false; return; }
+    if (hide && o.name.includes(hide)) return; for (let q = o; q; q = q.parent) if (!q.visible) return;
+    const g = o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.normal) g.computeVertexNormals(); if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); let a = by.get(o.material); if (!a) by.set(o.material, a = []); a.push(g); });
+  if (!ok || !by.size) return (MERGED[key] = null);
+  const grp = new THREE.Group(); grp.position.copy(src.position); grp.quaternion.copy(src.quaternion); grp.scale.copy(src.scale);
+  for (const [mat, gs] of by) { if (gs.some((q) => !q.index) && gs.some((q) => q.index)) for (let i = 0; i < gs.length; i++) if (gs[i].index) gs[i] = gs[i].toNonIndexed(); const geo = mergeGeometries(gs, false); if (!geo) { for (const q of gs) q.dispose(); return (MERGED[key] = null); } const me = new THREE.Mesh(geo, mat); me.frustumCulled = false; me.castShadow = false; grp.add(me); for (const q of gs) q.dispose(); }
+  return (MERGED[key] = grp);
+}
 export function gunMesh(kind) {
   const want = kind; if (kind === 'ak49') kind = 'ak';   // the AK-49 shares the AK-47 model (and gets the ACOG scope, v391)
   const d = GUNS[kind]; if (!d) return null; const g = new THREE.Group();
   if (!GEO[kind]) GEO[kind] = d.g.map(([r, gg, b, s, k]) => { const geo = new THREE.BufferGeometry(); const a = new Float32Array(k * 3); for (let i = 0; i < k * 3; i++) a[i] = d.p[s * 3 + i] / 1000; geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); geo.computeVertexNormals(); return { geo, key: r + ',' + gg + ',' + b, c: [r, gg, b] }; });
   for (const { geo, key, c } of GEO[kind]) { const m = GMAT[key] || (GMAT[key] = new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(Math.min(1, c[0] * 1.5 + 0.03), Math.min(1, c[1] * 1.5 + 0.03), Math.min(1, c[2] * 1.5 + 0.03), THREE.LinearSRGBColorSpace), roughness: 0.55, metalness: 0.25, flatShading: true })); const me = new THREE.Mesh(geo, m); me.castShadow = true; g.add(me); }
-  glbGun(kind).then((src) => { if (!src) return; g.clear(); const m = skClone(src); g.add(m);
+  glbGun(kind).then((src) => { if (!src) return; g.clear(); const cfg0 = SCOPED[want], mg = mergedGun(want + ':' + kind, src, cfg0 && cfg0.hide), m = mg ? mg.clone(true) : skClone(src); g.add(m);   /* v645: the gun is ONE mesh per material (a pistol was 24 separate meshes = 24 draw calls per bot, twice with the shadow pass) */
     const cfg = SCOPED[want]; if (!cfg) return;
     if (cfg.hide) m.traverse((o) => { if (o.isMesh && o.name.includes(cfg.hide)) o.visible = false; });
     scopeProto().then((p) => { if (!p) return; const c = p.clone(true); c.scale.setScalar(cfg.s / p.userData.len); c.position.set(0, cfg.y, cfg.z); c.name = 'ACOG'; c.userData.kind = want; g.add(c); }); });
