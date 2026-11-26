@@ -1146,6 +1146,11 @@ export class CombatSim {
   /* v457 INTELLIDROID: an AI soldier that is a TEAMMATE of one real team (3 real players: 2 + 1 + the droid = 2 v 2). Hard setting: tough (150 hp), better aim, faster reactions, frag grenades; it follows its human teammate, kills the regular bots AND the other team (never its own team) and the regular bots shoot at it too. Server only (shared match). */
   addDroid(tm) {
     const b = this.newBot(this.bots.length); b.droid = true; b.dtm = tm | 0; b.hp = 260; b.thw = true; b.gr = 2; b.mo = 0; b.weapon = 'ak'; b.nadeCd = 5; b.placed = false; b.x = b.z = 9999; this.bots.push(b);   /* waits off the map (not shot, not drawn) until its human teammate has landed */ this.droidBot = b; (this.droids = this.droids || []).push(b);   /* v507: one droid per team that asked for one */ this.ptm = this.ptm || {}; return b; }
+  /* v653 YOU REVIVE THE INTELLIDROID: a dead droid (b.alive false) whose human teammate knelt beside it for 7 s gets up with 150 hp, an AK and one frag (the gold box with its old kit stays on the ground). Local sim: called directly; shared match: the server calls it for the 'cdrev' message. Returns true when it got up. */
+  reviveDroid(b) {
+    if (!b || !b.droid || b.alive || b.placed === false) return false;
+    b.alive = true; b.hp = 150; b.respawn = 0; b.dieT = 0; b.hurtT = 0; b.retT = 0; b.alert = 0; b.flash = 0; b.path = null; b.pi = 0; b.think = 0; b.cl = null; b.stn = 0; b.speed = 0; b.walk = false; b.thr = 0; b.pendN = null; b.rv = 0; b.rvP = 0; b.rvT = 0; b.rvCd = 0; b.seen = false; b.lk = null; b.cov = null; b.hide = 0; b.peek = 0; b.stk = 0; b.unst = 0; b.weapon = 'ak'; b.gr = Math.max(b.gr | 0, 1); b.nadeCd = 5; b.cool = 1; b.react = 0;
+    this.events.push({ k: 'drevd', id: b.id }); return true; }
   /* v568 INTELLIDROID REVIVES YOU: when its human teammate is DOWN (q.dn) and the droid has time (nobody within 38 m, not hit in the last seconds, not throwing, on the ground) it runs to him, kneels beside him and after 7 s he gets up (event drev). Under fire it fights first. Returns true when it took the whole tick. */
   droidRv(b, PL, dt) {
     if (b.rvCd > 0) b.rvCd -= dt;

@@ -45,5 +45,6 @@ export class NetSim extends CombatSim {
   melee(x, z, fx, fz, reach, dmg) { const r = super.melee(x, z, fx, fz, reach, dmg); this.net.send({ t: 'cmelee', x: +x.toFixed(2), z: +z.toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), reach, dmg }); return r; }
   blast(x, z, r, dmg) { super.blast(x, z, r, dmg); this.net.send({ t: 'cblast', x: +x.toFixed(2), z: +z.toFixed(2), r }); }
   addSmoke(x, z) { this.net.send({ t: 'csmoke', x: +x.toFixed(2), z: +z.toFixed(2) }); }
+  reviveDroid(b) { if (!b || !b.droid || b.alive) return false; this.net.send({ t: 'cdrev' }); return true; }   // v653: the server revives the dead droid of my team
   addFire(x, z) { this.net.send({ t: 'cfire', x: +x.toFixed(2), z: +z.toFixed(2) }); }
 }

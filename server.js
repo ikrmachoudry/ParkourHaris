@@ -370,12 +370,12 @@ wss.on('connection', (ws, req) => {
       }
       case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.filter((x) => !x.droid).length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); addDroids(room); for (const q of room.players.values()) room.chost.init(q.id); } /* v560: the rebuilt match used to LOSE every INTELLIDROID (the new host had no droids and the count test counted them as bots) */ } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
-      case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': {
+      case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': case 'cdrev': {
         if (!room || !room.chost || room.phase !== 'race') return;
         const t = Date.now();
         if (m.t === 'cdrop') { if (t - (p.dropW || 0) > 1000) { p.dropW = t; p.dropN = 0; } if (++p.dropN > 40) return; }   // v301: a dead player's whole kit is 8-20 drops in ONE tick: the 25 ms gap below threw all but the first away, so other players never saw the gold box's items
         else { if (t - (p.lastC || 0) < 25) return; p.lastC = t; }
-        const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m), cfire: () => h.fire(p, m) })[m.t](); break;
+        const h = room.chost; ({ cshoot: () => h.shoot(p, m), cmelee: () => h.melee(p, m), cblast: () => h.blast(p, m), ctake: () => h.take(p, m), cdrop: () => h.drop(p, m), csmoke: () => h.smoke(p, m), cfire: () => h.fire(p, m), cdrev: () => h.drev(p, m) })[m.t](); break;
       }
       case 'cstat': {   // v338: Jang: every player reports his own end-of-match stats; the server picks the winning team and sends the victory page data to everybody
         if (!room || !room.combat || room.phase !== 'race') return;

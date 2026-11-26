@@ -12,8 +12,8 @@ export class RemoteHost {
   init(id) { this.post({ c: 'init', id }); }
   addDroid(tm) { this.post({ c: 'droid', tm }); }
   tick(dt, players) { this.post({ c: 'tick', dt, pl: players }); }
-  call(f, p, m) { this.post({ c: 'call', f, p: { id: p.id, jx: p.jx, jz: p.jz }, m }); }
+  call(f, p, m) { this.post({ c: 'call', f, p: { id: p.id, jx: p.jx, jz: p.jz, jtm: p.jtm, jal: p.jal }, m }); }
   shoot(p, m) { this.call('shoot', p, m); } melee(p, m) { this.call('melee', p, m); } blast(p, m) { this.call('blast', p, m); } take(p, m) { this.call('take', p, m); }
-  drop(p, m) { this.call('drop', p, m); } smoke(p, m) { this.call('smoke', p, m); } fire(p, m) { this.call('fire', p, m); }
+  drop(p, m) { this.call('drop', p, m); } smoke(p, m) { this.call('smoke', p, m); } fire(p, m) { this.call('fire', p, m); } drev(p, m) { this.call('drev', p, m); }
   destroy() { if (this.dead) return; this.dead = true; try { this.w.terminate(); } catch (e) { /* gone */ } }
 }

@@ -12,7 +12,7 @@ parentPort.on('message', (m) => {
       case 'init': host.init(m.id); break;
       case 'droid': host.addDroid(m.tm); break;
       case 'tick': host.tick(m.dt, m.pl); post({ c: 'bots', a: host.sim.bots.map((b) => (b.alive ? 1 : 0) | (b.droid ? 2 : 0)) }); break;
-      case 'call': if (typeof host[m.f] === 'function' && ['shoot', 'melee', 'blast', 'take', 'drop', 'smoke', 'fire'].includes(m.f)) host[m.f](m.p, m.m); break;
+      case 'call': if (typeof host[m.f] === 'function' && ['shoot', 'melee', 'blast', 'take', 'drop', 'smoke', 'fire', 'drev'].includes(m.f)) host[m.f](m.p, m.m); break;
       default: break;
     }
   } catch (e) { console.error('gojra combat worker', e); }
