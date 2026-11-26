@@ -2778,7 +2778,7 @@ async function startRoomPoll() {
     q(); roomPoll = setInterval(q, 2000);
   } catch (e) { $('mp-status').textContent = 'Could not connect to the game server.'; }
 }
-function openMp() { $('mp-status').textContent = ''; stage.setTitle(app.char); show('mp'); startRoomPoll(); }
+function openMp() { $('mp-status').textContent = ''; { const md = $('mp-dsel'); if (md) { md.style.display = app.combat ? '' : 'none'; md.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); } }   /* v656: every player sees the bot difficulty before creating / joining a TEAM UP room (it counts when he is the host) */ stage.setTitle(app.char); show('mp'); startRoomPoll(); }
 let joinTimer = null;
 function stopJoin() { if (joinTimer) { clearTimeout(joinTimer); joinTimer = null; } }
 async function mpAction(kind) {
@@ -2853,6 +2853,7 @@ function renderLobby() {
   levelCards($('lobby-levels'), { onPick: (id) => { if (host) { A.sfx.click(); app.net.send({ t: 'level', level: id }); } } });
   $('lobby-levels').querySelectorAll('.card').forEach((d) => { d.classList.toggle('sel', +d.dataset.id === m.level); if (!host) d.style.cursor = 'default'; });
   $('lobby-level-note').textContent = host ? '(you choose)' : '(host chooses)'; { const lb = $('lobby-level-block'); if (lb) lb.style.display = m.combat ? 'none' : ''; }
+  { const dn = $('lobby-dnote'); if (dn) { dn.style.display = !host && m.combat ? '' : 'none'; dn.textContent = 'BOT DIFFICULTY: ' + String(m.diff || 'medium').toUpperCase() + '  (the host decides)'; } }   /* v656: joiners see the level the host picked */
   { const ld = $('lobby-dsel'); if (ld) { ld.style.display = host && m.combat ? '' : 'none'; ld.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.d === (OPT.diff || 'medium'))); } if (host && m.combat && app.net) app.net.send({ t: 'cdiff', d: OPT.diff || 'medium' }); }   // v333: the host picks the BOT DIFFICULTY in the team lobby
   { const sb = $('b-shuffle'); if (sb) sb.style.display = host && m.combat && m.players.length >= 2 ? '' : 'none'; }
   $('b-start').disabled = !host; $('b-start').firstElementChild.textContent = host ? 'START' : 'WAITING FOR HOST';

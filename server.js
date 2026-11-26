@@ -140,7 +140,7 @@ function leaveTeam(room, p) {
 }
 function lobbyMsg(room) {
   return {
-    t: 'lobby', map: mapOf(room), code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat, teams: teamsOf(room),
+    t: 'lobby', diff: room.diff || 'medium', map: mapOf(room), code: room.code, hostId: room.hostId, level: room.level, phase: room.phase, combat: !!room.combat, teams: teamsOf(room),
     players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, char: p.char, skin: p.skin, zom: !!p.zom })),
   };
 }
@@ -368,7 +368,7 @@ wss.on('connection', (ws, req) => {
         const t = Date.now(); if (t - (p.lastJr || 0) < 500) return; p.lastJr = t;
         send(q.ws, { t: 'jr', from: p.id }); break;
       }
-      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { room.diff = m.d; room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.filter((x) => !x.droid).length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); addDroids(room); for (const q of room.players.values()) room.chost.init(q.id); } /* v560: the rebuilt match used to LOSE every INTELLIDROID (the new host had no droids and the count test counted them as bots) */ } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
+      case 'cdiff': { if (room && p.id === room.hostId && ['easy', 'medium', 'hard'].includes(m.d)) { { const wasD = room.diff; room.diff = m.d; if (wasD !== m.d && room.phase === 'lobby') bcast(room, lobbyMsg(room)); }   /* v656: guests see the level the host picked (the lobby message carries it; sent only when it CHANGES, so the host's repeat cdiff does not loop) */ room.botN = Number.isInteger(m.n) && m.n >= 4 && m.n <= 32 ? m.n : 0;   /* v379: the HOST's phone / laptop picks the bot count (phones get fewer) */ if (room.chost) { room.chost.sim.setDiff(m.d); if (room.botN && room.chost.sim.t < 20 && room.chost.sim.bots.filter((x) => !x.droid).length !== room.botN) { room.chost = new CombatHost(room.seed, (o) => bcast(room, o), (id, o) => { const q = room.players.get(id); if (q && q.ws) send(q.ws, o); }, room.diff, room.botN); addDroids(room); for (const q of room.players.values()) room.chost.init(q.id); } /* v560: the rebuilt match used to LOSE every INTELLIDROID (the new host had no droids and the count test counted them as bots) */ } } break; }   // v379: the host's cdiff arrives just after the match starts: rebuild the bots at the host's count while the match is brand new   // v331: the room host's BOT DIFFICULTY
       case 'chello': { if (room && room.chost) room.chost.init(p.id); break; }   // v245: shared match: the phone asks for the bots + loot
       case 'cshoot': case 'cmelee': case 'cblast': case 'ctake': case 'cdrop': case 'csmoke': case 'cfire': case 'cdrev': {
         if (!room || !room.chost || room.phase !== 'race') return;
