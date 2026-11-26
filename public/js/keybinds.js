@@ -12,7 +12,7 @@ export const ACTIONS = [
   ['reload', 'Reload', 'KeyR', 'FIGHT'], ['punch', 'Punch  /  pick up  /  use', 'KeyF', 'FIGHT'], ['next', 'Next weapon', 'KeyV', 'FIGHT'], ['fmode', 'Fire mode  /  melee swing', 'KeyB', 'FIGHT'],
   ['nade', 'Grenade  (press again to change type)', 'KeyG', 'FIGHT'], ['molo', 'Molotov  /  rifle scope on-off', 'KeyN', 'FIGHT'],
   ['zin', 'Scope zoom in', 'Equal', 'FIGHT'], ['zout', 'Scope zoom out', 'Minus', 'FIGHT'],
-  ['s1', 'Weapon slot 1', 'Digit1', 'ITEMS'], ['s2', 'Weapon slot 2', 'Digit2', 'ITEMS'], ['s3', 'Grenade', 'Digit3', 'ITEMS'], ['s4', 'Grenade (alternate)', 'Digit4', 'ITEMS'], ['s5', 'Fists  /  molotov', 'Digit5', 'ITEMS'],
+  ['s1', 'Weapon slot 1', 'Digit1', 'ITEMS'], ['s2', 'Weapon slot 2', 'Digit2', 'ITEMS'], ['s3', 'Grenade  (smoke if no grenade)', 'Digit3', 'ITEMS'], ['s4', 'Molotov', 'Digit4', 'ITEMS'], ['s5', 'Molotov  (alternate)', 'Digit5', 'ITEMS'],
   ['i6', 'Use first aid kit', 'Digit6', 'ITEMS'], ['i7', 'Use pain pills', 'Digit7', 'ITEMS'], ['i8', 'Use adrenaline', 'Digit8', 'ITEMS'], ['i9', 'Smoke grenade', 'Digit9', 'ITEMS'], ['i0', 'Use scope item', 'Digit0', 'ITEMS'],
   ['bag', 'Backpack', 'KeyI', 'MENUS'], ['map', 'Map  (Tab also opens the backpack in Jang)', 'Tab', 'MENUS'], ['mapm', 'Map  /  sound on-off', 'KeyM', 'MENUS'], ['pause', 'Pause menu  (Esc always works too)', 'KeyP', 'MENUS'],
   ['talk', 'Team microphone  (hold)', 'KeyT', 'MENUS'], ['spk', 'Lights  /  team speaker', 'KeyL', 'MENUS'], ['horn', 'Horn', 'KeyH', 'MENUS'],

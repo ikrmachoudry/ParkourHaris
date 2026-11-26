@@ -1846,3 +1846,4 @@ body.lay-prev::before { content: ""; position: fixed; inset: 0; z-index: 9; back
 body.lay-prev::after { content: 'Your fight screen: drag a button to move it'; position: fixed; left: 50%; top: 46%; transform: translateX(-50%); z-index: 9; color: rgba(255,255,255,.28); font: 800 clamp(12px, 3.4vh, 20px) system-ui, sans-serif; letter-spacing: .06em; text-align: center; pointer-events: none; white-space: nowrap; }
 body.lay-prev #touch { pointer-events: none !important; }
 body.lay-prev :is(#minimap, #b-gm, #b-full, #kb-hint, #hud-obj, #mm-btn, #rotate) { display: none !important; }
+@media (max-width: 760px) { #c-slots { gap: 4px; } #c-slots button { min-width: 62px; padding: 2px 4px; } #c-slots button img { width: 52px; } }  /* v651: four slots (guns, grenade, molotov) fit a phone */

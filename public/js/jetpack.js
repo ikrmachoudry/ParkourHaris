@@ -89,7 +89,8 @@ export class Jet {
       if (this.fuel <= 0 || this.blocked(b) || !this.has()) { this.fuel = Math.max(0, this.fuel); this.off(b); }
     } else if (b.grounded) { this.glide = false; if (this.fuel < JET.FUEL) this.fuel = Math.min(JET.FUEL, this.fuel + dt * JET.FUEL / JET.RECHARGE); }
     if (this.glide && (b.grounded || b.swim > 0.3 || cs.dropping || cs.down || cs.hp <= 0 || cs.deadT > 0)) this.glide = false;
-    void inp;
+    if (this.on && inp) {   /* v651: the jet flies the SAME on a phone as on the laptop: the keys always give a full push (length 1) and the jog speed, but a phone stick gave any length 0..1 and a walk / jog / sprint multiplier (0.5 / 1.3 / 1.65) that the physics step pulled the jet's speed towards: a light push crawled, a full push was faster than the laptop. Now any real stick push = full push, fixed jog multiplier */
+      const ml = Math.hypot(inp.mx, inp.mz); if (ml > 0.12) { inp.mx /= ml; inp.mz /= ml; } else { inp.mx = 0; inp.mz = 0; } b.speedMul = 1.3; }
   }
   /* inside every physics sub-step, before stepBody: thrust, forward flight, the soft cushion */
   pre(b, sdt, inp) {

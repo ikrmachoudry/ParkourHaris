@@ -56,8 +56,8 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   pills: ['PAIN PILLS', 'Adds +60 to the BOOST bar in 5 seconds. Boost heals you slowly. Press 7 to use.'],
   inject: ['ADRENALINE', 'Fills +100 of the BOOST bar in 4 seconds. Boost heals you over time, and from 50 up it makes you run a bit faster. Press 8 to use.'],
   grenade: ['GRENADE', 'Press 3, 4 or G to take it in your hand. TAP FIRE to throw at once, or HOLD FIRE to pull the pin: your hand stays cocked, the fuse counts down on the orange number and a thin red line shows where it lands. Let go to throw (CANCEL keeps it). Held past 0 it blows up in your hand. Fuse 2.6 s, blast: lethal within 3.5 m, weaker out to 10 m (it hurts teammates and you too).'],
-  smoke: ['SMOKE BOMB', 'Throw it to hide yourself or a teammate while healing or crossing open ground. Press 9 (or 3 / 4 / G to cycle) to take it in hand, then FIRE.'],
-  molotov: ['MOLOTOV', 'Throw it to start a fire on the ground that burns anyone standing in it. Great for pushing people out of a room. Press 5 or N (or 3 / 4 / G to cycle) to take it in hand, then FIRE.'],
+  smoke: ['SMOKE BOMB', 'Throw it to hide yourself or a teammate while healing or crossing open ground. Press 9 (or 3 / G to cycle) to take it in hand, then FIRE.'],
+  molotov: ['MOLOTOV', 'Throw it to start a fire on the ground that burns anyone standing in it. Great for pushing people out of a room. Press 4 or N (or G to cycle) to take it in hand, then FIRE.'],
   scope: ['BINOCULARS', 'Press 0 to look far away with zoom (mouse wheel zooms). A separate item: it cannot be used on the sniper rifle.'],
   sscope: ['TELESCOPE (Kar98)', 'Clips onto the sniper rifle. Hold AIM to look through it; the mouse wheel zooms. Needs the sniper rifle first.'],
   vest: ['BODY ARMOR', 'PUBG Level 2 vest: takes 40% of every body shot until its 220 points run out. Worn automatically.'],
@@ -761,14 +761,16 @@ export class CombatScene {
   // v269: VEHICLE HITS: any car / jeep / Civic that moves faster than ~14 km/h hurts whoever it runs into: bots, enemy players (PvP), and ME when somebody else's car hits me. Damage grows with the speed (about 22 m/s kills).
   vehHits(dt, P) {
     const R = this.R, sim = this.sim, b = R.me.body, T = R.jangTeam, now = performance.now(); if (!this.vp) this.vp = new Map();
-    for (const c of R.cars) {
+    for (let ci = 0; ci < R.cars.length; ci++) {
+      const c = R.cars[ci];
       const st = c.st, pv = this.vp.get(c); this.vp.set(c, { x: st.x, z: st.z, t: now }); if (!pv || dt <= 0) continue;
+      { const mcr = R.mateCars && R.mateCars.get(ci), dg = mcr && this.mates.get(mcr.id); if (dg && T && dg.tm === T.tm) continue; }   /* v651: a car driven by MY TEAMMATE never hurts me (it used to: every car that was not mine could hit me) */
       const vx = (st.x - pv.x) / dt, vz = (st.z - pv.z) / dt, sp = Math.hypot(vx, vz); if (sp < 4 || sp > 90) continue;
       if (c._vhCd > 0) { c._vhCd -= dt; continue; }
       const fx = vx / sp, fz = vz / sp, hl = (st.hl || 2.2) + 0.45, hw = (st.hw || 0.95) + 0.45, dmg = Math.min(110, (sp - 3.5) * 5.2), mine = c === R.drive && !R.paxMode;
       const inBox = (x, z, y) => { if (Math.abs((y === undefined ? st.y : y) - st.y) > 2.4) return false; const dx = x - st.x, dz = z - st.z, lz = dx * fx + dz * fz, lx = -dx * fz + dz * fx; return lz > -0.3 && lz < hl + 0.2 && Math.abs(lx) < hw; };
       let hit = false;
-      for (const bt of sim.bots) { if (!bt.alive || !inBox(CMB.x + bt.x, CMB.z + bt.z)) continue; if (this.shared && !mine) continue; hit = true; sim.hurt(bt, dmg, st.x - CMB.x, st.z - CMB.z, mine ? undefined : -3); }
+      for (const bt of sim.bots) { if (!bt.alive || !inBox(CMB.x + bt.x, CMB.z + bt.z)) continue; if (this.shared && !mine) continue; if (bt.droid && ((T && bt.dtm === T.tm) || sim.friendly(bt, mine ? undefined : -3))) continue;   /* v651: my own AI teammate (the droid) is never run over */ hit = true; sim.hurt(bt, dmg, st.x - CMB.x, st.z - CMB.z, mine ? undefined : -3); }
       if (hit && mine && this.shared) sim.net.send({ t: 'cmelee', x: +(st.x - CMB.x + fx * 1.2).toFixed(2), z: +(st.z - CMB.z + fz * 1.2).toFixed(2), fx: +fx.toFixed(3), fz: +fz.toFixed(3), reach: +Math.min(4.4, hl + 0.3).toFixed(2), dmg: +Math.min(60, dmg).toFixed(1) });
       if (!mine && !R.drive && P.alive && !this.dropping && this.hp > 0 && this.deadT <= 0 && b.hitCd <= 0 && inBox(b.x, b.z, b.y)) { this.hurt(Math.round(dmg)); hit = true; }
       if (mine && this.shared && T) for (const [, g] of this.mates) { if (g.tm === T.tm || !g.has || g.ph < 4 || g.ph > 7 || now - g.at > 1500) continue; if (inBox(g.x, g.z)) { T.net.send({ t: 'cpv', to: g.id, d: +Math.min(60, dmg).toFixed(1) }); hit = true; } }
@@ -1005,9 +1007,9 @@ export class CombatScene {
     const R = (stn === 2 ? 22 : 40) * (this.R.scoped ? 1.5 : 1); o.cGr = o.cGr ? d2 > R * R * 0.7225 : d2 > R * R; return o.cGr;
   }
   inGrass(x, z, stn) { try { return stn >= 1 && this.sim.L.grassHide(x, z, stn) < Infinity; } catch (e) { return false; } }
-  cycleThrow(want, keep) {   // keep (the number keys on a laptop): the throwable already in your hands stays there (v596)
-    const R = this.R, l = this.throwList(); if (this.over || this.dropping || R.drive || this.down) return false;
-    if (!l.length) { R.toast && R.toast('NO GRENADE / MOLOTOV / SMOKE - pick some up first'); return false; }
+  cycleThrow(want, keep, skip) {   // keep (the number keys on a laptop): the throwable already in your hands stays there (v596); skip (v651): a kind left out of the cycle (key 3 / the grenade slot cycle grenade + smoke only, the molotov has its own key 4 and slot)
+    const R = this.R, l = this.throwList().filter((q) => q !== skip); if (this.over || this.dropping || R.drive || this.down) return false;
+    if (!l.length) { R.toast && R.toast(skip === 'molotov' ? 'NO GRENADE / SMOKE - pick some up first' : 'NO GRENADE / MOLOTOV / SMOKE - pick some up first'); return false; }
     const cur = R.weapon === 'grenade' ? (R.heldThrow || 'grenade') : null; let k;
     if (want) { if (!l.includes(want)) { R.toast && R.toast('NO ' + want.toUpperCase()); return false; } if (cur === want) { if (keep) return true; R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = want; }
     else { const i = cur ? l.indexOf(cur) : -1; if (cur && i === l.length - 1 && l.length === 1) { if (keep) return true; R.equip('fist'); R.heldThrow = null; this._sk = ''; return true; } k = l[(i + 1) % l.length]; }
@@ -1016,10 +1018,13 @@ export class CombatScene {
   slotsTick() {   // PUBG-style weapon slots: tap a slot to hold it, tap the held one to put it away
     const R = this.R, cb = R.wallet && R.wallet.cb; if (!cb) return;
     if (!this.slotEl) { const e = document.createElement('div'); e.id = 'c-slots'; document.body.appendChild(e); this.slotEl = e;
-      e.addEventListener('pointerdown', (ev) => { const t = ev.target.closest('[data-w]'); if (!t) return; ev.preventDefault(); ev.stopPropagation(); const w = t.dataset.w; if (!w) return; if (w === 'grenade') { this.cycleThrow(); return; } R.equip(R.weapon === w && w !== 'fist' ? 'fist' : w); this._sk = ''; }); }
-    const gs = this.guns(), nd = cb.nades | 0, tl = this.throwList(), list = [gs[0] || '', gs[1] || '', tl.length ? 'grenade' : ''], hk = R.weapon === 'grenade' ? (R.heldThrow || 'grenade') : (tl[0] || 'grenade'), hn = hk === 'grenade' ? nd : ((cb.inv && cb.inv[hk]) | 0), key = list.join() + '|' + hk + hn + '|' + nd + '|' + (R.weapon || 'fist') + '|' + (this._fight || this._air ? 1 : 0);   /* v264: slot 3 = grenades (tap it / press 3 or 4, then throw with the fire button) */
+      e.addEventListener('pointerdown', (ev) => { const t = ev.target.closest('[data-w]'); if (!t) return; ev.preventDefault(); ev.stopPropagation(); const w = t.dataset.w; if (!w) return; if (w === 'throw3') { this.cycleThrow(undefined, false, 'molotov'); return; } if (w === 'molotov') { this.cycleThrow('molotov'); return; } R.equip(R.weapon === w && w !== 'fist' ? 'fist' : w); this._sk = ''; }); }
+    /* v651: FOUR slots: 1 / 2 the guns, 3 grenade (tap again: smoke), 4 MOLOTOV with its own picture and key (it used to share slot 3 with the grenade and showed the grenade picture) */
+    const gs = this.guns(), nd = cb.nades | 0, mo = (cb.inv && cb.inv.molotov) | 0, sm = (cb.inv && cb.inv.smoke) | 0, ht = R.weapon === 'grenade' ? R.heldThrow : null, k3 = ht === 'smoke' && sm > 0 ? 'smoke' : nd > 0 ? 'grenade' : sm > 0 ? 'smoke' : '', k4 = mo > 0 ? 'molotov' : '', list = [gs[0] || '', gs[1] || '', k3, k4];
+    const key = list.join() + '|' + nd + '|' + sm + '|' + mo + '|' + (R.weapon || 'fist') + '|' + (ht || '') + '|' + (this._fight || this._air ? 1 : 0);
     if (key === this._sk) return; this._sk = key; this.slotEl.style.display = this._fight || this._air ? 'flex' : 'none';
-    this.slotEl.innerHTML = list.map((w, i) => '<button type="button" data-w="' + w + '" class="' + (w ? '' : 'empty ') + (w && R.weapon === w ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (w && this.icon(w) ? '<img alt="" src="' + this.icon(w) + '">' : '') + (w ? '<b>' + (w === 'bat' ? 'BAT' : w === 'grenade' ? hk.toUpperCase() : w.toUpperCase()) + '</b><small>' + (w === 'bat' ? '' : w === 'grenade' ? 'x' + hn : ((cb.mag[w] | 0) + '/' + (cb.ammo[w] | 0))) + '</small>' : '') + '</button>').join('');
+    this.slotEl.innerHTML = list.map((w, i) => { const th = i >= 2, sel = th ? (w && R.weapon === 'grenade' && (i === 3 ? ht === 'molotov' : ht !== 'molotov')) : (w && R.weapon === w), dw = i === 2 ? 'throw3' : w, cnt = w === 'grenade' ? nd : w === 'smoke' ? sm : w === 'molotov' ? mo : 0;
+      return '<button type="button" data-w="' + dw + '" class="' + (w ? '' : 'empty ') + (sel ? 'sel' : '') + '"><u>' + (i + 1) + '</u>' + (w && this.icon(w) ? '<img alt="" src="' + this.icon(w) + '">' : '') + (w ? '<b>' + (w === 'bat' ? 'BAT' : w.toUpperCase()) + '</b><small>' + (w === 'bat' ? '' : th ? 'x' + cnt : ((cb.mag[w] | 0) + '/' + (cb.ammo[w] | 0))) + '</small>' : '') + '</button>'; }).join('');
   }
   guns() { const cb = this.R.wallet && this.R.wallet.cb; return cb ? Object.keys(cb.owned).filter((w) => cb.owned[w] && isGunK(w)) : []; }
   count(k) { const cb = this.R.wallet && this.R.wallet.cb; if (!cb) return 0; return k === 'grenade' ? cb.nades | 0 : (cb.inv && cb.inv[k]) | 0; }
