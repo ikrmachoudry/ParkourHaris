@@ -200,7 +200,29 @@ const SIGNS = SIGNS0.map((sg) => {
     return { ...sg, x, z }; }
   return sg; });
 
+/* v652 STREET OBSTACLES (user: 'obstacles and props like PUBG on streets, not too much'): a few jersey barriers (a lane-edge chicane, kerb blocks) and small crate / barrel / gas bottle heaps on the road shoulders, one about every 55 m of street, never at a junction, never on a building / tree / the Cinema Road + street block (they have their own). combat.js calls this after every solid exists, with blocked(x, z, r) = something solid is already there */
+export function makeStreet(blocked, ground) {
+  const out = { houses: [], clutter: [], barriers: [], walls: [], sheds: [], poles: [], tarps: [], patches: [] };
+  let sd = 90210; const rnd = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+  const sdist = (px, pz, pts) => { let m = 1e9; for (let i = 0; i + 1 < pts.length; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L2)); m = Math.min(m, Math.hypot(px - ax - dx * t, pz - az - dz * t)); } return m; };
+  const nearOther = (px, pz, me) => GJ_ROADS.some((r) => r !== me && sdist(px, pz, r.pts) < r.w / 2 + 11);
+  const skipRoad = (r) => r.pts.every((q) => q[0] > 186) || r === GJ_ROADS[GJ_ROADS.length - 1];
+  const flat = (x, z) => !ground || (Math.abs(ground(x + 1.6, z) - ground(x - 1.6, z)) < 0.5 && Math.abs(ground(x, z + 1.6) - ground(x, z - 1.6)) < 0.5);
+  for (const r of GJ_ROADS) { if (skipRoad(r)) continue; const segs = []; let tot = 0; for (let i = 0; i + 1 < r.pts.length; i++) { const L = Math.hypot(r.pts[i + 1][0] - r.pts[i][0], r.pts[i + 1][1] - r.pts[i][1]); segs.push([tot, L, i]); tot += L; }
+    for (let pos = 22 + rnd() * 24; pos < tot - 14; pos += 52 + rnd() * 30) { const sg = segs.find((q) => pos >= q[0] && pos < q[0] + q[1]); if (!sg) continue; const [ax, az] = r.pts[sg[2]], [bx, bz] = r.pts[sg[2] + 1], tx = (bx - ax) / sg[1], tz = (bz - az) / sg[1], nx = -tz, nz = tx, d = pos - sg[0], px = ax + tx * d, pz = az + tz * d;
+      const kind = rnd(), side = rnd() < 0.5 ? 1 : -1, k2 = rnd(), ry = rnd() * 1.5, ax2 = Math.abs(tx) > 0.93 ? 'x' : Math.abs(tz) > 0.93 ? 'z' : null, hw = r.w / 2;   // (every random number is drawn before any test, so the layout does not shift)
+      if (Math.abs(px) > 250 || Math.abs(pz) > 250 || nearOther(px, pz, r) || inPark(px, pz, 8) || !flat(px, pz)) continue;
+      if (kind < 0.3 && ax2) { const lat = side * (hw - 1.1), p1 = [px + nx * lat, pz + nz * lat], p2 = [px + tx * 5.2 - nx * lat, pz + tz * 5.2 - nz * lat]; if (blocked(p1[0], p1[1], 2.2) || blocked(p2[0], p2[1], 2.2)) continue; out.barriers.push([p1[0], p1[1], ax2], [p2[0], p2[1], ax2]); }   // a chicane: one block at each edge of the road, 5 m apart, the cars weave through
+      else if (kind < 0.55 && ax2) { const lat = side * (hw + 0.7), p1 = [px + nx * lat, pz + nz * lat], p2 = [px + tx * 3.1 + nx * lat, pz + tz * 3.1 + nz * lat]; if (blocked(p1[0], p1[1], 2.2) || blocked(p2[0], p2[1], 2.2)) continue; out.barriers.push([p1[0], p1[1], ax2], [p2[0], p2[1], ax2]); }   // two kerb blocks end to end
+      else { const lat = side * (hw + 1.6), cx = px + nx * lat, cz = pz + nz * lat; if (blocked(cx, cz, 2.4)) continue;
+        if (k2 < 0.4) out.clutter.push(['crate', cx, cz, ry], ['crate', cx + tx * 1.15, cz + tz * 1.15, ry + 0.4], ['barrel', cx + tx * 0.55 + nx * side * 0.95, cz + tz * 0.55 + nz * side * 0.95]);
+        else if (k2 < 0.75) out.clutter.push(['barrel', cx, cz], ['barrel', cx + tx * 0.85, cz + tz * 0.85], ['gas', cx - tx * 0.9, cz - tz * 0.9]);
+        else out.clutter.push(['crate', cx, cz, ry], ['cbox', cx + tx * 1.3, cz + tz * 1.3, ry]); } } }
+  return out;
+}
+
 export const GJ = {
+  street: null,   // v652: filled by combat.js (makeStreet) once the solids exist
   roads: GJ_ROADS, lots: GJ_LOTS, clinic: CLINIC, shops: SHOPS, park: PARK, police: POLICE, mosque: MOSQUE, signs: SIGNS, named: NAMED, XC, ZC,
   block: BLK, cine: CN, grass: GRASS, parkAt, grassAt, urbanAt, inPark, grounds: GROUNDS, smallPark: SMALLPARK, path: PATH, yard: YARD,
   get trees() { return trees.filter(treeOK).filter((_, i) => i % 2 === 0); },   // v638: HALF the trees (every second one; all the random numbers were drawn before, so nothing else moves): from the air the park was one green blanket

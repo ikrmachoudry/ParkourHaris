@@ -2437,7 +2437,7 @@ class Race {
     if (this.multi) $('hud-net').textContent = `ping ${Math.round(app.net.rtt)} ms`;
   }
 
-  render() { const sm = renderer.shadowMap; if (Q.shHalf && Q.shadows) { sm.autoUpdate = false; sm.needsUpdate = ((Q.shN = (Q.shN | 0) + 1) & 1) === 0; } else if (!sm.autoUpdate) sm.autoUpdate = true;   /* v513: laptop under 40 fps: the sun's shadow map is redrawn every 2nd frame (about a third less drawing) */
+  render() { const sm = renderer.shadowMap; if (this._plSh) { sm.autoUpdate = false; } else if (Q.shHalf && Q.shadows) {   /* v652: inside the plane the sun's shadow map is FROZEN (it was switched back on here every frame, and on a laptop redrawn every 2nd frame while the light moved 34 m/s = the soldier's self-shadow flickered) */ sm.autoUpdate = false; sm.needsUpdate = ((Q.shN = (Q.shN | 0) + 1) & 1) === 0; } else if (!sm.autoUpdate) sm.autoUpdate = true;   /* v513: laptop under 40 fps: the sun's shadow map is redrawn every 2nd frame (about a third less drawing) */
     renderer.render(this.scene, this.camera); }
 
   destroy() { document.body.classList.remove('aa-lock');

@@ -10,7 +10,7 @@ export const cmbInside = (x, z) => Math.abs(x - CMB.x) < CMB.half + 14 && Math.a
 const H = CMB.half;
 import { makeZone, zoneAt, airPoint, airLand } from './zone.js';
 import { GOJRA } from './mapid.js';
-import { GJ } from './gojra.js';   /* v633: the Gojra map's data (roads, park, trees, lots, signs); only used when GOJRA */
+import { GJ, makeStreet } from './gojra.js';   /* v633: the Gojra map's data (roads, park, trees, lots, signs); only used when GOJRA */
 
 const seeded = (s) => () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -758,13 +758,17 @@ function build() {
   if (GOJRA) {   /* v633: Jinnah Park's trees (and an avenue round it) + the park benches */
     for (const [x, z, sc, pine] of GJ.trees) { const gy = cmbH(x, z); trees.push({ x, z, s: sc, pine, y: gy, r: R() * 6.28 }); const hw = 0.3 + 0.13 * sc; addS({ x0: x - hw, z0: z - hw, x1: x + hw, z1: z + hw, y0: gy - 0.6, y1: gy + 7, k: 'tree' }); }   /* v638: the Gojra trees now have a SOLID trunk (they had none: cars, bikes, players and bots drove / walked straight through them), the same trunk the default map's trees have */
     /* v635 the walled yard behind the mosque: tiled area (46 m) then dirt ground; two big black gates, open, in the end wall facing POLICE STATION ROAD; the wall is 2.4 m (you enter by the gates or through the mosque's east door) */
-    { const Y = GJ.yard, wallC = '#d9ccb0', W = (x0, z0, x1, z1, h, c, k = 'barrier') => { const x = (x0 + x1) / 2, z = (z0 + z1) / 2, gy = cmbH(x, z), it = { x, z, y: gy, w: x1 - x0, d: z1 - z0, h, c, k }; props.push(it); addS({ x0, z0, x1, z1, y0: gy, y1: gy + h, k: 'prop' }); };
-      W(Y.tx0, Y.z0 - 0.2, Y.dx1, Y.z0 + 0.2, 2.4, wallC); W(Y.tx0, Y.z1 - 0.2, Y.dx1, Y.z1 + 0.2, 2.4, wallC);
+    { const Y = GJ.yard, wallC = '#d9ccb0', W = (x0, z0, x1, z1, h, c, k = 'barrier', vt = 0) => { const x = (x0 + x1) / 2, z = (z0 + z1) / 2, gy = cmbH(x, z), it = { x, z, y: gy, w: x1 - x0, d: z1 - z0, h, c, k }; props.push(it); addS({ x0, z0, x1, z1, y0: gy, y1: gy + h, k: 'prop', vault: vt }); };
+      /* v652: the two 94 m yard walls are BROKEN into pieces (user: 'long walls ... break them at some points so you can peek, shoot or jump'): tall 2.4 m pieces, LOW 1.0 m pieces (vault over them with JUMP, crouch and shoot over them), 1.7 m stubs (peek round / over, too high to jump) and open gaps; the two walls are cut at different places */
+      const CUT = (zc, list) => { let x = Y.tx0; for (const [len, t] of list) { const x1 = Math.min(x + len, Y.dx1); if (t === 'T') W(x, zc - 0.2, x1, zc + 0.2, 2.4, wallC); else if (t === 'L') W(x, zc - 0.2, x1, zc + 0.2, 1.0, '#cfc2a6', 'barrier', 1); else if (t === 'M') W(x, zc - 0.2, x1, zc + 0.2, 1.7, '#d3c6aa'); x = x1; } };
+      CUT(Y.z0, [[13, 'T'], [3.5, 'L'], [9.5, 'T'], [2.5, 'M'], [3, 'G'], [13.5, 'T'], [3.5, 'L'], [10.5, 'T'], [2.5, 'M'], [2.5, 'L'], [13, 'T'], [3.5, 'G'], [11.5, 'T'], [2, 'T']]);
+      CUT(Y.z1, [[7, 'T'], [3.5, 'G'], [12.5, 'T'], [3, 'L'], [2, 'M'], [12, 'T'], [3.5, 'L'], [11.5, 'T'], [3, 'G'], [13, 'T'], [3.5, 'L'], [2.5, 'M'], [12, 'T'], [3, 'L'], [2, 'T']]);
       const gx0 = Y.dx1 - 0.25, gx1 = Y.dx1 + 0.25; let zc = Y.z0; for (const [b0, b1] of Y.bays) { W(gx0, zc, gx1, b0, 3.0, wallC); zc = b1; } W(gx0, zc, gx1, Y.z1, 3.0, wallC);
       for (const [b0, b1] of Y.bays) for (const [zz, sg] of [[b0, 1], [b1, -1]]) { W(Y.dx1 - 0.45, zz - 0.45, Y.dx1 + 0.45, zz + 0.45, 3.6, '#e4dccb', 'pillar'); W(Y.dx1 - 3.0, zz + sg * 0.62 - 0.06, Y.dx1 - 0.5, zz + sg * 0.62 + 0.06, 2.5, '#101215', 'gate'); }   // the black leaves, swung open against the pillars
       for (const [bx, bz, al] of [[GJ.path.x + 3.2, -120, 0], [GJ.path.x + 3.2, -100, 0], [GJ.smallPark[0] + 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[0] + 10, GJ.smallPark[1] + 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[1] + 2, 1]]) { const it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 1.8 : 0.5, d: al ? 0.5 : 1.8, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); } }
     /* v643 THE STREET BLOCK'S OUTDOOR PROPS (pubgblock.js draws them): jersey barriers (vault over them), broken concrete yard walls, corrugated sheds, the power poles */
-    for (const BK of [GJ.block, GJ.cine]) { const S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
+    GJ.street = makeStreet((x, z, r) => solids.some((q) => q.x1 > x - r && q.x0 < x + r && q.z1 > z - r && q.z0 < z + r && q.y1 - q.y0 > 0.2), cmbH);   /* v652: a few PUBG-style obstacles on the streets (barrier chicanes, kerb blocks, crate / barrel heaps) */
+    for (const BK of [GJ.block, GJ.cine, GJ.street]) { const S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
       for (const [k, x, z] of BK.clutter) { const r = k === 'crate' ? 0.5 : k === 'barrel' ? 0.35 : 0; if (r) S3(x - r, z - r, x + r, z + r, k === 'crate' ? 0.9 : 0.95, k === 'crate'); }
       for (const [x, z, al] of BK.barriers) { const w = al === 'x' ? 3.0 : 0.6, d = al === 'x' ? 0.6 : 3.0; S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 0.85, 1); }
       for (const [x0, z0, x1, z1, h] of BK.walls) S3(x0, z0, x1, z1, h, h <= 1.3);

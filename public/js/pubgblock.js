@@ -75,7 +75,7 @@ export function pubgHouse(b, B, q) {
 }
 
 // ---------------------------------------------------------------- the street's props, ground patches, wires
-export function pubgBlockProps(B, group, GJ, cmbH, cmbG, q) { propsFor(B, group, GJ.block, 6431, cmbH, cmbG, q); propsFor(B, group, GJ.cine, 7919, cmbH, cmbG, q); }   // v650: the street block AND Cinema Road
+export function pubgBlockProps(B, group, GJ, cmbH, cmbG, q) { propsFor(B, group, GJ.block, 6431, cmbH, cmbG, q); propsFor(B, group, GJ.cine, 7919, cmbH, cmbG, q); if (GJ.street) propsFor(B, group, GJ.street, 8231, cmbH, cmbG, q); }   // v652: + the street obstacles   // v650: the street block AND Cinema Road
 function propsFor(B, group, BK, seed, cmbH, cmbG, q) {
   const R = rr(seed);
   // jersey barriers (trapezoid profile, 3 m long)
