@@ -165,6 +165,7 @@ export class CombatScene {
     b.x = CMB.x + p.x; b.z = CMB.z + p.z; b.y = cmbH(p.x, p.z) + 0.05; b.vx = b.vz = b.vy = 0; b.stun = 0; b.hitCd = 0.5; R.crouch = false; R.camInit = false; R.camYaw = Math.random() * 6.28;
   }
   clear() {
+    try { if (this.jet) this.jet.reset(); } catch (e) { /* ok */ } try { if (this.jet && this.jet.hud) this.jet.hud.style.display = 'none'; if (this.jet && this.jet.btn) this.jet.btn.style.display = 'none'; } catch (e) { /* ok */ }   /* v654: the JET fuel bar / button stayed on the main menu after a match (they are only hidden by the per-frame tick, which stops when the match ends) */
     try { A.ambSet(0, false); } catch (e) { /* ok */ }   // v626: wind off when the match ends
     if (this.trainG) { this.group.remove(this.trainG); this.trainG = null; } if (this.tbar) { this.tbar.remove(); this.tbar = null; } if (this.tx) { this.tx.remove(); this.tx = null; } this.stations = null;   // v442
     for (const [, a] of this.bots) { this.group.remove(a.g); a.m.dispose && a.m.dispose(); } this.bots.clear();
