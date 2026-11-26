@@ -202,7 +202,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
   };
   for (const b of L.buildings) {
     const wm = b.pub ? (b.pm === 'b' ? 'pbrick' : 'pplaster') : (WALLMAT[b.kind] || 'wall'), fy = b.fy, hx = b.w / 2, hz = b.d / 2, tri = b.top || 3;
-    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' || b.kind === 'flat3' || b.kind === 'mosque' || b.kind === 'pub2' ? '#f2efe6' : '#3a3530';
+    const wallC = b.c, trimC = b.kind === 'house' || b.kind === 'shop' || b.kind === 'apart' || b.kind === 'clinic' || b.kind === 'flat2' || b.kind === 'mall2' || b.kind === 'office2' || b.kind === 'duplex2' || b.kind === 'flat3' || b.kind === 'mosque' || b.pub ? '#f2efe6' : '#3a3530';
     /* v376: Z-FIGHT FIX. Wall / floor / roof boxes overlap at corners, T-joints and where a floor slab sliver sits inside a wall: two same-facing coplanar faces = flickery white patches on walls and floors. For every such pair one face is drawn 6 mm inside its box (collision is untouched): a floor slab yields to the wall, otherwise the later box yields. */
     const ZF = new Map(); { const T = b.solids.filter((q) => q.k === 'wall' || q.k === 'floor' || q.k === 'roof'), ov = (a0, a1, c0, c1) => Math.min(a1, c1) - Math.max(a0, c0);
       for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) { const a = T[i], c = T[j];
@@ -262,7 +262,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
     }
     // roofs
     const along = b.w >= b.d, rc = b.rc;
-    if (b.pub) pubgHouse(b, B, q);   // v643: clay tiles, plaster gable ends, plinth, floor band, barred windows, chimney
+    if (b.pub && b.roof !== 'flat') pubgHouse(b, B, q);   // v643: clay tiles, plaster gable ends, plinth, floor band, barred windows, chimney (v650: also the hip roof; the flat-roof houses call it after the parapet below)
     else if (b.roof === 'gable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.33, !along ? false : true, rc);
     else if (b.roof === 'lowgable') roofTri(b.x - hx, b.z - hz, b.x + hx, b.z + hz, fy + tri + 0.3, Math.min(b.w, b.d) * 0.12 + 0.6, along, b.c === '#b5a48c' ? '#7a6a58' : '#6e7a84', 0.3);
     else if (b.roof === 'pent') { const g = new THREE.BoxGeometry(b.w + 1.0, 0.18, b.d + 1.0); g.rotateZ(-0.12); g.translate(b.x, fy + tri + 0.55, b.z); B.add('roof', g, rc, 0.05);
@@ -275,6 +275,7 @@ export function buildBattleMap(quality = 1) { flags.length = 0;
       if (b.roofHole) segs.push([hx - 0.3, -hz, hx, -2.2, 3, 0], [hx - 0.3, 2.2, hx, hz, 0, 3]); else segs.push([hx - 0.3, -hz, hx, hz, 3, 3]);
       for (const [x0, z0, x1, z1, ea, eb] of segs) { const thx = (x1 - x0) < (z1 - z0); let X0 = x0 - 0.3, X1 = x1 + 0.3, Z0 = z0 - ea / 10, Z1 = z1 + eb / 10; if (thx) { if (x0 < 0) X1 = x1; else X0 = x0; } else if (z0 < 0) Z1 = z1; else Z0 = z0;   /* v496: the drawn parapet stuck 0.3 m INSIDE the solid one, so the player (who may stand against the solid) clipped into it: now the inner face is where the collision is */
         B.box('wall', b.x + X0, fy + tri + 0.3, b.z + Z0, b.x + X1, fy + tri + 0.3 + ph, b.z + Z1, wallC, 0.03); } /* v298: the grey roof box is gone */ }   // flat roof: a parapet and a roof box
+    if (b.pub && b.roof === 'flat') pubgHouse(b, B, q);   // v650: coping, water tank, chajja shades, plinth, floor band, barred windows on the flat-roof PUBG houses
     if (b.kind === 'clinic') {   // Dr. Ikrma's house: cream bands between the floors, a red cross on the front, a water tank on a V-shaped roof
       /* v298: the flat concrete slab in front of the villa is gone (it showed as a raised platform and clipped the player's legs) */
       const fh = b.fh, cr = '#f4eddc', roofY = fy + tri + 0.3;

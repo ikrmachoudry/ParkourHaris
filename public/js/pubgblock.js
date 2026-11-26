@@ -10,10 +10,28 @@ const quad = (a, b, c, d) => [a, b, c, a, c, d];
 
 // ---------------------------------------------------------------- one house
 export function pubgHouse(b, B, q) {
-  const hx = b.w / 2, hz = b.d / 2, fy = b.fy, top = fy + (b.top || 6.4), y0 = top + 0.3, rh = Math.min(b.w, b.d) * 0.26, over = 0.55, hy = y0 + rh;
+  const hx = b.w / 2, hz = b.d / 2, fy = b.fy, top = fy + (b.top || 6.4), y0 = top + 0.3, hipR = b.roof === 'hip', rh = Math.min(b.w, b.d) * (hipR ? 0.3 : 0.26), over = 0.55, hy = y0 + rh;
   const along = b.w >= b.d, brick = b.pm === 'b', wallMat = brick ? 'pbrick' : 'pplaster', rc = b.rc || '#ffe6d6', R = rr(Math.floor(b.x * 31 + b.z * 17) >>> 0);
+  // ---- v650 the HIP (pyramid) roof: four clay-tile planes (two trapezoids and two triangles) meeting at a short ridge, fascia all round, a chimney
+  if (hipR) {
+    const a = b.x - hx - over, e = b.x + hx + over, c = b.z - hz - over, d = b.z + hz + over, per = Math.min(e - a, d - c) / 2, mx = b.x, mz = b.z, rx = (e - a) / 2 - per, rz = (d - c) / 2 - per;   // the ridge runs from (mx - rx, mz - rz) to (mx + rx, mz + rz); one of rx / rz is 0
+    const P1 = [mx - rx, hy, mz - rz], P2 = [mx + rx, hy, mz + rz], A = [a, y0, c], Bq = [e, y0, c], C = [e, y0, d], D = [a, y0, d];
+    const p = rz > 0.001 ? [A, Bq, P1, ...quad(D, A, P1, P2), ...quad(Bq, C, P2, P1), C, D, P2] : [...quad(A, Bq, P2, P1), Bq, C, P2, ...quad(C, D, P1, P2), D, A, P1];   // ridge along z: two triangles (north / south) + two trapezoids; otherwise (ridge along x or a pyramid) two trapezoids + two triangles
+    B.add('proof', tris(p), rc, 0.05, false);
+    for (const [x0, z0, x1, z1] of [[a, c, e, c + 0.07], [a, d - 0.07, e, d], [a, c, a + 0.07, d], [e - 0.07, c, e, d]]) B.box('trim', x0, y0 - 0.03, z0, x1, y0 + 0.12, z1, '#f2efe6', 0);
+    if (rx >= rz) B.box('trim', mx - rx - 0.1, hy - 0.02, mz - 0.12, mx + rx + 0.1, hy + 0.1, mz + 0.12, '#b5603f', 0); else B.box('trim', mx - 0.12, hy - 0.02, mz - rz - 0.1, mx + 0.12, hy + 0.1, mz + rz + 0.1, '#b5603f', 0);
+    if (R() < 0.6) { const cx = mx + (rx > rz ? (R() - 0.5) * rx : 0), cz = mz + (rz >= rx ? (R() - 0.5) * rz : 0); B.box('pbrick', cx - 0.45, y0 + 0.2, cz - 0.45, cx + 0.45, hy + 1.2, cz + 0.45, '#ffd2b8', 0.04); B.box('pconc', cx - 0.6, hy + 1.2, cz - 0.6, cx + 0.6, hy + 1.35, cz + 0.6, '#9a978f', 0); }
+  } else if (b.roof === 'flat') {   // ---- v650 the FLAT roof (the parapet itself is drawn in battlemap.js): a concrete coping on top of it, a water tank on a brick stand where the roof is closed
+    const ph = b.roofHole ? 1.1 : 0.55, ry = y0 + ph, o2 = 0.36, X0 = b.x - hx - o2, X1 = b.x + hx + o2, Z0 = b.z - hz - o2, Z1 = b.z + hz + o2, cp = (x0, z0, x1, z1) => B.box('pconc', x0, ry, z0, x1, ry + 0.1, z1, '#d9d5c9', 0.02);
+    cp(X0, Z0, X1, Z0 + 0.66); cp(X0, Z1 - 0.66, X1, Z1); cp(X0, Z0, X0 + 0.66, Z1);
+    if (b.roofHole) { cp(X1 - 0.66, Z0, X1, b.z - 2.2); cp(X1 - 0.66, b.z + 2.2, X1, Z1); } else cp(X1 - 0.66, Z0, X1, Z1);
+    if (b.tankAt) { const t = b.tankAt, ya = y0, g = new THREE.CylinderGeometry(0.78, 0.78, 1.25, 14); g.translate(t.x, ya + 0.9 + 0.62, t.z);
+      B.box('pbrick', t.x - 0.9, ya, t.z - 0.9, t.x + 0.9, ya + 0.9, t.z + 0.9, '#d9b9a0', 0.03); B.add('trim', g, '#202327', 0);
+      const lid = new THREE.CylinderGeometry(0.5, 0.5, 0.12, 12); lid.translate(t.x, ya + 0.9 + 1.31, t.z); B.add('trim', lid, '#2e3238', 0);
+      B.box('trim', t.x + 0.9, ya + 0.1, t.z - 0.03, t.x + 1.5, ya + 0.14, t.z + 0.03, '#6c7075', 0); }
+  }
   // ---- the pitched roof (two clay-tile planes with an overhang) + the two gable ends in wall material
-  { const a = b.x - hx - over, e = b.x + hx + over, c = b.z - hz - over, d = b.z + hz + over, mx = b.x, mz = b.z;
+  if (!hipR && b.roof !== 'flat') { const a = b.x - hx - over, e = b.x + hx + over, c = b.z - hz - over, d = b.z + hz + over, mx = b.x, mz = b.z;
     let p;
     if (along) p = [...quad([a, y0, c], [e, y0, c], [e, hy, mz], [a, hy, mz]), ...quad([a, y0, d], [a, hy, mz], [e, hy, mz], [e, y0, d])];
     else p = [...quad([a, y0, c], [mx, hy, c], [mx, hy, d], [a, y0, d]), ...quad([e, y0, c], [e, y0, d], [mx, hy, d], [mx, hy, c])];
@@ -49,11 +67,17 @@ export function pubgHouse(b, B, q) {
     box(-hw, (ya + yb) / 2 - 0.02, -0.02, hw, (ya + yb) / 2 + 0.02, 0.02, iron);
     box(-hw - 0.22, ya - 0.1, -0.06 * sg - 0.02, hw + 0.22, ya, 0.2 * sg, '#f2efe6');   // sill
   }
+  // ---- v650 flat-roof houses: a concrete chajja (sun shade) over every window and door
+  if (b.roof === 'flat') for (const o of b.openings) {
+    const alongX = o.s === 'N' || o.s === 'S', sg = o.s === 'N' || o.s === 'W' ? -1 : 1, f = (alongX ? b.d : b.w) / 2 * sg, ex = alongX ? b.x + o.c : b.x + f, ez = alongX ? b.z + f : b.z + o.c, yb = fy + o.y1 + 0.08, hw = o.hw + 0.3, pr = 0.85;
+    if (alongX) B.box('trim', ex - hw, yb, Math.min(ez, ez + sg * pr), ex + hw, yb + 0.1, Math.max(ez, ez + sg * pr), '#ebe7dc', 0); else B.box('trim', Math.min(ex, ex + sg * pr), yb, ez - hw, Math.max(ex, ex + sg * pr), yb + 0.1, ez + hw, '#ebe7dc', 0);
+  }
 }
 
 // ---------------------------------------------------------------- the street's props, ground patches, wires
-export function pubgBlockProps(B, group, GJ, cmbH, cmbG, q) {
-  const BK = GJ.block, R = rr(6431);
+export function pubgBlockProps(B, group, GJ, cmbH, cmbG, q) { propsFor(B, group, GJ.block, 6431, cmbH, cmbG, q); propsFor(B, group, GJ.cine, 7919, cmbH, cmbG, q); }   // v650: the street block AND Cinema Road
+function propsFor(B, group, BK, seed, cmbH, cmbG, q) {
+  const R = rr(seed);
   // jersey barriers (trapezoid profile, 3 m long)
   { const prof = new THREE.Shape(); [[-0.3, 0], [0.3, 0], [0.3, 0.22], [0.13, 0.72], [0.13, 0.85], [-0.13, 0.85], [-0.13, 0.72], [-0.3, 0.22]].forEach(([u, v], i) => (i ? prof.lineTo(u, v) : prof.moveTo(u, v)));
     for (const [x, z, al] of BK.barriers) { const g = new THREE.ExtrudeGeometry(prof, { depth: 3.0, bevelEnabled: false }); g.translate(0, 0, -1.5); if (al === 'x') g.rotateY(Math.PI / 2); g.translate(x, cmbH(x, z) - 0.02, z); B.add('pconc', g, '#c9c5bb', 0.1); } }

@@ -142,8 +142,23 @@ const BLK = {
   tarps: [[248.8, -131, 3.4, 3.0], [202.6, -108, 3.4, 3.0]],   // blue tarps on four posts, 2.6 m up
   patches: [[227.5, -157, 11, 7], [227.5, -134, 8.5, 9], [227.5, -108, 9, 8], [204, -138, 5.5, 8], [251, -110, 5, 9], [221, -92, 7, 5]],   // bare dirt [x, z, rx, rz]
 };
+/* v650 CINEMA ROAD from end to end: seven houses with DIFFERENT exteriors (kind: pub2 = pitched clay roof, ridge along the road or its gable end to the road; pubh = hip / pyramid roof; pubf = flat roof with parapet, chajja shades and a water tank or roof terrace; pubf3 = three storeys).
+   Fronts stand 2.7 m back from the road edge; the block's own houses already fill the south side between x 203 and 252, so the new ones are on the north side (front S) and on the two free ends of the south side (front N). Same tuple as the block + the kind at the end. */
+const CN = {
+  houses: [
+    [199.5, -172.7, 13, 12, 'S', '#f79c8e', 'p', '#ffe6d6', 'pub2'], [214.5, -173.2, 14, 13, 'S', '#7fd2c2', 'p', '#ffe6d6', 'pubf'], [229, -172.7, 12, 12, 'S', '#f6b784', 'b', '#f3cdb8', 'pubh'], [242, -173.7, 11, 14, 'S', '#f7cf86', 'p', '#e9d2c6', 'pub2'], [255.5, -172.7, 13, 12, 'S', '#8dd6cf', 'p', '#ffe9dc', 'pubf3'],
+    [198.3, -148.8, 9, 9, 'N', '#f58f7c', 'p', '#ffe6d6', 'pubf'], [258.5, -148.8, 8, 9, 'N', '#f6d26f', 'p', '#f3cdb8', 'pubh'],
+  ],
+  clutter: [['barrel', 206.75, -178.5], ['barrel', 207.4, -179.2], ['crate', 222.3, -178.6, 0.4], ['cbox', 222.9, -179.4, 0.8], ['crate', 235.7, -180.5, 0.2], ['gas', 248.3, -179.2], ['barrel', 248.8, -178.4], ['crate', 262.9, -176.6, 0.6], ['crate', 205.3, -143.8, 0.3], ['barrel', 205.9, -143.0]],
+  barriers: [[266.2, -162.6, 'z'], [266.2, -160, 'z'], [266.2, -157.4, 'z'], [210, -186.5, 'x']],
+  walls: [[193, -184.4, 197.5, -184, 1.8], [201.2, -184.4, 211.5, -184, 1.4], [215.5, -184.4, 226.2, -184, 1.9], [231, -184.4, 240.5, -184, 1.3], [245, -184.4, 252.4, -184, 1.7], [256.6, -184.4, 262, -184, 1.5]],
+  sheds: [[221.5, -187.2, 4.4, 3.4, 'x', 2.5]],
+  poles: [[206.75, -165.5], [222.25, -165.5], [235.75, -165.5], [248.25, -165.5], [263, -165.5]],
+  tarps: [],
+  patches: [[214, -190, 8, 4], [250, -190, 9, 4], [206.5, -168.5, 3, 2], [235.7, -168.5, 3, 2], [248.3, -168.5, 3, 2]],
+};
 export const GJ_ROADS = NAMED.map((r) => ({ w: r.w, pts: r.pts })).concat(usedLanes.map((l) => ({ w: l.w, pts: l.pts }))).concat([{ w: BLK.street.w, pts: [[BLK.street.x, BLK.street.z0], [BLK.street.x, BLK.street.z1]] }]);
-SEGS.push([BLK.street.x, BLK.street.z0, BLK.street.x, BLK.street.z1, BLK.street.w, 'blk']); FIXED.push(BLK.rect);   // v643: signs and trees keep clear of the block's street and yards (the lots were already placed)
+SEGS.push([BLK.street.x, BLK.street.z0, BLK.street.x, BLK.street.z1, BLK.street.w, 'blk']); FIXED.push(BLK.rect); for (const h of CN.houses) FIXED.push([h[0] - h[2] / 2 - 1, h[1] - h[3] / 2 - 1, h[0] + h[2] / 2 + 1, h[1] + h[3] / 2 + 1]); FIXED.push([192, -190, 264, -183]);   // v650: signs and trees keep clear of the Cinema Road houses and their back yards   // v643: signs and trees keep clear of the block's street and yards (the lots were already placed)
 
 // ---------------------------------------------------------------- the town ground (concrete) and the park (grass)
 const lotsM = LOTS_ALL.reduce((m, l) => Math.max(m, l.m), 0);
@@ -187,6 +202,6 @@ const SIGNS = SIGNS0.map((sg) => {
 
 export const GJ = {
   roads: GJ_ROADS, lots: GJ_LOTS, clinic: CLINIC, shops: SHOPS, park: PARK, police: POLICE, mosque: MOSQUE, signs: SIGNS, named: NAMED, XC, ZC,
-  block: BLK, grass: GRASS, parkAt, grassAt, urbanAt, inPark, grounds: GROUNDS, smallPark: SMALLPARK, path: PATH, yard: YARD,
+  block: BLK, cine: CN, grass: GRASS, parkAt, grassAt, urbanAt, inPark, grounds: GROUNDS, smallPark: SMALLPARK, path: PATH, yard: YARD,
   get trees() { return trees.filter(treeOK).filter((_, i) => i % 2 === 0); },   // v638: HALF the trees (every second one; all the random numbers were drawn before, so nothing else moves): from the air the park was one green blanket
 };

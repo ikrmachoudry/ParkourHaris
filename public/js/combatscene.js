@@ -49,7 +49,7 @@ const TRAIN_INFO = {   // v442: training yard text: [title, what it is / how to 
   ak: ['AK-47', '30 rounds, full auto, strong damage but it kicks up. Fire short bursts and pull down against the recoil.'],
   ak49: ['AK-49  (RARE)', '40 rounds and hits harder than the AK-47. The best all-round rifle. You will not find many.'],
   m4: ['M4 RIFLE', '30 rounds, full auto, the most accurate rifle with low recoil. Good at medium range.'],
-  shotgun: ['SHOTGUN', '6 shells, devastating up close (under about 25 m), useless far away. Slow pump: one shot at a time.'],
+  shotgun: ['SHOTGUN', '6 shells, DOUBLE damage point-blank (under about 5 m), still strong to about 25 m, useless far away. Slow pump: one shot at a time.'],
   sniper: ['SNIPER RIFLE (Kar98)', '5 rounds, one very powerful slow shot, range 400 m+. Hold AIM (right mouse) to look through the scope. Fit a TELESCOPE first for zoom.'],
   ammo: ['AMMO BOX', 'Fills the spare ammo of every gun you carry. You can pick it up even with no gun: it waits in your backpack for your first gun.'],
   med: ['FIRST AID', 'Heals up to 75 health (never above 75) but takes 4 seconds. You walk slowly while using it, and a hit stops it (it is not used up). Press 6 to use.'],

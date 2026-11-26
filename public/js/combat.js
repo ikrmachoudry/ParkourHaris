@@ -132,6 +132,10 @@ const KIND = {
   mosque: { fh: 6.4, win: { ww: 1.4, y0: 2.0, y1: 5.2, gap: 4.6 }, fur: null, roof: 'flat' },
   /* v643 PUBG-STYLE HOUSE (the Gojra street block): two storeys with the same tested U-stair, a pitched clay-tile roof (walkable solid bands, you slide off), barred windows (drawn in pubgblock.js) */
   pub2: { fh: 3.1, fl: 2, win: { ww: 1.5, y0: 0.9, y1: 2.3, gap: 3.8 }, fur: 'home', roof: 'gable' },
+  /* v650 CINEMA ROAD: more PUBG-style home designs. pubf = flat-roof two-storey house (parapet, chajja shades, roof terrace or water tank), pubf3 = three-storey block, pubh = HIP (pyramid) tile roof */
+  pubf: { fh: 3.1, fl: 2, win: { ww: 1.7, y0: 0.9, y1: 2.3, gap: 3.9 }, fur: 'home', roof: 'flat' },
+  pubf3: { fh: 3.1, fl: 3, win: { ww: 1.6, y0: 0.9, y1: 2.3, gap: 3.8 }, fur: 'home', roof: 'flat' },
+  pubh: { fh: 3.1, fl: 2, win: { ww: 1.5, y0: 0.9, y1: 2.3, gap: 3.8 }, fur: 'home', roof: 'hip' },
 };
 const SIDES = { N: [true, -1], S: [true, 1], W: [false, -1], E: [false, 1] };
 const OPP = { N: 'S', S: 'N', W: 'E', E: 'W' };
@@ -196,7 +200,7 @@ function buildSolids(o) {
   let zf = null;   /* v324: a REAL staircase (IRC/building-code numbers: riser <= 19 cm, tread 28 cm, 1.1 m wide, 1.2 m landings, 2 m headroom): a stacked U-shaped (switchback) stair in the north-west corner. Flight a climbs from the ground to a half landing, flight b turns back and arrives on floor 2; above it the same two flights go on from floor 2 to the roof. */
   if ((nfl > 1 || o.roofAcc) && !o.stair2 && !o.roofStair && !o.stairAlong) { const R0 = fh + SL; if (o.d >= 8 && o.w >= 8 && R0 < 6) zf = { R: R0 }; }
   if ((nfl > 1 || o.roofAcc) && zf) {   /* v326: the user's own stair model (public/models/props/stairs.glb, 'modern_stairs02': a U-turn stair with floating treads and cable rails, 3.3 m per storey) in the NW corner of every ordinary 2-storey building. The collision below follows its treads exactly (original-model numbers: 8 treads per flight, pitch 0.217, riser 0.186, tread top 0.17 + 0.186 i, landing top 1.66, lane A x -0.58..0.58, lane B x -1.79..-0.63, flights run along the model's x and the whole thing is turned 90 degrees so the flights run north-south: lane A (east) climbs north from the south end, the landing is at the north wall, lane B (west, against the west wall) comes back south and arrives on the next floor next to where the next flight starts). Heights are stretched by R / 3.32. */
-    const R = zf.R, NF = o.roof === 'gable' ? nfl - 1 : nfl, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, WK = 1.4, E = 1.19 * WK;   /* v353: the U-stair is 1.4 x WIDER across (lanes 1.62 m instead of 1.16 m: two people can pass, it no longer feels like a ladder) */
+    const R = zf.R, NF = o.roof === 'gable' || o.roof === 'hip' ? nfl - 1 : nfl, sy = R / 3.32, GX = 1.274, GZ = -0.6068, PT = 0.2171, RS = 0.1857, WK = 1.4, E = 1.19 * WK;   /* v353: the U-stair is 1.4 x WIDER across (lanes 1.62 m instead of 1.16 m: two people can pass, it no longer feels like a ladder) */
     const cxB = -hx + TH / 2 + 0.05 + E, czB = -hz + TH / 2 + 0.05 + 1.528, xW = cxB - E, xE = cxB + E, zN = czB - 1.528, zS = czB + 1.514;
     const Q = (zo0, zo1, xo0, xo1, y0, y1, k) => { wall(cxB + (zo0 - GZ) * WK, czB - (xo1 - GX), cxB + (zo1 - GZ) * WK, czB - (xo0 - GX), y0, y1, k); const q = out[out.length - 1]; if (k === 'step') { q.fine = 1; q.nd = 1; } };   // a box given in the ORIGINAL model frame (z across, x along the flight)
     for (let f = 0; f < NF; f++) {   /* v647: a house with a PITCHED roof has no roof terrace: its stair stops at the upper floor (the second flight used to climb into the roof: you walked up it and could not go on, or fell out of the house) */
@@ -219,6 +223,7 @@ function buildSolids(o) {
     o.stairs = { ax: 'U', x0: cxB + 0.027 * WK, xb0: cxB - 1.183 * WK, cw: 1.16 * WK, rise: R, zN, zS0: czB - 1.0, zE: zS + 0.2, sw: 1.16 * WK };
   } else if (nfl > 1) {   // the staircase (runs along x against the north wall) and the upper floor with a hole over it
     const st = { ...(o.stair || { x0: -hx + 1.6, z0: -hz + TH / 2 + 0.45, dir: 1 }) }, rise = fh + SL, n = Math.ceil(rise / 0.27), step = rise / n, tread = 0.5, sw = 2.0, flN = st.z0 < 0; st.z0 = flN ? -hz + TH / 2 : hz - TH / 2 - sw;   /* v343: the flight sits FLUSH against its wall (no gap to fall into); the open side gets a banister */
+    if (GOJRA && o.fy - cmbH(o.x + (st.dir > 0 ? st.x0 - 0.25 : st.x0 + 0.25), o.z + st.z0 + sw / 2) > 0.06) { const xp = st.dir > 0 ? st.x0 - tread : st.x0; wall(xp, st.z0, xp + tread, st.z0 + sw, -0.1, 0.14, 'step'); }   /* v650: the ground can lie 0.1 m lower than the floor level at the foot of the flight (fy is rounded from the centre): a 0.14 m pre-step so the first tread is never higher than a body can step */
     for (let i = 0; i < n; i++) { const xa = st.dir > 0 ? st.x0 + i * tread : st.x0 - (i + 1) * tread; wall(xa, st.z0, xa + tread, st.z0 + sw, -0.1, (i + 1) * step, 'step'); }
     flightRail('x', st.x0, tread, n, st.dir, st.z0, sw, 0, step, flN, !flN);
     const hx0 = st.dir > 0 ? st.x0 : st.x0 - (n - 1) * tread, hx1 = hx0 + (n - 1) * tread; hole = { x0: hx0, x1: hx1, z0: st.z0, z1: st.z0 + sw }; o.stairs = { ...st, n, tread, sw, rise, step }; o.stairRect = { ...hole };
@@ -272,6 +277,15 @@ function buildSolids(o) {
         const q = ax ? { x0: o.x - along, x1: o.x + along, z0: o.z + lo, z1: o.z + hi } : { x0: o.x + lo, x1: o.x + hi, z0: o.z - along, z1: o.z + along };
         out.push({ ...q, y0: fy + y00, y1: fy + y00 + hgt, k: 'roof', slide: 1, sd: sg === 0 ? [0, 0] : ax ? [0, sg] : [sg, 0], shingle: 1 });
       }
+    }
+  }
+  if (o.roof === 'hip') {   /* v650: a HIP (pyramid) tile roof: the same walkable stack of thin sloped bands as the gable, but every band is a RING (four strips) that shrinks towards the ridge, each strip sliding you off its own way */
+    const ov = 0.55, hw = o.w / 2 + ov, hd = o.d / 2 + ov, per = Math.min(hw, hd), rh = Math.min(o.w, o.d) * 0.3, nb = Math.max(3, Math.ceil(rh / 0.3)), wb = per / nb, y00 = top + SL, X0 = o.x - hw, X1 = o.x + hw, Z0 = o.z - hd, Z1 = o.z + hd;
+    for (let i = 0; i < nb; i++) {
+      const hh = Math.max(rh * (i + 0.5) / nb - 0.06, 0.12), a0 = i * wb, a1 = (i + 1) * wb;
+      const R = (x0, z0, x1, z1, sd) => { if (x1 - x0 > 0.02 && z1 - z0 > 0.02) out.push({ x0, x1, z0, z1, y0: fy + y00, y1: fy + y00 + hh, k: 'roof', slide: 1, sd, shingle: 1 }); };
+      if (i === nb - 1) { R(X0 + a0, Z0 + a0, X1 - a0, Z1 - a0, [0, 0]); continue; }
+      R(X0 + a0, Z0 + a0, X1 - a0, Z0 + a1, [0, -1]); R(X0 + a0, Z1 - a1, X1 - a0, Z1 - a0, [0, 1]); R(X0 + a0, Z0 + a1, X0 + a1, Z1 - a1, [-1, 0]); R(X1 - a1, Z0 + a1, X1 - a0, Z1 - a1, [1, 0]);
     }
   }   // v336: under a gable / pent roof this slab is only the CEILING plate: nobody can stand on it (he slides off, PUBG style)
   if (o.bay) wall(-o.bay, hz - 0.1, o.bay, hz + 0.2, top + SL, top + SL + 3.5, 'prop');   /* v466: invisible solid (it was drawn as a plain brick box that showed square corners behind the round arch; the arch plate is drawn in battlemap.js) */   // the tower bay over the front door stands on the roof
@@ -481,10 +495,10 @@ function buildGojra() {
     const bk = OPPS[l.front], bx0 = bk === 'W' ? l.x - l.w / 2 - 3 : bk === 'E' ? l.x + l.w / 2 : l.x - l.w / 2, bx1 = bk === 'E' ? l.x + l.w / 2 + 3 : bk === 'W' ? l.x - l.w / 2 : l.x + l.w / 2, bz0 = bk === 'N' ? l.z - l.d / 2 - 3 : bk === 'S' ? l.z + l.d / 2 : l.z - l.d / 2, bz1 = bk === 'S' ? l.z + l.d / 2 + 3 : bk === 'N' ? l.z - l.d / 2 : l.z + l.d / 2;
     const backBlocked = BUILDINGS.some((q) => bx1 > q.x - q.w / 2 && bx0 < q.x + q.w / 2 && bz1 > q.z - q.d / 2 && bz0 < q.z + q.d / 2) || GJ.lots.some((q) => q !== l && bx1 > q.x - q.w / 2 && bx0 < q.x + q.w / 2 && bz1 > q.z - q.d / 2 && bz0 < q.z + q.d / 2); if (backBlocked) ov.noBack = true;
     if (two) {
-      const va = l.kind === 'flat3' ? 0 : Math.floor(RG() * 5), hxx = l.w / 2, hzz = l.d / 2;
+      const va = l.kind === 'flat3' || l.kind === 'pubf3' ? 0 : Math.floor(RG() * 5), hxx = l.w / 2, hzz = l.d / 2;
       // the stair: 0,1 = the tested U-stair in the NW corner; 2,3,4 = a straight flight along the back wall (3 runs towards x-, 4 along a side wall), the sides / ends differ so no two blocks feel alike
       let sideS = null, dirW = 1;
-      if (va >= 2 && l.w >= 11.5) { dirW = va === 3 && l.w >= 12.5 ? -1 : 1; sideS = alongX ? OPPS[l.front] : (RG() < 0.5 ? 'N' : 'S'); ov.stairAlong = true; ov.stair = { x0: dirW > 0 ? -hxx + 1.6 : hxx - 1.6, z0: sideS === 'N' ? -hzz + TH / 2 + 0.45 : hzz - TH / 2 - 0.45, dir: dirW }; }
+      if (va >= 2 && l.w >= 10.5) { dirW = ((va + Math.floor(l.x)) & 1) && l.w >= 11.5 ? -1 : 1;   /* v650: straight flights also in 10.5 m houses and in BOTH directions (the NW-corner U-stair was in almost every house) */ sideS = alongX ? OPPS[l.front] : (RG() < 0.5 ? 'N' : 'S'); ov.stairAlong = true; ov.stair = { x0: dirW > 0 ? -hxx + 1.6 : hxx - 1.6, z0: sideS === 'N' ? -hzz + TH / 2 + 0.45 : hzz - TH / 2 - 0.45, dir: dirW }; }
       const range = (side) => {   // where a door may sit on this wall (local coordinate along the wall) without standing in front of a stair
         const len = (side === 'N' || side === 'S') ? l.w : l.d; let A = -len / 2 + 1.6, B = len / 2 - 1.6;
         if (!ov.stairAlong) { if (side === 'N') A = Math.max(A, -l.w / 2 + 4.9); if (side === 'W') A = Math.max(A, -l.d / 2 + 5.6); }
@@ -510,11 +524,17 @@ function buildGojra() {
       ov.doors = doors; if (bal.length) { ov.balc = bal; ov.udoors = ud; }
       ov.fh = K.fh + [0, 0.2, 0.4, -0.1][Math.floor(RG() * 4)];
     } else if (l.kind === 'house') { ov.part = RG() < 0.6 ? undefined : null; }
-    const bb = mk(l.kind, l.x, l.z, l.w, l.d, l.front, ov); if (l.pm) { bb.pub = 1; bb.pm = l.pm; } GJ_INFO.lots++;
+    const bb = mk(l.kind, l.x, l.z, l.w, l.d, l.front, ov); if (l.pm) { bb.pub = 1; bb.pm = l.pm; }
+    if ((l.kind === 'pubf' || l.kind === 'pubf3') && !bb.roofHole) {   /* v650: a flat roof nobody climbs to by stairs carries a water tank on a brick stand in one back corner (solid, so a jetpack landing cannot sink into it) */
+      const sx = Math.floor(l.x) % 2 ? 1 : -1, tz = OPPS[l.front] === 'N' ? -1 : OPPS[l.front] === 'S' ? 1 : (Math.floor(l.z) % 2 ? 1 : -1), tx = bb.x + sx * (bb.w / 2 - 2.4), tzz = bb.z + tz * (bb.d / 2 - 2.4), ry = bb.fy + bb.top + SL;
+      bb.tankAt = { x: tx, z: tzz }; bb.solids.push({ x0: tx - 0.9, x1: tx + 0.9, z0: tzz - 0.9, z1: tzz + 0.9, y0: ry, y1: ry + 2.2, k: 'prop' }); }
+    GJ_INFO.lots++;
   };
   for (const l of GJ.lots) doLot(l);
   /* v643 the PUBG-style street block: eight two-storey houses built exactly like the town's lots (gojra.js has the data) */
   for (const [x, z, w, d, front, c, pm, rc] of GJ.block.houses) doLot({ kind: 'pub2', x, z, w, d, front, c, rc, pm, i: -1 });
+  /* v650 CINEMA ROAD: houses with different exteriors all along the road (gable / gable end to the road / hip roof / flat roof / three storeys), built after everything else so no earlier random number moves */
+  for (const [x, z, w, d, front, c, pm, rc, kind] of GJ.cine.houses) doLot({ kind, x, z, w, d, front, c, rc, pm, i: -1 });
 }
 if (GOJRA) buildGojra();
 export const FIXED_BUILDINGS = BUILDINGS.length;   // v622: how many buildings are hand-placed (the random scatter below comes after them)
@@ -744,7 +764,7 @@ function build() {
       for (const [b0, b1] of Y.bays) for (const [zz, sg] of [[b0, 1], [b1, -1]]) { W(Y.dx1 - 0.45, zz - 0.45, Y.dx1 + 0.45, zz + 0.45, 3.6, '#e4dccb', 'pillar'); W(Y.dx1 - 3.0, zz + sg * 0.62 - 0.06, Y.dx1 - 0.5, zz + sg * 0.62 + 0.06, 2.5, '#101215', 'gate'); }   // the black leaves, swung open against the pillars
       for (const [bx, bz, al] of [[GJ.path.x + 3.2, -120, 0], [GJ.path.x + 3.2, -100, 0], [GJ.smallPark[0] + 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[3] - 2, 1], [GJ.smallPark[0] + 10, GJ.smallPark[1] + 2, 1], [GJ.smallPark[2] - 10, GJ.smallPark[1] + 2, 1]]) { const it = { x: bx, z: bz, y: cmbH(bx, bz), w: al ? 1.8 : 0.5, d: al ? 0.5 : 1.8, h: 0.9, c: '#6a4a30', k: 'bench' }; props.push(it); addS({ x0: it.x - it.w / 2, z0: it.z - it.d / 2, x1: it.x + it.w / 2, z1: it.z + it.d / 2, y0: it.y, y1: it.y + 0.9, k: 'prop' }); } }
     /* v643 THE STREET BLOCK'S OUTDOOR PROPS (pubgblock.js draws them): jersey barriers (vault over them), broken concrete yard walls, corrugated sheds, the power poles */
-    { const BK = GJ.block, S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
+    for (const BK of [GJ.block, GJ.cine]) { const S3 = (x0, z0, x1, z1, h, vault, d0 = 0) => { const gy = cmbH((x0 + x1) / 2, (z0 + z1) / 2); addS({ x0, z0, x1, z1, y0: gy - 0.5 + d0, y1: gy + h, k: 'prop', vault: vault ? 1 : 0 }); };
       for (const [k, x, z] of BK.clutter) { const r = k === 'crate' ? 0.5 : k === 'barrel' ? 0.35 : 0; if (r) S3(x - r, z - r, x + r, z + r, k === 'crate' ? 0.9 : 0.95, k === 'crate'); }
       for (const [x, z, al] of BK.barriers) { const w = al === 'x' ? 3.0 : 0.6, d = al === 'x' ? 0.6 : 3.0; S3(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 0.85, 1); }
       for (const [x0, z0, x1, z1, h] of BK.walls) S3(x0, z0, x1, z1, h, h <= 1.3);
@@ -810,7 +830,7 @@ function build() {
   if (GOJRA && GJ_INFO.row) { const rw = GJ_INFO.row, pt = rw.w / rw.shopRow; for (let i = 0; i < rw.shopRow; i++) add(rw.x - rw.w / 2 + pt * (i + 0.5), rw.z + 0.5, 1); }   /* v633: every one of the 20 shops holds something */
   for (const t of wtowers) spots.push({ x: t.x, z: t.z, y: t.fy, w: 1 });   /* v564: every watch tower cabin holds a weapon (a rifle, a sniper...) */
   { const T4 = towers[3]; if (T4) { const rr = 2.7; [[62, 'sniper'], [90, 'sscope'], [118, 'ammo']].forEach(([deg, f]) => { const ph = deg * Math.PI / 180, x = T4.x + Math.sin(ph) * rr, z = T4.z + Math.cos(ph) * rr; spots.push({ x, z, y: T4.py, force: f }); }); } }   /* v444: the TALLEST tower always has a sniper rifle, its telescope and ammo on the roof */
-  { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [-1.6, 3.4], [0, 3.0], [1.6, 3.4], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5, 4], [5, 4], [-7, 3], [7, 3], [-7, 6], [7, 6]]) { if (n >= 2) break; const f = ['sniper', 'med'][n];   /* v356: the Sada Ghar roof holds only a sniper rifle and a first aid kit */ if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
+  { const cl = BUILDINGS.find((q) => q.kind === 'clinic'); if (cl) { const yr = cl.fy + cl.fl * cl.fh + (cl.fl - 1) * SL + SL; let n = 0; for (const [sx, sz] of [[-3.2, 3.0], [0, 3.0], [3.2, 3.0], [-3.2, 5.0], [0, 5.0], [3.2, 5.0], [-5.6, 4], [5.6, 4], [-7, 3], [7, 3], [-7, 6], [7, 6], [-1.6, 3.4], [1.6, 3.4]]) { if (n >= 4) break; const f = ['sniper', 'sscope', 'jet', 'med'][n];   /* v650: the Sada Ghar roof ALWAYS holds a sniper rifle, its telescope, a jetpack and a first aid kit */   /* v356: the Sada Ghar roof holds only a sniper rifle and a first aid kit */ if (hasFloor(cl.x + sx, cl.z + sz, yr) && openY(cl.x + sx, cl.z + sz, 0.6, yr)) { spots.push({ x: cl.x + sx, z: cl.z + sz, y: yr, force: f }); n++; } } } }
   const spawns = []; for (let tries = 0; spawns.length < 26 && tries < 6000; tries++) { const x = (R() * 2 - 1) * (H - 30), z = (R() * 2 - 1) * (H - 30); if (!open(x, z, 2.2) || cmbH(x, z) < 0.5 || spawns.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < 3600)) continue; spawns.push({ x, z }); }
   // the navigation grid for the bots: 2 m cells, free when nothing solid is within 0.5 m (built the first time a match needs it)
   /* v329: ZIP LINE from the end of the 'us' tower ledge down to the Sada Ghar (clinic) roof */
@@ -1004,7 +1024,7 @@ export const GUNS = {
   ak:      { base: 48,  head: 2.35, limb: 0.54, fo: [[0, 1], [50, 1], [100, 0.948], [150, 0.883], [200, 0.82], [300, 0.75]] },   // AKM
   ak49:    { base: 52,  head: 2.35, limb: 0.54, fo: [[0, 1], [50, 1], [100, 0.95], [200, 0.82], [300, 0.75]] },                  // rare AK variant
   m4:      { base: 40,  head: 2.35, limb: 0.54, fo: [[0, 1], [50, 1], [100, 0.95], [150, 0.9], [200, 0.84], [300, 0.78]] },      // M416
-  shotgun: { base: 125, head: 1.5,  limb: 0.54, fo: [[0, 1], [5, 1], [15, 0.45], [28, 0.2]] },    // S12K / S686 full pellet pattern, deadly close
+  shotgun: { base: 250, head: 1.5,  limb: 0.54, fo: [[0, 1], [5, 1], [15, 0.225], [28, 0.1]] },   /* v650: DOUBLE damage (it is not automatic), same far-range damage as before, so at close range it hits twice as hard */    // S12K / S686 full pellet pattern, deadly close
   sniper:  { base: 79,  head: 2.5,  limb: 0.54, fo: [[0, 1], [600, 0.95]] },                      // Kar98k
 };
 export const gunFo = (G, d) => { const f = G.fo; if (d <= f[0][0]) return f[0][1]; for (let i = 1; i < f.length; i++) if (d <= f[i][0]) return f[i - 1][1] + (f[i][1] - f[i - 1][1]) * (d - f[i - 1][0]) / (f[i][0] - f[i - 1][0]); return f[f.length - 1][1]; };
