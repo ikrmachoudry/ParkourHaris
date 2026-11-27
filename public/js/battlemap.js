@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim, kitGeo } from './props.js';
 import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite, GJ_INFO } from './combat.js';
+/* v657: true on a laptop whose browser uses an Intel UHD / HD / Iris (not Xe, not Arc) integrated graphics chip. Only the amount of decorative grass depends on it (own seeded random streams: the map layout, collision and loot do not change). ?igpu=1 forces it (testing). */
+const IGPU = (() => { try { if (typeof document === 'undefined') return false; if (/[?&]igpu=1/.test(location.search)) return true; const c = document.createElement('canvas'), g = c.getContext('webgl'); if (!g) return false; const e = g.getExtension('WEBGL_debug_renderer_info'), n = e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; const lc = g.getExtension('WEBGL_lose_context'); if (lc) lc.loseContext(); return /Intel/i.test(n) && /(UHD|HD Graphics|Iris(?! Xe)|GMA)/i.test(n) && !/Arc/i.test(n); } catch (er) { return false; } })();
 import { GOJRA } from './mapid.js';
 import { GJ } from './gojra.js';   // v633: the Gojra map's park / signs
 import { av } from './assetver.js';
@@ -629,7 +631,7 @@ const farPine = (() => { const gs = [colorize(new THREE.CylinderGeometry(0.2, 0.
     /* v627 HIDING GRASS COLOUR: the tall-grass patches are a deeper, slightly olive green (the same green the soldier's skin blends to while hiding in it, see glbactor CAMO_C) with a little variation, so a prone soldier does not stand out as a lighter or yellower shape */
     const hideCol = (c, it) => { const k = ((it.x * 5.3 + it.z * 2.9) % 1 + 1) % 1; c.setRGB(0.66 + k * 0.2, 0.8 + (1 - k) * 0.14, 0.52 + k * 0.14); };
     /* v570 MORE GRASS: laptops get 5x grass in the hiding patches and 4x everywhere else; phones / the low tier get 3x and 2.5x. The base layer is exactly the old grass (same places, same draw distance); the extra layers are drawn only closer to you (70 % of the distance), so far away the cost is the same as before and the extra tufts only exist where you can see them. */
-    const weak = q === 0 || /Android|iPhone|iPad|Mobile/i.test(typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''), MP = weak ? 3 : 5, MO = weak ? 2.5 : 4;
+    const weak = q === 0 || IGPU || /Android|iPhone|iPad|Mobile/i.test(typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''), MP = weak ? 3 : 5, MO = weak ? 2.5 : 4;   /* v657: a laptop with Intel UHD / HD graphics gets the phone grass amount (it drew 3 million triangles in Jinnah Park: 6,000 tufts x 117 triangles in one view) */
     const pickT = (rg, out, n, maxTries) => { for (let tries = 0; tries < maxTries && out.length < n; tries++) {
       const x = (rg() * 2 - 1) * (H - 30), z = (rg() * 2 - 1) * (H - 30), y = cmbH(x, z), a1 = rg(), a2 = rg(), a3 = rg();
       if (distRoad(x, z) < 2.2 || onPad(x, z, 3) || inField(x, z, 2) || conc(x, z) > 0.2) continue; const dx = cmbH(x + 1.5, z) - y, dz = cmbH(x, z + 1.5) - y; if (Math.hypot(dx, dz) > 0.6) continue;
