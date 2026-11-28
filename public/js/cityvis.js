@@ -10,6 +10,7 @@ import { buildRickshaw, RICK } from './hrick.js';
 import { buildTractor, TRACTOR } from './htractor.js';
 import { buildTruck, TRUCK } from './htruck.js';
 import { buildJeep, JEEP } from './hjeep.js';
+import { GTA_JEEP, addGtaJeepPhoto } from './gtaphoto.js';
 import { buildCivic, CIVIC } from './hcivic.js';
 import { buildBus, BUS } from './hbus.js';
 import { buildBoat, BOATS } from './hboat.js';
@@ -95,6 +96,7 @@ function buildRickMesh(spec, lo, bakedOnly) {
   const bk = isC ? full : build({ paint: spec.paint, detail: 'lo' }), baked = isC ? new THREE.Group() : bakeCar(bk.group, [(bk.mats || {}).paint]);
   const g = new THREE.Group(), rot = new THREE.Group();
   rot.rotation.y = -Math.PI / 2; if (full) rot.add(full.group); rot.add(baked); g.add(rot); baked.visible = !!bakedOnly && !isC;
+  if (spec.model === 'jeep' && GTA_JEEP.on) addGtaJeepPhoto(rot);   // GTA only: Haris's photo on the back (Jang sets GTA_JEEP.on = false)
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(RICK.L * 1.25, RICK.w * 2.6), new THREE.MeshBasicMaterial({ map: blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   sh.rotation.x = -Math.PI / 2; sh.rotation.z = Math.PI / 2; sh.position.y = 0.03; sh.visible = !spec.boat; g.add(sh);
   g.userData = {

@@ -3,6 +3,7 @@ import { bodyHalf } from './hitbox.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildTrafficMesh } from './cityvis.js';
+import { buildGtaPosters } from './gtaphoto.js';
 import { TrafficAI } from './trafficai.js';
 import { makeWeaponModel } from './weaponmodels.js';
 import { buildPort } from './portworld.js';
@@ -340,6 +341,7 @@ export function buildGta(world, th, info, seed) {
       world.glow.add(new THREE.SphereGeometry(0.8, 8, 6), b.x, b.h + BURJ.spire + 0.4, b.z, '#ff3b3b'); }
     if (b.tower) { wm.add(new THREE.CylinderGeometry(0.25, 0.4, 24, 6), b.x, b.h + 12, b.z, '#c9d1d9'); world.glow.add(new THREE.SphereGeometry(0.9, 8, 6), b.x, b.h + 24, b.z, '#ff3b3b'); wm.add(new THREE.BoxGeometry(b.w * 0.6, 8, b.d * 0.6), b.x, b.h + 4, b.z, '#6ea5d6'); }
   }
+  world.group.add(buildGtaPosters({ B, HOMES, homeW, BLK }));   // Haris's photo on the wall of 15 homes (4 player homes + 11 low-rise) - GTA only
   // ---- AUTO REPAIR: workshop with roller doors, a canopy over the repair bay, tyres and drums
   { const S = REPAIR.shop, bx = REPAIR.x, bz = REPAIR.z, Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
     wm.add(Bx(46, 0.06, 40), S.x, 0.23, 28, '#8a9098');                                   // concrete forecourt

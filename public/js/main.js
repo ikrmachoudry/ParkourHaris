@@ -47,6 +47,7 @@ import { makePoolWater, makeCaustics } from './poolwater.js';
 import { ADS_HTML, ADS_KIND, ADS_FOV } from './ads.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
 import { addJangJeepPhoto } from './hjeep.js';
+import { GTA_JEEP } from './gtaphoto.js';
 
 const P0 = { ...P };   // the cartoon-game physics; the city overrides them with real-world numbers (see Race constructor)
 const $ = (id) => document.getElementById(id);
@@ -417,6 +418,7 @@ const press = { jump: false, dive: false, grab: false };
 
 class Race {
   constructor(levelIdx, players, localId, o) {
+    GTA_JEEP.on = !o.jang;
     this.jang = !!o.jang; this.level = levelIdx; this.meta = LEVEL_META[levelIdx]; NO_TEXT = !!this.meta.city; document.body.classList.toggle('city-mode', NO_TEXT);
     Object.assign(P, P0);
     if (NO_TEXT) Object.assign(P, { R: 0.3, H: 1.78, G: 15, RUN: 4.4, JUMP: 4.58, ACC: 20, DEC: 34, AIR: 2.5, AIR_DEC: 0.4, TERM: -55 });  // real-world walking / jumping
