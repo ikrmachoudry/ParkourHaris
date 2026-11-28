@@ -42,6 +42,7 @@ import './guide.js';
 import { throwModel } from './weaponmodels.js';
 import { MAPID, GOJRA, setMap } from './mapid.js';
 import { GJ } from './gojra.js';
+import { IGPU } from './gpuinfo.js';
 import { makePoolWater, makeCaustics } from './poolwater.js';
 import { ADS_HTML, ADS_KIND, ADS_FOV } from './ads.js';
 import { CAR_SPECS, newCar, stepCar, buildCarMesh, animateCar } from './car.js';
@@ -113,7 +114,8 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const MAXDPR = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2);
-const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.25), t: 0, frames: 0, good: 0, shadows: true, warm: 3, far: IS_TOUCH ? 380 : 700 };   // far = draw distance (m) of the city
+const WEAK_PC = (() => { try { return !IS_TOUCH && IGPU && localStorage.getItem('ph_pretty') !== '1' && localStorage.getItem('ph_weak') !== '0' && !/[?&]weak=0/.test(location.search); } catch { return false; } })();   /* v658 LOW-END PC (a laptop with Intel UHD / HD / Iris graphics, e.g. a Lenovo E14): the frame there is limited by the processor feeding the graphics chip (every draw call costs), so BALANCED starts with no sun shadows (about 50 draw calls and 270k triangles less), a 100 % render scale and a shorter haze / draw distance (the far town blocks are not drawn). Fast PCs (a gaming laptop with its own graphics card, a Mac) and every phone are NOT touched; PRETTY is always full quality. */
+const Q = { dpr: IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, WEAK_PC ? 1.0 : 1.25), t: 0, frames: 0, good: 0, shadows: !WEAK_PC, warm: 3, far: IS_TOUCH ? 380 : WEAK_PC ? 520 : 700, weak: WEAK_PC };   // far = draw distance (m) of the city
 function resize() {
   if (!stage) return;
   renderer.setPixelRatio(Q.dpr);
@@ -126,6 +128,10 @@ function resize() {
 const LAG = { avg: 0, max: 0, last: performance.now() };
 try { setInterval(() => { const n = performance.now(), d = Math.max(0, n - LAG.last - 250); LAG.last = n; LAG.avg = LAG.avg * 0.85 + d * 0.15; LAG.max = Math.max(d, LAG.max * 0.97); }, 250); } catch { /* noop */ }
 window.__lag = LAG;
+function goWeak() {   // v658: switch to the LOW-END PC mode while playing (see WEAK_PC)
+  if (Q.weak || Q.pretty || Q.low || IS_TOUCH) return; Q.weak = true; Q.shadows = false; if (Q.dpr > 1) { Q.dpr = 1; resize(); } Q.far = Math.min(Q.far, 520);
+  if (race) { race.setShadows(false); race.setFar(); try { race.scene.traverse((o) => { if (!o.isMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.transmission > 0) { m.transparent = true; m.opacity = Math.min(m.opacity, 0.32); m.depthWrite = false; m.transmission = 0; } }); } catch { /* noop */ } try { race.toast && race.toast('Low-end PC mode switched on: lighter graphics for smooth play (GFX button in the menu)', 4); } catch { /* noop */ } }
+}
 function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolution first, then shadows
   if (Q.low) return;
   if (IS_TOUCH && !Q.low2 && Q.warm <= 0) { Q.lagT = (Q.lagT || 0) + (LAG.avg > 90 ? dt : -dt * 0.5); if (Q.lagT < 0) Q.lagT = 0; if (Q.lagT > 8) { Q.low2 = true; try { if (localStorage.getItem('ph_low') === null) localStorage.setItem('ph_auto', '1'); } catch { /* ignore */ } Q.dpr = 0.62; Q.shadows = false; Q.far = 240; if (race) { race.setShadows(false); race.setFar(); } resize(); try { race && race.toast && race.toast('Phone is overloaded: graphics lowered to keep the game smooth', 3.5); } catch { /* noop */ } } }   // v297: still stalling after the normal steps: drop to the lightest look (the phone answers the network late otherwise)
@@ -134,6 +140,7 @@ function adaptQuality(dt) { // keeps it lag-free on weak laptops: lowers resolut
   Q.t += dt; Q.frames++;
   if (Q.t < 1.2) return;
   const fps = Q.frames / Q.t; Q.t = 0; Q.frames = 0;
+  if (!IS_TOUCH && !Q.weak && !Q.pretty) { if (fps < 30) Q.bad = (Q.bad || 0) + 1; else if (fps >= 40) Q.bad = 0; if (Q.bad >= 4) { Q.bad = 0; goWeak(); } }   /* v658: a weak PC whose graphics chip the browser does not name (so it was not recognised as Intel UHD) is switched to the low-end PC mode after about 5 s under 30 fps; a fast PC never gets there */
   if (fps < 40 && !IS_TOUCH) {   // v447 LAPTOP SMOOTH: only a laptop that really stays under 40 fps ever gets here (a fast machine never does). A match frame in town is ~600 draw calls / ~1 million triangles, so the first thing to cut is how FAR the map is drawn (that is what an integrated GPU chokes on), then the sun shadows, only then the resolution (the picture stays sharp as long as possible)
     Q.good = 0; let did = '';
     if (Q.far > 480) { Q.far = Math.max(480, Q.far - (race && race.jang ? 220 : 110)); if (race) race.setFar(); did = 'far'; }
@@ -155,8 +162,14 @@ try { const sv = localStorage.getItem('ph_low'); Q.low = sv === '1'; if (sv === 
 try { Q.pretty = !Q.low && localStorage.getItem('ph_pretty') === '1'; const fv = parseInt(localStorage.getItem('ph_fps') || '0', 10); Q.fps = fv === 30 || fv === 60 ? fv : 0; } catch { Q.pretty = false; Q.fps = 0; }   // v610: three graphics levels (SMOOTH = low, BALANCED = the normal automatic one, PRETTY) and a frame-rate lock
 if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; }
 else if (Q.pretty) { Q.far = IS_TOUCH ? 560 : 1300; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.5) : Math.min(MAXDPR, 2); Q.shadows = true; }
+/* v658 THE BIG ONE for weak PCs / phones: the parked cars' glass (and any other glass in a model file) uses glTF 'transmission' (MeshPhysicalMaterial). The moment ONE such pane is on the screen, three.js draws EVERY solid object of the scene a second time into an extra picture first (measured on Gojra: 464 draw calls with it, 277 without - the whole frame cost doubled and the Lenovo E14 sat at 15 fps). On low-end settings the glass becomes ordinary see-through glass instead (same look, half the work). High-end PCs / phones on normal settings keep the real transmission glass. */
+try { const LITE_GLASS = () => Q.weak || Q.low || Q.low2, PD = THREE.MeshPhysicalMaterial.prototype;
+  Object.defineProperty(PD, 'transmission', { configurable: true, enumerable: true, get() { return this._transmission; }, set(v) {
+    if (v > 0 && LITE_GLASS()) { this.transparent = true; this.opacity = Math.min(this.opacity, 0.32); this.depthWrite = false; v = 0; }
+    if ((this._transmission > 0) !== (v > 0)) this.version++;
+    this._transmission = v; } }); } catch { /* the real transmission stays */ }
 function applyGfx() {
-  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else if (Q.pretty) { Q.far = IS_TOUCH ? 560 : 1300; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.5) : Math.min(MAXDPR, 2); Q.shadows = true; Q.shHalf = false; Q.warm = 3; } else { Q.far = IS_TOUCH ? 480 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, 1.5); Q.shadows = true; Q.shHalf = false; Q.warm = 3; }
+  if (Q.low) { Q.dpr = IS_ANDROID ? 0.6 : 0.7; Q.shadows = false; Q.far = 260; } else if (Q.pretty) { Q.far = IS_TOUCH ? 560 : 1300; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.5) : Math.min(MAXDPR, 2); Q.shadows = true; Q.shHalf = false; Q.warm = 3; } else { Q.far = IS_TOUCH ? 480 : Q.weak ? 520 : 1100; Q.dpr = IS_TOUCH ? Math.min(MAXDPR, 1.0) : Math.min(MAXDPR, Q.weak ? 1.0 : 1.5); Q.shadows = !Q.weak; Q.shHalf = false; Q.warm = 3; }
   if (race) { race.setShadows(Q.shadows); race.setFar(); }
   resize();
 }
@@ -475,6 +488,7 @@ class Race {
     $('hud').classList.remove('hidden');
     $('hud-hint').classList.remove('fade'); this.hintT = 8;
     this.setShadows(Q.shadows);
+    if (Q.weak && !Q.told2 && !Q.pretty) { Q.told2 = true; setTimeout(() => { try { this.toast && this.toast('Low-end PC mode: lighter graphics for smooth play (GFX button in the menu to change)', 4); } catch { /* noop */ } }, 3000); }   // v658
     A.setInGame(true);
     if (this.meta.city) { A.stopMusic(); A.cityAmbience(true); } else A.startMusic(levelIdx);
     A.duckMusic(false);
@@ -832,7 +846,7 @@ class Race {
     const f = Q.far; CULL.far = IS_TOUCH ? Math.min(300, f * 0.65) : Math.min(520, f * 0.7); try { const jm = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm && jm.setRange && !IS_TOUCH) jm.setRange(0.55 + 0.45 * Math.max(0, Math.min(1, (f - 480) / 620))); } catch { /* noop */ }   // v510: Jang on a laptop - the automatic draw-distance step really shortens the Jang map's view now
     if (!this.meta.city) return;
     // v197: NO haze - the fog only touches the last 15% before the draw distance, which is where the far map chunks stop being drawn (so nothing pops in and nothing looks fuzzy closer up)
-    const wide = this.scoped && !(IS_TOUCH && (Q.low2 || (IS_ANDROID && Q.dpr < 0.95))), jb = (IS_TOUCH ? 260 : Q.pretty ? 520 : 400) * (Q.low || Q.low2 ? 0.85 : 1) * (GOJRA ? 0.72 : 1);   /* v634 the dense Gojra town: streets and walls hide what is far, so the haze closes in sooner (laptop 290 m, phone 190 m) and the far blocks are not drawn */   /* v616 PUBG HAZE (Jang only): the fog starts at 40 m and is thick at 260 m on a phone / 400 m on a laptop (PRETTY 520); a scope pushes it back x1.7; whatever is behind the haze is not drawn at all (battlemap setFog) */
+    const wide = this.scoped && !(IS_TOUCH && (Q.low2 || (IS_ANDROID && Q.dpr < 0.95))), jb = (IS_TOUCH ? 260 : Q.pretty ? 520 : 400) * (Q.low || Q.low2 ? 0.85 : 1) * (GOJRA ? 0.72 : 1) * (Q.weak && !Q.pretty ? 0.62 : 1);   /* v658: low-end PC: the haze closes in at about 180 m on Gojra (250 m on the other map), so far blocks / bots / cars behind it are not drawn */   /* v634 the dense Gojra town: streets and walls hide what is far, so the haze closes in sooner (laptop 290 m, phone 190 m) and the far blocks are not drawn */   /* v616 PUBG HAZE (Jang only): the fog starts at 40 m and is thick at 260 m on a phone / 400 m on a laptop (PRETTY 520); a scope pushes it back x1.7; whatever is behind the haze is not drawn at all (battlemap setFog) */
     const D = this.jang ? Math.min(760, jb * (wide ? 1.7 : 1)) : f;   /* v534: looking through a scope the haze steps back to the laptop distance (free: it only reveals what is already drawn) on every phone that has not auto-lowered itself */ this.scene.fog.far = D; this.scene.fog.near = this.jang ? Math.min(40, D * 0.2) : D * 0.85; if (this.jang) CULL.far = Math.min(CULL.far, D + 15);   /* v618: a vehicle beyond the haze is not drawn */ try { const jm2 = this.jang && this.mission && this.mission.cs && this.mission.cs.map; if (jm2 && jm2.setFog) jm2.setFog(D); } catch { /* noop */ }
     if (this.dn) { this.dn.fogFar0 = this.scene.fog.far; this.dn.fogNear0 = this.scene.fog.near; }
     this.cullT = 0;
@@ -3216,8 +3230,13 @@ const jangNext = () => { if ((IS_ANDROID || IS_IOS) && packSupported() && !packD
 const mapAsk = (then, mode, label) => {
   if (document.getElementById('map-ask')) return;
   const o = document.createElement('div'); o.id = 'map-ask'; o.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(5,8,14,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#fff;text-align:center;padding:14px;overflow:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility';
-  const card = (id, name, sub, tag) => '<button data-m="' + id + '" style="flex:1 1 280px;max-width:420px;min-width:240px;border:3px solid ' + (id === MAPID ? '#ffb23c' : '#3a4658') + ';border-radius:16px;background:#101826;color:#fff;padding:10px;cursor:pointer;font:inherit;text-align:center"><canvas data-p="' + id + '" width="1200" height="800" style="width:100%;border-radius:10px;background:#7d9a4a;display:block"></canvas><div style="margin:12px auto 8px;width:86%;box-sizing:border-box;padding:6px 10px;border-radius:10px;background:#ffd23a;color:#000;font:600 28px/1.15 system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;white-space:nowrap">' + name + '</div><div style="font:600 16px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#e3e9f3">' + sub + '</div><div style="margin-top:8px;font:800 14px system-ui,Segoe UI,Arial,sans-serif;color:' + (id === MAPID ? '#7CFC9A' : '#8794a8') + '">' + tag + '</div></button>';
-  o.innerHTML = '<div style="font:600 36px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:3px">CHOOSE YOUR MAP</div>' + (label ? '<div style="font:700 18px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;color:#ffd23a;margin-top:-6px">' + label + '</div>' : '') + '<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:min(900px,96vw)">'
+  /* v658: the two map cards fit ANY screen. The old fixed sizes (36 px title, 28 px name, 16 px text, a 3:2 picture at full card width) needed scrolling on a phone held sideways (390 px high) and pushed the cards off a narrow portrait phone; now the picture, the texts and the gaps scale with the screen height / width and both cards sit side by side whenever the screen is wider than tall. Laptop / tablet look is unchanged. */
+  if (!document.getElementById('map-ask-css')) { const st = document.createElement('style'); st.id = 'map-ask-css'; st.textContent = '#map-ask{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important}#map-ask .mk-ttl{font:600 36px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:3px}#map-ask .mk-lab{font:700 18px system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;color:#ffd23a;margin-top:-6px}#map-ask .mk-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:min(900px,96vw)}#map-ask .mk-nm{margin:12px auto 8px;width:86%;box-sizing:border-box;padding:6px 10px;border-radius:10px;background:#ffd23a;color:#000;font:600 28px/1.15 system-ui,Segoe UI,Arial,sans-serif;letter-spacing:2px;white-space:nowrap}#map-ask .mk-sub{font:600 16px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#e3e9f3}#map-ask .mk-tag{margin-top:8px;font:800 14px system-ui,Segoe UI,Arial,sans-serif}'
+    + '@media (max-height:600px){#map-ask{gap:6px!important;justify-content:center}#map-ask .mk-ttl{font-size:clamp(15px,5.2vh,26px);letter-spacing:2px}#map-ask .mk-lab{font-size:clamp(11px,3.4vh,15px);margin-top:-2px}#map-ask .mk-row{flex-wrap:nowrap;gap:10px;width:min(980px,98vw)}#map-ask .mk-row>button{flex:1 1 0!important;min-width:0!important;max-width:none!important;padding:6px!important;border-width:2px!important;border-radius:12px!important}#map-ask canvas{height:auto!important;width:auto!important;max-width:100%!important;max-height:34vh;aspect-ratio:3/2;margin:0 auto;border-radius:8px!important}#map-ask .mk-nm{margin:6px auto 4px;padding:3px 8px;font-size:clamp(13px,4.2vh,20px);letter-spacing:1px}#map-ask .mk-sub{font-size:clamp(9px,3vh,13px);line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}#map-ask .mk-tag{margin-top:3px;font-size:clamp(9px,2.8vh,12px)}#map-x{padding:5px 18px!important}}'
+    + '@media (max-width:700px) and (min-height:601px){#map-ask{gap:8px!important}#map-ask .mk-ttl{font-size:24px}#map-ask .mk-lab{font-size:13px}#map-ask .mk-row{flex-direction:column;flex-wrap:nowrap;gap:8px;width:96vw}#map-ask .mk-row>button{flex:0 0 auto!important;width:100%;max-width:none!important;min-width:0!important;padding:6px!important}#map-ask canvas{max-height:21vh;width:auto!important;max-width:100%!important;aspect-ratio:3/2;margin:0 auto;height:auto!important}#map-ask .mk-nm{margin:6px auto 4px;font-size:18px;padding:3px 8px}#map-ask .mk-sub{font-size:12px;line-height:1.3}#map-ask .mk-tag{margin-top:3px;font-size:11px}}'; document.head.appendChild(st); }
+
+  const card = (id, name, sub, tag) => '<button data-m="' + id + '" style="flex:1 1 280px;max-width:420px;min-width:240px;border:3px solid ' + (id === MAPID ? '#ffb23c' : '#3a4658') + ';border-radius:16px;background:#101826;color:#fff;padding:10px;cursor:pointer;font:inherit;text-align:center"><canvas data-p="' + id + '" width="1200" height="800" style="width:100%;border-radius:10px;background:#7d9a4a;display:block"></canvas><div class="mk-nm">' + name + '</div><div class="mk-sub">' + sub + '</div><div class="mk-tag" style="color:' + (id === MAPID ? '#7CFC9A' : '#8794a8') + '">' + tag + '</div></button>';
+  o.innerHTML = '<div class="mk-ttl">CHOOSE YOUR MAP</div>' + (label ? '<div class="mk-lab">' + label + '</div>' : '') + '<div class="mk-row">'
     + card('default', 'DEFAULT MAP', 'Hills, a dry river, the military base, the farm and the towns. 600 x 600 m. Solo, team and online.', id0('default'))
     + card('gojra', 'GOJRA MAP', 'Our own city: Rahila Clinic (Sada Ghar), 20 shops under one roof, Jinnah Park, the mosque and the congested streets. 600 x 600 m. Solo and team up.', id0('gojra')) + '</div><button id="map-x" style="padding:9px 22px;border:0;border-radius:10px;background:#333;color:#ddd;font:700 14px system-ui">BACK</button>';
   function id0(i) { return i === MAPID ? 'PLAYING THIS MAP NOW' : 'TAP TO SWITCH (the game reloads once)'; }
@@ -3310,7 +3329,7 @@ for (const el of document.querySelectorAll('#b-home-back, #b-profile-back, #b-le
   const sec = el.closest('section'); if (sec) sec.appendChild(el); el.classList.add('navback'); el.textContent = el.id === 'b-leave' ? '\u2190 LEAVE' : '\u2190 BACK';
 }
 globalThis.__phHold = () => !!(race && race.paused && !race.multi);   // map or menu open (single player): the mission directors stop too
-window.__ph = { renderer, potatoize, Q, P, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
+window.__ph = { renderer, potatoize, Q, P, goWeak, bld: () => cmbLayout().buildings, clinic: () => { const b = cmbLayout().buildings.find((q) => q.kind === "clinic"); return { x: CMB.x + b.x, z: CMB.z + b.z, fy: b.fy }; }, get voice() { return voice; }, onLobby: (m) => onLobby(m),  towers: () => cmbLayout().towers, openProfile: (m) => openProfile(m), renderLobby: () => renderLobby(), thumbsFor: (ids, fall) => makeThumbs(ids, fall), loadScreen, THREE, A, rend: renderer, app, Remote, stepBody, newBody, startSingle: (l) => startSingle(l), keys, press, touch, get race() { return race; }, get stage() { return stage; } };
 
 
 // ------------------------------------------------------------------ touch controls

@@ -7,7 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { propParts, propDim, kitGeo } from './props.js';
 import { TW, towerWins, CMB, cmbH, cmbG, nodeH, setMeshStep, riverX, riverGap, layout, BRIDGE, ROADS, FIELDS, distRoad, onPad, inField, fbm, hillCover, grassSite, GJ_INFO } from './combat.js';
 /* v657: true on a laptop whose browser uses an Intel UHD / HD / Iris (not Xe, not Arc) integrated graphics chip. Only the amount of decorative grass depends on it (own seeded random streams: the map layout, collision and loot do not change). ?igpu=1 forces it (testing). */
-const IGPU = (() => { try { if (typeof document === 'undefined') return false; if (/[?&]igpu=1/.test(location.search)) return true; const c = document.createElement('canvas'), g = c.getContext('webgl'); if (!g) return false; const e = g.getExtension('WEBGL_debug_renderer_info'), n = e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; const lc = g.getExtension('WEBGL_lose_context'); if (lc) lc.loseContext(); return /Intel/i.test(n) && /(UHD|HD Graphics|Iris(?! Xe)|GMA)/i.test(n) && !/Arc/i.test(n); } catch (er) { return false; } })();
+import { IGPU } from './gpuinfo.js';
 import { GOJRA } from './mapid.js';
 import { GJ } from './gojra.js';   // v633: the Gojra map's park / signs
 import { av } from './assetver.js';
