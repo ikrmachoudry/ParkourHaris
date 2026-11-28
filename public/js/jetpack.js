@@ -135,13 +135,13 @@ export class Jet {
     document.body.appendChild(h); this.hud = h; this.bar = h.querySelector('i');
     if (touch) {
       const b = document.createElement('button'); b.id = 'c-jetbtn'; b.type = 'button'; b.setAttribute('aria-label', 'Jetpack'); b.innerHTML = '<b>JET</b>';
-      b.style.cssText = 'position:fixed;right:23vw;top:43vh;z-index:46;display:none;align-items:center;justify-content:center;width:62px;height:62px;border-radius:50%;border:3px solid #ffb347;background:rgba(60,40,20,.78);color:#fff;font:900 14px system-ui,sans-serif;touch-action:none;-webkit-tap-highlight-color:transparent';
+      b.style.cssText = 'position:fixed;right:var(--pad-x,max(18px,3vw));top:24%;z-index:46;display:none;align-items:center;justify-content:center;width:var(--pad-size,clamp(62px,16vmin,92px));height:var(--pad-size,clamp(62px,16vmin,92px));border-radius:50%;border:3px solid #ffb347;background:rgba(60,40,20,.78);color:#fff;font:900 14px system-ui,sans-serif;touch-action:none;-webkit-tap-highlight-color:transparent';
       b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.toggle(); }); b.addEventListener('contextmenu', (e) => e.preventDefault());
       document.body.appendChild(b); this.btn = b;
     }
   }
   tick(dt, show) {
-    void dt; const vis = show && !this.R.over; const d = vis ? 'flex' : 'none';
+    void dt; const vis = show && !this.R.over && !this.R.drive;   /* v663: no JET button (and no fuel bar) while driving or sitting in any vehicle: it sits where the GET OUT button is, and that button takes over */ const d = vis ? 'flex' : 'none';
     if (this.hud.style.display !== d) this.hud.style.display = d; if (this.btn && this.btn.style.display !== d) this.btn.style.display = d;
     if (!vis) return; const f = Math.max(0, Math.min(1, this.fuel / JET.FUEL)); this.bar.style.height = (f * 100).toFixed(0) + '%'; this.bar.style.background = this.on ? (this.fuel < 1.3 ? '#ff4040' : '#5ec8ff') : f >= JET.MIN / JET.FUEL ? '#5ee07a' : '#7d8794';
     if (this.btn) { this.btn.style.borderColor = this.on ? '#6dff8a' : f >= JET.MIN / JET.FUEL ? '#ffb347' : '#6b6f75'; this.btn.style.background = this.on ? 'rgba(20,90,45,.85)' : 'rgba(60,40,20,.78)'; }
