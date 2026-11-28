@@ -1847,3 +1847,52 @@ body.lay-prev::after { content: 'Your fight screen: drag a button to move it'; p
 body.lay-prev #touch { pointer-events: none !important; }
 body.lay-prev :is(#minimap, #b-gm, #b-full, #kb-hint, #hud-obj, #mm-btn, #rotate) { display: none !important; }
 @media (max-width: 760px) { #c-slots { gap: 4px; } #c-slots button { min-width: 62px; padding: 2px 4px; } #c-slots button img { width: 52px; } }  /* v651: four slots (guns, grenade, molotov) fit a phone */
+
+/* v659: a PASSENGER (body.paxing = riding in somebody's car / bike / jeep) gets the same shooting buttons as on foot: every on-foot touch rule above is repeated for body.driving.paxing (the driver keeps the steering pad). Passengers also keep the exit button but no car pad / keys. */
+body.near-car.driving.paxing #b-car{ display: flex; }
+body.touch.in-race.city-mode.driving.paxing #act-pad{ display: block; }
+body.touch.in-race.city-mode.driving.paxing #joy:not(.on){ display: block; left: calc(var(--pad-x) + 75px); top: calc(100vh - var(--pad-y) - 75px); }
+body.touch.city-mode.driving.paxing #b-car{ left: auto; top: auto; transform: none; right: calc(var(--pad-x) + var(--pad-big) + var(--pad-size) + var(--pad-gap) * 3); bottom: var(--pad-y); width: var(--pad-size); height: var(--pad-size); background: rgba(35,125,215,.82) !important; animation: carnear 1.1s ease-in-out infinite; }
+body.touch.city-mode.driving.paxing #b-car{ background: rgba(112,112,112,.38) !important; outline: 2px solid rgba(150,210,255,.7); outline-offset: -3px; animation: carnear 1.1s ease-in-out infinite; }
+body.touch.city-mode.driving.paxing #b-car .ic svg{ opacity: .92; }
+body:not(.touch).in-race.city-mode.driving.paxing #kb-hint{ display: block; }
+body.touch.in-race.city-mode.driving.paxing #act-pad{ position: fixed; inset: 0; width: auto; height: auto; right: 0; bottom: 0; pointer-events: none; z-index: 20; }
+body.touch.in-race.city-mode.driving.paxing #a-fire2{ display: flex; position: fixed; align-items: center; justify-content: center; left: calc(max(18px, 3vw) + 150px + 4vmin); bottom: 36vh; width: clamp(48px, 13vmin, 68px); height: clamp(48px, 13vmin, 68px); }
+body.touch.in-race.city-mode.driving.paxing #act-pad button{ background: rgba(90,90,90,.26) !important; border: 1.5px solid rgba(255,255,255,.55) !important; }
+body.touch.in-race.city-mode.driving.paxing #act-pad button:active, body.touch.in-race.city-mode.driving.paxing #act-pad button.on{ background: rgba(255,255,255,.42) !important; }
+body.touch.in-race.city-mode.driving.paxing #joy:not(.on){ left: calc(max(18px, 3vw) + 64px); top: calc(100vh - 12vh - 64px); }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-punch{ background: rgba(90,90,90,.16) !important; border-color: rgba(255,255,255,.5) !important; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-jump, body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch, body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone{ background: rgba(90,90,90,.14) !important; border-color: rgba(255,255,255,.45) !important; }
+body.touch.in-race.city-mode.driving.paxing #a-fire2{ left: calc(max(18px, 3vw) + var(--sal) + 150px + 4vmin); }
+body.touch.in-race.city-mode.driving.paxing #joy:not(.on){ left: calc(max(18px, 3vw) + var(--sal) + 64px); }
+body.touch.in-race.city-mode.driving.paxing #a-fire2{ display: none; }
+body.touch.in-race.city-mode.armed.driving.paxing #a-fire2{ display: flex; width: clamp(60px, 16vmin, 82px); height: clamp(60px, 16vmin, 82px); }
+body.touch.in-race.city-mode.driving.paxing #a-fire2{ display: none !important; }
+body.touch.in-race.city-mode.driving.paxing #act-pad button, body.touch.in-race #c-bag{ background: rgba(255,255,255,.07) !important; border: 2px solid rgba(255,255,255,.72) !important; box-shadow: none !important; }
+body.touch.in-race.city-mode.driving.paxing #act-pad button:active, body.touch.in-race.city-mode.driving.paxing #act-pad button.on{ background: rgba(255,255,255,.3) !important; }
+body.touch.in-race.city-mode.driving.paxing #act-pad button svg{ stroke: #fff; opacity: .92; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-punch.gun svg{ transform: rotate(45deg); }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch.on svg, body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone.on svg{ stroke: #ffd23f; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-punch{ --s: clamp(78px, 21vh, 118px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.85); top: 74%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-aim{ --s: clamp(50px, 13vh, 72px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.94); top: 55.5%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-jump{ --s: clamp(50px, 13vh, 72px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.94); top: 71%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch{ --s: clamp(48px, 12.5vh, 68px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.845); top: 91%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone{ --s: clamp(48px, 12.5vh, 68px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.92); top: 91%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-fmode{ --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.87); top: 55.5%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-weapon{ --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.5); top: 85%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-reload{ --s: clamp(44px, 11.5vh, 62px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.58); top: 85%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-punch, body.touch.in-race.city-mode.driving.paxing #act-pad #a-aim, body.touch.in-race.city-mode.driving.paxing #act-pad #a-jump, body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch, body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone, body.touch.in-race.city-mode.driving.paxing #act-pad #a-fmode, body.touch.in-race.city-mode.driving.paxing #act-pad #a-weapon, body.touch.in-race.city-mode.driving.paxing #act-pad #a-reload, body.touch.in-race #c-bag{ right: auto; bottom: auto; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); }
+body.touch.in-race.city-mode.driving.paxing #joy:not(.on){ left: 15.8%; top: 72%; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanl, body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanr{ display: block; --s: clamp(40px, 10.5vh, 56px); width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); top: 57%; right: auto; bottom: auto; position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.75); background: rgba(255,255,255,.07) !important; padding: 0; touch-action: none; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanl{ left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.06); }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanr{ left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.14); }
+body.touch.in-race.city-mode.driving.paxing #act-pad button svg.pi{ stroke: none; fill: #fff; opacity: .95; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch.on svg.pi, body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone.on svg.pi, body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanl.on svg.pi, body.touch.in-race.city-mode.driving.paxing #act-pad #a-leanr.on svg.pi{ fill: #ffd23f; }
+body.touch.in-race.city-mode.jang-mode.driving.paxing #act-pad #a-reload{ --s: clamp(52px, 13.5vh, 74px); left: calc(var(--sal) + (100vw - var(--sal) - var(--sar)) * 0.745); top: 80%; background: rgba(10,12,14,.5); border-width: 2.5px; z-index: 48; }
+body.touch.in-race.city-mode.driving.paxing #act-pad #a-punch, body.touch.in-race.city-mode.driving.paxing #act-pad #a-aim, body.touch.in-race.city-mode.driving.paxing #act-pad #a-jump, body.touch.in-race.city-mode.driving.paxing #act-pad #a-crouch, body.touch.in-race.city-mode.driving.paxing #act-pad #a-prone, body.touch.in-race.city-mode.driving.paxing #act-pad #a-fmode{ margin-left: min(2.6vw, 26px); }
+body.paxing #car-pad, body.paxing #car-keys, body.paxing #car-speed { display: none !important; }
+body.paxing #b-exit { display: flex; animation: none; }
+body.touch.paxing .carbtn.exit { right: var(--pad-x); top: 24%; bottom: auto; }
+body.touch.in-race.city-mode.driving.paxing #act-pad { display: block !important; }
+body.paxing #a-jump, body.paxing #a-crouch, body.paxing #a-prone, body.paxing #a-leanl, body.paxing #a-leanr { display: none !important; }
+body.paxing #joy { display: none !important; }
